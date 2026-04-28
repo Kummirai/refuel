@@ -1,4 +1,4 @@
-// src/app/page.tsx - Updated with Role Detection
+// src/app/page.tsx - Fixed header layout
 
 "use client";
 
@@ -25,6 +25,7 @@ import {
   XCircle,
   LogOut,
   User,
+  LayoutDashboard,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -64,7 +65,6 @@ export default function HomePage() {
   };
 
   const checkUserSession = () => {
-    // Check unified user session
     const session = sessionStorage.getItem("userSession");
     if (session) {
       try {
@@ -72,8 +72,10 @@ export default function HomePage() {
         if (userSession.expiresAt > Date.now()) {
           setUserRole(userSession.role);
           setUserName(userSession.name);
+          if (userSession.role === "admin") {
+            setIsVerified(true);
+          }
         } else {
-          // Session expired, clear it
           sessionStorage.removeItem("userSession");
         }
       } catch (e) {
@@ -84,16 +86,24 @@ export default function HomePage() {
 
   const handleLogout = () => {
     sessionStorage.removeItem("userSession");
-    router.push("/auth/sign-in");
+    setUserRole(null);
+    setUserName(null);
+    setUser(null);
+    setIsVerified(false);
+    router.push("/");
   };
 
   const handleGetStarted = () => {
-    if (userRole === "admin") {
-      router.push("/admin/dashboard");
-      return;
-    }
+    const session = sessionStorage.getItem("userSession");
 
-    if (user) {
+    if (session) {
+      const userSession = JSON.parse(session);
+
+      if (userSession.role === "admin") {
+        router.push("/admin/dashboard");
+        return;
+      }
+
       if (isVerified) {
         router.push("/dashboard");
       } else {
@@ -105,30 +115,51 @@ export default function HomePage() {
   };
 
   const handleServiceRequest = (service: string) => {
-    if (userRole === "admin") {
-      // Admin can't request services
+    const session = sessionStorage.getItem("userSession");
+
+    if (!session) {
+      router.push("/sign-up");
       return;
     }
 
-    if (!user) {
-      router.push("/sign-in");
+    const userSession = JSON.parse(session);
+
+    if (userSession.role === "admin") {
       return;
     }
+
     if (!isVerified) {
       router.push("/verify");
       return;
     }
+
     router.push(`/requests?type=${service.toLowerCase()}`);
   };
 
-  // Verification Status Component inline
+  const getButtonText = () => {
+    const session = sessionStorage.getItem("userSession");
+
+    if (session) {
+      const userSession = JSON.parse(session);
+      if (userSession.role === "admin") {
+        return "Go to Admin Panel";
+      }
+      if (isVerified) {
+        return "Go to Dashboard";
+      }
+      return "Complete Verification";
+    }
+    return "Get Started";
+  };
+
+  // Verification Status Component
   const VerificationStatusBadge = () => {
     const getStatusConfig = () => {
       switch (verificationStatus) {
         case "approved":
           return {
             icon: CheckCircle,
-            title: "Verified",
+            title: "Verified Account",
             message: "Your account is verified. You can access all services.",
             color: "text-[#3A7717]",
             bgColor: "bg-[#3A7717]/10",
@@ -157,7 +188,7 @@ export default function HomePage() {
         default:
           return {
             icon: AlertCircle,
-            title: "Not Verified",
+            title: "Verification Required",
             message:
               "Complete verification to access fuel, cash, airtime & car wash services.",
             color: "text-[#01312D]",
@@ -222,6 +253,9 @@ export default function HomePage() {
     );
   }
 
+  const isLoggedIn = sessionStorage.getItem("userSession") !== null;
+  const isAdmin = userRole === "admin";
+
   return (
     <div className="min-h-screen bg-[#eafde7] relative overflow-hidden">
       {/* Background Decorative Elements */}
@@ -231,138 +265,133 @@ export default function HomePage() {
 
       {/* Main Content */}
       <main className="relative z-10 px-5 pt-6 pb-24">
-        {/* Header Section with Logo and User Info */}
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-[#01312D] rounded-xl flex items-center justify-center shadow-lg">
-              <Sparkles className="w-5 h-5 text-[#bff202]" />
+        {/* Header Section - Fixed Layout */}
+        <div className="mb-8">
+          {/* Logo and Actions Row */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* Logo - Left Side */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="w-10 h-10 bg-[#01312D] rounded-xl flex items-center justify-center shadow-lg">
+                <Sparkles className="w-5 h-5 text-[#bff202]" />
+              </div>
+              <div>
+                <h1 className="text-[#01312D] font-bold text-xl">
+                  Drive<span className="text-[#3A7717]">Hub</span>
+                </h1>
+                <p className="text-[#72bf00] text-xs font-semibold">
+                  Driver Services
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-[#01312D] font-bold text-xl">
-                Drive<span className="text-[#3A7717]">Hub</span>
-              </h1>
-              <p className="text-[#72bf00] text-xs font-semibold">
-                Driver Services
+
+            {/* Right Side Actions - Wraps on mobile */}
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              {/* User Role Badge */}
+              {isLoggedIn && (
+                <div
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-semibold whitespace-nowrap ${
+                    isAdmin
+                      ? "bg-[#bff202] text-[#01312D]"
+                      : "bg-[#3A7717] text-white"
+                  }`}
+                >
+                  {isAdmin ? (
+                    <Shield className="w-3 h-3" />
+                  ) : (
+                    <User className="w-3 h-3" />
+                  )}
+                  {isAdmin ? "Admin" : "Driver"}
+                </div>
+              )}
+
+              {/* Logout Button */}
+              {isLoggedIn && (
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-all whitespace-nowrap"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Logout
+                </button>
+              )}
+
+              {/* Trust Badge */}
+              {(!isLoggedIn || !isAdmin) && (
+                <div className="bg-white/90 backdrop-blur-md rounded-full px-3 py-1.5 shadow-md flex-shrink-0">
+                  <div className="flex items-center gap-1">
+                    <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                    <span className="text-xs font-bold text-[#01312D] whitespace-nowrap">
+                      4.9 ★ (1.2k+)
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Welcome Message for Logged-in Users */}
+          {isLoggedIn && !isAdmin && (
+            <div className="mt-4 bg-white/80 rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
+              <p className="text-sm text-[#01312D]">
+                Welcome back,{" "}
+                <span className="font-bold">{userName || "Driver"}!</span>
               </p>
             </div>
-          </div>
+          )}
 
-          <div className="flex items-center gap-2">
-            {/* Role Badge - Shows if logged in */}
-            {userRole && (
-              <div
-                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-semibold ${
-                  userRole === "admin"
-                    ? "bg-[#bff202] text-[#01312D]"
-                    : "bg-[#3A7717] text-white"
-                }`}
-              >
-                {userRole === "admin" ? (
-                  <Shield className="w-3 h-3" />
-                ) : (
-                  <User className="w-3 h-3" />
-                )}
-                {userRole === "admin" ? "Admin" : "Driver"}
-              </div>
-            )}
-
-            {/* User Menu / Logout Button */}
-            {userRole ? (
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-all"
-                title="Logout"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                Logout
-              </button>
-            ) : (
-              <button
-                onClick={() => router.push("/auth/sign-in")}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#01312D] text-white hover:bg-[#3A7717] transition-all"
-              >
-                Sign In
-              </button>
-            )}
-
-            {/* Trust Badge - Only show for non-admin */}
-            {userRole !== "admin" && (
-              <div className="bg-white/90 backdrop-blur-md rounded-full px-3 py-1.5 shadow-md">
-                <div className="flex items-center gap-1">
-                  <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                  <span className="text-xs font-bold text-[#01312D]">
-                    4.9 ★ (1.2k+)
-                  </span>
+          {isLoggedIn && isAdmin && (
+            <div className="mt-4 bg-gradient-to-r from-[#01312D] to-[#3A7717] rounded-2xl p-4 text-white">
+              <div className="flex items-center gap-3">
+                <Shield className="w-8 h-8 text-[#bff202] flex-shrink-0" />
+                <div>
+                  <p className="font-bold">
+                    Welcome back, {userName || "Admin"}!
+                  </p>
+                  <p className="text-sm opacity-90">
+                    Manage drivers and service requests from your admin panel.
+                  </p>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Hero Tagline */}
-        <div className="mb-8">
-          <div className="inline-block bg-[#bff202]/20 rounded-full px-4 py-1 mb-4">
+        {/* Tagline */}
+        <div className="text-center mb-6">
+          <div className="inline-block bg-[#bff202]/20 rounded-full px-4 py-1 mb-3">
             <p className="text-xs font-semibold text-[#01312D]">
-              🚀 24/7 Available 🚀
+              🚀 Everything for Drivers 🚀
             </p>
           </div>
-          <h1 className="text-4xl font-extrabold text-[#01312D] leading-tight mb-3">
+          <h1 className="text-3xl font-extrabold text-[#01312D] leading-tight mb-2">
             Get Fuel, Cash,
             <br />
             Airtime & Car Wash
             <br />
             Instantly!
           </h1>
-          <p className="text-[#3A7717] text-sm max-w-xs">
-            Everything a driver needs, right at your fingertips
+          <p className="text-[#3A7717] text-sm">
+            Quick, reliable service at your fingertips
           </p>
         </div>
 
-        {/* Get Started Button */}
+        {/* SINGLE GET STARTED BUTTON */}
         <div className="flex justify-center mb-12">
           <button
             onClick={handleGetStarted}
             className="group relative bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white px-10 py-3.5 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
           >
-            <span className="relative z-10">
-              {userRole === "admin"
-                ? "Go to Admin Panel"
-                : user
-                  ? isVerified
-                    ? "Go to Dashboard"
-                    : "Complete Verification"
-                  : "Get Started"}
-            </span>
+            <span className="relative z-10">{getButtonText()}</span>
             <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
             <div className="absolute inset-0 bg-gradient-to-r from-[#3A7717] to-[#72bf00] opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full"></div>
           </button>
         </div>
 
-        {/* VERIFICATION STATUS - Show for logged in drivers only (not admin, not verified) */}
-        {user && userRole !== "admin" && !isVerified && (
-          <VerificationStatusBadge />
-        )}
+        {/* VERIFICATION STATUS - Show for logged in drivers only (not verified) */}
+        {isLoggedIn && !isAdmin && !isVerified && <VerificationStatusBadge />}
 
-        {/* Admin Welcome Message */}
-        {userRole === "admin" && (
-          <div className="mb-6 bg-gradient-to-r from-[#01312D] to-[#3A7717] rounded-2xl p-4 text-white">
-            <div className="flex items-center gap-3">
-              <Shield className="w-8 h-8 text-[#bff202]" />
-              <div>
-                <p className="font-bold">
-                  Welcome back, {userName || "Admin"}!
-                </p>
-                <p className="text-sm opacity-90">
-                  Manage drivers, verifications, and service requests from your
-                  admin panel.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Services Grid - Hide for admin, show for drivers */}
-        {userRole !== "admin" && (
+        {/* Services Grid - Show for non-admin logged in users only */}
+        {(!isLoggedIn || (isLoggedIn && !isAdmin)) && (
           <div className="mb-10">
             <div className="flex justify-between items-center mb-4">
               <div>
@@ -370,23 +399,22 @@ export default function HomePage() {
                   Our Services
                 </h2>
                 <p className="text-xs text-[#3A7717]">
-                  {user && !isVerified
-                    ? "Verify your account to access services"
+                  {isLoggedIn && !isVerified
+                    ? "Complete verification to access services"
                     : "Quick & reliable delivery"}
                 </p>
               </div>
-              <button className="text-[#72bf00] text-xs font-semibold flex items-center gap-1">
-                View All <ChevronRight className="w-3 h-3" />
-              </button>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               {/* Fuel Card */}
               <button
                 onClick={() => handleServiceRequest("fuel")}
-                disabled={user && !isVerified}
+                disabled={isLoggedIn && !isVerified}
                 className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
-                  user && !isVerified ? "opacity-50 cursor-not-allowed" : ""
+                  isLoggedIn && !isVerified
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
                 }`}
               >
                 <div className="bg-gradient-to-r from-[#3A7717] to-[#72bf00] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
@@ -403,9 +431,11 @@ export default function HomePage() {
               {/* Airtime Card */}
               <button
                 onClick={() => handleServiceRequest("airtime")}
-                disabled={user && !isVerified}
+                disabled={isLoggedIn && !isVerified}
                 className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
-                  user && !isVerified ? "opacity-50 cursor-not-allowed" : ""
+                  isLoggedIn && !isVerified
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
                 }`}
               >
                 <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
@@ -422,9 +452,11 @@ export default function HomePage() {
               {/* Cash Card */}
               <button
                 onClick={() => handleServiceRequest("cash")}
-                disabled={user && !isVerified}
+                disabled={isLoggedIn && !isVerified}
                 className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
-                  user && !isVerified ? "opacity-50 cursor-not-allowed" : ""
+                  isLoggedIn && !isVerified
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
                 }`}
               >
                 <div className="bg-gradient-to-r from-[#72bf00] to-[#bff202] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
@@ -441,9 +473,11 @@ export default function HomePage() {
               {/* Car Wash Card */}
               <button
                 onClick={() => handleServiceRequest("carwash")}
-                disabled={user && !isVerified}
+                disabled={isLoggedIn && !isVerified}
                 className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
-                  user && !isVerified ? "opacity-50 cursor-not-allowed" : ""
+                  isLoggedIn && !isVerified
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
                 }`}
               >
                 <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
@@ -460,91 +494,91 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Features Section */}
-        <div className="mb-10">
-          <div className="text-center mb-4">
-            <h2 className="text-xl font-bold text-[#01312D]">Why Choose Us?</h2>
-            <p className="text-xs text-[#3A7717]">
-              Fast, secure & reliable service
-            </p>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="text-center bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
-              <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
-                <Zap className="w-5 h-5 text-[#3A7717]" />
-              </div>
-              <p className="text-[#01312D] font-semibold text-xs">
-                Fast Delivery
-              </p>
-            </div>
-            <div className="text-center bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
-              <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
-                <Shield className="w-5 h-5 text-[#3A7717]" />
-              </div>
-              <p className="text-[#01312D] font-semibold text-xs">Secure</p>
-            </div>
-            <div className="text-center bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
-              <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
-                <Clock className="w-5 h-5 text-[#3A7717]" />
-              </div>
-              <p className="text-[#01312D] font-semibold text-xs">
-                24/7 Support
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Welcome Banner for new users */}
-        {!user && !userRole && (
-          <div className="mt-6 bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-2xl p-4 shadow-lg">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md">
-                <Truck className="w-6 h-6 text-[#01312D]" />
-              </div>
-              <div className="flex-1">
-                <p className="text-[#01312D] font-bold text-sm">
-                  New to DriveHub?
-                </p>
-                <p className="text-[#01312D]/80 text-xs">
-                  Sign up now & get 10% off on first request!
+        {/* Features Section - Hide for admin */}
+        {!isAdmin && (
+          <>
+            <div className="mb-10">
+              <div className="text-center mb-4">
+                <h2 className="text-xl font-bold text-[#01312D]">
+                  Why Choose Us?
+                </h2>
+                <p className="text-xs text-[#3A7717]">
+                  Fast, secure & reliable service
                 </p>
               </div>
-              <button
-                onClick={() => router.push("/sign-up")}
-                className="bg-[#01312D] text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-md hover:bg-[#3A7717] transition-colors"
-              >
-                Sign Up
-              </button>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="text-center bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
+                  <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <Zap className="w-5 h-5 text-[#3A7717]" />
+                  </div>
+                  <p className="text-[#01312D] font-semibold text-xs">
+                    Fast Delivery
+                  </p>
+                </div>
+                <div className="text-center bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
+                  <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <Shield className="w-5 h-5 text-[#3A7717]" />
+                  </div>
+                  <p className="text-[#01312D] font-semibold text-xs">Secure</p>
+                </div>
+                <div className="text-center bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
+                  <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <Clock className="w-5 h-5 text-[#3A7717]" />
+                  </div>
+                  <p className="text-[#01312D] font-semibold text-xs">
+                    24/7 Support
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
+
+            {/* Welcome Banner for new users */}
+            {!isLoggedIn && (
+              <div className="mt-6 bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-2xl p-4 shadow-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md flex-shrink-0">
+                    <Truck className="w-6 h-6 text-[#01312D]" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[#01312D] font-bold text-sm">
+                      New to DriveHub?
+                    </p>
+                    <p className="text-[#01312D]/80 text-xs">
+                      Sign up now & get 10% off on first request!
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Support Section */}
+            <div className="mt-6">
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Headphones className="w-5 h-5 text-[#3A7717]" />
+                  </div>
+                  <div>
+                    <p className="text-[#01312D] font-semibold text-sm">
+                      24/7 Customer Support
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Need help? We're here for you
+                    </p>
+                  </div>
+                </div>
+                <button className="text-[#72bf00] font-semibold text-sm whitespace-nowrap">
+                  Contact
+                </button>
+              </div>
+            </div>
+          </>
         )}
-
-        {/* Support Section */}
-        <div className="mt-6">
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center">
-                <Headphones className="w-5 h-5 text-[#3A7717]" />
-              </div>
-              <div>
-                <p className="text-[#01312D] font-semibold text-sm">
-                  24/7 Customer Support
-                </p>
-                <p className="text-xs text-gray-500">
-                  Need help? We're here for you
-                </p>
-              </div>
-            </div>
-            <button className="text-[#72bf00] font-semibold text-sm">
-              Contact
-            </button>
-          </div>
-        </div>
       </main>
 
-      {/* Bottom Navigation Bar - Hide for admin */}
-      {userRole !== "admin" && (
+      {/* Bottom Navigation Bar - Only for non-admin users */}
+      {!isAdmin && (
         <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 z-50 shadow-lg">
           <div className="flex justify-around items-center">
             {[
@@ -572,7 +606,13 @@ export default function HomePage() {
               return (
                 <button
                   key={index}
-                  onClick={() => router.push(item.path)}
+                  onClick={() => {
+                    if (!isLoggedIn) {
+                      router.push("/sign-up");
+                    } else {
+                      router.push(item.path);
+                    }
+                  }}
                   className="flex flex-col items-center gap-0.5 py-1 group"
                 >
                   <div
