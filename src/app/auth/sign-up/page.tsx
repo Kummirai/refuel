@@ -1,10 +1,10 @@
-// src/app/(auth)/sign-up/page.tsx - Updated
-
+// src/app/(auth)/sign-up/page.tsx
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 import {
   Mail,
   Lock,
@@ -20,11 +20,11 @@ import {
 
 export default function SignUpPage() {
   const router = useRouter();
+  const supabase = createClient();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -51,50 +51,89 @@ export default function SignUpPage() {
       return;
     }
 
-    // Simulate signup - will be replaced with Supabase
-    setTimeout(() => {
-      // Store user data
-      const userData = {
-        id: "user_" + Date.now(),
-        email: formData.email,
-        name: formData.name,
-        phone: formData.phone,
-        needsVerification: true,
-      };
+    try {
+      // 1. Sign up user with Supabase Auth
+      const { data: authData, error: signUpError } = await supabase.auth.signUp(
+        {
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              name: formData.name,
+              phone: formData.phone,
+            },
+          },
+        },
+      );
 
-      localStorage.setItem("user", JSON.stringify(userData));
-      localStorage.setItem("needsVerification", "true");
+      if (signUpError) {
+        throw signUpError;
+      }
 
-      setSuccess(true);
-      setLoading(false);
+      if (authData.user) {
+        // Wait a moment for the auth session to be established
+        await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // Redirect to verification page after 1.5 seconds
-      setTimeout(() => {
+        // 2. Create driver record in drivers table
+        // The user should now be authenticated, so we can insert
+        const { error: driverError } = await supabase.from("drivers").insert([
+          {
+            id: authData.user.id,
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone,
+            verification_status: "not_submitted",
+            is_verified: false,
+            total_requests: 0,
+            total_spent: 0,
+            rating: 0,
+          },
+        ]);
+
+        if (driverError) {
+          console.error("Error creating driver record:", driverError);
+          // If insert fails, try to update instead (in case record exists)
+          const { error: upsertError } = await supabase.from("drivers").upsert(
+            [
+              {
+                id: authData.user.id,
+                name: formData.name,
+                email: formData.email,
+                phone: formData.phone,
+                verification_status: "not_submitted",
+                is_verified: false,
+              },
+            ],
+            { onConflict: "id" },
+          );
+
+          if (upsertError) {
+            console.error("Error upserting driver record:", upsertError);
+          }
+        }
+
+        // 3. Store session info
+        const session = {
+          id: authData.user.id,
+          email: formData.email,
+          name: formData.name,
+          role: "driver",
+          loggedInAt: Date.now(),
+          expiresAt: Date.now() + 8 * 60 * 60 * 1000,
+        };
+
+        sessionStorage.setItem("userSession", JSON.stringify(session));
+
+        // 4. Redirect to verification page
         router.push("/verify");
-      }, 1500);
-    }, 1500);
+      }
+    } catch (err: any) {
+      console.error("Signup error:", err);
+      setError(err.message || "Failed to create account. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
-
-  if (success) {
-    return (
-      <div className="min-h-screen bg-[#eafde7] flex items-center justify-center px-5">
-        <div className="text-center">
-          <div className="w-20 h-20 bg-[#3A7717]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="w-10 h-10 text-[#3A7717]" />
-          </div>
-          <h2 className="text-2xl font-bold text-[#01312D] mb-2">
-            Account Created!
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Redirecting you to complete verification...
-          </p>
-          <div className="flex justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-4 border-[#3A7717] border-t-transparent"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#eafde7] to-white relative overflow-hidden">
