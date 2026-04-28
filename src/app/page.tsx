@@ -1,4 +1,5 @@
-// src/app/page.tsx
+// src/app/page.tsx - Fixed admin redirect
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -26,6 +27,10 @@ import {
   User,
   FileCheck,
   Hourglass,
+  Home,
+  ClipboardList,
+  History,
+  UserCircle,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -33,14 +38,27 @@ export default function HomePage() {
   const { data: session, isPending } = authClient.useSession();
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [verificationStatus, setVerificationStatus] = useState<
     "approved" | "pending" | "rejected" | "not_submitted"
   >("not_submitted");
 
   useEffect(() => {
     if (!isPending) {
+      console.log("Session data:", session); // Debug log
+
       if (session) {
-        fetchUserProfile();
+        // Get role from session - Better Auth stores role in user object
+        const role = session.user?.role;
+        console.log("User role from session:", role); // Debug log
+
+        setUserRole(role || null);
+
+        if (role === "admin") {
+          setLoading(false);
+        } else {
+          fetchUserProfile();
+        }
       } else {
         setLoading(false);
       }
@@ -70,11 +88,16 @@ export default function HomePage() {
   };
 
   const handleGetStarted = () => {
+    console.log("Get Started clicked. User role:", userRole); // Debug log
+
+    // Check if user is admin via role
+    if (userRole === "admin") {
+      console.log("Redirecting to admin dashboard");
+      router.push("/admin/dashboard");
+      return;
+    }
+
     if (session) {
-      if (session.user?.role === "admin") {
-        router.push("/admin/dashboard");
-        return;
-      }
       if (verificationStatus === "approved") {
         router.push("/dashboard");
       } else {
@@ -87,11 +110,11 @@ export default function HomePage() {
 
   const handleServiceRequest = (service: string) => {
     if (!session) {
-      router.push("/sign-up");
+      router.push("/auth/sign-in");
       return;
     }
 
-    if (session.user?.role === "admin") {
+    if (userRole === "admin") {
       return;
     }
 
@@ -104,10 +127,11 @@ export default function HomePage() {
   };
 
   const getButtonText = () => {
+    if (userRole === "admin") {
+      return "Go to Admin Panel";
+    }
+
     if (session) {
-      if (session.user?.role === "admin") {
-        return "Go to Admin Panel";
-      }
       if (verificationStatus === "approved") {
         return "Go to Dashboard";
       }
@@ -119,7 +143,6 @@ export default function HomePage() {
     return "Get Started";
   };
 
-  // Verification Status Component
   const VerificationStatusBadge = () => {
     const getStatusConfig = () => {
       switch (verificationStatus) {
@@ -212,7 +235,6 @@ export default function HomePage() {
     );
   };
 
-  // Documents Submitted Status Component (for pending verification)
   const DocumentsSubmittedBadge = () => {
     if (verificationStatus !== "pending") return null;
 
@@ -252,7 +274,7 @@ export default function HomePage() {
   }
 
   const isLoggedIn = !!session;
-  const isAdmin = session?.user?.role === "admin";
+  const isAdmin = userRole === "admin";
 
   return (
     <div className="min-h-screen bg-[#eafde7] relative overflow-hidden">
@@ -383,7 +405,7 @@ export default function HomePage() {
           </button>
         </div>
 
-        {/* Documents Submitted Badge - Shows when pending with documents */}
+        {/* Documents Submitted Badge */}
         <DocumentsSubmittedBadge />
 
         {/* VERIFICATION STATUS BADGE */}
@@ -406,7 +428,6 @@ export default function HomePage() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              {/* Fuel Card */}
               <button
                 onClick={() => handleServiceRequest("fuel")}
                 disabled={isLoggedIn && verificationStatus !== "approved"}
@@ -427,7 +448,6 @@ export default function HomePage() {
                 </div>
               </button>
 
-              {/* Airtime Card */}
               <button
                 onClick={() => handleServiceRequest("airtime")}
                 disabled={isLoggedIn && verificationStatus !== "approved"}
@@ -448,7 +468,6 @@ export default function HomePage() {
                 </div>
               </button>
 
-              {/* Cash Card */}
               <button
                 onClick={() => handleServiceRequest("cash")}
                 disabled={isLoggedIn && verificationStatus !== "approved"}
@@ -469,7 +488,6 @@ export default function HomePage() {
                 </div>
               </button>
 
-              {/* Car Wash Card */}
               <button
                 onClick={() => handleServiceRequest("carwash")}
                 disabled={isLoggedIn && verificationStatus !== "approved"}
@@ -532,7 +550,6 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Welcome Banner for new users */}
             {!isLoggedIn && (
               <div className="mt-6 bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-2xl p-4 shadow-lg">
                 <div className="flex items-center gap-3">
@@ -551,7 +568,6 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* Support Section */}
             <div className="mt-6">
               <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3">
@@ -576,127 +592,76 @@ export default function HomePage() {
         )}
       </main>
 
-      {/* Bottom Navigation Bar - Only for non-admin users */}
+      {/* Bottom Navigation Bar */}
       {!isAdmin && (
         <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 z-50 shadow-lg">
           <div className="flex justify-around items-center">
-            {[
-              { icon: HomeIcon, label: "Home", active: true, path: "/" },
-              {
-                icon: ClipboardIcon,
-                label: "Requests",
-                active: false,
-                path: "/requests",
-              },
-              {
-                icon: HistoryIcon,
-                label: "History",
-                active: false,
-                path: "/requests/history",
-              },
-              {
-                icon: UserIcon,
-                label: "Profile",
-                active: false,
-                path: "/profile",
-              },
-            ].map((item, index) => {
-              const IconComponent = item.icon;
-              return (
-                <button
-                  key={index}
-                  onClick={() => {
-                    if (!isLoggedIn) {
-                      router.push("/auth/sign-in");
-                    } else {
-                      router.push(item.path);
-                    }
-                  }}
-                  className="flex flex-col items-center gap-0.5 py-1 group"
-                >
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
-                      item.active
-                        ? "bg-[#bff202] scale-110 shadow-md"
-                        : "bg-[#eafde7] group-hover:bg-[#bff202]/50"
-                    }`}
-                  >
-                    <IconComponent
-                      className={`w-5 h-5 ${
-                        item.active
-                          ? "text-[#01312D]"
-                          : "text-[#3A7717] group-hover:text-[#01312D]"
-                      }`}
-                    />
-                  </div>
-                  <span
-                    className={`text-xs ${
-                      item.active
-                        ? "text-[#01312D] font-bold"
-                        : "text-[#3A7717] group-hover:text-[#01312D]"
-                    }`}
-                  >
-                    {item.label}
-                  </span>
-                </button>
-              );
-            })}
+            <button
+              onClick={() => router.push("/")}
+              className="flex flex-col items-center gap-0.5 py-1 group"
+            >
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#bff202] scale-110 shadow-md">
+                <Home className="w-5 h-5 text-[#01312D]" />
+              </div>
+              <span className="text-xs text-[#01312D] font-bold">Home</span>
+            </button>
+
+            <button
+              onClick={() => {
+                if (!isLoggedIn) {
+                  router.push("/auth/sign-in");
+                } else {
+                  router.push("/requests");
+                }
+              }}
+              className="flex flex-col items-center gap-0.5 py-1 group"
+            >
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
+                <ClipboardList className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+              </div>
+              <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+                Requests
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                if (!isLoggedIn) {
+                  router.push("/auth/sign-in");
+                } else {
+                  router.push("/requests/history");
+                }
+              }}
+              className="flex flex-col items-center gap-0.5 py-1 group"
+            >
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
+                <History className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+              </div>
+              <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+                History
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                if (!isLoggedIn) {
+                  router.push("/auth/sign-in");
+                } else {
+                  router.push("/profile");
+                }
+              }}
+              className="flex flex-col items-center gap-0.5 py-1 group"
+            >
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
+                <UserCircle className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+              </div>
+              <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+                Profile
+              </span>
+            </button>
           </div>
         </nav>
       )}
     </div>
-  );
-}
-
-// Custom Icon Components
-function HomeIcon(props: any) {
-  return (
-    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-      />
-    </svg>
-  );
-}
-
-function ClipboardIcon(props: any) {
-  return (
-    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-      />
-    </svg>
-  );
-}
-
-function HistoryIcon(props: any) {
-  return (
-    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-      />
-    </svg>
-  );
-}
-
-function UserIcon(props: any) {
-  return (
-    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-      />
-    </svg>
   );
 }
