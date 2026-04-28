@@ -1,4 +1,5 @@
-// src/app/page.tsx
+// src/app/page.tsx - Updated with proper verification status tracking
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -19,6 +20,9 @@ import {
   Truck,
   Headphones,
   Sparkles,
+  AlertCircle,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -27,6 +31,9 @@ export default function HomePage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isVerified, setIsVerified] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState<
+    "approved" | "pending" | "rejected" | "not_submitted"
+  >("not_submitted");
 
   useEffect(() => {
     checkUser();
@@ -41,10 +48,12 @@ export default function HomePage() {
     if (user) {
       const { data: driver } = await supabase
         .from("drivers")
-        .select("is_verified")
+        .select("is_verified, verification_status")
         .eq("id", user.id)
         .single();
+
       setIsVerified(driver?.is_verified || false);
+      setVerificationStatus(driver?.verification_status || "not_submitted");
     }
     setLoading(false);
   };
@@ -71,6 +80,96 @@ export default function HomePage() {
       return;
     }
     router.push(`/requests?type=${service.toLowerCase()}`);
+  };
+
+  // Verification Status Component inline
+  const VerificationStatusBadge = () => {
+    const getStatusConfig = () => {
+      switch (verificationStatus) {
+        case "approved":
+          return {
+            icon: CheckCircle,
+            title: "Verified",
+            message: "Your account is verified. You can access all services.",
+            color: "text-[#3A7717]",
+            bgColor: "bg-[#3A7717]/10",
+            borderColor: "border-[#3A7717]",
+          };
+        case "pending":
+          return {
+            icon: Clock,
+            title: "Verification Pending",
+            message:
+              "Your documents are being reviewed. This usually takes 24-48 hours.",
+            color: "text-yellow-600",
+            bgColor: "bg-yellow-50",
+            borderColor: "border-yellow-200",
+          };
+        case "rejected":
+          return {
+            icon: XCircle,
+            title: "Verification Failed",
+            message:
+              "Your documents were not approved. Please re-submit with correct information.",
+            color: "text-red-600",
+            bgColor: "bg-red-50",
+            borderColor: "border-red-200",
+          };
+        default:
+          return {
+            icon: AlertCircle,
+            title: "Not Verified",
+            message:
+              "Complete verification to access fuel, cash, airtime & car wash services.",
+            color: "text-[#01312D]",
+            bgColor: "bg-[#eafde7]",
+            borderColor: "border-[#bff202]",
+          };
+      }
+    };
+
+    const config = getStatusConfig();
+    const Icon = config.icon;
+
+    return (
+      <div
+        className={`rounded-2xl p-4 border ${config.bgColor} ${config.borderColor} mb-6`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 flex-1">
+            <div
+              className={`w-10 h-10 rounded-full flex items-center justify-center ${config.bgColor}`}
+            >
+              <Icon className={`w-5 h-5 ${config.color}`} />
+            </div>
+            <div className="flex-1">
+              <h3 className={`font-bold ${config.color}`}>{config.title}</h3>
+              <p className="text-xs text-gray-600 mt-1">{config.message}</p>
+            </div>
+          </div>
+
+          {verificationStatus !== "approved" && (
+            <button
+              onClick={() => router.push("/verify")}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap ml-3 ${
+                verificationStatus === "pending"
+                  ? "bg-yellow-600 text-white"
+                  : verificationStatus === "rejected"
+                    ? "bg-red-600 text-white"
+                    : "bg-[#01312D] text-white"
+              }`}
+            >
+              {verificationStatus === "pending"
+                ? "Check Status"
+                : verificationStatus === "rejected"
+                  ? "Re-submit"
+                  : "Verify Now"}{" "}
+              →
+            </button>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -146,13 +245,18 @@ export default function HomePage() {
           </button>
         </div>
 
+        {/* VERIFICATION STATUS - Show for logged in users only */}
+        {user && <VerificationStatusBadge />}
+
         {/* Services Grid - Main Services */}
         <div className="mb-10">
           <div className="flex justify-between items-center mb-4">
             <div>
               <h2 className="text-xl font-bold text-[#01312D]">Our Services</h2>
               <p className="text-xs text-[#3A7717]">
-                Quick & reliable delivery
+                {user && !isVerified
+                  ? "Verify your account to access services"
+                  : "Quick & reliable delivery"}
               </p>
             </div>
             <button className="text-[#72bf00] text-xs font-semibold flex items-center gap-1">
@@ -164,7 +268,10 @@ export default function HomePage() {
             {/* Fuel Card */}
             <button
               onClick={() => handleServiceRequest("fuel")}
-              className="bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20"
+              disabled={user && !isVerified}
+              className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
+                user && !isVerified ? "opacity-50 cursor-not-allowed" : ""
+              }`}
             >
               <div className="bg-gradient-to-r from-[#3A7717] to-[#72bf00] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                 <Fuel className="w-6 h-6 text-white" />
@@ -180,7 +287,10 @@ export default function HomePage() {
             {/* Airtime Card */}
             <button
               onClick={() => handleServiceRequest("airtime")}
-              className="bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20"
+              disabled={user && !isVerified}
+              className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
+                user && !isVerified ? "opacity-50 cursor-not-allowed" : ""
+              }`}
             >
               <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                 <Smartphone className="w-6 h-6 text-white" />
@@ -196,7 +306,10 @@ export default function HomePage() {
             {/* Cash Card */}
             <button
               onClick={() => handleServiceRequest("cash")}
-              className="bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20"
+              disabled={user && !isVerified}
+              className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
+                user && !isVerified ? "opacity-50 cursor-not-allowed" : ""
+              }`}
             >
               <div className="bg-gradient-to-r from-[#72bf00] to-[#bff202] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                 <DollarSign className="w-6 h-6 text-[#01312D]" />
@@ -212,7 +325,10 @@ export default function HomePage() {
             {/* Car Wash Card */}
             <button
               onClick={() => handleServiceRequest("carwash")}
-              className="bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20"
+              disabled={user && !isVerified}
+              className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
+                user && !isVerified ? "opacity-50 cursor-not-allowed" : ""
+              }`}
             >
               <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                 <Car className="w-6 h-6 text-white" />
@@ -262,7 +378,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Recent Requests Section (for logged in verified users) */}
+        {/* Recent Requests Section (for logged in verified users only) */}
         {user && isVerified && (
           <div className="mb-10">
             <div className="flex justify-between items-center mb-4">
@@ -347,31 +463,6 @@ export default function HomePage() {
                   </div>
                 );
               })}
-            </div>
-          </div>
-        )}
-
-        {/* Verification Banner (for unverified users) */}
-        {user && !isVerified && (
-          <div className="mt-6 bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-2xl p-4 shadow-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <ThumbsUp className="w-4 h-4 text-[#01312D]" />
-                  <p className="text-[#01312D] text-xs font-semibold">
-                    Action Required
-                  </p>
-                </div>
-                <p className="text-[#01312D] font-bold text-sm">
-                  Complete verification to access all services
-                </p>
-              </div>
-              <button
-                onClick={() => router.push("/verify")}
-                className="bg-[#01312D] text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-md hover:bg-[#3A7717] transition-colors"
-              >
-                Verify Now
-              </button>
             </div>
           </div>
         )}
@@ -488,7 +579,7 @@ export default function HomePage() {
   );
 }
 
-// Custom Icon Components (since we need outline versions)
+// Custom Icon Components
 function HomeIcon(props: any) {
   return (
     <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">

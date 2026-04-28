@@ -1,4 +1,5 @@
-// src/app/(auth)/sign-up/page.tsx
+// src/app/(auth)/sign-up/page.tsx - Updated
+
 "use client";
 
 import { useState } from "react";
@@ -23,6 +24,7 @@ export default function SignUpPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -51,15 +53,48 @@ export default function SignUpPage() {
 
     // Simulate signup - will be replaced with Supabase
     setTimeout(() => {
-      // Mock successful signup
-      localStorage.setItem(
-        "user",
-        JSON.stringify({ email: formData.email, name: formData.name }),
-      );
-      router.push("/verify");
+      // Store user data
+      const userData = {
+        id: "user_" + Date.now(),
+        email: formData.email,
+        name: formData.name,
+        phone: formData.phone,
+        needsVerification: true,
+      };
+
+      localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("needsVerification", "true");
+
+      setSuccess(true);
       setLoading(false);
+
+      // Redirect to verification page after 1.5 seconds
+      setTimeout(() => {
+        router.push("/verify");
+      }, 1500);
     }, 1500);
   };
+
+  if (success) {
+    return (
+      <div className="min-h-screen bg-[#eafde7] flex items-center justify-center px-5">
+        <div className="text-center">
+          <div className="w-20 h-20 bg-[#3A7717]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-10 h-10 text-[#3A7717]" />
+          </div>
+          <h2 className="text-2xl font-bold text-[#01312D] mb-2">
+            Account Created!
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Redirecting you to complete verification...
+          </p>
+          <div className="flex justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-4 border-[#3A7717] border-t-transparent"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#eafde7] to-white relative overflow-hidden">
@@ -270,7 +305,7 @@ export default function SignUpPage() {
           <p className="text-gray-600 text-sm">
             Already have an account?{" "}
             <Link
-              href="/sign-in"
+              href="/auth/sign-in"
               className="text-[#3A7717] font-semibold hover:underline"
             >
               Sign In
@@ -283,7 +318,7 @@ export default function SignUpPage() {
           <div className="flex items-start gap-2">
             <CheckCircle className="w-4 h-4 text-[#3A7717] mt-0.5" />
             <p className="text-xs text-gray-600">
-              After signing up, you'll need to complete verification by
+              After signing up, you'll be redirected to complete verification by
               uploading your driver's license and car registration documents.
               This helps keep our community safe.
             </p>
