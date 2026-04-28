@@ -12,6 +12,7 @@ import {
   ArrowRight,
   AlertCircle,
   Sparkles,
+  Shield,
 } from "lucide-react";
 
 export default function SignInPage() {
@@ -24,22 +25,87 @@ export default function SignInPage() {
     password: "",
   });
 
+  // Demo users for testing
+  const users = {
+    admin: {
+      email: "admin@drivehub.com",
+      password: "admin123",
+      role: "admin",
+      name: "Super Admin",
+    },
+    driver: {
+      email: "driver@drivehub.com",
+      password: "driver123",
+      role: "driver",
+      name: "Test Driver",
+      needsVerification: false,
+    },
+    unverifiedDriver: {
+      email: "new@drivehub.com",
+      password: "new123",
+      role: "driver",
+      name: "New Driver",
+      needsVerification: true,
+    },
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    // Simulate authentication - will be replaced with Supabase
-    setTimeout(() => {
-      if (formData.email && formData.password) {
-        // Mock successful login
-        localStorage.setItem("user", JSON.stringify({ email: formData.email }));
-        router.push("/");
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Check credentials against demo users
+    let authenticatedUser = null;
+
+    if (
+      formData.email === users.admin.email &&
+      formData.password === users.admin.password
+    ) {
+      authenticatedUser = users.admin;
+    } else if (
+      formData.email === users.driver.email &&
+      formData.password === users.driver.password
+    ) {
+      authenticatedUser = users.driver;
+    } else if (
+      formData.email === users.unverifiedDriver.email &&
+      formData.password === users.unverifiedDriver.password
+    ) {
+      authenticatedUser = users.unverifiedDriver;
+    }
+
+    if (authenticatedUser) {
+      // Create session
+      const session = {
+        id: crypto.randomUUID(),
+        email: authenticatedUser.email,
+        role: authenticatedUser.role,
+        name: authenticatedUser.name,
+        loggedInAt: Date.now(),
+        expiresAt: Date.now() + 8 * 60 * 60 * 1000, // 8 hours
+      };
+
+      sessionStorage.setItem("userSession", JSON.stringify(session));
+
+      // Redirect based on role
+      if (authenticatedUser.role === "admin") {
+        router.push("/admin/dashboard");
       } else {
-        setError("Invalid email or password");
+        // For drivers, check if they need verification
+        if (authenticatedUser.needsVerification) {
+          router.push("/verify");
+        } else {
+          router.push("/");
+        }
       }
-      setLoading(false);
-    }, 1500);
+    } else {
+      setError("Invalid email or password");
+    }
+
+    setLoading(false);
   };
 
   return (
@@ -182,12 +248,11 @@ export default function SignInPage() {
           <p className="text-xs text-[#01312D] font-semibold text-center mb-2">
             Demo Credentials
           </p>
-          <p className="text-xs text-gray-600 text-center">
-            Email: driver@example.com
-          </p>
-          <p className="text-xs text-gray-600 text-center">
-            Password: password123
-          </p>
+          <div className="space-y-2 text-xs text-gray-600">
+            <p>👑 Admin: admin@drivehub.com / admin123</p>
+            <p>🚗 Driver: driver@drivehub.com / driver123</p>
+            <p>📝 New Driver: new@drivehub.com / new123</p>
+          </div>
         </div>
       </div>
     </div>

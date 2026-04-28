@@ -1,4 +1,4 @@
-// src/app/page.tsx - Updated with proper verification status tracking
+// src/app/page.tsx - Updated with Role Detection
 
 "use client";
 
@@ -23,6 +23,8 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
+  LogOut,
+  User,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -31,12 +33,15 @@ export default function HomePage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isVerified, setIsVerified] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
   const [verificationStatus, setVerificationStatus] = useState<
     "approved" | "pending" | "rejected" | "not_submitted"
   >("not_submitted");
 
   useEffect(() => {
     checkUser();
+    checkUserSession();
   }, []);
 
   const checkUser = async () => {
@@ -58,7 +63,36 @@ export default function HomePage() {
     setLoading(false);
   };
 
+  const checkUserSession = () => {
+    // Check unified user session
+    const session = sessionStorage.getItem("userSession");
+    if (session) {
+      try {
+        const userSession = JSON.parse(session);
+        if (userSession.expiresAt > Date.now()) {
+          setUserRole(userSession.role);
+          setUserName(userSession.name);
+        } else {
+          // Session expired, clear it
+          sessionStorage.removeItem("userSession");
+        }
+      } catch (e) {
+        console.error("Invalid session");
+      }
+    }
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem("userSession");
+    router.push("/auth/sign-in");
+  };
+
   const handleGetStarted = () => {
+    if (userRole === "admin") {
+      router.push("/admin/dashboard");
+      return;
+    }
+
     if (user) {
       if (isVerified) {
         router.push("/dashboard");
@@ -71,6 +105,11 @@ export default function HomePage() {
   };
 
   const handleServiceRequest = (service: string) => {
+    if (userRole === "admin") {
+      // Admin can't request services
+      return;
+    }
+
     if (!user) {
       router.push("/sign-in");
       return;
@@ -172,16 +211,27 @@ export default function HomePage() {
     );
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3A7717] border-t-transparent mx-auto mb-4"></div>
+          <p className="text-[#01312D]">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#eafde7] relative overflow-hidden">
-      {/* Background Decorative Elements with brand colors */}
+      {/* Background Decorative Elements */}
       <div className="absolute top-0 right-0 w-80 h-80 bg-[#bff202]/10 rounded-full blur-3xl"></div>
       <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#3A7717]/5 rounded-full blur-3xl"></div>
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#72bf00]/5 rounded-full blur-3xl"></div>
 
       {/* Main Content */}
       <main className="relative z-10 px-5 pt-6 pb-24">
-        {/* Header Section with Logo */}
+        {/* Header Section with Logo and User Info */}
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 bg-[#01312D] rounded-xl flex items-center justify-center shadow-lg">
@@ -197,14 +247,55 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Trust Badge */}
-          <div className="bg-white/90 backdrop-blur-md rounded-full px-3 py-1.5 shadow-md">
-            <div className="flex items-center gap-1">
-              <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-              <span className="text-xs font-bold text-[#01312D]">
-                4.9 ★ (1.2k+)
-              </span>
-            </div>
+          <div className="flex items-center gap-2">
+            {/* Role Badge - Shows if logged in */}
+            {userRole && (
+              <div
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-semibold ${
+                  userRole === "admin"
+                    ? "bg-[#bff202] text-[#01312D]"
+                    : "bg-[#3A7717] text-white"
+                }`}
+              >
+                {userRole === "admin" ? (
+                  <Shield className="w-3 h-3" />
+                ) : (
+                  <User className="w-3 h-3" />
+                )}
+                {userRole === "admin" ? "Admin" : "Driver"}
+              </div>
+            )}
+
+            {/* User Menu / Logout Button */}
+            {userRole ? (
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-all"
+                title="Logout"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Logout
+              </button>
+            ) : (
+              <button
+                onClick={() => router.push("/auth/sign-in")}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#01312D] text-white hover:bg-[#3A7717] transition-all"
+              >
+                Sign In
+              </button>
+            )}
+
+            {/* Trust Badge - Only show for non-admin */}
+            {userRole !== "admin" && (
+              <div className="bg-white/90 backdrop-blur-md rounded-full px-3 py-1.5 shadow-md">
+                <div className="flex items-center gap-1">
+                  <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                  <span className="text-xs font-bold text-[#01312D]">
+                    4.9 ★ (1.2k+)
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -234,114 +325,140 @@ export default function HomePage() {
             className="group relative bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white px-10 py-3.5 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
           >
             <span className="relative z-10">
-              {user
-                ? isVerified
-                  ? "Go to Dashboard"
-                  : "Complete Verification"
-                : "Get Started"}
+              {userRole === "admin"
+                ? "Go to Admin Panel"
+                : user
+                  ? isVerified
+                    ? "Go to Dashboard"
+                    : "Complete Verification"
+                  : "Get Started"}
             </span>
             <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
             <div className="absolute inset-0 bg-gradient-to-r from-[#3A7717] to-[#72bf00] opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full"></div>
           </button>
         </div>
 
-        {/* VERIFICATION STATUS - Show for logged in users only */}
-        {user && <VerificationStatusBadge />}
+        {/* VERIFICATION STATUS - Show for logged in drivers only (not admin, not verified) */}
+        {user && userRole !== "admin" && !isVerified && (
+          <VerificationStatusBadge />
+        )}
 
-        {/* Services Grid - Main Services */}
-        <div className="mb-10">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h2 className="text-xl font-bold text-[#01312D]">Our Services</h2>
-              <p className="text-xs text-[#3A7717]">
-                {user && !isVerified
-                  ? "Verify your account to access services"
-                  : "Quick & reliable delivery"}
-              </p>
+        {/* Admin Welcome Message */}
+        {userRole === "admin" && (
+          <div className="mb-6 bg-gradient-to-r from-[#01312D] to-[#3A7717] rounded-2xl p-4 text-white">
+            <div className="flex items-center gap-3">
+              <Shield className="w-8 h-8 text-[#bff202]" />
+              <div>
+                <p className="font-bold">
+                  Welcome back, {userName || "Admin"}!
+                </p>
+                <p className="text-sm opacity-90">
+                  Manage drivers, verifications, and service requests from your
+                  admin panel.
+                </p>
+              </div>
             </div>
-            <button className="text-[#72bf00] text-xs font-semibold flex items-center gap-1">
-              View All <ChevronRight className="w-3 h-3" />
-            </button>
           </div>
+        )}
 
-          <div className="grid grid-cols-2 gap-4">
-            {/* Fuel Card */}
-            <button
-              onClick={() => handleServiceRequest("fuel")}
-              disabled={user && !isVerified}
-              className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
-                user && !isVerified ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-            >
-              <div className="bg-gradient-to-r from-[#3A7717] to-[#72bf00] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
-                <Fuel className="w-6 h-6 text-white" />
+        {/* Services Grid - Hide for admin, show for drivers */}
+        {userRole !== "admin" && (
+          <div className="mb-10">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-[#01312D]">
+                  Our Services
+                </h2>
+                <p className="text-xs text-[#3A7717]">
+                  {user && !isVerified
+                    ? "Verify your account to access services"
+                    : "Quick & reliable delivery"}
+                </p>
               </div>
-              <h3 className="font-bold text-[#01312D] text-lg">Fuel</h3>
-              <p className="text-gray-500 text-xs mt-1">Petrol • Diesel</p>
-              <div className="flex items-center gap-1 mt-2 text-[#72bf00] text-xs font-semibold">
-                <span>Request now</span>
-                <ChevronRight className="w-3 h-3" />
-              </div>
-            </button>
+              <button className="text-[#72bf00] text-xs font-semibold flex items-center gap-1">
+                View All <ChevronRight className="w-3 h-3" />
+              </button>
+            </div>
 
-            {/* Airtime Card */}
-            <button
-              onClick={() => handleServiceRequest("airtime")}
-              disabled={user && !isVerified}
-              className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
-                user && !isVerified ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-            >
-              <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
-                <Smartphone className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="font-bold text-[#01312D] text-lg">Airtime</h3>
-              <p className="text-gray-500 text-xs mt-1">All networks</p>
-              <div className="flex items-center gap-1 mt-2 text-[#72bf00] text-xs font-semibold">
-                <span>Request now</span>
-                <ChevronRight className="w-3 h-3" />
-              </div>
-            </button>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Fuel Card */}
+              <button
+                onClick={() => handleServiceRequest("fuel")}
+                disabled={user && !isVerified}
+                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
+                  user && !isVerified ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+              >
+                <div className="bg-gradient-to-r from-[#3A7717] to-[#72bf00] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
+                  <Fuel className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="font-bold text-[#01312D] text-lg">Fuel</h3>
+                <p className="text-gray-500 text-xs mt-1">Petrol • Diesel</p>
+                <div className="flex items-center gap-1 mt-2 text-[#72bf00] text-xs font-semibold">
+                  <span>Request now</span>
+                  <ChevronRight className="w-3 h-3" />
+                </div>
+              </button>
 
-            {/* Cash Card */}
-            <button
-              onClick={() => handleServiceRequest("cash")}
-              disabled={user && !isVerified}
-              className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
-                user && !isVerified ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-            >
-              <div className="bg-gradient-to-r from-[#72bf00] to-[#bff202] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
-                <DollarSign className="w-6 h-6 text-[#01312D]" />
-              </div>
-              <h3 className="font-bold text-[#01312D] text-lg">Cash</h3>
-              <p className="text-gray-500 text-xs mt-1">Instant transfer</p>
-              <div className="flex items-center gap-1 mt-2 text-[#72bf00] text-xs font-semibold">
-                <span>Request now</span>
-                <ChevronRight className="w-3 h-3" />
-              </div>
-            </button>
+              {/* Airtime Card */}
+              <button
+                onClick={() => handleServiceRequest("airtime")}
+                disabled={user && !isVerified}
+                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
+                  user && !isVerified ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+              >
+                <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
+                  <Smartphone className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="font-bold text-[#01312D] text-lg">Airtime</h3>
+                <p className="text-gray-500 text-xs mt-1">All networks</p>
+                <div className="flex items-center gap-1 mt-2 text-[#72bf00] text-xs font-semibold">
+                  <span>Request now</span>
+                  <ChevronRight className="w-3 h-3" />
+                </div>
+              </button>
 
-            {/* Car Wash Card */}
-            <button
-              onClick={() => handleServiceRequest("carwash")}
-              disabled={user && !isVerified}
-              className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
-                user && !isVerified ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-            >
-              <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
-                <Car className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="font-bold text-[#01312D] text-lg">Car Wash</h3>
-              <p className="text-gray-500 text-xs mt-1">Premium cleaning</p>
-              <div className="flex items-center gap-1 mt-2 text-[#72bf00] text-xs font-semibold">
-                <span>Request now</span>
-                <ChevronRight className="w-3 h-3" />
-              </div>
-            </button>
+              {/* Cash Card */}
+              <button
+                onClick={() => handleServiceRequest("cash")}
+                disabled={user && !isVerified}
+                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
+                  user && !isVerified ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+              >
+                <div className="bg-gradient-to-r from-[#72bf00] to-[#bff202] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
+                  <DollarSign className="w-6 h-6 text-[#01312D]" />
+                </div>
+                <h3 className="font-bold text-[#01312D] text-lg">Cash</h3>
+                <p className="text-gray-500 text-xs mt-1">Instant transfer</p>
+                <div className="flex items-center gap-1 mt-2 text-[#72bf00] text-xs font-semibold">
+                  <span>Request now</span>
+                  <ChevronRight className="w-3 h-3" />
+                </div>
+              </button>
+
+              {/* Car Wash Card */}
+              <button
+                onClick={() => handleServiceRequest("carwash")}
+                disabled={user && !isVerified}
+                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
+                  user && !isVerified ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+              >
+                <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
+                  <Car className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="font-bold text-[#01312D] text-lg">Car Wash</h3>
+                <p className="text-gray-500 text-xs mt-1">Premium cleaning</p>
+                <div className="flex items-center gap-1 mt-2 text-[#72bf00] text-xs font-semibold">
+                  <span>Request now</span>
+                  <ChevronRight className="w-3 h-3" />
+                </div>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Features Section */}
         <div className="mb-10">
@@ -378,97 +495,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Recent Requests Section (for logged in verified users only) */}
-        {user && isVerified && (
-          <div className="mb-10">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h2 className="text-xl font-bold text-[#01312D]">
-                  Recent Requests
-                </h2>
-                <p className="text-xs text-[#3A7717]">Your last 3 requests</p>
-              </div>
-              <button className="text-[#72bf00] text-xs font-semibold flex items-center gap-1">
-                History <ChevronRight className="w-3 h-3" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {[
-                {
-                  type: "Fuel",
-                  amount: "₹2,500",
-                  status: "Completed",
-                  date: "Today, 10:30 AM",
-                  icon: Fuel,
-                  color: "text-[#3A7717]",
-                  bg: "bg-[#eafde7]",
-                },
-                {
-                  type: "Airtime",
-                  amount: "₹500",
-                  status: "Pending",
-                  date: "Yesterday, 3:45 PM",
-                  icon: Smartphone,
-                  color: "text-[#72bf00]",
-                  bg: "bg-[#eafde7]",
-                },
-                {
-                  type: "Car Wash",
-                  amount: "₹800",
-                  status: "Completed",
-                  date: "Yesterday, 9:00 AM",
-                  icon: Car,
-                  color: "text-[#01312D]",
-                  bg: "bg-[#eafde7]",
-                },
-              ].map((request, index) => {
-                const Icon = request.icon;
-                return (
-                  <div
-                    key={index}
-                    className="bg-white rounded-2xl p-3 shadow-sm flex items-center gap-3 border border-[#bff202]/20"
-                  >
-                    <div
-                      className={`${request.bg} w-10 h-10 rounded-xl flex items-center justify-center`}
-                    >
-                      <Icon className={`w-5 h-5 ${request.color}`} />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-semibold text-[#01312D]">
-                            {request.type}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {request.date}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-[#01312D]">
-                            {request.amount}
-                          </p>
-                          <p
-                            className={`text-xs ${
-                              request.status === "Completed"
-                                ? "text-[#3A7717]"
-                                : "text-[#72bf00]"
-                            } font-semibold`}
-                          >
-                            {request.status}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {/* Welcome Banner for new users */}
-        {!user && (
+        {!user && !userRole && (
           <div className="mt-6 bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-2xl p-4 shadow-lg">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md">
@@ -515,66 +543,68 @@ export default function HomePage() {
         </div>
       </main>
 
-      {/* Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 z-50 shadow-lg">
-        <div className="flex justify-around items-center">
-          {[
-            { icon: HomeIcon, label: "Home", active: true, path: "/" },
-            {
-              icon: ClipboardIcon,
-              label: "Requests",
-              active: false,
-              path: "/requests",
-            },
-            {
-              icon: HistoryIcon,
-              label: "History",
-              active: false,
-              path: "/history",
-            },
-            {
-              icon: UserIcon,
-              label: "Profile",
-              active: false,
-              path: "/profile",
-            },
-          ].map((item, index) => {
-            const IconComponent = item.icon;
-            return (
-              <button
-                key={index}
-                onClick={() => router.push(item.path)}
-                className="flex flex-col items-center gap-0.5 py-1 group"
-              >
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
-                    item.active
-                      ? "bg-[#bff202] scale-110 shadow-md"
-                      : "bg-[#eafde7] group-hover:bg-[#bff202]/50"
-                  }`}
+      {/* Bottom Navigation Bar - Hide for admin */}
+      {userRole !== "admin" && (
+        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 z-50 shadow-lg">
+          <div className="flex justify-around items-center">
+            {[
+              { icon: HomeIcon, label: "Home", active: true, path: "/" },
+              {
+                icon: ClipboardIcon,
+                label: "Requests",
+                active: false,
+                path: "/requests",
+              },
+              {
+                icon: HistoryIcon,
+                label: "History",
+                active: false,
+                path: "/history",
+              },
+              {
+                icon: UserIcon,
+                label: "Profile",
+                active: false,
+                path: "/profile",
+              },
+            ].map((item, index) => {
+              const IconComponent = item.icon;
+              return (
+                <button
+                  key={index}
+                  onClick={() => router.push(item.path)}
+                  className="flex flex-col items-center gap-0.5 py-1 group"
                 >
-                  <IconComponent
-                    className={`w-5 h-5 ${
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
                       item.active
-                        ? "text-[#01312D]"
+                        ? "bg-[#bff202] scale-110 shadow-md"
+                        : "bg-[#eafde7] group-hover:bg-[#bff202]/50"
+                    }`}
+                  >
+                    <IconComponent
+                      className={`w-5 h-5 ${
+                        item.active
+                          ? "text-[#01312D]"
+                          : "text-[#3A7717] group-hover:text-[#01312D]"
+                      }`}
+                    />
+                  </div>
+                  <span
+                    className={`text-xs ${
+                      item.active
+                        ? "text-[#01312D] font-bold"
                         : "text-[#3A7717] group-hover:text-[#01312D]"
                     }`}
-                  />
-                </div>
-                <span
-                  className={`text-xs ${
-                    item.active
-                      ? "text-[#01312D] font-bold"
-                      : "text-[#3A7717] group-hover:text-[#01312D]"
-                  }`}
-                >
-                  {item.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+                  >
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      )}
     </div>
   );
 }
