@@ -1,8 +1,9 @@
 // src/app/verify/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { authClient } from "@/lib/auth-client";
 import {
   ArrowLeft,
   Upload,
@@ -17,13 +18,20 @@ import {
   Camera,
   X,
   Loader2,
+  Image as ImageIcon,
+  FileImage,
 } from "lucide-react";
 
 export default function VerifyPage() {
   const router = useRouter();
+  const { data: session, isPending } = authClient.useSession();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [fetchingProfile, setFetchingProfile] = useState(true);
+  const [uploadProgress, setUploadProgress] = useState<{
+    [key: string]: boolean;
+  }>({});
 
   // Form Data
   const [formData, setFormData] = useState({
@@ -52,12 +60,113 @@ export default function VerifyPage() {
     profilePhoto: "",
   });
 
+  const [uploadedUrls, setUploadedUrls] = useState({
+    driversLicense: "",
+    carRegistration: "",
+    profilePhoto: "",
+  });
+
+  // Fetch existing driver profile if any
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchDriverProfile();
+    } else if (!isPending && !session) {
+      router.push("/auth/sign-in");
+    }
+  }, [session, isPending]);
+
+  const fetchDriverProfile = async () => {
+    try {
+      const response = await fetch(
+        `/api/driver/profile?userId=${session?.user?.id}`,
+      );
+      if (response.ok) {
+        const profile = await response.json();
+        if (profile && profile._id) {
+          setFormData({
+            fullName: profile.fullName || session?.user?.name || "",
+            dateOfBirth: profile.dateOfBirth || "",
+            address: profile.address || "",
+            city: profile.city || "",
+            pincode: profile.pincode || "",
+            carRegistrationNumber: profile.carRegistrationNumber || "",
+            carModel: profile.carModel || "",
+            carYear: profile.carYear || "",
+            carColor: profile.carColor || "",
+            driversLicense: null,
+            carRegistration: null,
+            profilePhoto: null,
+          });
+
+          // Set existing URLs if any
+          if (
+            profile.drivingLicenseUrl &&
+            profile.drivingLicenseUrl !== "pending"
+          ) {
+            setUploadedUrls((prev) => ({
+              ...prev,
+              driversLicense: profile.drivingLicenseUrl,
+            }));
+            setPreviews((prev) => ({
+              ...prev,
+              driversLicense: profile.drivingLicenseUrl,
+            }));
+          }
+          if (
+            profile.carRegistrationUrl &&
+            profile.carRegistrationUrl !== "pending"
+          ) {
+            setUploadedUrls((prev) => ({
+              ...prev,
+              carRegistration: profile.carRegistrationUrl,
+            }));
+            setPreviews((prev) => ({
+              ...prev,
+              carRegistration: profile.carRegistrationUrl,
+            }));
+          }
+          if (
+            profile.profilePhotoUrl &&
+            profile.profilePhotoUrl !== "pending"
+          ) {
+            setUploadedUrls((prev) => ({
+              ...prev,
+              profilePhoto: profile.profilePhotoUrl,
+            }));
+            setPreviews((prev) => ({
+              ...prev,
+              profilePhoto: profile.profilePhotoUrl,
+            }));
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+    } finally {
+      setFetchingProfile(false);
+    }
+  };
+
   const handleFileChange = (
     e: React.ChangeEvent<HTMLInputElement>,
     field: string,
   ) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validate file type
+      const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
+      if (!allowedTypes.includes(file.type)) {
+        alert("Only JPG and PNG files are allowed");
+        return;
+      }
+
+      // Validate file size (5MB max)
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        alert("File too large. Max size is 5MB");
+        return;
+      }
+
       setFormData({ ...formData, [field]: file });
 
       // Create preview
@@ -72,25 +181,129 @@ export default function VerifyPage() {
   const removeFile = (field: string) => {
     setFormData({ ...formData, [field]: null });
     setPreviews({ ...previews, [field]: "" });
+    setUploadedUrls({ ...uploadedUrls, [field]: "" });
+  };
+
+  const uploadFile = async (file: File, type: string): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", type);
+    formData.append("userId", session?.user?.id || "");
+
+    setUploadProgress((prev) => ({ ...prev, [type]: true }));
+
+    try {
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `Failed to upload ${type}`);
+      }
+
+      return data.url;
+    } finally {
+      setUploadProgress((prev) => ({ ...prev, [type]: false }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Simulate API call to submit verification
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      let drivingLicenseUrl = uploadedUrls.driversLicense;
+      let carRegistrationUrl = uploadedUrls.carRegistration;
+      let profilePhotoUrl = uploadedUrls.profilePhoto;
+
+      // Upload new files if they were selected
+      if (formData.driversLicense) {
+        drivingLicenseUrl = await uploadFile(
+          formData.driversLicense,
+          "license",
+        );
+      }
+      if (formData.carRegistration) {
+        carRegistrationUrl = await uploadFile(
+          formData.carRegistration,
+          "registration",
+        );
+      }
+      if (formData.profilePhoto) {
+        profilePhotoUrl = await uploadFile(formData.profilePhoto, "profile");
+      }
+
+      // Submit verification data
+      const response = await fetch("/api/driver/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: session?.user?.id,
+          fullName: formData.fullName,
+          dateOfBirth: formData.dateOfBirth,
+          address: formData.address,
+          city: formData.city,
+          pincode: formData.pincode,
+          carRegistrationNumber: formData.carRegistrationNumber,
+          carModel: formData.carModel,
+          carYear: parseInt(formData.carYear),
+          carColor: formData.carColor,
+          drivingLicenseUrl: drivingLicenseUrl || "pending",
+          carRegistrationUrl: carRegistrationUrl || "pending",
+          profilePhotoUrl: profilePhotoUrl || "pending",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to submit verification");
+      }
+
       setSubmitSuccess(true);
 
       // Redirect after 3 seconds
       setTimeout(() => {
         router.push("/");
       }, 3000);
-    }, 2000);
+    } catch (error: any) {
+      console.error("Submission error:", error);
+      alert(
+        error.message || "Failed to submit verification. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const nextStep = () => {
+    // Validate required fields before proceeding
+    if (step === 1) {
+      if (
+        !formData.fullName ||
+        !formData.dateOfBirth ||
+        !formData.address ||
+        !formData.city ||
+        !formData.pincode
+      ) {
+        alert("Please fill in all required fields");
+        return;
+      }
+    }
+    if (step === 2) {
+      if (
+        !formData.carRegistrationNumber ||
+        !formData.carModel ||
+        !formData.carYear ||
+        !formData.carColor
+      ) {
+        alert("Please fill in all vehicle information");
+        return;
+      }
+    }
     setStep(step + 1);
     window.scrollTo(0, 0);
   };
@@ -99,6 +312,21 @@ export default function VerifyPage() {
     setStep(step - 1);
     window.scrollTo(0, 0);
   };
+
+  if (isPending || fetchingProfile) {
+    return (
+      <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3A7717] border-t-transparent mx-auto mb-4"></div>
+          <p className="text-[#01312D]">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return null;
+  }
 
   if (submitSuccess) {
     return (
@@ -263,7 +491,7 @@ export default function VerifyPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                      City
+                      City <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -278,7 +506,7 @@ export default function VerifyPage() {
                   </div>
                   <div>
                     <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                      Pincode
+                      Pincode <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -347,7 +575,7 @@ export default function VerifyPage() {
 
                 <div>
                   <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                    Car Model
+                    Car Model <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -364,7 +592,7 @@ export default function VerifyPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                      Year
+                      Year <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="number"
@@ -379,7 +607,7 @@ export default function VerifyPage() {
                   </div>
                   <div>
                     <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                      Color
+                      Color <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -466,6 +694,11 @@ export default function VerifyPage() {
                       >
                         <X className="w-4 h-4" />
                       </button>
+                      {uploadProgress.license && (
+                        <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
+                          <Loader2 className="w-8 h-8 text-white animate-spin" />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -512,6 +745,11 @@ export default function VerifyPage() {
                       >
                         <X className="w-4 h-4" />
                       </button>
+                      {uploadProgress.registration && (
+                        <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
+                          <Loader2 className="w-8 h-8 text-white animate-spin" />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -534,7 +772,7 @@ export default function VerifyPage() {
                         htmlFor="profilePhoto"
                         className="cursor-pointer block"
                       >
-                        <Camera className="w-10 h-10 text-[#72bf00] mx-auto mb-2" />
+                        <ImageIcon className="w-10 h-10 text-[#72bf00] mx-auto mb-2" />
                         <p className="text-sm text-[#01312D] font-semibold">
                           Upload Profile Photo
                         </p>
@@ -557,6 +795,11 @@ export default function VerifyPage() {
                       >
                         <X className="w-4 h-4" />
                       </button>
+                      {uploadProgress.profile && (
+                        <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                          <Loader2 className="w-8 h-8 text-white animate-spin" />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -577,6 +820,17 @@ export default function VerifyPage() {
                   correct. I understand that providing false information may
                   lead to permanent account suspension.
                 </label>
+              </div>
+            </div>
+
+            {/* Submit Info */}
+            <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5" />
+                <p className="text-xs text-blue-700">
+                  Please ensure all documents are clear and legible. This helps
+                  us verify your identity quickly.
+                </p>
               </div>
             </div>
 

@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
+import { authClient } from "@/lib/auth-client";
 import {
   Mail,
   Lock,
@@ -17,7 +17,6 @@ import {
 
 export default function SignInPage() {
   const router = useRouter();
-  const supabase = createClient();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -32,55 +31,25 @@ export default function SignInPage() {
     setError("");
 
     try {
-      // Sign in with Supabase
-      const { data, error: signInError } =
-        await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password,
-        });
+      const { data, error: signInError } = await authClient.signIn.email({
+        email: formData.email,
+        password: formData.password,
+      });
 
       if (signInError) {
-        throw signInError;
+        throw new Error(signInError.message);
       }
 
-      if (data.user) {
-        // Check if user is admin (you can add an admin flag in user metadata or a separate table)
-        const isAdmin = data.user.email === "admin@drivehub.com";
+      if (data) {
+        // Get the session to check user role
+        const { data: session } = await authClient.getSession();
 
-        // Get driver data
-        let isVerified = false;
-        let driverName = data.user.user_metadata?.name || "";
-
-        if (!isAdmin) {
-          const { data: driver } = await supabase
-            .from("drivers")
-            .select("is_verified, name")
-            .eq("id", data.user.id)
-            .single();
-
-          isVerified = driver?.is_verified || false;
-          driverName = driver?.name || driverName;
-        }
-
-        // Create session
-        const session = {
-          id: data.user.id,
-          email: data.user.email,
-          name: driverName || data.user.email?.split("@")[0],
-          role: isAdmin ? "admin" : "driver",
-          loggedInAt: Date.now(),
-          expiresAt: Date.now() + 8 * 60 * 60 * 1000,
-        };
-
-        sessionStorage.setItem("userSession", JSON.stringify(session));
-
-        // Redirect based on role
-        if (isAdmin) {
+        if (session?.user?.role === "admin") {
           router.push("/admin/dashboard");
-        } else if (!isVerified) {
-          router.push("/verify");
-        } else {
+        } else if (session?.user?.isVerified) {
           router.push("/");
+        } else {
+          router.push("/verify");
         }
       }
     } catch (err: any) {
@@ -223,6 +192,21 @@ export default function SignInPage() {
             >
               Sign Up
             </Link>
+          </p>
+        </div>
+
+        {/* Demo Credentials */}
+        <div className="mt-8 p-4 bg-[#eafde7] rounded-xl border border-[#bff202]/20">
+          <p className="text-xs text-[#01312D] font-semibold text-center mb-2">
+            Demo Credentials
+          </p>
+          <div className="space-y-2 text-xs text-gray-600">
+            <p>👑 Admin: admin@drivehub.com / admin123</p>
+            <p>🚗 Driver: driver@drivehub.com / driver123</p>
+            <p>📝 New Driver: new@drivehub.com / new123</p>
+          </div>
+          <p className="text-xs text-gray-400 text-center mt-2">
+            Note: Create an account first to test driver features
           </p>
         </div>
       </div>

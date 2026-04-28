@@ -1,10 +1,9 @@
-// src/app/page.tsx - Fixed header layout
-
+// src/app/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { authClient } from "@/lib/auth-client";
 import {
   ArrowRight,
   Fuel,
@@ -25,86 +24,58 @@ import {
   XCircle,
   LogOut,
   User,
-  LayoutDashboard,
+  FileCheck,
+  Hourglass,
 } from "lucide-react";
 
 export default function HomePage() {
   const router = useRouter();
-  const supabase = createClient();
-  const [user, setUser] = useState<any>(null);
+  const { data: session, isPending } = authClient.useSession();
   const [loading, setLoading] = useState(true);
-  const [isVerified, setIsVerified] = useState(false);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [userName, setUserName] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const [verificationStatus, setVerificationStatus] = useState<
     "approved" | "pending" | "rejected" | "not_submitted"
   >("not_submitted");
 
   useEffect(() => {
-    checkUser();
-    checkUserSession();
-  }, []);
-
-  const checkUser = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    setUser(user);
-
-    if (user) {
-      const { data: driver } = await supabase
-        .from("drivers")
-        .select("is_verified, verification_status")
-        .eq("id", user.id)
-        .single();
-
-      setIsVerified(driver?.is_verified || false);
-      setVerificationStatus(driver?.verification_status || "not_submitted");
-    }
-    setLoading(false);
-  };
-
-  const checkUserSession = () => {
-    const session = sessionStorage.getItem("userSession");
-    if (session) {
-      try {
-        const userSession = JSON.parse(session);
-        if (userSession.expiresAt > Date.now()) {
-          setUserRole(userSession.role);
-          setUserName(userSession.name);
-          if (userSession.role === "admin") {
-            setIsVerified(true);
-          }
-        } else {
-          sessionStorage.removeItem("userSession");
-        }
-      } catch (e) {
-        console.error("Invalid session");
+    if (!isPending) {
+      if (session) {
+        fetchUserProfile();
+      } else {
+        setLoading(false);
       }
     }
+  }, [session, isPending]);
+
+  const fetchUserProfile = async () => {
+    try {
+      const response = await fetch(
+        `/api/driver/profile?userId=${session?.user?.id}`,
+      );
+      if (response.ok) {
+        const profile = await response.json();
+        setUserProfile(profile);
+        setVerificationStatus(profile?.verificationStatus || "not_submitted");
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem("userSession");
-    setUserRole(null);
-    setUserName(null);
-    setUser(null);
-    setIsVerified(false);
+  const handleLogout = async () => {
+    await authClient.signOut();
     router.push("/");
   };
 
   const handleGetStarted = () => {
-    const session = sessionStorage.getItem("userSession");
-
     if (session) {
-      const userSession = JSON.parse(session);
-
-      if (userSession.role === "admin") {
+      if (session.user?.role === "admin") {
         router.push("/admin/dashboard");
         return;
       }
-
-      if (isVerified) {
+      if (verificationStatus === "approved") {
         router.push("/dashboard");
       } else {
         router.push("/verify");
@@ -115,20 +86,16 @@ export default function HomePage() {
   };
 
   const handleServiceRequest = (service: string) => {
-    const session = sessionStorage.getItem("userSession");
-
     if (!session) {
       router.push("/sign-up");
       return;
     }
 
-    const userSession = JSON.parse(session);
-
-    if (userSession.role === "admin") {
+    if (session.user?.role === "admin") {
       return;
     }
 
-    if (!isVerified) {
+    if (verificationStatus !== "approved") {
       router.push("/verify");
       return;
     }
@@ -137,15 +104,15 @@ export default function HomePage() {
   };
 
   const getButtonText = () => {
-    const session = sessionStorage.getItem("userSession");
-
     if (session) {
-      const userSession = JSON.parse(session);
-      if (userSession.role === "admin") {
+      if (session.user?.role === "admin") {
         return "Go to Admin Panel";
       }
-      if (isVerified) {
+      if (verificationStatus === "approved") {
         return "Go to Dashboard";
+      }
+      if (verificationStatus === "pending") {
+        return "Check Verification Status";
       }
       return "Complete Verification";
     }
@@ -164,16 +131,20 @@ export default function HomePage() {
             color: "text-[#3A7717]",
             bgColor: "bg-[#3A7717]/10",
             borderColor: "border-[#3A7717]",
+            buttonText: "Go to Dashboard",
+            buttonAction: () => router.push("/dashboard"),
           };
         case "pending":
           return {
-            icon: Clock,
+            icon: Hourglass,
             title: "Verification Pending",
             message:
-              "Your documents are being reviewed. This usually takes 24-48 hours.",
+              "Your documents are being reviewed by our admin. This usually takes 24-48 hours. You will be notified once verified.",
             color: "text-yellow-600",
             bgColor: "bg-yellow-50",
             borderColor: "border-yellow-200",
+            buttonText: "Check Status",
+            buttonAction: () => router.push("/verify/status"),
           };
         case "rejected":
           return {
@@ -184,6 +155,8 @@ export default function HomePage() {
             color: "text-red-600",
             bgColor: "bg-red-50",
             borderColor: "border-red-200",
+            buttonText: "Re-submit",
+            buttonAction: () => router.push("/verify"),
           };
         default:
           return {
@@ -194,6 +167,8 @@ export default function HomePage() {
             color: "text-[#01312D]",
             bgColor: "bg-[#eafde7]",
             borderColor: "border-[#bff202]",
+            buttonText: "Verify Now",
+            buttonAction: () => router.push("/verify"),
           };
       }
     };
@@ -205,7 +180,7 @@ export default function HomePage() {
       <div
         className={`rounded-2xl p-4 border ${config.bgColor} ${config.borderColor} mb-6`}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3 flex-1">
             <div
               className={`w-10 h-10 rounded-full flex items-center justify-center ${config.bgColor}`}
@@ -218,31 +193,54 @@ export default function HomePage() {
             </div>
           </div>
 
-          {verificationStatus !== "approved" && (
-            <button
-              onClick={() => router.push("/verify")}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap ml-3 ${
-                verificationStatus === "pending"
-                  ? "bg-yellow-600 text-white"
-                  : verificationStatus === "rejected"
-                    ? "bg-red-600 text-white"
-                    : "bg-[#01312D] text-white"
-              }`}
-            >
-              {verificationStatus === "pending"
-                ? "Check Status"
+          <button
+            onClick={config.buttonAction}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap ${
+              verificationStatus === "pending"
+                ? "bg-yellow-600 text-white"
                 : verificationStatus === "rejected"
-                  ? "Re-submit"
-                  : "Verify Now"}{" "}
-              →
-            </button>
-          )}
+                  ? "bg-red-600 text-white"
+                  : verificationStatus === "approved"
+                    ? "bg-[#3A7717] text-white"
+                    : "bg-[#01312D] text-white"
+            }`}
+          >
+            {config.buttonText} →
+          </button>
         </div>
       </div>
     );
   };
 
-  if (loading) {
+  // Documents Submitted Status Component (for pending verification)
+  const DocumentsSubmittedBadge = () => {
+    if (verificationStatus !== "pending") return null;
+
+    const hasDocuments =
+      userProfile?.drivingLicenseUrl &&
+      userProfile?.carRegistrationUrl &&
+      userProfile?.profilePhotoUrl;
+
+    if (!hasDocuments) return null;
+
+    return (
+      <div className="bg-green-50 rounded-xl p-4 border border-green-200 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+            <FileCheck className="w-5 h-5 text-green-600" />
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-green-800">Documents Submitted</p>
+            <p className="text-xs text-green-700">
+              Your documents have been received. Our admin is reviewing them.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  if (loading || isPending) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -253,8 +251,8 @@ export default function HomePage() {
     );
   }
 
-  const isLoggedIn = sessionStorage.getItem("userSession") !== null;
-  const isAdmin = userRole === "admin";
+  const isLoggedIn = !!session;
+  const isAdmin = session?.user?.role === "admin";
 
   return (
     <div className="min-h-screen bg-[#eafde7] relative overflow-hidden">
@@ -265,11 +263,10 @@ export default function HomePage() {
 
       {/* Main Content */}
       <main className="relative z-10 px-5 pt-6 pb-24">
-        {/* Header Section - Fixed Layout */}
+        {/* Header Section */}
         <div className="mb-8">
-          {/* Logo and Actions Row */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            {/* Logo - Left Side */}
+            {/* Logo */}
             <div className="flex items-center gap-2 flex-shrink-0">
               <div className="w-10 h-10 bg-[#01312D] rounded-xl flex items-center justify-center shadow-lg">
                 <Sparkles className="w-5 h-5 text-[#bff202]" />
@@ -284,9 +281,8 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Right Side Actions - Wraps on mobile */}
+            {/* Right Side Actions */}
             <div className="flex items-center gap-2 flex-wrap justify-end">
-              {/* User Role Badge */}
               {isLoggedIn && (
                 <div
                   className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-semibold whitespace-nowrap ${
@@ -304,7 +300,6 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* Logout Button */}
               {isLoggedIn && (
                 <button
                   onClick={handleLogout}
@@ -315,7 +310,6 @@ export default function HomePage() {
                 </button>
               )}
 
-              {/* Trust Badge */}
               {(!isLoggedIn || !isAdmin) && (
                 <div className="bg-white/90 backdrop-blur-md rounded-full px-3 py-1.5 shadow-md flex-shrink-0">
                   <div className="flex items-center gap-1">
@@ -329,12 +323,14 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Welcome Message for Logged-in Users */}
+          {/* Welcome Messages */}
           {isLoggedIn && !isAdmin && (
             <div className="mt-4 bg-white/80 rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
               <p className="text-sm text-[#01312D]">
                 Welcome back,{" "}
-                <span className="font-bold">{userName || "Driver"}!</span>
+                <span className="font-bold">
+                  {session?.user?.name || "Driver"}!
+                </span>
               </p>
             </div>
           )}
@@ -345,7 +341,7 @@ export default function HomePage() {
                 <Shield className="w-8 h-8 text-[#bff202] flex-shrink-0" />
                 <div>
                   <p className="font-bold">
-                    Welcome back, {userName || "Admin"}!
+                    Welcome back, {session?.user?.name || "Admin"}!
                   </p>
                   <p className="text-sm opacity-90">
                     Manage drivers and service requests from your admin panel.
@@ -356,7 +352,7 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Tagline */}
+        {/* Hero Tagline */}
         <div className="text-center mb-6">
           <div className="inline-block bg-[#bff202]/20 rounded-full px-4 py-1 mb-3">
             <p className="text-xs font-semibold text-[#01312D]">
@@ -375,7 +371,7 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* SINGLE GET STARTED BUTTON */}
+        {/* Get Started Button */}
         <div className="flex justify-center mb-12">
           <button
             onClick={handleGetStarted}
@@ -387,10 +383,13 @@ export default function HomePage() {
           </button>
         </div>
 
-        {/* VERIFICATION STATUS - Show for logged in drivers only (not verified) */}
-        {isLoggedIn && !isAdmin && !isVerified && <VerificationStatusBadge />}
+        {/* Documents Submitted Badge - Shows when pending with documents */}
+        <DocumentsSubmittedBadge />
 
-        {/* Services Grid - Show for non-admin logged in users only */}
+        {/* VERIFICATION STATUS BADGE */}
+        {isLoggedIn && !isAdmin && <VerificationStatusBadge />}
+
+        {/* Services Grid - Show for non-admin users */}
         {(!isLoggedIn || (isLoggedIn && !isAdmin)) && (
           <div className="mb-10">
             <div className="flex justify-between items-center mb-4">
@@ -399,7 +398,7 @@ export default function HomePage() {
                   Our Services
                 </h2>
                 <p className="text-xs text-[#3A7717]">
-                  {isLoggedIn && !isVerified
+                  {isLoggedIn && verificationStatus !== "approved"
                     ? "Complete verification to access services"
                     : "Quick & reliable delivery"}
                 </p>
@@ -410,9 +409,9 @@ export default function HomePage() {
               {/* Fuel Card */}
               <button
                 onClick={() => handleServiceRequest("fuel")}
-                disabled={isLoggedIn && !isVerified}
+                disabled={isLoggedIn && verificationStatus !== "approved"}
                 className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
-                  isLoggedIn && !isVerified
+                  isLoggedIn && verificationStatus !== "approved"
                     ? "opacity-50 cursor-not-allowed"
                     : ""
                 }`}
@@ -431,9 +430,9 @@ export default function HomePage() {
               {/* Airtime Card */}
               <button
                 onClick={() => handleServiceRequest("airtime")}
-                disabled={isLoggedIn && !isVerified}
+                disabled={isLoggedIn && verificationStatus !== "approved"}
                 className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
-                  isLoggedIn && !isVerified
+                  isLoggedIn && verificationStatus !== "approved"
                     ? "opacity-50 cursor-not-allowed"
                     : ""
                 }`}
@@ -452,9 +451,9 @@ export default function HomePage() {
               {/* Cash Card */}
               <button
                 onClick={() => handleServiceRequest("cash")}
-                disabled={isLoggedIn && !isVerified}
+                disabled={isLoggedIn && verificationStatus !== "approved"}
                 className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
-                  isLoggedIn && !isVerified
+                  isLoggedIn && verificationStatus !== "approved"
                     ? "opacity-50 cursor-not-allowed"
                     : ""
                 }`}
@@ -473,9 +472,9 @@ export default function HomePage() {
               {/* Car Wash Card */}
               <button
                 onClick={() => handleServiceRequest("carwash")}
-                disabled={isLoggedIn && !isVerified}
+                disabled={isLoggedIn && verificationStatus !== "approved"}
                 className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
-                  isLoggedIn && !isVerified
+                  isLoggedIn && verificationStatus !== "approved"
                     ? "opacity-50 cursor-not-allowed"
                     : ""
                 }`}

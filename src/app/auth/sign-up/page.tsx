@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
+import { authClient } from "@/lib/auth-client";
 import {
   Mail,
   Lock,
@@ -20,7 +20,6 @@ import {
 
 export default function SignUpPage() {
   const router = useRouter();
-  const supabase = createClient();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -52,79 +51,30 @@ export default function SignUpPage() {
     }
 
     try {
-      // 1. Sign up user with Supabase Auth
-      const { data: authData, error: signUpError } = await supabase.auth.signUp(
-        {
-          email: formData.email,
-          password: formData.password,
-          options: {
-            data: {
-              name: formData.name,
-              phone: formData.phone,
-            },
-          },
-        },
-      );
+      const { data, error: signUpError } = await authClient.signUp.email({
+        email: formData.email,
+        password: formData.password,
+        name: formData.name,
+        phone: formData.phone,
+      });
 
       if (signUpError) {
-        throw signUpError;
+        throw new Error(signUpError.message);
       }
 
-      if (authData.user) {
-        // Wait a moment for the auth session to be established
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        // 2. Create driver record in drivers table
-        // The user should now be authenticated, so we can insert
-        const { error: driverError } = await supabase.from("drivers").insert([
-          {
-            id: authData.user.id,
+      if (data) {
+        // Create driver profile in MongoDB
+        await fetch("/api/driver/profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: data.user.id,
             name: formData.name,
             email: formData.email,
             phone: formData.phone,
-            verification_status: "not_submitted",
-            is_verified: false,
-            total_requests: 0,
-            total_spent: 0,
-            rating: 0,
-          },
-        ]);
+          }),
+        });
 
-        if (driverError) {
-          console.error("Error creating driver record:", driverError);
-          // If insert fails, try to update instead (in case record exists)
-          const { error: upsertError } = await supabase.from("drivers").upsert(
-            [
-              {
-                id: authData.user.id,
-                name: formData.name,
-                email: formData.email,
-                phone: formData.phone,
-                verification_status: "not_submitted",
-                is_verified: false,
-              },
-            ],
-            { onConflict: "id" },
-          );
-
-          if (upsertError) {
-            console.error("Error upserting driver record:", upsertError);
-          }
-        }
-
-        // 3. Store session info
-        const session = {
-          id: authData.user.id,
-          email: formData.email,
-          name: formData.name,
-          role: "driver",
-          loggedInAt: Date.now(),
-          expiresAt: Date.now() + 8 * 60 * 60 * 1000,
-        };
-
-        sessionStorage.setItem("userSession", JSON.stringify(session));
-
-        // 4. Redirect to verification page
         router.push("/verify");
       }
     } catch (err: any) {
