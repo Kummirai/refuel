@@ -29,16 +29,19 @@ import {
   Star,
   ThumbsUp,
   Loader2,
+  Image as ImageIcon,
 } from "lucide-react";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
   const [loading, setLoading] = useState(true);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [activeTab, setActiveTab] = useState<"profile" | "loans" | "settings">(
     "profile",
   );
   const [profile, setProfile] = useState<any>(null);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string>("");
   const [userData, setUserData] = useState({
     name: "",
     email: "",
@@ -76,6 +79,11 @@ export default function ProfilePage() {
         const data = await response.json();
         setProfile(data);
 
+        // Set profile photo URL if exists
+        if (data?.profilePhotoUrl && data.profilePhotoUrl !== "pending") {
+          setProfilePhotoUrl(data.profilePhotoUrl);
+        }
+
         // Calculate member since from createdAt
         const memberSince = data?.createdAt
           ? new Date(data.createdAt).toLocaleDateString("en-US", {
@@ -99,7 +107,7 @@ export default function ProfilePage() {
           memberSince: memberSince,
           totalRequests: data?.totalRequests || 0,
           totalSpent: data?.totalSpent || 0,
-          totalLoans: 0, // Will be fetched from loans collection
+          totalLoans: 0,
           rating: data?.rating || 0,
           activeLoan: data?.activeLoan || null,
         });
@@ -108,6 +116,69 @@ export default function ProfilePage() {
       console.error("Error fetching profile:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleProfilePhotoUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
+    if (!allowedTypes.includes(file.type)) {
+      alert("Only JPG and PNG files are allowed");
+      return;
+    }
+
+    // Validate file size (2MB max)
+    const maxSize = 2 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert("File too large. Max size is 2MB");
+      return;
+    }
+
+    setUploadingPhoto(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("type", "profile");
+      formData.append("userId", session?.user?.id || "");
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to upload photo");
+      }
+
+      // Update profile with new photo URL
+      const updateResponse = await fetch("/api/driver/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: session?.user?.id,
+          profilePhotoUrl: data.url,
+        }),
+      });
+
+      if (updateResponse.ok) {
+        setProfilePhotoUrl(data.url);
+        alert("Profile photo updated successfully!");
+      } else {
+        throw new Error("Failed to update profile");
+      }
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      alert(error.message || "Failed to upload photo");
+    } finally {
+      setUploadingPhoto(false);
     }
   };
 
@@ -145,35 +216,6 @@ export default function ProfilePage() {
     }
   };
 
-  const getRequestStatusBadge = (status: string) => {
-    switch (status) {
-      case "approved":
-        return (
-          <span className="text-[#72bf00] bg-[#72bf00]/10 px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1">
-            <CheckCircle className="w-3 h-3" /> Approved
-          </span>
-        );
-      case "completed":
-        return (
-          <span className="text-[#3A7717] bg-[#3A7717]/10 px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1">
-            <CheckCircle className="w-3 h-3" /> Completed
-          </span>
-        );
-      case "active":
-        return (
-          <span className="text-[#bff202] bg-[#bff202]/10 px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1">
-            <Clock className="w-3 h-3" /> Active
-          </span>
-        );
-      default:
-        return (
-          <span className="text-yellow-600 bg-yellow-50 px-2 py-1 rounded-lg text-xs font-semibold">
-            {status}
-          </span>
-        );
-    }
-  };
-
   if (isPending || loading) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
@@ -200,19 +242,38 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {/* Profile Avatar */}
+        {/* Profile Avatar - Now with actual driver image */}
         <div className="absolute -bottom-12 left-5">
           <div className="relative">
-            <div className="w-24 h-24 bg-white rounded-2xl shadow-xl flex items-center justify-center border-4 border-white">
-              <div className="w-full h-full bg-gradient-to-br from-[#01312D] to-[#3A7717] rounded-xl flex items-center justify-center">
-                <span className="text-4xl text-white font-bold">
-                  {userData.name.charAt(0) || "U"}
-                </span>
-              </div>
+            <div className="w-24 h-24 bg-white rounded-full shadow-xl flex items-center justify-center border-4 border-white overflow-hidden">
+              {profilePhotoUrl ? (
+                <img
+                  src={profilePhotoUrl}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-[#01312D] to-[#3A7717] rounded-xl flex items-center justify-center">
+                  <span className="text-4xl text-white font-bold">
+                    {userData.name.charAt(0) || "U"}
+                  </span>
+                </div>
+              )}
             </div>
-            <button className="absolute bottom-0 right-0 bg-[#bff202] p-1.5 rounded-full shadow-md">
-              <Camera className="w-3 h-3 text-[#01312D]" />
-            </button>
+            <label className="absolute bottom-0 right-0 bg-[#bff202] p-1.5 rounded-full shadow-md cursor-pointer hover:bg-[#d4e84a] transition-colors">
+              <input
+                type="file"
+                accept="image/jpeg,image/jpg,image/png"
+                onChange={handleProfilePhotoUpload}
+                disabled={uploadingPhoto}
+                className="hidden"
+              />
+              {uploadingPhoto ? (
+                <Loader2 className="w-3 h-3 text-[#01312D] animate-spin" />
+              ) : (
+                <Camera className="w-3 h-3 text-[#01312D]" />
+              )}
+            </label>
           </div>
         </div>
       </div>
@@ -356,12 +417,11 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Tab Content */}
+      {/* Tab Content - Same as before, keeping the existing content */}
       <div className="p-5">
         {/* Profile Tab */}
         {activeTab === "profile" && (
           <div className="space-y-4">
-            {/* Personal Information */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
               <h3 className="font-bold text-[#01312D] mb-3 flex items-center gap-2">
                 <User className="w-4 h-4 text-[#3A7717]" />
@@ -392,7 +452,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Vehicle Information */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
               <h3 className="font-bold text-[#01312D] mb-3 flex items-center gap-2">
                 <Car className="w-4 h-4 text-[#3A7717]" />
@@ -422,7 +481,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Recent Activity Placeholder */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
               <div className="flex justify-between items-center mb-3">
                 <h3 className="font-bold text-[#01312D]">Recent Activity</h3>
@@ -437,10 +495,9 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Loans & History Tab */}
+        {/* Loans & History Tab - Keep existing */}
         {activeTab === "loans" && (
           <div className="space-y-4">
-            {/* No Active Loan Message */}
             <div className="bg-white rounded-2xl p-8 text-center shadow-sm border border-[#bff202]/20">
               <Wallet className="w-12 h-12 text-gray-400 mx-auto mb-3" />
               <h3 className="font-semibold text-[#01312D] mb-2">
@@ -454,7 +511,6 @@ export default function ProfilePage() {
               </button>
             </div>
 
-            {/* Payment Methods */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
               <h3 className="font-bold text-[#01312D] mb-3 flex items-center gap-2">
                 <CreditCard className="w-4 h-4 text-[#3A7717]" />
@@ -496,10 +552,9 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Settings Tab */}
+        {/* Settings Tab - Keep existing */}
         {activeTab === "settings" && (
           <div className="space-y-4">
-            {/* Account Settings */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
               <h3 className="font-bold text-[#01312D] mb-3">
                 Account Settings
@@ -524,7 +579,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Notifications */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
               <h3 className="font-bold text-[#01312D] mb-3">Notifications</h3>
               <div className="space-y-3">
@@ -567,7 +621,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Support & Legal */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
               <h3 className="font-bold text-[#01312D] mb-3">Support & Legal</h3>
               <div className="space-y-3">
@@ -590,7 +643,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Danger Zone */}
             <div className="bg-red-50 rounded-2xl p-4 border border-red-200">
               <h3 className="font-bold text-red-600 mb-3">Danger Zone</h3>
               <div className="space-y-2">
@@ -605,7 +657,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Logout Button */}
             <button
               onClick={handleLogout}
               className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 mt-4"

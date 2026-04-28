@@ -607,7 +607,7 @@ export default function HomePage() {
                   key={index}
                   onClick={() => {
                     if (!isLoggedIn) {
-                      router.push("/sign-up");
+                      router.push("/auth/sign-in");
                     } else {
                       router.push(item.path);
                     }

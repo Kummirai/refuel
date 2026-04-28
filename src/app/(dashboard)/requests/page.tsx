@@ -1,8 +1,9 @@
 // src/app/requests/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { authClient } from "@/lib/auth-client";
 import {
   Fuel,
   Smartphone,
@@ -18,6 +19,9 @@ import {
   MapPin,
   Gauge,
   CircleDollarSign,
+  Loader2,
+  Shield,
+  User,
 } from "lucide-react";
 
 type ServiceType = "fuel" | "airtime" | "cash" | "carwash";
@@ -25,6 +29,7 @@ type ServiceType = "fuel" | "airtime" | "cash" | "carwash";
 export default function RequestsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session, isPending } = authClient.useSession();
   const initialType = (searchParams.get("type") as ServiceType) || "fuel";
 
   const [selectedService, setSelectedService] =
@@ -33,9 +38,76 @@ export default function RequestsPage() {
   const [fuelType, setFuelType] = useState<"petrol" | "diesel">("petrol");
   const [phoneNumber, setPhoneNumber] = useState<string>("");
   const [location, setLocation] = useState<string>("");
-  const [carNumber, setCarNumber] = useState<string>("");
   const [showSuccess, setShowSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [requestId, setRequestId] = useState("");
+
+  // Driver details from database
+  const [driverDetails, setDriverDetails] = useState({
+    fullName: "",
+    carRegistrationNumber: "",
+    carModel: "",
+    phone: "",
+    email: "",
+    isVerified: false,
+    verificationStatus: "",
+  });
+  const [fetchingDetails, setFetchingDetails] = useState(true);
+
+  // Check authentication and fetch driver details
+  useEffect(() => {
+    if (!isPending) {
+      if (!session) {
+        router.push("/auth/sign-in");
+      } else {
+        fetchDriverDetails();
+      }
+    }
+  }, [session, isPending, router]);
+
+  const fetchDriverDetails = async () => {
+    try {
+      const response = await fetch(
+        `/api/driver/profile?userId=${session?.user?.id}`,
+      );
+      if (response.ok) {
+        const data = await response.json();
+
+        // Check if user is verified
+        if (!data.isVerified || data.verificationStatus !== "approved") {
+          setError(
+            "You need to be verified to make requests. Please complete verification first.",
+          );
+          setTimeout(() => {
+            router.push("/verify");
+          }, 2000);
+        }
+
+        setDriverDetails({
+          fullName: data.fullName || session?.user?.name || "",
+          carRegistrationNumber: data.carRegistrationNumber || "",
+          carModel: data.carModel || "",
+          phone: data.phone || session?.user?.phone || "",
+          email: session?.user?.email || "",
+          isVerified: data.isVerified || false,
+          verificationStatus: data.verificationStatus || "not_submitted",
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching driver details:", error);
+    } finally {
+      setFetchingDetails(false);
+    }
+  };
+
+  // Calculate interest for cash loans
+  const calculateInterest = (amountNum: number) => {
+    const interestRate = 0.13; // 13%
+    const interest = amountNum * interestRate;
+    const totalRepayable = amountNum + interest;
+    return { interest, totalRepayable };
+  };
 
   const services = [
     {
@@ -56,7 +128,7 @@ export default function RequestsPage() {
     },
     {
       id: "cash" as const,
-      name: "Cash",
+      name: "Cash Loan",
       icon: DollarSign,
       color: "from-[#72bf00] to-[#bff202]",
       bg: "bg-[#eafde7]",
@@ -72,21 +144,116 @@ export default function RequestsPage() {
     },
   ];
 
+  const carWashPackages = [
+    { id: "basic", name: "Basic Wash", price: 499 },
+    { id: "premium", name: "Premium Wash", price: 999 },
+    { id: "deluxe", name: "Deluxe Wash", price: 1499 },
+  ];
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
 
-    // Simulate API call
-    setTimeout(() => {
+    // Check if user is verified
+    if (!driverDetails.isVerified) {
+      setError(
+        "You need to be verified to make requests. Please complete verification first.",
+      );
       setLoading(false);
+      return;
+    }
+
+    const amountNum = parseFloat(amount);
+
+    if (isNaN(amountNum) || amountNum <= 0) {
+      setError("Please enter a valid amount");
+      setLoading(false);
+      return;
+    }
+
+    // Validate based on service type
+    if (
+      selectedService === "airtime" &&
+      (!phoneNumber || phoneNumber.length < 10)
+    ) {
+      setError("Please enter a valid 10-digit phone number");
+      setLoading(false);
+      return;
+    }
+
+    if (!driverDetails.carRegistrationNumber) {
+      setError("Please update your car registration number in profile first");
+      setLoading(false);
+      return;
+    }
+
+    if (!location) {
+      setError("Please enter your current location");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const requestData: any = {
+        userId: session?.user?.id,
+        type: selectedService,
+        amount: amountNum,
+        driverName: driverDetails.fullName,
+        carNumber: driverDetails.carRegistrationNumber,
+        carModel: driverDetails.carModel,
+        driverPhone: driverDetails.phone,
+        driverEmail: driverDetails.email,
+        location: location,
+      };
+
+      // Add service-specific fields
+      if (selectedService === "fuel") {
+        requestData.fuelType = fuelType;
+      }
+      if (selectedService === "airtime") {
+        requestData.phoneNumber = phoneNumber;
+      }
+      if (selectedService === "cash") {
+        const { interest, totalRepayable } = calculateInterest(amountNum);
+        requestData.interest = interest;
+        requestData.totalRepayable = totalRepayable;
+        requestData.interestRate = 13;
+        requestData.repaymentDays = 14; // Default 14 days
+      }
+      if (selectedService === "carwash") {
+        const selectedPackage = carWashPackages.find(
+          (p) => p.price === amountNum,
+        );
+        requestData.package = selectedPackage?.name || "Custom";
+      }
+
+      const response = await fetch("/api/driver/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to submit request");
+      }
+
+      setRequestId(data.requestId);
       setShowSuccess(true);
 
-      // Reset after 3 seconds
+      // Reset form after 3 seconds and redirect
       setTimeout(() => {
         setShowSuccess(false);
         router.push("/requests/history");
       }, 3000);
-    }, 2000);
+    } catch (err: any) {
+      console.error("Submission error:", err);
+      setError(err.message || "Failed to submit request. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getTitle = () => {
@@ -96,7 +263,7 @@ export default function RequestsPage() {
       case "airtime":
         return "Request Airtime";
       case "cash":
-        return "Request Cash";
+        return "Request Cash Loan";
       case "carwash":
         return "Book Car Wash";
     }
@@ -109,11 +276,61 @@ export default function RequestsPage() {
       case "airtime":
         return "Enter amount in ₹ (e.g., 500)";
       case "cash":
-        return "Enter amount in ₹ (e.g., 5000)";
+        return "Enter loan amount in ₹ (e.g., 5000)";
       case "carwash":
         return "Select package";
     }
   };
+
+  if (isPending || fetchingDetails) {
+    return (
+      <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
+          <p className="text-[#01312D]">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return null;
+  }
+
+  // Show verification required message
+  if (!driverDetails.isVerified) {
+    return (
+      <div className="min-h-screen bg-[#eafde7] flex items-center justify-center px-5">
+        <div className="text-center max-w-md">
+          <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Shield className="w-10 h-10 text-yellow-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-[#01312D] mb-2">
+            Verification Required
+          </h2>
+          <p className="text-gray-600 mb-6">
+            You need to complete driver verification before you can request
+            services. This helps us ensure the safety and security of all
+            drivers.
+          </p>
+          <div className="bg-white rounded-2xl p-4 mb-6 text-left">
+            <p className="text-sm text-[#01312D] font-semibold mb-2">
+              Verification Status:
+            </p>
+            <p className="text-sm text-yellow-600 capitalize mb-2">
+              {driverDetails.verificationStatus}
+            </p>
+            <button
+              onClick={() => router.push("/verify")}
+              className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold"
+            >
+              Complete Verification →
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#eafde7] relative overflow-hidden">
@@ -138,7 +355,7 @@ export default function RequestsPage() {
               </p>
               <div className="bg-[#eafde7] rounded-xl p-3 mb-4">
                 <p className="text-xs text-[#3A7717] font-semibold">
-                  Request ID: #REQ{Math.floor(Math.random() * 10000)}
+                  Request ID: {requestId}
                 </p>
               </div>
               <button
@@ -170,6 +387,47 @@ export default function RequestsPage() {
         </div>
 
         <div className="px-5 pt-6">
+          {/* Driver Info Card - Pre-filled from database */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 mb-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center">
+                <User className="w-5 h-5 text-[#3A7717]" />
+              </div>
+              <div>
+                <p className="font-semibold text-[#01312D]">
+                  {driverDetails.fullName}
+                </p>
+                <p className="text-xs text-gray-500">{driverDetails.email}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-xs text-gray-500">Car Registration</p>
+                <p className="font-semibold text-[#01312D]">
+                  {driverDetails.carRegistrationNumber || "Not set"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Car Model</p>
+                <p className="font-semibold text-[#01312D]">
+                  {driverDetails.carModel || "Not set"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Phone</p>
+                <p className="font-semibold text-[#01312D]">
+                  {driverDetails.phone}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Status</p>
+                <p className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full inline-block">
+                  ✓ Verified
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Service Selection Tabs */}
           <div className="mb-8">
             <div className="grid grid-cols-4 gap-2">
@@ -179,7 +437,11 @@ export default function RequestsPage() {
                 return (
                   <button
                     key={service.id}
-                    onClick={() => setSelectedService(service.id)}
+                    onClick={() => {
+                      setSelectedService(service.id);
+                      setAmount("");
+                      setError("");
+                    }}
                     className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 ${
                       isActive
                         ? `bg-gradient-to-r ${service.color} text-white shadow-lg scale-105`
@@ -200,6 +462,14 @@ export default function RequestsPage() {
             </div>
           </div>
 
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500" />
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+
           {/* Request Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Amount Field */}
@@ -207,46 +477,127 @@ export default function RequestsPage() {
               <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                 {selectedService === "carwash" ? "Select Package" : "Amount"}
               </label>
-              <div className="relative">
-                <CircleDollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#72bf00]" />
-                <input
-                  type={selectedService === "carwash" ? "text" : "number"}
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder={getPlaceholder()}
-                  className="w-full pl-10 pr-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] focus:ring-2 focus:ring-[#72bf00]/20 text-[#01312D]"
-                  required
-                />
-              </div>
-              {selectedService === "fuel" && (
-                <div className="flex gap-2 mt-2">
-                  {[1000, 2000, 3000, 5000].map((amt) => (
+
+              {selectedService === "carwash" ? (
+                <div className="space-y-2">
+                  {carWashPackages.map((pkg) => (
                     <button
-                      key={amt}
+                      key={pkg.id}
                       type="button"
-                      onClick={() => setAmount(amt.toString())}
-                      className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
+                      onClick={() => setAmount(pkg.price.toString())}
+                      className={`w-full p-4 rounded-2xl text-left transition-all ${
+                        amount === pkg.price.toString()
+                          ? "bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white shadow-lg"
+                          : "bg-white border border-[#bff202]/20 text-[#01312D]"
+                      }`}
                     >
-                      ₹{amt}
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h3 className="font-bold">{pkg.name}</h3>
+                          <p
+                            className={`text-xs mt-1 ${amount === pkg.price.toString() ? "text-white/80" : "text-gray-500"}`}
+                          >
+                            Premium cleaning service
+                          </p>
+                        </div>
+                        <p className="text-xl font-bold">₹{pkg.price}</p>
+                      </div>
                     </button>
                   ))}
                 </div>
-              )}
-              {selectedService === "airtime" && (
-                <div className="flex gap-2 mt-2">
-                  {[100, 200, 500, 1000].map((amt) => (
-                    <button
-                      key={amt}
-                      type="button"
-                      onClick={() => setAmount(amt.toString())}
-                      className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
-                    >
-                      ₹{amt}
-                    </button>
-                  ))}
-                </div>
+              ) : (
+                <>
+                  <div className="relative">
+                    <CircleDollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#72bf00]" />
+                    <input
+                      type="number"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      placeholder={getPlaceholder()}
+                      className="w-full pl-10 pr-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] focus:ring-2 focus:ring-[#72bf00]/20 text-[#01312D]"
+                      required
+                    />
+                  </div>
+
+                  {/* Quick amount buttons */}
+                  {selectedService === "fuel" && (
+                    <div className="flex gap-2 mt-2 flex-wrap">
+                      {[500, 1000, 2000, 3000, 5000].map((amt) => (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => setAmount(amt.toString())}
+                          className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
+                        >
+                          ₹{amt}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {selectedService === "airtime" && (
+                    <div className="flex gap-2 mt-2 flex-wrap">
+                      {[100, 200, 500, 1000].map((amt) => (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => setAmount(amt.toString())}
+                          className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
+                        >
+                          ₹{amt}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {selectedService === "cash" && (
+                    <div className="flex gap-2 mt-2 flex-wrap">
+                      {[5000, 10000, 20000, 50000].map((amt) => (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => setAmount(amt.toString())}
+                          className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
+                        >
+                          ₹{amt}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
+
+            {/* Interest Calculation for Cash Loan */}
+            {selectedService === "cash" && amount && parseFloat(amount) > 0 && (
+              <div className="bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-xl p-4">
+                <p className="text-sm font-semibold text-[#01312D] mb-2">
+                  Loan Summary
+                </p>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-[#01312D]">Loan Amount:</span>
+                    <span className="font-semibold text-[#01312D]">
+                      ₹{parseFloat(amount).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#01312D]">Interest (13%):</span>
+                    <span className="font-semibold text-[#01312D]">
+                      + ₹{(parseFloat(amount) * 0.13).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t border-[#01312D]/20">
+                    <span className="font-semibold text-[#01312D]">
+                      Total Repayable:
+                    </span>
+                    <span className="font-bold text-[#01312D]">
+                      ₹{(parseFloat(amount) * 1.13).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Fuel Type (Only for fuel) */}
             {selectedService === "fuel" && (
@@ -298,14 +649,10 @@ export default function RequestsPage() {
                     required
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  Airtime will be sent to this number
-                </p>
               </div>
             )}
 
-            {/* Car Registration Number */}
+            {/* Car Registration Number - Pre-filled and disabled */}
             <div>
               <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                 Car Registration Number
@@ -316,13 +663,14 @@ export default function RequestsPage() {
                 </div>
                 <input
                   type="text"
-                  value={carNumber}
-                  onChange={(e) => setCarNumber(e.target.value)}
-                  placeholder="e.g., KA01AB1234"
-                  className="w-full pl-10 pr-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] focus:ring-2 focus:ring-[#72bf00]/20 text-[#01312D] uppercase"
-                  required
+                  value={driverDetails.carRegistrationNumber}
+                  disabled
+                  className="w-full pl-10 pr-4 py-3 bg-gray-100 border border-[#bff202]/20 rounded-xl text-[#01312D] cursor-not-allowed"
                 />
               </div>
+              <p className="text-xs text-gray-500 mt-1">
+                To update, go to Profile → Settings → Update Vehicle Details
+              </p>
             </div>
 
             {/* Location */}
@@ -359,24 +707,38 @@ export default function RequestsPage() {
                 </span>
                 <span className="text-xl font-bold">₹{amount || "0"}</span>
               </div>
+              <p className="text-xs opacity-80">
+                Driver: {driverDetails.fullName}
+              </p>
+              <p className="text-xs opacity-80">
+                Car: {driverDetails.carRegistrationNumber}
+              </p>
               {selectedService === "fuel" && fuelType && (
                 <p className="text-xs opacity-80">Fuel Type: {fuelType}</p>
               )}
               {selectedService === "airtime" && phoneNumber && (
                 <p className="text-xs opacity-80">To: {phoneNumber}</p>
               )}
+              {selectedService === "cash" &&
+                amount &&
+                parseFloat(amount) > 0 && (
+                  <p className="text-xs opacity-80">
+                    Total Repayable: ₹
+                    {(parseFloat(amount) * 1.13).toLocaleString()}
+                  </p>
+                )}
               <p className="text-xs opacity-80 mt-2">Service Fee: Free</p>
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !amount}
               className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
             >
               {loading ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <Loader2 className="w-5 h-5 animate-spin" />
                   Processing...
                 </>
               ) : (
