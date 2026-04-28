@@ -81,7 +81,7 @@ export default function HomePage() {
         router.push("/verify");
       }
     } else {
-      router.push("/sign-up");
+      router.push("/auth/sign-in");
     }
   };
 

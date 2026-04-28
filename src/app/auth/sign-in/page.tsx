@@ -41,14 +41,42 @@ export default function SignInPage() {
       }
 
       if (data) {
-        // Get the session to check user role
+        // Get the session to check user role and details
         const { data: session } = await authClient.getSession();
 
         if (session?.user?.role === "admin") {
+          // Admin goes to admin dashboard
           router.push("/admin/dashboard");
-        } else if (session?.user?.isVerified) {
-          router.push("/");
+          return;
+        }
+
+        // For drivers, fetch their verification status from database
+        const response = await fetch(
+          `/api/driver/profile?userId=${session?.user?.id}`,
+        );
+
+        if (response.ok) {
+          const profile = await response.json();
+          const verificationStatus =
+            profile?.verificationStatus || "not_submitted";
+          const isVerified = profile?.isVerified || false;
+
+          // Redirect based on verification status
+          if (isVerified && verificationStatus === "approved") {
+            // Fully verified driver
+            router.push("/");
+          } else if (verificationStatus === "pending") {
+            // Documents submitted, waiting for admin approval
+            router.push("/verify/status");
+          } else if (verificationStatus === "rejected") {
+            // Verification rejected, need to re-submit
+            router.push("/verify");
+          } else {
+            // Not submitted or no profile yet
+            router.push("/verify");
+          }
         } else {
+          // No profile found, need to verify
           router.push("/verify");
         }
       }
@@ -202,12 +230,41 @@ export default function SignInPage() {
           </p>
           <div className="space-y-2 text-xs text-gray-600">
             <p>👑 Admin: admin@drivehub.com / admin123</p>
-            <p>🚗 Driver: driver@drivehub.com / driver123</p>
-            <p>📝 New Driver: new@drivehub.com / new123</p>
+            <p>🚗 Verified Driver: driver@drivehub.com / driver123</p>
+            <p>📝 Pending Driver: pending@drivehub.com / pending123</p>
+            <p>❌ Rejected Driver: rejected@drivehub.com / rejected123</p>
           </div>
           <p className="text-xs text-gray-400 text-center mt-2">
             Note: Create an account first to test driver features
           </p>
+        </div>
+
+        {/* Info Box */}
+        <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5" />
+            <div className="text-xs text-blue-700">
+              <p className="font-semibold mb-1">Verification Status Guide:</p>
+              <ul className="space-y-1">
+                <li>
+                  • <span className="font-medium">Verified Driver:</span>{" "}
+                  Redirects to Homepage with full access
+                </li>
+                <li>
+                  • <span className="font-medium">Pending Verification:</span>{" "}
+                  Redirects to Status page
+                </li>
+                <li>
+                  • <span className="font-medium">Rejected Verification:</span>{" "}
+                  Redirects to Verification page to re-submit
+                </li>
+                <li>
+                  • <span className="font-medium">New User:</span> Redirects to
+                  Verification page to submit documents
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </div>
