@@ -592,7 +592,7 @@ export default function HomePage() {
                 icon: HistoryIcon,
                 label: "History",
                 active: false,
-                path: "/history",
+                path: "/requests/history",
               },
               {
                 icon: UserIcon,
