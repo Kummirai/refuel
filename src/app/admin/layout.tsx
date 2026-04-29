@@ -7,6 +7,7 @@ import { authClient } from "@/lib/auth-client";
 import {
   LayoutDashboard,
   Users,
+  DollarSign,
   ClipboardList,
   Settings,
   LogOut,
@@ -92,6 +93,12 @@ export default function AdminLayout({
       path: "/admin/service-requests",
       active: pathname === "/admin/service-requests",
     },
+    {
+      icon: DollarSign,
+      label: "Repayments",
+      path: "/admin/repayments",
+      active: pathname === "/admin/repayments",
+    }, // Add this
     {
       icon: Settings,
       label: "Settings",
