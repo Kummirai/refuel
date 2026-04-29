@@ -331,17 +331,6 @@ export default function HomePage() {
                   Logout
                 </button>
               )}
-
-              {(!isLoggedIn || !isAdmin) && (
-                <div className="bg-white/90 backdrop-blur-md rounded-full px-3 py-1.5 shadow-md flex-shrink-0">
-                  <div className="flex items-center gap-1">
-                    <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                    <span className="text-xs font-bold text-[#01312D] whitespace-nowrap">
-                      4.9 ★ (1.2k+)
-                    </span>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 

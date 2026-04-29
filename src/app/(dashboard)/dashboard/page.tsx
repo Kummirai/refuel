@@ -256,7 +256,7 @@ export default function DriverDashboard() {
               </div>
             </div>
             <p className="text-xl font-bold text-[#01312D]">
-              ₹{stats.totalSpent.toLocaleString()}
+              R{stats.totalSpent.toLocaleString()}
             </p>
             <p className="text-xs text-gray-500">Total Spent</p>
           </div>
@@ -299,19 +299,19 @@ export default function DriverDashboard() {
               <div className="flex justify-between">
                 <span className="text-sm text-[#01312D]">Loan Amount</span>
                 <span className="font-bold text-[#01312D]">
-                  ₹{activeLoan.amount?.toLocaleString()}
+                  R{activeLoan.amount?.toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-[#01312D]">Remaining</span>
                 <span className="font-bold text-[#01312D]">
-                  ₹{activeLoan.remaining?.toLocaleString()}
+                  R{activeLoan.remaining?.toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-[#01312D]">Next Payment</span>
                 <span className="font-semibold text-[#01312D]">
-                  ₹{activeLoan.dailyPayment?.toLocaleString()}
+                  R{activeLoan.dailyPayment?.toLocaleString()}
                 </span>
               </div>
               <div className="mt-2">
@@ -451,7 +451,7 @@ export default function DriverDashboard() {
                     </div>
                     <div className="flex justify-between items-center">
                       <p className="text-xl font-bold text-[#01312D]">
-                        ₹{request.amount?.toLocaleString()}
+                        R{request.amount?.toLocaleString()}
                       </p>
                       {request.otp && request.status === "approved" && (
                         <div className="bg-[#bff202]/20 rounded-lg px-3 py-1">

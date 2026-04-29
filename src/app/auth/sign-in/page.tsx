@@ -1,7 +1,7 @@
 // src/app/(auth)/sign-in/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
@@ -17,6 +17,7 @@ import {
 
 export default function SignInPage() {
   const router = useRouter();
+  const { data: session, isPending } = authClient.useSession();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -24,6 +25,17 @@ export default function SignInPage() {
     email: "",
     password: "",
   });
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!isPending && session) {
+      if (session.user?.role === "admin") {
+        router.push("/admin/dashboard");
+      } else {
+        router.push("/");
+      }
+    }
+  }, [session, isPending, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,9 +54,9 @@ export default function SignInPage() {
 
       if (data) {
         // Get the session to check user role and details
-        const { data: session } = await authClient.getSession();
+        const { data: sessionData } = await authClient.getSession();
 
-        if (session?.user?.role === "admin") {
+        if (sessionData?.user?.role === "admin") {
           // Admin goes to admin dashboard
           router.push("/admin/dashboard");
           return;
@@ -52,7 +64,7 @@ export default function SignInPage() {
 
         // For drivers, fetch their verification status from database
         const response = await fetch(
-          `/api/driver/profile?userId=${session?.user?.id}`,
+          `/api/driver/profile?userId=${sessionData?.user?.id}`,
         );
 
         if (response.ok) {
@@ -87,6 +99,10 @@ export default function SignInPage() {
       setLoading(false);
     }
   };
+
+  if (!isPending && session) {
+    return null; // Will redirect in useEffect
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#eafde7] to-white relative overflow-hidden">

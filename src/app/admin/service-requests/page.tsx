@@ -232,7 +232,7 @@ export default function AdminServiceRequestsPage() {
   };
 
   const handleSendWhatsApp = (request: ServiceRequest) => {
-    const message = `DriveHub Service Request Confirmation\n\nRequest ID: ${request.id}\nDriver: ${request.driverName}\nCar: ${request.carRegistration}\nService: ${getTypeLabel(request.type)}\nAmount: ₹${request.amount}\nOTP: ${request.otp || "N/A"}\n\nPlease show this OTP to the cashier/attendant.`;
+    const message = `DriveHub Service Request Confirmation\n\nRequest ID: ${request.id}\nDriver: ${request.driverName}\nCar: ${request.carRegistration}\nService: ${getTypeLabel(request.type)}\nAmount: R${request.amount}\nOTP: ${request.otp || "N/A"}\n\nPlease show this OTP to the cashier/attendant.`;
     const whatsappUrl = `https://wa.me/${request.driverPhone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, "_blank");
   };
@@ -342,7 +342,7 @@ export default function AdminServiceRequestsPage() {
                   {getTypeLabel(request.type)}
                 </p>
                 <p>
-                  <span className="text-gray-500">Amount:</span> ₹
+                  <span className="text-gray-500">Amount:</span> R
                   {request.amount.toLocaleString()}
                 </p>
                 {request.fuelType && (
@@ -360,11 +360,11 @@ export default function AdminServiceRequestsPage() {
                 {request.type === "cash" && (
                   <>
                     <p>
-                      <span className="text-gray-500">Interest (13%):</span> ₹
+                      <span className="text-gray-500">Interest (13%):</span> R
                       {request.interest}
                     </p>
                     <p>
-                      <span className="text-gray-500">Total Repayable:</span> ₹
+                      <span className="text-gray-500">Total Repayable:</span> R
                       {request.totalRepayable?.toLocaleString()}
                     </p>
                     <p>
@@ -500,7 +500,7 @@ export default function AdminServiceRequestsPage() {
         <div className="bg-white rounded-xl p-3 shadow-sm border border-[#bff202]/20">
           <p className="text-xs text-gray-500">Total Value</p>
           <p className="text-xl font-bold text-[#3A7717]">
-            ₹{stats.totalAmount.toLocaleString()}
+            R{stats.totalAmount.toLocaleString()}
           </p>
         </div>
       </div>
@@ -593,7 +593,7 @@ export default function AdminServiceRequestsPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-xl font-bold text-[#01312D]">
-                      ₹{request.amount.toLocaleString()}
+                      R{request.amount.toLocaleString()}
                     </p>
                     <p className="text-xs text-gray-500">
                       {new Date(request.requestDate).toLocaleDateString()}

@@ -217,7 +217,7 @@ export default function RequestHistoryPage() {
               <div className="flex justify-between items-center mb-2">
                 <span className="text-gray-500 text-sm">Amount</span>
                 <span className="text-2xl font-bold text-[#01312D]">
-                  ₹{request.amount.toLocaleString()}
+                  R{request.amount.toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -261,11 +261,11 @@ export default function RequestHistoryPage() {
               {request.type === "cash" && request.interest && (
                 <>
                   <p>
-                    <span className="text-gray-500">Interest (13%):</span> ₹
+                    <span className="text-gray-500">Interest (13%):</span> R
                     {request.interest}
                   </p>
                   <p>
-                    <span className="text-gray-500">Total Repayable:</span> ₹
+                    <span className="text-gray-500">Total Repayable:</span> R
                     {request.totalRepayable?.toLocaleString()}
                   </p>
                 </>
@@ -358,7 +358,7 @@ export default function RequestHistoryPage() {
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
               <p className="text-xs text-gray-500">Spent</p>
               <p className="text-lg font-bold text-[#72bf00]">
-                ₹{stats.totalSpent.toLocaleString()}
+                R{stats.totalSpent.toLocaleString()}
               </p>
             </div>
           </div>
@@ -455,7 +455,7 @@ export default function RequestHistoryPage() {
                   <div className="flex justify-between items-center mb-3">
                     <div>
                       <p className="text-2xl font-bold text-[#01312D]">
-                        ₹{request.amount.toLocaleString()}
+                        R{request.amount.toLocaleString()}
                       </p>
                       <p className="text-xs text-gray-500">
                         {date.toLocaleDateString()} at{" "}

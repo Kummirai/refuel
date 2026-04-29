@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { authClient } from "@/lib/auth-client";
 import {
   LayoutDashboard,
   Users,
@@ -13,6 +14,7 @@ import {
   X,
   Bell,
   Shield,
+  Loader2,
 } from "lucide-react";
 
 export default function AdminLayout({
@@ -22,69 +24,52 @@ export default function AdminLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { data: session, isPending } = authClient.useSession();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [adminName, setAdminName] = useState("");
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
-    checkAuth();
-  }, []);
+    if (!isPending) {
+      checkAuth();
+    }
+  }, [session, isPending]);
 
   const checkAuth = () => {
-    const session = sessionStorage.getItem("userSession");
-
+    // Check if user is logged in
     if (!session) {
+      console.log("No session, redirecting to sign in");
       router.push("/auth/sign-in");
-      setIsLoading(false);
       return;
     }
 
-    try {
-      const userSession = JSON.parse(session);
-
-      // Check if user is admin
-      if (userSession.role !== "admin") {
-        router.push("/");
-        setIsLoading(false);
-        return;
-      }
-
-      // Check if session is expired
-      if (userSession.expiresAt < Date.now()) {
-        sessionStorage.removeItem("userSession");
-        router.push("/auth/sign-in");
-        setIsLoading(false);
-        return;
-      }
-
-      setIsAuthenticated(true);
-      setAdminName(userSession.name || "Admin");
-    } catch (error) {
-      sessionStorage.removeItem("userSession");
-      router.push("/auth/sign-in");
+    // Check if user is admin
+    if (session.user?.role !== "admin") {
+      console.log("User is not admin, role:", session.user?.role);
+      router.push("/");
+      return;
     }
 
-    setIsLoading(false);
+    console.log("Admin authorized:", session.user?.email);
+    setIsAuthorized(true);
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem("userSession");
-    router.push("/auth/sign-in");
+  const handleLogout = async () => {
+    await authClient.signOut();
+    router.push("/");
   };
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3A7717] border-t-transparent mx-auto mb-4"></div>
+          <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
           <p className="text-[#01312D]">Verifying access...</p>
         </div>
       </div>
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthorized) {
     return null;
   }
 
@@ -198,12 +183,12 @@ export default function AdminLayout({
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-[#eafde7] rounded-full flex items-center justify-center">
                   <span className="text-[#01312D] font-bold">
-                    {adminName.charAt(0)}
+                    {session?.user?.name?.charAt(0) || "A"}
                   </span>
                 </div>
                 <div className="hidden sm:block">
                   <p className="text-sm font-semibold text-[#01312D]">
-                    {adminName}
+                    {session?.user?.name || "Admin"}
                   </p>
                   <p className="text-xs text-gray-500">Administrator</p>
                 </div>

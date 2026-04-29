@@ -450,7 +450,7 @@ export default function AdminSettingsPage() {
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                  Minimum Loan Amount (₹)
+                  Minimum Loan Amount (R)
                 </label>
                 <input
                   type="number"
@@ -466,7 +466,7 @@ export default function AdminSettingsPage() {
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                  Maximum Loan Amount (₹)
+                  Maximum Loan Amount (R)
                 </label>
                 <input
                   type="number"

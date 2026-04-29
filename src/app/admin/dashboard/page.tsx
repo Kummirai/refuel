@@ -1,4 +1,4 @@
-// src/app/admin/dashboard/page.tsx - Update the data fetching
+// src/app/admin/dashboard/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -321,7 +321,7 @@ export default function AdminDashboard() {
             />
             <StatCard
               title="Total Revenue"
-              value={`₹${stats.totalRevenue.toLocaleString()}`}
+              value={`R${stats.totalRevenue.toLocaleString()}`}
               icon={DollarSign}
               color="bg-[#3A7717]"
             />
@@ -428,7 +428,7 @@ export default function AdminDashboard() {
                             {item.type}
                           </p>
                           <span className="text-xs text-[#3A7717] font-semibold">
-                            ₹{item.amount}
+                            R{item.amount}
                           </span>
                         </div>
                         <p className="text-xs text-gray-500">{item.driver}</p>
@@ -556,7 +556,7 @@ export default function AdminDashboard() {
                       </td>
                       <td className="p-4">
                         <span className="font-semibold text-[#3A7717]">
-                          ₹{driver.totalSpent.toLocaleString()}
+                          R{driver.totalSpent.toLocaleString()}
                         </span>
                       </td>
                       <td className="p-4">

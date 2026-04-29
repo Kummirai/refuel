@@ -142,7 +142,7 @@ export default function DesktopHomePage() {
                   </p>
                   <div className="flex justify-between items-center">
                     <span className="text-2xl font-bold text-secondary">
-                      ₹74,00,000
+                      R74,00,000
                     </span>
                     <button className="bg-primary text-white px-4 py-2 rounded-lg">
                       View Details
