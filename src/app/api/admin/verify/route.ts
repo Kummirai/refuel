@@ -5,8 +5,7 @@ import { connectToDatabase } from "@/lib/db";
 export async function POST(request: Request) {
   try {
     const { verificationId, action, reason } = await request.json();
-
-    console.log(verificationId);
+    console.log(request.body);
 
     if (!verificationId || !action) {
       return NextResponse.json(

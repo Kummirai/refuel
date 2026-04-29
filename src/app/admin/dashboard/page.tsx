@@ -110,12 +110,14 @@ export default function AdminDashboard() {
   };
 
   const handleApproveVerification = async (verification: any) => {
+    console.log(verification);
+
     try {
       const response = await fetch("/api/admin/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          verificationId: verification.id,
+          verification: verification,
           action: "approve",
         }),
       });
