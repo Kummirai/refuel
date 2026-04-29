@@ -29,8 +29,8 @@ import {
   Loader2,
   RefreshCw,
   X,
+  AlertCircle,
 } from "lucide-react";
-import { log } from "console";
 
 type RequestType = "fuel" | "airtime" | "cash" | "carwash";
 type RequestStatus = "pending" | "approved" | "completed" | "rejected";
@@ -66,6 +66,11 @@ export default function AdminServiceRequestsPage() {
     null,
   );
   const [showModal, setShowModal] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [approvingRequest, setApprovingRequest] =
+    useState<ServiceRequest | null>(null);
+  const [generatedOtp, setGeneratedOtp] = useState("");
+  const [approvalLoading, setApprovalLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState<RequestType | "all">("all");
   const [copiedOtp, setCopiedOtp] = useState<string | null>(null);
@@ -99,9 +104,6 @@ export default function AdminServiceRequestsPage() {
           rejected: data.rejected || 0,
           totalAmount: data.totalRevenue || 0,
         });
-
-        console.log(data);
-        
       }
     } catch (error) {
       console.error("Error fetching requests:", error);
@@ -116,24 +118,31 @@ export default function AdminServiceRequestsPage() {
     await fetchRequests();
   };
 
-  const handleApprove = async (request: ServiceRequest) => {
-    console.log("Request object:", request);
-    console.log("Request ID being sent:", request.id);
-    console.log("ID type:", typeof request.id);
-    console.log("ID length:", request.id?.length);
+  const openApproveModal = (request: ServiceRequest) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    setGeneratedOtp(otp);
+    setApprovingRequest(request);
+    setShowApproveModal(true);
+  };
+
+  const handleConfirmApprove = async () => {
+    if (!approvingRequest) return;
+
+    setApprovalLoading(true);
     try {
       const response = await fetch("/api/admin/requests/approve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          requestId: request.id,
-          otp,
+          requestId: approvingRequest.id,
+          otp: generatedOtp,
         }),
       });
+
       if (response.ok) {
-        alert(`✅ Approved ${request.id} with OTP: ${otp}`);
-        fetchRequests();
+        await fetchRequests();
+        setShowApproveModal(false);
+        setApprovingRequest(null);
         setShowModal(false);
       } else {
         const error = await response.json();
@@ -142,7 +151,51 @@ export default function AdminServiceRequestsPage() {
     } catch (error) {
       console.error("Error approving request:", error);
       alert("Failed to approve request");
+    } finally {
+      setApprovalLoading(false);
     }
+  };
+
+  const handleSendWhatsApp = (request: ServiceRequest, otp?: string) => {
+    const finalOtp = otp || request.otp || "N/A";
+    const message = `*DriveHub - Service Request Approved* 🎉\n\nHello ${request.driverName},\n\nYour service request has been *APPROVED*! ✅\n\n📋 *Request Details:*
+━━━━━━━━━━━━━━━━━━━
+🆔 *Request ID:* ${request.id}
+🚗 *Vehicle:* ${request.carRegistration}
+📱 *Service:* ${getTypeLabel(request.type)}
+💰 *Amount:* ₹${request.amount?.toLocaleString()}
+🔐 *OTP:* ${finalOtp}
+━━━━━━━━━━━━━━━━━━━
+
+${
+  request.type === "cash"
+    ? `📊 *Repayment Details:*
+• Interest Rate: ${request.interestRate || 13}%
+• Interest Amount: ₹${request.interest?.toLocaleString() || 0}
+• Total Repayable: ₹${request.totalRepayable?.toLocaleString() || 0}
+• Period: ${request.repaymentDays || 7} days
+• Daily Payment: ₹${Math.ceil((request.totalRepayable || request.amount) / (request.repaymentDays || 7)).toLocaleString()}
+
+`
+    : ""
+}
+📍 *Instructions:*
+1. Show this OTP to the cashier/attendant
+2. The amount will be processed within 30 minutes
+3. Keep this message for reference
+
+Need help? Contact support.
+
+Thank you for choosing DriveHub! 🚀`;
+
+    const whatsappUrl = `https://wa.me/${request.driverPhone?.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, "_blank");
+  };
+
+  const handleCopyOtp = (otp: string) => {
+    navigator.clipboard.writeText(otp);
+    setCopiedOtp(otp);
+    setTimeout(() => setCopiedOtp(null), 2000);
   };
 
   const handleReject = async (request: ServiceRequest) => {
@@ -193,18 +246,6 @@ export default function AdminServiceRequestsPage() {
       console.error("Error completing request:", error);
       alert("Failed to complete request");
     }
-  };
-
-  const handleSendWhatsApp = (request: ServiceRequest) => {
-    const message = `DriveHub Service Request Confirmation\n\nRequest ID: ${request.id}\nDriver: ${request.driverName}\nCar: ${request.carRegistration}\nService: ${getTypeLabel(request.type)}\nAmount: ₹${request.amount}\nOTP: ${request.otp || "N/A"}\n\nPlease show this OTP to the cashier/attendant.`;
-    const whatsappUrl = `https://wa.me/${request.driverPhone?.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, "_blank");
-  };
-
-  const handleCopyOtp = (otp: string) => {
-    navigator.clipboard.writeText(otp);
-    setCopiedOtp(otp);
-    setTimeout(() => setCopiedOtp(null), 2000);
   };
 
   const getStatusBadge = (status: RequestStatus) => {
@@ -289,6 +330,202 @@ export default function AdminServiceRequestsPage() {
         r.carRegistration?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.id?.toLowerCase().includes(searchTerm.toLowerCase()),
     );
+
+  // Approval Modal Component
+  const ApprovalModal = () => {
+    if (!approvingRequest) return null;
+
+    const TypeIcon = getTypeIcon(approvingRequest.type);
+    const whatsappNumber = approvingRequest.driverPhone?.replace(/[^0-9]/g, "");
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => !approvalLoading && setShowApproveModal(false)}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-gradient-to-r from-[#3A7717] to-[#72bf00] rounded-t-2xl p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">
+                    Approve Request
+                  </h2>
+                  <p className="text-white/80 text-sm">
+                    Review and confirm approval
+                  </p>
+                </div>
+              </div>
+              {!approvalLoading && (
+                <button
+                  onClick={() => setShowApproveModal(false)}
+                  className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
+            {/* Request Summary */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <TypeIcon className="w-4 h-4 text-[#3A7717]" />
+                <h3 className="font-semibold text-[#01312D]">
+                  Request Summary
+                </h3>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Driver:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {approvingRequest.driverName}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Vehicle:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {approvingRequest.carRegistration}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Service:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {getTypeLabel(approvingRequest.type)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Amount:</span>
+                  <span className="font-bold text-[#3A7717] text-lg">
+                    ₹{approvingRequest.amount?.toLocaleString()}
+                  </span>
+                </div>
+                {approvingRequest.type === "cash" && (
+                  <>
+                    <div className="flex justify-between pt-2 border-t border-[#bff202]/20">
+                      <span className="text-gray-600">Interest Rate:</span>
+                      <span className="font-semibold text-[#01312D]">
+                        {approvingRequest.interestRate || 13}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Interest Amount:</span>
+                      <span className="font-semibold text-[#01312D]">
+                        ₹{approvingRequest.interest?.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Total Repayable:</span>
+                      <span className="font-bold text-[#01312D]">
+                        ₹{approvingRequest.totalRepayable?.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Repayment Period:</span>
+                      <span className="font-semibold text-[#01312D]">
+                        {approvingRequest.repaymentDays} days
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* OTP Section */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+              <label className="block text-yellow-800 font-semibold mb-2 text-sm">
+                🔐 One-Time Password (OTP)
+              </label>
+              <div className="flex items-center gap-3">
+                <code className="flex-1 bg-white px-4 py-3 rounded-xl font-mono text-2xl font-bold text-center tracking-wider text-[#01312D] border border-yellow-300">
+                  {generatedOtp}
+                </code>
+                <button
+                  onClick={() => handleCopyOtp(generatedOtp)}
+                  className="p-3 bg-white rounded-xl border border-yellow-300 hover:bg-yellow-100 transition-colors"
+                  title="Copy OTP"
+                >
+                  {copiedOtp === generatedOtp ? (
+                    <Check className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <Copy className="w-5 h-5 text-yellow-700" />
+                  )}
+                </button>
+              </div>
+              <p className="text-xs text-yellow-700 mt-2">
+                This OTP will be sent to the driver and required for service
+                fulfillment
+              </p>
+            </div>
+
+            {/* Driver Contact Info */}
+            <div className="bg-gray-50 rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-2 text-sm flex items-center gap-2">
+                <Phone className="w-4 h-4" />
+                Driver Contact
+              </h3>
+              <p className="text-sm text-gray-600">
+                {approvingRequest.driverPhone}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {approvingRequest.driverEmail}
+              </p>
+            </div>
+
+            {/* Confirmation Note */}
+            <div className="bg-blue-50 rounded-xl p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5" />
+                <div>
+                  <p className="text-xs text-blue-800">
+                    Approving this request will:
+                  </p>
+                  <ul className="text-xs text-blue-700 mt-1 space-y-0.5 list-disc list-inside">
+                    <li>Generate the OTP shown above</li>
+                    <li>Mark the request as "Approved"</li>
+                    <li>Allow driver to use the OTP for service</li>
+                    <li>You can send the OTP via WhatsApp after approval</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-[#bff202]/20 p-5 flex gap-3">
+            <button
+              onClick={() => setShowApproveModal(false)}
+              disabled={approvalLoading}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmApprove}
+              disabled={approvalLoading}
+              className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72bf00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+            >
+              {approvalLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Approving...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  Confirm Approval
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const ViewDetailsModal = ({
     request,
@@ -446,7 +683,7 @@ export default function AdminServiceRequestsPage() {
             {request.status === "pending" && (
               <>
                 <button
-                  onClick={() => handleApprove(request)}
+                  onClick={() => openApproveModal(request)}
                   className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
                 >
                   <CheckCircle className="w-4 h-4" />
@@ -464,7 +701,7 @@ export default function AdminServiceRequestsPage() {
             {request.status === "approved" && (
               <>
                 <button
-                  onClick={() => handleSendWhatsApp(request)}
+                  onClick={() => handleSendWhatsApp(request, request.otp)}
                   className="flex-1 bg-[#25D366] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
                 >
                   <Send className="w-4 h-4" />
@@ -670,7 +907,7 @@ export default function AdminServiceRequestsPage() {
                   {request.status === "pending" && (
                     <>
                       <button
-                        onClick={() => handleApprove(request)}
+                        onClick={() => openApproveModal(request)}
                         className="flex-1 py-2 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2"
                       >
                         <CheckCircle className="w-4 h-4" />
@@ -688,7 +925,7 @@ export default function AdminServiceRequestsPage() {
                   {request.status === "approved" && (
                     <>
                       <button
-                        onClick={() => handleSendWhatsApp(request)}
+                        onClick={() => handleSendWhatsApp(request, request.otp)}
                         className="flex-1 py-2 bg-[#25D366] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2"
                       >
                         <Send className="w-4 h-4" />
@@ -710,13 +947,14 @@ export default function AdminServiceRequestsPage() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modals */}
       {showModal && selectedRequest && (
         <ViewDetailsModal
           request={selectedRequest}
           onClose={() => setShowModal(false)}
         />
       )}
+      {showApproveModal && <ApprovalModal />}
     </div>
   );
 }

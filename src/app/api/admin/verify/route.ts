@@ -6,6 +6,8 @@ export async function POST(request: Request) {
   try {
     const { verificationId, action, reason } = await request.json();
 
+    console.log(verificationId);
+
     if (!verificationId || !action) {
       return NextResponse.json(
         { error: "Missing required fields" },
@@ -19,7 +21,7 @@ export async function POST(request: Request) {
 
     // Get the verification document
     const verification = await driverProfilesCollection.findOne({
-      _id: verificationId,
+      userId: verificationId,
     });
 
     if (!verification) {
@@ -33,7 +35,7 @@ export async function POST(request: Request) {
 
     // Update driver profile verification status
     await driverProfilesCollection.updateOne(
-      { _id: verificationId },
+      { userId: verificationId },
       {
         $set: {
           verificationStatus: newStatus,
@@ -46,7 +48,7 @@ export async function POST(request: Request) {
 
     // Update user's isVerified status
     await usersCollection.updateOne(
-      { _id: verification.userId },
+      { _id: verification },
       {
         $set: {
           isVerified: action === "approve",
