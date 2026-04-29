@@ -11,20 +11,75 @@ import {
   Car,
   ArrowLeft,
   Send,
-  ChevronRight,
   CheckCircle,
   AlertCircle,
-  CreditCard,
   Phone,
-  MapPin,
-  Gauge,
   CircleDollarSign,
   Loader2,
   Shield,
   User,
+  Home,
+  ClipboardList,
+  History,
+  UserCircle,
+  Clock,
+  XCircle,
+  TrendingUp,
+  Calendar,
 } from "lucide-react";
 
 type ServiceType = "fuel" | "airtime" | "cash" | "carwash";
+
+// Service-specific configuration
+const SERVICE_CONFIG: Record<
+  ServiceType,
+  {
+    name: string;
+    interestRate: number;
+    defaultRepaymentDays: number;
+    repaymentOptions: number[];
+    icon: any;
+    color: string;
+    textColor: string;
+  }
+> = {
+  fuel: {
+    name: "Fuel",
+    interestRate: 13, // 13% interest
+    defaultRepaymentDays: 7,
+    repaymentOptions: [3, 5, 7],
+    icon: Fuel,
+    color: "from-[#3A7717] to-[#72bf00]",
+    textColor: "text-[#3A7717]",
+  },
+  airtime: {
+    name: "Airtime",
+    interestRate: 13, // 13% interest
+    defaultRepaymentDays: 7,
+    repaymentOptions: [7, 14, 21, 30],
+    icon: Smartphone,
+    color: "from-[#01312D] to-[#3A7717]",
+    textColor: "text-[#01312D]",
+  },
+  cash: {
+    name: "Cash Loan",
+    interestRate: 13, // 13% interest
+    defaultRepaymentDays: 7,
+    repaymentOptions: [7, 14, 21, 30],
+    icon: DollarSign,
+    color: "from-[#72bf00] to-[#bff202]",
+    textColor: "text-[#72bf00]",
+  },
+  carwash: {
+    name: "Car Wash",
+    interestRate: 13, // 13% interest
+    defaultRepaymentDays: 7,
+    repaymentOptions: [7, 14, 21, 30],
+    icon: Car,
+    color: "from-[#01312D] to-[#3A7717]",
+    textColor: "text-[#01312D]",
+  },
+};
 
 export default function RequestsPage() {
   const router = useRouter();
@@ -37,11 +92,14 @@ export default function RequestsPage() {
   const [amount, setAmount] = useState<string>("");
   const [fuelType, setFuelType] = useState<"petrol" | "diesel">("petrol");
   const [phoneNumber, setPhoneNumber] = useState<string>("");
-  const [location, setLocation] = useState<string>("");
   const [showSuccess, setShowSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [requestId, setRequestId] = useState("");
+  const [selectedRepaymentDays, setSelectedRepaymentDays] = useState<number>(7);
+
+  // Get current service config
+  const currentConfig = SERVICE_CONFIG[selectedService];
 
   // Driver details from database
   const [driverDetails, setDriverDetails] = useState({
@@ -74,16 +132,6 @@ export default function RequestsPage() {
       if (response.ok) {
         const data = await response.json();
 
-        // Check if user is verified
-        if (!data.isVerified || data.verificationStatus !== "approved") {
-          setError(
-            "You need to be verified to make requests. Please complete verification first.",
-          );
-          setTimeout(() => {
-            router.push("/verify");
-          }, 2000);
-        }
-
         setDriverDetails({
           fullName: data.fullName || session?.user?.name || "",
           carRegistrationNumber: data.carRegistrationNumber || "",
@@ -101,53 +149,189 @@ export default function RequestsPage() {
     }
   };
 
-  // Calculate interest for cash loans
-  const calculateInterest = (amountNum: number) => {
-    const interestRate = 0.13; // 13%
+  // Calculate interest and repayment details for any service
+  const calculateServiceDetails = (amountNum: number) => {
+    const interestRate = currentConfig.interestRate / 100;
     const interest = amountNum * interestRate;
     const totalRepayable = amountNum + interest;
-    return { interest, totalRepayable };
+    const dailyPayment = totalRepayable / selectedRepaymentDays;
+    return {
+      interest,
+      totalRepayable,
+      dailyPayment,
+      interestRate: currentConfig.interestRate,
+    };
   };
 
-  const services = [
-    {
-      id: "fuel" as const,
-      name: "Fuel",
-      icon: Fuel,
-      color: "from-[#3A7717] to-[#72bf00]",
-      bg: "bg-[#eafde7]",
-      textColor: "text-[#3A7717]",
-    },
-    {
-      id: "airtime" as const,
-      name: "Airtime",
-      icon: Smartphone,
-      color: "from-[#01312D] to-[#3A7717]",
-      bg: "bg-[#eafde7]",
-      textColor: "text-[#01312D]",
-    },
-    {
-      id: "cash" as const,
-      name: "Cash Loan",
-      icon: DollarSign,
-      color: "from-[#72bf00] to-[#bff202]",
-      bg: "bg-[#eafde7]",
-      textColor: "text-[#72bf00]",
-    },
-    {
-      id: "carwash" as const,
-      name: "Car Wash",
-      icon: Car,
-      color: "from-[#01312D] to-[#3A7717]",
-      bg: "bg-[#eafde7]",
-      textColor: "text-[#01312D]",
-    },
-  ];
+  // Get service-specific summary (unified format for all services)
+  const getServiceSummary = () => {
+    const amountNum = parseFloat(amount);
+    if (isNaN(amountNum) || amountNum <= 0) return null;
+
+    const { interest, totalRepayable, dailyPayment, interestRate } =
+      calculateServiceDetails(amountNum);
+    const Icon = currentConfig.icon;
+
+    // Service-specific additional info
+    let additionalInfo = null;
+    if (selectedService === "fuel") {
+      additionalInfo = (
+        <div className="flex justify-between">
+          <span className="text-white/80">Fuel Type:</span>
+          <span className="font-semibold text-white capitalize">
+            {fuelType}
+          </span>
+        </div>
+      );
+    } else if (selectedService === "airtime") {
+      additionalInfo = (
+        <div className="flex justify-between">
+          <span className="text-white/80">Mobile Number:</span>
+          <span className="font-semibold text-white">
+            {phoneNumber || "Not entered"}
+          </span>
+        </div>
+      );
+    } else if (selectedService === "carwash") {
+      const selectedPackage = carWashPackages.find(
+        (p) => p.price === amountNum,
+      );
+      additionalInfo = (
+        <>
+          <div className="flex justify-between">
+            <span className="text-white/80">Package:</span>
+            <span className="font-semibold text-white">
+              {selectedPackage?.name || "Custom"}
+            </span>
+          </div>
+          {selectedPackage?.description && (
+            <div className="flex justify-between">
+              <span className="text-white/80">Includes:</span>
+              <span className="font-semibold text-white text-right text-xs">
+                {selectedPackage.description}
+              </span>
+            </div>
+          )}
+        </>
+      );
+    }
+
+    return (
+      <div className="bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-xl p-4 mt-3">
+        <div className="flex items-center gap-2 mb-3">
+          <Icon className="w-4 h-4 text-[#01312D]" />
+          <p className="text-sm font-semibold text-[#01312D]">
+            {currentConfig.name} - Repayment Summary
+          </p>
+        </div>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-[#01312D]">Amount:</span>
+            <span className="font-semibold text-[#01312D]">
+              ₹{amountNum.toLocaleString()}
+            </span>
+          </div>
+          {additionalInfo}
+          <div className="flex justify-between">
+            <span className="text-[#01312D]">Interest Rate:</span>
+            <span className="font-semibold text-[#01312D]">
+              {interestRate}%
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-[#01312D]">Interest Amount:</span>
+            <span className="font-semibold text-[#01312D]">
+              + ₹{interest.toLocaleString()}
+            </span>
+          </div>
+          <div className="flex justify-between pt-2 border-t border-[#01312D]/20">
+            <span className="font-semibold text-[#01312D]">
+              Total Repayable:
+            </span>
+            <span className="font-bold text-[#01312D]">
+              ₹{totalRepayable.toLocaleString()}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-[#01312D]">Repayment Period:</span>
+            <span className="font-semibold text-[#01312D]">
+              {selectedRepaymentDays} days
+            </span>
+          </div>
+          <div className="flex justify-between bg-[#01312D]/10 rounded-lg p-2 -mx-1">
+            <span className="font-semibold text-[#01312D]">Daily Payment:</span>
+            <span className="font-bold text-[#01312D]">
+              ₹{Math.ceil(dailyPayment).toLocaleString()}/day
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Get repayment period selector for all services (since all have interest now)
+  const getRepaymentPeriodSelector = () => {
+    const amountNum = parseFloat(amount);
+    if (isNaN(amountNum) || amountNum <= 0) return null;
+
+    return (
+      <div>
+        <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+          Select Repayment Period
+        </label>
+        <div className="flex gap-2">
+          {currentConfig.repaymentOptions.map((days) => (
+            <button
+              key={days}
+              type="button"
+              onClick={() => setSelectedRepaymentDays(days)}
+              className={`flex-1 py-2 rounded-xl font-semibold transition-all ${
+                selectedRepaymentDays === days
+                  ? "bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white shadow-md"
+                  : "bg-white border border-[#bff202]/20 text-[#01312D]"
+              }`}
+            >
+              {days} days
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+          <Calendar className="w-3 h-3" />
+          Choose how long you need to repay
+        </p>
+      </div>
+    );
+  };
+
+  const services = Object.entries(SERVICE_CONFIG).map(([id, config]) => ({
+    id: id as ServiceType,
+    name: config.name,
+    icon: config.icon,
+    color: config.color,
+    bg: "bg-[#eafde7]",
+    textColor: config.textColor,
+    interestRate: config.interestRate,
+  }));
 
   const carWashPackages = [
-    { id: "basic", name: "Basic Wash", price: 499 },
-    { id: "premium", name: "Premium Wash", price: 999 },
-    { id: "deluxe", name: "Deluxe Wash", price: 1499 },
+    {
+      id: "basic",
+      name: "Basic Wash",
+      price: 499,
+      description: "Exterior wash & drying",
+    },
+    {
+      id: "premium",
+      name: "Premium Wash",
+      price: 999,
+      description: "Exterior + Interior cleaning",
+    },
+    {
+      id: "deluxe",
+      name: "Deluxe Wash",
+      price: 1499,
+      description: "Complete detailing + wax",
+    },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -155,8 +339,8 @@ export default function RequestsPage() {
     setLoading(true);
     setError("");
 
-    // Check if user is verified
-    if (!driverDetails.isVerified) {
+    // Check if user is verified (approved)
+    if (driverDetails.verificationStatus !== "approved") {
       setError(
         "You need to be verified to make requests. Please complete verification first.",
       );
@@ -188,13 +372,10 @@ export default function RequestsPage() {
       return;
     }
 
-    if (!location) {
-      setError("Please enter your current location");
-      setLoading(false);
-      return;
-    }
-
     try {
+      const { interest, totalRepayable, dailyPayment, interestRate } =
+        calculateServiceDetails(amountNum);
+
       const requestData: any = {
         userId: session?.user?.id,
         type: selectedService,
@@ -204,7 +385,11 @@ export default function RequestsPage() {
         carModel: driverDetails.carModel,
         driverPhone: driverDetails.phone,
         driverEmail: driverDetails.email,
-        location: location,
+        interest: interest,
+        totalRepayable: totalRepayable,
+        interestRate: interestRate,
+        repaymentDays: selectedRepaymentDays,
+        dailyPayment: Math.ceil(dailyPayment),
       };
 
       // Add service-specific fields
@@ -214,18 +399,12 @@ export default function RequestsPage() {
       if (selectedService === "airtime") {
         requestData.phoneNumber = phoneNumber;
       }
-      if (selectedService === "cash") {
-        const { interest, totalRepayable } = calculateInterest(amountNum);
-        requestData.interest = interest;
-        requestData.totalRepayable = totalRepayable;
-        requestData.interestRate = 13;
-        requestData.repaymentDays = 14; // Default 14 days
-      }
       if (selectedService === "carwash") {
         const selectedPackage = carWashPackages.find(
           (p) => p.price === amountNum,
         );
         requestData.package = selectedPackage?.name || "Custom";
+        requestData.packageDescription = selectedPackage?.description || "";
       }
 
       const response = await fetch("/api/driver/requests", {
@@ -243,7 +422,6 @@ export default function RequestsPage() {
       setRequestId(data.requestId);
       setShowSuccess(true);
 
-      // Reset form after 3 seconds and redirect
       setTimeout(() => {
         setShowSuccess(false);
         router.push("/requests/history");
@@ -257,16 +435,7 @@ export default function RequestsPage() {
   };
 
   const getTitle = () => {
-    switch (selectedService) {
-      case "fuel":
-        return "Request Fuel";
-      case "airtime":
-        return "Request Airtime";
-      case "cash":
-        return "Request Cash Loan";
-      case "carwash":
-        return "Book Car Wash";
-    }
+    return currentConfig.name;
   };
 
   const getPlaceholder = () => {
@@ -279,6 +448,40 @@ export default function RequestsPage() {
         return "Enter loan amount in ₹ (e.g., 5000)";
       case "carwash":
         return "Select package";
+    }
+  };
+
+  // Helper function to get status display
+  const getVerificationStatusDisplay = () => {
+    switch (driverDetails.verificationStatus) {
+      case "approved":
+        return {
+          text: "Verified",
+          color: "text-green-600",
+          bgColor: "bg-green-50",
+          icon: CheckCircle,
+        };
+      case "pending":
+        return {
+          text: "Pending Review",
+          color: "text-yellow-600",
+          bgColor: "bg-yellow-50",
+          icon: Clock,
+        };
+      case "rejected":
+        return {
+          text: "Verification Failed",
+          color: "text-red-600",
+          bgColor: "bg-red-50",
+          icon: XCircle,
+        };
+      default:
+        return {
+          text: "Not Started",
+          color: "text-gray-600",
+          bgColor: "bg-gray-50",
+          icon: AlertCircle,
+        };
     }
   };
 
@@ -297,41 +500,73 @@ export default function RequestsPage() {
     return null;
   }
 
-  // Show verification required message
-  if (!driverDetails.isVerified) {
+  const statusDisplay = getVerificationStatusDisplay();
+
+  // Show different messages based on verification status
+  if (driverDetails.verificationStatus !== "approved") {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center px-5">
         <div className="text-center max-w-md">
-          <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Shield className="w-10 h-10 text-yellow-600" />
+          <div
+            className={`w-20 h-20 ${statusDisplay.bgColor} rounded-full flex items-center justify-center mx-auto mb-4`}
+          >
+            <statusDisplay.icon
+              className={`w-10 h-10 ${statusDisplay.color}`}
+            />
           </div>
           <h2 className="text-2xl font-bold text-[#01312D] mb-2">
-            Verification Required
+            Verification {statusDisplay.text}
           </h2>
           <p className="text-gray-600 mb-6">
-            You need to complete driver verification before you can request
-            services. This helps us ensure the safety and security of all
-            drivers.
+            {driverDetails.verificationStatus === "pending" &&
+              "Your documents are being reviewed by our admin. This usually takes 24-48 hours. You'll be able to request services once verified."}
+            {driverDetails.verificationStatus === "rejected" &&
+              "Your verification was not approved. Please re-submit your documents with correct information."}
+            {driverDetails.verificationStatus === "not_submitted" &&
+              "You need to complete driver verification before you can request services. This helps us ensure the safety and security of all drivers."}
           </p>
           <div className="bg-white rounded-2xl p-4 mb-6 text-left">
             <p className="text-sm text-[#01312D] font-semibold mb-2">
               Verification Status:
             </p>
-            <p className="text-sm text-yellow-600 capitalize mb-2">
-              {driverDetails.verificationStatus}
-            </p>
-            <button
-              onClick={() => router.push("/verify")}
-              className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold"
+            <p
+              className={`text-sm ${statusDisplay.color} capitalize mb-2 flex items-center gap-2`}
             >
-              Complete Verification →
-            </button>
+              <statusDisplay.icon className="w-4 h-4" />
+              {statusDisplay.text}
+            </p>
+            {driverDetails.verificationStatus === "pending" && (
+              <button
+                onClick={() => router.push("/verify/status")}
+                className="w-full bg-yellow-600 text-white py-3 rounded-xl font-semibold mt-2"
+              >
+                Check Status →
+              </button>
+            )}
+            {(driverDetails.verificationStatus === "rejected" ||
+              driverDetails.verificationStatus === "not_submitted") && (
+              <button
+                onClick={() => router.push("/verify")}
+                className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold mt-2"
+              >
+                {driverDetails.verificationStatus === "rejected"
+                  ? "Re-submit Documents →"
+                  : "Complete Verification →"}
+              </button>
+            )}
           </div>
+          <button
+            onClick={() => router.push("/")}
+            className="text-[#72bf00] font-semibold"
+          >
+            ← Go Back Home
+          </button>
         </div>
       </div>
     );
   }
 
+  // Only show the request form if verified (approved)
   return (
     <div className="min-h-screen bg-[#eafde7] relative overflow-hidden">
       {/* Background Decorative Elements */}
@@ -387,7 +622,7 @@ export default function RequestsPage() {
         </div>
 
         <div className="px-5 pt-6">
-          {/* Driver Info Card - Pre-filled from database */}
+          {/* Driver Info Card */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 mb-6">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center">
@@ -428,7 +663,7 @@ export default function RequestsPage() {
             </div>
           </div>
 
-          {/* Service Selection Tabs */}
+          {/* Service Selection Tabs with Interest Display */}
           <div className="mb-8">
             <div className="grid grid-cols-4 gap-2">
               {services.map((service) => {
@@ -441,8 +676,12 @@ export default function RequestsPage() {
                       setSelectedService(service.id);
                       setAmount("");
                       setError("");
+                      setPhoneNumber("");
+                      setSelectedRepaymentDays(
+                        SERVICE_CONFIG[service.id].defaultRepaymentDays,
+                      );
                     }}
-                    className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 ${
+                    className={`flex flex-col items-center gap-1 p-3 rounded-2xl transition-all duration-300 ${
                       isActive
                         ? `bg-gradient-to-r ${service.color} text-white shadow-lg scale-105`
                         : "bg-white text-[#01312D] border border-[#bff202]/20"
@@ -455,6 +694,11 @@ export default function RequestsPage() {
                       className={`text-xs font-semibold ${isActive ? "text-white" : "text-[#01312D]"}`}
                     >
                       {service.name}
+                    </span>
+                    <span
+                      className={`text-[10px] ${isActive ? "text-white/80" : "text-[#72bf00]"}`}
+                    >
+                      {service.interestRate}% interest
                     </span>
                   </button>
                 );
@@ -497,7 +741,7 @@ export default function RequestsPage() {
                           <p
                             className={`text-xs mt-1 ${amount === pkg.price.toString() ? "text-white/80" : "text-gray-500"}`}
                           >
-                            Premium cleaning service
+                            {pkg.description}
                           </p>
                         </div>
                         <p className="text-xl font-bold">₹{pkg.price}</p>
@@ -568,37 +812,6 @@ export default function RequestsPage() {
               )}
             </div>
 
-            {/* Interest Calculation for Cash Loan */}
-            {selectedService === "cash" && amount && parseFloat(amount) > 0 && (
-              <div className="bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-xl p-4">
-                <p className="text-sm font-semibold text-[#01312D] mb-2">
-                  Loan Summary
-                </p>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-[#01312D]">Loan Amount:</span>
-                    <span className="font-semibold text-[#01312D]">
-                      ₹{parseFloat(amount).toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#01312D]">Interest (13%):</span>
-                    <span className="font-semibold text-[#01312D]">
-                      + ₹{(parseFloat(amount) * 0.13).toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t border-[#01312D]/20">
-                    <span className="font-semibold text-[#01312D]">
-                      Total Repayable:
-                    </span>
-                    <span className="font-bold text-[#01312D]">
-                      ₹{(parseFloat(amount) * 1.13).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Fuel Type (Only for fuel) */}
             {selectedService === "fuel" && (
               <div>
@@ -609,22 +822,14 @@ export default function RequestsPage() {
                   <button
                     type="button"
                     onClick={() => setFuelType("petrol")}
-                    className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
-                      fuelType === "petrol"
-                        ? "bg-gradient-to-r from-[#3A7717] to-[#72bf00] text-white shadow-md"
-                        : "bg-white border border-[#bff202]/20 text-[#01312D]"
-                    }`}
+                    className={`flex-1 py-3 rounded-xl font-semibold transition-all ${fuelType === "petrol" ? "bg-gradient-to-r from-[#3A7717] to-[#72bf00] text-white shadow-md" : "bg-white border border-[#bff202]/20 text-[#01312D]"}`}
                   >
                     ⛽ Petrol
                   </button>
                   <button
                     type="button"
                     onClick={() => setFuelType("diesel")}
-                    className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
-                      fuelType === "diesel"
-                        ? "bg-gradient-to-r from-[#3A7717] to-[#72bf00] text-white shadow-md"
-                        : "bg-white border border-[#bff202]/20 text-[#01312D]"
-                    }`}
+                    className={`flex-1 py-3 rounded-xl font-semibold transition-all ${fuelType === "diesel" ? "bg-gradient-to-r from-[#3A7717] to-[#72bf00] text-white shadow-md" : "bg-white border border-[#bff202]/20 text-[#01312D]"}`}
                   >
                     🛢️ Diesel
                   </button>
@@ -652,7 +857,13 @@ export default function RequestsPage() {
               </div>
             )}
 
-            {/* Car Registration Number - Pre-filled and disabled */}
+            {/* Repayment Period Selector - For ALL services */}
+            {amount && parseFloat(amount) > 0 && getRepaymentPeriodSelector()}
+
+            {/* Service Summary - For ALL services */}
+            {amount && parseFloat(amount) > 0 && getServiceSummary()}
+
+            {/* Car Registration Number */}
             <div>
               <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                 Car Registration Number
@@ -673,78 +884,23 @@ export default function RequestsPage() {
               </p>
             </div>
 
-            {/* Location */}
-            <div>
-              <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                Current Location
-              </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#72bf00]" />
-                <input
-                  type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="Enter your current location"
-                  className="w-full pl-10 pr-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] focus:ring-2 focus:ring-[#72bf00]/20 text-[#01312D]"
-                  required
-                />
-              </div>
-              <button
-                type="button"
-                className="text-xs text-[#72bf00] mt-1 font-semibold flex items-center gap-1"
-              >
-                <Gauge className="w-3 h-3" />
-                Use current location
-              </button>
-            </div>
-
-            {/* Service Summary Card */}
-            <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] rounded-2xl p-4 text-white">
-              <p className="text-sm opacity-90 mb-2">Request Summary</p>
-              <div className="flex justify-between items-center mb-2">
-                <span className="font-semibold">
-                  {services.find((s) => s.id === selectedService)?.name}
-                </span>
-                <span className="text-xl font-bold">₹{amount || "0"}</span>
-              </div>
-              <p className="text-xs opacity-80">
-                Driver: {driverDetails.fullName}
-              </p>
-              <p className="text-xs opacity-80">
-                Car: {driverDetails.carRegistrationNumber}
-              </p>
-              {selectedService === "fuel" && fuelType && (
-                <p className="text-xs opacity-80">Fuel Type: {fuelType}</p>
-              )}
-              {selectedService === "airtime" && phoneNumber && (
-                <p className="text-xs opacity-80">To: {phoneNumber}</p>
-              )}
-              {selectedService === "cash" &&
-                amount &&
-                parseFloat(amount) > 0 && (
-                  <p className="text-xs opacity-80">
-                    Total Repayable: ₹
-                    {(parseFloat(amount) * 1.13).toLocaleString()}
-                  </p>
-                )}
-              <p className="text-xs opacity-80 mt-2">Service Fee: Free</p>
-            </div>
-
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading || !amount}
+              disabled={
+                loading ||
+                !amount ||
+                (selectedService === "airtime" && !phoneNumber)
+              }
               className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Processing...
+                  <Loader2 className="w-5 h-5 animate-spin" /> Processing...
                 </>
               ) : (
                 <>
-                  <Send className="w-5 h-5" />
-                  Submit Request
+                  <Send className="w-5 h-5" /> Submit Request
                 </>
               )}
             </button>
@@ -753,10 +909,17 @@ export default function RequestsPage() {
             <div className="bg-[#eafde7] rounded-xl p-3 border border-[#bff202]/20">
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-[#72bf00] mt-0.5" />
-                <p className="text-xs text-gray-600">
-                  Your request will be sent to admin for approval. Once
-                  approved, you'll receive an OTP and confirmation details.
-                </p>
+                <div>
+                  <p className="text-xs text-gray-600">
+                    Your request will be sent to admin for approval. Once
+                    approved, you'll receive an OTP and confirmation details.
+                  </p>
+                  <p className="text-xs text-[#3A7717] font-semibold mt-1">
+                    💰 Amount will be processed within 30 minutes after
+                    approval. Repayment of {currentConfig.interestRate}%
+                    interest over {selectedRepaymentDays} days.
+                  </p>
+                </div>
               </div>
             </div>
           </form>
@@ -766,106 +929,53 @@ export default function RequestsPage() {
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 z-50 shadow-lg">
         <div className="flex justify-around items-center">
-          {[
-            { icon: HomeIcon, label: "Home", path: "/" },
-            {
-              icon: ClipboardIcon,
-              label: "Requests",
-              active: true,
-              path: "/requests",
-            },
-            { icon: HistoryIcon, label: "History", path: "/requests/history" },
-            { icon: UserIcon, label: "Profile", path: "/profile" },
-          ].map((item, index) => {
-            const IconComponent = item.icon;
-            return (
-              <button
-                key={index}
-                onClick={() => router.push(item.path)}
-                className="flex flex-col items-center gap-0.5 py-1 group"
-              >
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
-                    item.active
-                      ? "bg-[#bff202] scale-110 shadow-md"
-                      : "bg-[#eafde7] group-hover:bg-[#bff202]/50"
-                  }`}
-                >
-                  <IconComponent
-                    className={`w-5 h-5 ${
-                      item.active
-                        ? "text-[#01312D]"
-                        : "text-[#3A7717] group-hover:text-[#01312D]"
-                    }`}
-                  />
-                </div>
-                <span
-                  className={`text-xs ${
-                    item.active
-                      ? "text-[#01312D] font-bold"
-                      : "text-[#3A7717] group-hover:text-[#01312D]"
-                  }`}
-                >
-                  {item.label}
-                </span>
-              </button>
-            );
-          })}
+          <button
+            onClick={() => router.push("/")}
+            className="flex flex-col items-center gap-0.5 py-1 group"
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
+              <Home className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+            </div>
+            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+              Home
+            </span>
+          </button>
+
+          <button
+            onClick={() => router.push("/requests")}
+            className="flex flex-col items-center gap-0.5 py-1 group"
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#bff202] scale-110 shadow-md">
+              <ClipboardList className="w-5 h-5 text-[#01312D]" />
+            </div>
+            <span className="text-xs text-[#01312D] font-bold">Requests</span>
+          </button>
+
+          <button
+            onClick={() => router.push("/requests/history")}
+            className="flex flex-col items-center gap-0.5 py-1 group"
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
+              <History className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+            </div>
+            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+              History
+            </span>
+          </button>
+
+          <button
+            onClick={() => router.push("/profile")}
+            className="flex flex-col items-center gap-0.5 py-1 group"
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
+              <UserCircle className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+            </div>
+            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+              Profile
+            </span>
+          </button>
         </div>
       </nav>
     </div>
-  );
-}
-
-// Icon Components
-function HomeIcon(props: any) {
-  return (
-    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-      />
-    </svg>
-  );
-}
-
-function ClipboardIcon(props: any) {
-  return (
-    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-      />
-    </svg>
-  );
-}
-
-function HistoryIcon(props: any) {
-  return (
-    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-      />
-    </svg>
-  );
-}
-
-function UserIcon(props: any) {
-  return (
-    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-      />
-    </svg>
   );
 }
