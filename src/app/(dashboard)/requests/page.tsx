@@ -30,8 +30,8 @@ import {
 
 type ServiceType = "fuel" | "airtime" | "cash" | "carwash";
 
-// Service-specific configuration
-const SERVICE_CONFIG: Record<
+// Default config (will be overridden by API)
+const DEFAULT_CONFIG: Record<
   ServiceType,
   {
     name: string;
@@ -45,16 +45,16 @@ const SERVICE_CONFIG: Record<
 > = {
   fuel: {
     name: "Fuel",
-    interestRate: 13, // 13% interest
+    interestRate: 13,
     defaultRepaymentDays: 7,
-    repaymentOptions: [3, 5, 7],
+    repaymentOptions: [7, 14, 21, 30],
     icon: Fuel,
     color: "from-[#3A7717] to-[#72bf00]",
     textColor: "text-[#3A7717]",
   },
   airtime: {
     name: "Airtime",
-    interestRate: 13, // 13% interest
+    interestRate: 13,
     defaultRepaymentDays: 7,
     repaymentOptions: [7, 14, 21, 30],
     icon: Smartphone,
@@ -63,7 +63,7 @@ const SERVICE_CONFIG: Record<
   },
   cash: {
     name: "Cash Loan",
-    interestRate: 13, // 13% interest
+    interestRate: 13,
     defaultRepaymentDays: 7,
     repaymentOptions: [7, 14, 21, 30],
     icon: DollarSign,
@@ -72,7 +72,7 @@ const SERVICE_CONFIG: Record<
   },
   carwash: {
     name: "Car Wash",
-    interestRate: 13, // 13% interest
+    interestRate: 13,
     defaultRepaymentDays: 7,
     repaymentOptions: [7, 14, 21, 30],
     icon: Car,
@@ -97,9 +97,65 @@ export default function RequestsPage() {
   const [error, setError] = useState("");
   const [requestId, setRequestId] = useState("");
   const [selectedRepaymentDays, setSelectedRepaymentDays] = useState<number>(7);
+  const [serviceConfig, setServiceConfig] = useState(DEFAULT_CONFIG);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+
+  // Fetch settings from API
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch("/api/admin/settings");
+      if (response.ok) {
+        const data = await response.json();
+        if (data.services) {
+          setServiceConfig({
+            fuel: {
+              ...DEFAULT_CONFIG.fuel,
+              interestRate: data.services.fuelInterestRate || 13,
+              defaultRepaymentDays: data.services.defaultRepaymentPeriod || 7,
+              repaymentOptions: data.services.repaymentPeriods || [
+                7, 14, 21, 30,
+              ],
+            },
+            airtime: {
+              ...DEFAULT_CONFIG.airtime,
+              interestRate: data.services.airtimeInterestRate || 13,
+              defaultRepaymentDays: data.services.defaultRepaymentPeriod || 7,
+              repaymentOptions: data.services.repaymentPeriods || [
+                7, 14, 21, 30,
+              ],
+            },
+            cash: {
+              ...DEFAULT_CONFIG.cash,
+              interestRate: data.services.cashInterestRate || 13,
+              defaultRepaymentDays: data.services.defaultRepaymentPeriod || 7,
+              repaymentOptions: data.services.repaymentPeriods || [
+                7, 14, 21, 30,
+              ],
+            },
+            carwash: {
+              ...DEFAULT_CONFIG.carwash,
+              interestRate: data.services.carwashInterestRate || 13,
+              defaultRepaymentDays: data.services.defaultRepaymentPeriod || 7,
+              repaymentOptions: data.services.repaymentPeriods || [
+                7, 14, 21, 30,
+              ],
+            },
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
 
   // Get current service config
-  const currentConfig = SERVICE_CONFIG[selectedService];
+  const currentConfig = serviceConfig[selectedService];
 
   // Driver details from database
   const [driverDetails, setDriverDetails] = useState({
@@ -115,14 +171,14 @@ export default function RequestsPage() {
 
   // Check authentication and fetch driver details
   useEffect(() => {
-    if (!isPending) {
+    if (!isPending && !settingsLoading) {
       if (!session) {
         router.push("/auth/sign-in");
       } else {
         fetchDriverDetails();
       }
     }
-  }, [session, isPending, router]);
+  }, [session, isPending, router, settingsLoading]);
 
   const fetchDriverDetails = async () => {
     try {
@@ -163,7 +219,7 @@ export default function RequestsPage() {
     };
   };
 
-  // Get service-specific summary (unified format for all services)
+  // Get service-specific summary
   const getServiceSummary = () => {
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum) || amountNum <= 0) return null;
@@ -172,7 +228,6 @@ export default function RequestsPage() {
       calculateServiceDetails(amountNum);
     const Icon = currentConfig.icon;
 
-    // Service-specific additional info
     let additionalInfo = null;
     if (selectedService === "fuel") {
       additionalInfo = (
@@ -228,7 +283,7 @@ export default function RequestsPage() {
           <div className="flex justify-between">
             <span className="text-[#01312D]">Amount:</span>
             <span className="font-semibold text-[#01312D]">
-              R{amountNum.toLocaleString()}
+              ₹{amountNum.toLocaleString()}
             </span>
           </div>
           {additionalInfo}
@@ -241,7 +296,7 @@ export default function RequestsPage() {
           <div className="flex justify-between">
             <span className="text-[#01312D]">Interest Amount:</span>
             <span className="font-semibold text-[#01312D]">
-              + R{interest.toLocaleString()}
+              + ₹{interest.toLocaleString()}
             </span>
           </div>
           <div className="flex justify-between pt-2 border-t border-[#01312D]/20">
@@ -249,7 +304,7 @@ export default function RequestsPage() {
               Total Repayable:
             </span>
             <span className="font-bold text-[#01312D]">
-              R{totalRepayable.toLocaleString()}
+              ₹{totalRepayable.toLocaleString()}
             </span>
           </div>
           <div className="flex justify-between">
@@ -261,7 +316,7 @@ export default function RequestsPage() {
           <div className="flex justify-between bg-[#01312D]/10 rounded-lg p-2 -mx-1">
             <span className="font-semibold text-[#01312D]">Daily Payment:</span>
             <span className="font-bold text-[#01312D]">
-              R{Math.ceil(dailyPayment).toLocaleString()}/day
+              ₹{Math.ceil(dailyPayment).toLocaleString()}/day
             </span>
           </div>
         </div>
@@ -269,7 +324,7 @@ export default function RequestsPage() {
     );
   };
 
-  // Get repayment period selector for all services (since all have interest now)
+  // Get repayment period selector
   const getRepaymentPeriodSelector = () => {
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum) || amountNum <= 0) return null;
@@ -303,7 +358,7 @@ export default function RequestsPage() {
     );
   };
 
-  const services = Object.entries(SERVICE_CONFIG).map(([id, config]) => ({
+  const services = Object.entries(serviceConfig).map(([id, config]) => ({
     id: id as ServiceType,
     name: config.name,
     icon: config.icon,
@@ -339,7 +394,6 @@ export default function RequestsPage() {
     setLoading(true);
     setError("");
 
-    // Check if user is verified (approved)
     if (driverDetails.verificationStatus !== "approved") {
       setError(
         "You need to be verified to make requests. Please complete verification first.",
@@ -356,7 +410,6 @@ export default function RequestsPage() {
       return;
     }
 
-    // Validate based on service type
     if (
       selectedService === "airtime" &&
       (!phoneNumber || phoneNumber.length < 10)
@@ -392,7 +445,6 @@ export default function RequestsPage() {
         dailyPayment: Math.ceil(dailyPayment),
       };
 
-      // Add service-specific fields
       if (selectedService === "fuel") {
         requestData.fuelType = fuelType;
       }
@@ -434,24 +486,19 @@ export default function RequestsPage() {
     }
   };
 
-  const getTitle = () => {
-    return currentConfig.name;
-  };
-
   const getPlaceholder = () => {
     switch (selectedService) {
       case "fuel":
-        return "Enter amount in R (e.g., 2000)";
+        return "Enter amount in ₹ (e.g., 2000)";
       case "airtime":
-        return "Enter amount in R (e.g., 500)";
+        return "Enter amount in ₹ (e.g., 500)";
       case "cash":
-        return "Enter loan amount in R (e.g., 5000)";
+        return "Enter loan amount in ₹ (e.g., 5000)";
       case "carwash":
         return "Select package";
     }
   };
 
-  // Helper function to get status display
   const getVerificationStatusDisplay = () => {
     switch (driverDetails.verificationStatus) {
       case "approved":
@@ -485,7 +532,7 @@ export default function RequestsPage() {
     }
   };
 
-  if (isPending || fetchingDetails) {
+  if (isPending || fetchingDetails || settingsLoading) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -502,7 +549,6 @@ export default function RequestsPage() {
 
   const statusDisplay = getVerificationStatusDisplay();
 
-  // Show different messages based on verification status
   if (driverDetails.verificationStatus !== "approved") {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center px-5">
@@ -519,11 +565,11 @@ export default function RequestsPage() {
           </h2>
           <p className="text-gray-600 mb-6">
             {driverDetails.verificationStatus === "pending" &&
-              "Your documents are being reviewed by our admin. This usually takes 24-48 hours. You'll be able to request services once verified."}
+              "Your documents are being reviewed by our admin. This usually takes 24-48 hours."}
             {driverDetails.verificationStatus === "rejected" &&
-              "Your verification was not approved. Please re-submit your documents with correct information."}
+              "Your verification was not approved. Please re-submit your documents."}
             {driverDetails.verificationStatus === "not_submitted" &&
-              "You need to complete driver verification before you can request services. This helps us ensure the safety and security of all drivers."}
+              "You need to complete driver verification before you can request services."}
           </p>
           <div className="bg-white rounded-2xl p-4 mb-6 text-left">
             <p className="text-sm text-[#01312D] font-semibold mb-2">
@@ -566,14 +612,11 @@ export default function RequestsPage() {
     );
   }
 
-  // Only show the request form if verified (approved)
   return (
     <div className="min-h-screen bg-[#eafde7] relative overflow-hidden">
-      {/* Background Decorative Elements */}
       <div className="absolute top-0 right-0 w-80 h-80 bg-[#bff202]/10 rounded-full blur-3xl"></div>
       <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#3A7717]/5 rounded-full blur-3xl"></div>
 
-      {/* Success Modal */}
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
@@ -604,9 +647,7 @@ export default function RequestsPage() {
         </div>
       )}
 
-      {/* Main Content */}
       <main className="relative z-10 pb-24">
-        {/* Header */}
         <div className="bg-white border-b border-[#bff202]/20 sticky top-0 z-20">
           <div className="px-5 py-4 flex items-center gap-3">
             <button
@@ -663,7 +704,7 @@ export default function RequestsPage() {
             </div>
           </div>
 
-          {/* Service Selection Tabs with Interest Display */}
+          {/* Service Selection Tabs */}
           <div className="mb-8">
             <div className="grid grid-cols-4 gap-2">
               {services.map((service) => {
@@ -678,7 +719,7 @@ export default function RequestsPage() {
                       setError("");
                       setPhoneNumber("");
                       setSelectedRepaymentDays(
-                        SERVICE_CONFIG[service.id].defaultRepaymentDays,
+                        serviceConfig[service.id].defaultRepaymentDays,
                       );
                     }}
                     className={`flex flex-col items-center gap-1 p-3 rounded-2xl transition-all duration-300 ${
@@ -706,7 +747,6 @@ export default function RequestsPage() {
             </div>
           </div>
 
-          {/* Error Message */}
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-red-500" />
@@ -714,7 +754,6 @@ export default function RequestsPage() {
             </div>
           )}
 
-          {/* Request Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Amount Field */}
             <div>
@@ -744,7 +783,7 @@ export default function RequestsPage() {
                             {pkg.description}
                           </p>
                         </div>
-                        <p className="text-xl font-bold">R{pkg.price}</p>
+                        <p className="text-xl font-bold">₹{pkg.price}</p>
                       </div>
                     </button>
                   ))}
@@ -758,12 +797,11 @@ export default function RequestsPage() {
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       placeholder={getPlaceholder()}
-                      className="w-full pl-10 pr-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] focus:ring-2 focus:ring-[#72bf00]/20 text-[#01312D]"
+                      className="w-full pl-10 pr-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] text-[#01312D]"
                       required
                     />
                   </div>
 
-                  {/* Quick amount buttons */}
                   {selectedService === "fuel" && (
                     <div className="flex gap-2 mt-2 flex-wrap">
                       {[500, 1000, 2000, 3000, 5000].map((amt) => (
@@ -773,7 +811,7 @@ export default function RequestsPage() {
                           onClick={() => setAmount(amt.toString())}
                           className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
                         >
-                          R{amt}
+                          ₹{amt}
                         </button>
                       ))}
                     </div>
@@ -788,7 +826,7 @@ export default function RequestsPage() {
                           onClick={() => setAmount(amt.toString())}
                           className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
                         >
-                          R{amt}
+                          ₹{amt}
                         </button>
                       ))}
                     </div>
@@ -803,7 +841,7 @@ export default function RequestsPage() {
                           onClick={() => setAmount(amt.toString())}
                           className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
                         >
-                          R{amt}
+                          ₹{amt}
                         </button>
                       ))}
                     </div>
@@ -812,7 +850,6 @@ export default function RequestsPage() {
               )}
             </div>
 
-            {/* Fuel Type (Only for fuel) */}
             {selectedService === "fuel" && (
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
@@ -837,7 +874,6 @@ export default function RequestsPage() {
               </div>
             )}
 
-            {/* Phone Number (Only for airtime) */}
             {selectedService === "airtime" && (
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
@@ -850,20 +886,16 @@ export default function RequestsPage() {
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="Enter 10-digit mobile number"
-                    className="w-full pl-10 pr-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] focus:ring-2 focus:ring-[#72bf00]/20 text-[#01312D]"
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
                     required
                   />
                 </div>
               </div>
             )}
 
-            {/* Repayment Period Selector - For ALL services */}
             {amount && parseFloat(amount) > 0 && getRepaymentPeriodSelector()}
-
-            {/* Service Summary - For ALL services */}
             {amount && parseFloat(amount) > 0 && getServiceSummary()}
 
-            {/* Car Registration Number */}
             <div>
               <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                 Car Registration Number
@@ -884,7 +916,6 @@ export default function RequestsPage() {
               </p>
             </div>
 
-            {/* Submit Button */}
             <button
               type="submit"
               disabled={
@@ -905,7 +936,6 @@ export default function RequestsPage() {
               )}
             </button>
 
-            {/* Info Note */}
             <div className="bg-[#eafde7] rounded-xl p-3 border border-[#bff202]/20">
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-[#72bf00] mt-0.5" />
@@ -926,7 +956,6 @@ export default function RequestsPage() {
         </div>
       </main>
 
-      {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 z-50 shadow-lg">
         <div className="flex justify-around items-center">
           <button
@@ -940,7 +969,6 @@ export default function RequestsPage() {
               Home
             </span>
           </button>
-
           <button
             onClick={() => router.push("/requests")}
             className="flex flex-col items-center gap-0.5 py-1 group"
@@ -950,7 +978,6 @@ export default function RequestsPage() {
             </div>
             <span className="text-xs text-[#01312D] font-bold">Requests</span>
           </button>
-
           <button
             onClick={() => router.push("/requests/history")}
             className="flex flex-col items-center gap-0.5 py-1 group"
@@ -962,7 +989,6 @@ export default function RequestsPage() {
               History
             </span>
           </button>
-
           <button
             onClick={() => router.push("/profile")}
             className="flex flex-col items-center gap-0.5 py-1 group"

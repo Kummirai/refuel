@@ -1,0 +1,139 @@
+// src/app/api/admin/settings/route.ts
+import { NextResponse } from "next/server";
+import { connectToDatabase } from "@/lib/db";
+
+// Default settings
+const DEFAULT_SETTINGS = {
+  general: {
+    siteName: "DriveHub",
+    siteDescription: "Driver Services Platform",
+    contactEmail: "support@drivehub.com",
+    contactPhone: "+91 98765 43210",
+    address: "123, Tech Park, Bangalore - 560001",
+    timezone: "Asia/Kolkata",
+    currency: "INR",
+    dateFormat: "DD/MM/YYYY",
+  },
+  services: {
+    fuelEnabled: true,
+    airtimeEnabled: true,
+    cashLoanEnabled: true,
+    carWashEnabled: true,
+    fuelInterestRate: 13,
+    airtimeInterestRate: 13,
+    cashInterestRate: 13,
+    carwashInterestRate: 13,
+    minLoanAmount: 1000,
+    maxLoanAmount: 50000,
+    repaymentPeriods: [7, 14, 21, 30],
+    defaultRepaymentPeriod: 7,
+    lateFeePercentage: 2,
+    airtimeNetworks: ["Jio", "Airtel", "VI", "BSNL"],
+    fuelTypes: ["Petrol", "Diesel"],
+  },
+  notifications: {
+    emailNotifications: true,
+    whatsappNotifications: true,
+    smsNotifications: false,
+    adminEmail: "admin@drivehub.com",
+    adminPhone: "+91 98765 43210",
+    whatsappBusinessNumber: "+91 98765 43210",
+    notifyOnNewVerification: true,
+    notifyOnNewRequest: true,
+    notifyOnRequestApproval: true,
+    notifyOnLoanDue: true,
+  },
+  security: {
+    twoFactorAuth: false,
+    sessionTimeout: 480,
+    maxLoginAttempts: 5,
+    lockoutDuration: 15,
+    passwordExpiry: 90,
+    allowMultipleSessions: false,
+    ipWhitelisting: false,
+    ipWhitelist: "",
+  },
+  business: {
+    businessName: "DriveHub Services Pvt Ltd",
+    businessEmail: "business@drivehub.com",
+    businessPhone: "+27 782 677 436",
+    gstNumber: "29ABCDE1234F1Z5",
+    panNumber: "ABCDE1234F",
+    bankName: "HDFC Bank",
+    accountNumber: "XXXX1234",
+    ifscCode: "HDFC0001234",
+    upiId: "drivehub@hdfcbank",
+    termsAndConditions: "https://drivehub.com/terms",
+    privacyPolicy: "https://drivehub.com/privacy",
+  },
+};
+
+export async function GET() {
+  try {
+    const { db } = await connectToDatabase();
+    const settingsCollection = db.collection("settings");
+
+    // Try to find existing settings
+    let settings = await settingsCollection.findOne({ type: "app_settings" });
+
+    if (!settings) {
+      // Create default settings if not exists
+      await settingsCollection.insertOne({
+        type: "app_settings",
+        ...DEFAULT_SETTINGS,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      settings = { ...DEFAULT_SETTINGS };
+    }
+
+    // Remove MongoDB specific fields
+    const { _id, type, createdAt, updatedAt, ...settingsData } = settings;
+
+    return NextResponse.json(settingsData || DEFAULT_SETTINGS);
+  } catch (error) {
+    console.error("Error fetching settings:", error);
+    return NextResponse.json(DEFAULT_SETTINGS);
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json();
+    const { general, services, notifications, security, business } = body;
+
+    const { db } = await connectToDatabase();
+    const settingsCollection = db.collection("settings");
+
+    // Update settings
+    await settingsCollection.updateOne(
+      { type: "app_settings" },
+      {
+        $set: {
+          general,
+          services,
+          notifications,
+          security,
+          business,
+          updatedAt: new Date(),
+        },
+        $setOnInsert: {
+          type: "app_settings",
+          createdAt: new Date(),
+        },
+      },
+      { upsert: true },
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: "Settings saved successfully",
+    });
+  } catch (error) {
+    console.error("Error saving settings:", error);
+    return NextResponse.json(
+      { error: "Failed to save settings" },
+      { status: 500 },
+    );
+  }
+}
