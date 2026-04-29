@@ -35,6 +35,7 @@ export default function VerifyPage() {
   }>({});
   const [verificationStatus, setVerificationStatus] = useState<string>("");
   const [existingProfile, setExistingProfile] = useState<any>(null);
+  const [shouldRedirect, setShouldRedirect] = useState(false);
 
   // Form Data
   const [formData, setFormData] = useState({
@@ -72,6 +73,20 @@ export default function VerifyPage() {
       router.push("/auth/sign-in");
     }
   }, [session, isPending]);
+
+  // Handle redirects in useEffect instead of during render
+  useEffect(() => {
+    if (shouldRedirect) {
+      router.push("/");
+    }
+  }, [shouldRedirect, router]);
+
+  // Handle approved status redirect
+  useEffect(() => {
+    if (verificationStatus === "approved" && !fetchingProfile) {
+      setShouldRedirect(true);
+    }
+  }, [verificationStatus, fetchingProfile]);
 
   const fetchDriverProfile = async () => {
     try {
@@ -364,18 +379,61 @@ export default function VerifyPage() {
     );
   }
 
-  // APPROVED STATUS - Redirect to home
-  if (verificationStatus === "approved" && !fetchingProfile) {
-    router.push("/");
+  // Wait for redirect
+  if (shouldRedirect) {
+    return (
+      <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
+          <p className="text-[#01312D]">Redirecting...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isPending || fetchingProfile) {
+    return (
+      <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
+          <p className="text-[#01312D]">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
     return null;
   }
 
+  // Show submit success
+  if (submitSuccess) {
+    return (
+      <div className="min-h-screen bg-[#eafde7] flex items-center justify-center px-5">
+        <div className="text-center">
+          <div className="w-20 h-20 bg-[#3A7717]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-10 h-10 text-[#3A7717]" />
+          </div>
+          <h2 className="text-2xl font-bold text-[#01312D] mb-2">
+            Verification Submitted!
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Your documents have been submitted successfully. Our admin will
+            review your application within 24-48 hours.
+          </p>
+          <button
+            onClick={() => router.push("/")}
+            className="bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white px-6 py-3 rounded-xl font-semibold"
+          >
+            Back to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // REJECTED STATUS - Show form with rejection notice
-  if (
-    verificationStatus === "rejected" &&
-    !fetchingProfile &&
-    existingProfile
-  ) {
+  if (verificationStatus === "rejected" && existingProfile) {
     return (
       <div className="min-h-screen bg-[#eafde7] pb-24">
         <div className="bg-white border-b border-[#bff202]/20 sticky top-0 z-20">
@@ -416,502 +474,438 @@ export default function VerifyPage() {
           </div>
         </div>
 
-        {/* Continue with form - same as NOT_SUBMITTED but with pre-filled data */}
-        {submitSuccess ? (
-          <div className="flex items-center justify-center px-5 h-[80vh]">
-            <div className="text-center">
-              <div className="w-20 h-20 bg-[#3A7717]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-10 h-10 text-[#3A7717]" />
-              </div>
-              <h2 className="text-2xl font-bold text-[#01312D] mb-2">
-                Verification Submitted!
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Your documents have been submitted successfully. Our admin will
-                review your application within 24-48 hours.
-              </p>
-              <button
-                onClick={() => router.push("/")}
-                className="bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white px-6 py-3 rounded-xl font-semibold"
-              >
-                Back to Home
-              </button>
+        {/* Form for rejected status - same as NOT_SUBMITTED */}
+        <div className="px-5 pt-2 pb-24">
+          {/* Progress Steps */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-8">
+              {[1, 2, 3].map((s) => (
+                <div key={s} className="flex-1 flex items-center">
+                  <div
+                    className={`flex items-center justify-center w-10 h-10 rounded-full font-semibold ${step >= s ? "bg-[#3A7717] text-white" : "bg-gray-200 text-gray-500"}`}
+                  >
+                    {step > s ? <CheckCircle className="w-5 h-5" /> : s}
+                  </div>
+                  {s < 3 && (
+                    <div
+                      className={`flex-1 h-1 mx-2 rounded ${step > s ? "bg-[#3A7717]" : "bg-gray-200"}`}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between px-2">
+              <span className="text-xs text-[#01312D] font-semibold">
+                Personal Info
+              </span>
+              <span className="text-xs text-[#01312D] font-semibold">
+                Vehicle Info
+              </span>
+              <span className="text-xs text-[#01312D] font-semibold">
+                Documents
+              </span>
             </div>
           </div>
-        ) : (
-          // Form JSX here (same as NOT_SUBMITTED)
-          <div className="px-5 pt-2 pb-24">
-            {/* Progress Steps */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-8">
-                {[1, 2, 3].map((s) => (
-                  <div key={s} className="flex-1 flex items-center">
-                    <div
-                      className={`flex items-center justify-center w-10 h-10 rounded-full font-semibold ${step >= s ? "bg-[#3A7717] text-white" : "bg-gray-200 text-gray-500"}`}
-                    >
-                      {step > s ? <CheckCircle className="w-5 h-5" /> : s}
-                    </div>
-                    {s < 3 && (
-                      <div
-                        className={`flex-1 h-1 mx-2 rounded ${step > s ? "bg-[#3A7717]" : "bg-gray-200"}`}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-between px-2">
-                <span className="text-xs text-[#01312D] font-semibold">
-                  Personal Info
-                </span>
-                <span className="text-xs text-[#01312D] font-semibold">
-                  Vehicle Info
-                </span>
-                <span className="text-xs text-[#01312D] font-semibold">
-                  Documents
-                </span>
-              </div>
-            </div>
 
-            {/* Step 1: Personal Information */}
-            {step === 1 && (
-              <div className="space-y-4">
-                <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
-                  <h2 className="text-lg font-bold text-[#01312D] mb-4 flex items-center gap-2">
-                    <User className="w-5 h-5 text-[#3A7717]" /> Personal
-                    Information
-                  </h2>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Full Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.fullName}
-                        onChange={(e) =>
-                          setFormData({ ...formData, fullName: e.target.value })
-                        }
-                        placeholder="Enter your full name as per license"
-                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Date of Birth <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.dateOfBirth}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            dateOfBirth: e.target.value,
-                          })
-                        }
-                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Address <span className="text-red-500">*</span>
-                      </label>
-                      <textarea
-                        value={formData.address}
-                        onChange={(e) =>
-                          setFormData({ ...formData, address: e.target.value })
-                        }
-                        placeholder="Enter your full address"
-                        rows={3}
-                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                        required
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                          City
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.city}
-                          onChange={(e) =>
-                            setFormData({ ...formData, city: e.target.value })
-                          }
-                          placeholder="City"
-                          className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                          Pincode
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.pincode}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              pincode: e.target.value,
-                            })
-                          }
-                          placeholder="Pincode"
-                          className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                          required
-                        />
-                      </div>
-                    </div>
+          {/* Step 1 */}
+          {step === 1 && (
+            <div className="space-y-4">
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
+                <h2 className="text-lg font-bold text-[#01312D] mb-4 flex items-center gap-2">
+                  <User className="w-5 h-5 text-[#3A7717]" /> Personal
+                  Information
+                </h2>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                      Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.fullName}
+                      onChange={(e) =>
+                        setFormData({ ...formData, fullName: e.target.value })
+                      }
+                      placeholder="Enter your full name as per license"
+                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                      required
+                    />
                   </div>
-                </div>
-                <button
-                  onClick={nextStep}
-                  className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold"
-                >
-                  Continue
-                </button>
-              </div>
-            )}
-
-            {/* Step 2: Vehicle Information */}
-            {step === 2 && (
-              <div className="space-y-4">
-                <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
-                  <h2 className="text-lg font-bold text-[#01312D] mb-4 flex items-center gap-2">
-                    <Car className="w-5 h-5 text-[#3A7717]" /> Vehicle
-                    Information
-                  </h2>
-                  <div className="space-y-4">
+                  <div>
+                    <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                      Date of Birth <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.dateOfBirth}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          dateOfBirth: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                      Address <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={formData.address}
+                      onChange={(e) =>
+                        setFormData({ ...formData, address: e.target.value })
+                      }
+                      placeholder="Enter your full address"
+                      rows={3}
+                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Car Registration Number{" "}
-                        <span className="text-red-500">*</span>
+                        City
                       </label>
                       <input
                         type="text"
-                        value={formData.carRegistrationNumber}
+                        value={formData.city}
                         onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            carRegistrationNumber: e.target.value.toUpperCase(),
-                          })
+                          setFormData({ ...formData, city: e.target.value })
                         }
-                        placeholder="e.g., KA01AB1234"
-                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl uppercase"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Car Model
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.carModel}
-                        onChange={(e) =>
-                          setFormData({ ...formData, carModel: e.target.value })
-                        }
-                        placeholder="e.g., Toyota Innova"
+                        placeholder="City"
                         className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl"
                         required
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                          Year
-                        </label>
-                        <input
-                          type="number"
-                          value={formData.carYear}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              carYear: e.target.value,
-                            })
-                          }
-                          placeholder="2024"
-                          className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                          Color
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.carColor}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              carColor: e.target.value,
-                            })
-                          }
-                          placeholder="e.g., White"
-                          className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl"
-                          required
-                        />
-                      </div>
+                    <div>
+                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                        Pincode
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.pincode}
+                        onChange={(e) =>
+                          setFormData({ ...formData, pincode: e.target.value })
+                        }
+                        placeholder="Pincode"
+                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl"
+                        required
+                      />
                     </div>
                   </div>
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={prevStep}
-                    className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold"
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={nextStep}
-                    className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold"
-                  >
-                    Continue
-                  </button>
                 </div>
               </div>
-            )}
+              <button
+                onClick={nextStep}
+                className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold"
+              >
+                Continue
+              </button>
+            </div>
+          )}
 
-            {/* Step 3: Document Upload */}
-            {step === 3 && (
-              <div className="space-y-4 pb-24">
-                <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
-                  <h2 className="text-lg font-bold text-[#01312D] mb-4 flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-[#3A7717]" /> Document
-                    Upload
-                  </h2>
-                  <div className="space-y-5">
-                    {/* Driver's License */}
-                    <div>
-                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Driver's License <span className="text-red-500">*</span>
-                      </label>
-                      {!previews.driversLicense ? (
-                        <div className="border-2 border-dashed border-[#bff202]/30 rounded-xl p-6 text-center hover:border-[#72bf00] transition-colors">
-                          <input
-                            type="file"
-                            id="driversLicense"
-                            accept="image/*"
-                            onChange={(e) =>
-                              handleFileChange(e, "driversLicense")
-                            }
-                            className="hidden"
-                          />
-                          <label
-                            htmlFor="driversLicense"
-                            className="cursor-pointer block"
-                          >
-                            <Camera className="w-10 h-10 text-[#72bf00] mx-auto mb-2" />
-                            <p className="text-sm text-[#01312D] font-semibold">
-                              Upload Driver's License
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              JPG or PNG (Max 5MB)
-                            </p>
-                          </label>
-                        </div>
-                      ) : (
-                        <div className="relative bg-[#eafde7] rounded-xl p-3">
-                          <img
-                            src={previews.driversLicense}
-                            alt="Driver's License"
-                            className="w-full h-32 object-cover rounded-lg"
-                          />
-                          <button
-                            onClick={() => removeFile("driversLicense")}
-                            className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                          {uploadProgress.license && (
-                            <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
-                              <Loader2 className="w-8 h-8 text-white animate-spin" />
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Car Registration */}
-                    <div>
-                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Car Registration Certificate{" "}
-                        <span className="text-red-500">*</span>
-                      </label>
-                      {!previews.carRegistration ? (
-                        <div className="border-2 border-dashed border-[#bff202]/30 rounded-xl p-6 text-center hover:border-[#72bf00] transition-colors">
-                          <input
-                            type="file"
-                            id="carRegistration"
-                            accept="image/*"
-                            onChange={(e) =>
-                              handleFileChange(e, "carRegistration")
-                            }
-                            className="hidden"
-                          />
-                          <label
-                            htmlFor="carRegistration"
-                            className="cursor-pointer block"
-                          >
-                            <FileText className="w-10 h-10 text-[#72bf00] mx-auto mb-2" />
-                            <p className="text-sm text-[#01312D] font-semibold">
-                              Upload RC
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              JPG or PNG (Max 5MB)
-                            </p>
-                          </label>
-                        </div>
-                      ) : (
-                        <div className="relative bg-[#eafde7] rounded-xl p-3">
-                          <img
-                            src={previews.carRegistration}
-                            alt="Car Registration"
-                            className="w-full h-32 object-cover rounded-lg"
-                          />
-                          <button
-                            onClick={() => removeFile("carRegistration")}
-                            className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                          {uploadProgress.registration && (
-                            <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
-                              <Loader2 className="w-8 h-8 text-white animate-spin" />
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Profile Photo */}
-                    <div>
-                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Profile Photo <span className="text-red-500">*</span>
-                      </label>
-                      {!previews.profilePhoto ? (
-                        <div className="border-2 border-dashed border-[#bff202]/30 rounded-xl p-6 text-center hover:border-[#72bf00] transition-colors">
-                          <input
-                            type="file"
-                            id="profilePhoto"
-                            accept="image/*"
-                            onChange={(e) =>
-                              handleFileChange(e, "profilePhoto")
-                            }
-                            className="hidden"
-                          />
-                          <label
-                            htmlFor="profilePhoto"
-                            className="cursor-pointer block"
-                          >
-                            <ImageIcon className="w-10 h-10 text-[#72bf00] mx-auto mb-2" />
-                            <p className="text-sm text-[#01312D] font-semibold">
-                              Upload Profile Photo
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              JPG or PNG (Max 2MB)
-                            </p>
-                          </label>
-                        </div>
-                      ) : (
-                        <div className="relative inline-block">
-                          <img
-                            src={previews.profilePhoto}
-                            alt="Profile"
-                            className="w-24 h-24 rounded-full object-cover border-4 border-[#bff202]"
-                          />
-                          <button
-                            onClick={() => removeFile("profilePhoto")}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                          {uploadProgress.profile && (
-                            <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
-                              <Loader2 className="w-8 h-8 text-white animate-spin" />
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Declaration */}
-                <div className="bg-[#eafde7] rounded-xl p-4 border border-[#bff202]/20">
-                  <div className="flex items-start gap-2">
+          {/* Step 2 */}
+          {step === 2 && (
+            <div className="space-y-4">
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
+                <h2 className="text-lg font-bold text-[#01312D] mb-4 flex items-center gap-2">
+                  <Car className="w-5 h-5 text-[#3A7717]" /> Vehicle Information
+                </h2>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                      Car Registration Number{" "}
+                      <span className="text-red-500">*</span>
+                    </label>
                     <input
-                      type="checkbox"
-                      id="declaration"
-                      className="mt-1 w-4 h-4 text-[#3A7717] rounded"
+                      type="text"
+                      value={formData.carRegistrationNumber}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          carRegistrationNumber: e.target.value.toUpperCase(),
+                        })
+                      }
+                      placeholder="e.g., KA01AB1234"
+                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl uppercase"
                       required
                     />
-                    <label
-                      htmlFor="declaration"
-                      className="text-xs text-gray-600"
-                    >
-                      I hereby declare that all the information provided is true
-                      and correct. I understand that providing false information
-                      may lead to permanent account suspension.
+                  </div>
+                  <div>
+                    <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                      Car Model
                     </label>
+                    <input
+                      type="text"
+                      value={formData.carModel}
+                      onChange={(e) =>
+                        setFormData({ ...formData, carModel: e.target.value })
+                      }
+                      placeholder="e.g., Toyota Innova"
+                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl"
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                        Year
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.carYear}
+                        onChange={(e) =>
+                          setFormData({ ...formData, carYear: e.target.value })
+                        }
+                        placeholder="2024"
+                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                        Color
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.carColor}
+                        onChange={(e) =>
+                          setFormData({ ...formData, carColor: e.target.value })
+                        }
+                        placeholder="e.g., White"
+                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl"
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={prevStep}
+                  className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={nextStep}
+                  className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold"
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          )}
 
-                <div className="flex gap-3">
-                  <button
-                    onClick={prevStep}
-                    className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold"
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="submit"
-                    onClick={handleSubmit}
-                    disabled={
-                      loading ||
-                      !formData.driversLicense ||
-                      !formData.carRegistration ||
-                      !formData.profilePhoto
-                    }
-                    className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />{" "}
-                        Submitting...
-                      </>
+          {/* Step 3 */}
+          {step === 3 && (
+            <div className="space-y-4 pb-24">
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
+                <h2 className="text-lg font-bold text-[#01312D] mb-4 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-[#3A7717]" /> Document Upload
+                </h2>
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                      Driver's License <span className="text-red-500">*</span>
+                    </label>
+                    {!previews.driversLicense ? (
+                      <div className="border-2 border-dashed border-[#bff202]/30 rounded-xl p-6 text-center hover:border-[#72bf00] transition-colors">
+                        <input
+                          type="file"
+                          id="driversLicense"
+                          accept="image/*"
+                          onChange={(e) =>
+                            handleFileChange(e, "driversLicense")
+                          }
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor="driversLicense"
+                          className="cursor-pointer block"
+                        >
+                          <Camera className="w-10 h-10 text-[#72bf00] mx-auto mb-2" />
+                          <p className="text-sm text-[#01312D] font-semibold">
+                            Upload Driver's License
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            JPG or PNG (Max 5MB)
+                          </p>
+                        </label>
+                      </div>
                     ) : (
-                      "Submit Verification"
+                      <div className="relative bg-[#eafde7] rounded-xl p-3">
+                        <img
+                          src={previews.driversLicense}
+                          alt="Driver's License"
+                          className="w-full h-32 object-cover rounded-lg"
+                        />
+                        <button
+                          onClick={() => removeFile("driversLicense")}
+                          className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                        {uploadProgress.license && (
+                          <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
+                            <Loader2 className="w-8 h-8 text-white animate-spin" />
+                          </div>
+                        )}
+                      </div>
                     )}
-                  </button>
+                  </div>
+                  <div>
+                    <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                      Car Registration Certificate{" "}
+                      <span className="text-red-500">*</span>
+                    </label>
+                    {!previews.carRegistration ? (
+                      <div className="border-2 border-dashed border-[#bff202]/30 rounded-xl p-6 text-center hover:border-[#72bf00] transition-colors">
+                        <input
+                          type="file"
+                          id="carRegistration"
+                          accept="image/*"
+                          onChange={(e) =>
+                            handleFileChange(e, "carRegistration")
+                          }
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor="carRegistration"
+                          className="cursor-pointer block"
+                        >
+                          <FileText className="w-10 h-10 text-[#72bf00] mx-auto mb-2" />
+                          <p className="text-sm text-[#01312D] font-semibold">
+                            Upload RC
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            JPG or PNG (Max 5MB)
+                          </p>
+                        </label>
+                      </div>
+                    ) : (
+                      <div className="relative bg-[#eafde7] rounded-xl p-3">
+                        <img
+                          src={previews.carRegistration}
+                          alt="Car Registration"
+                          className="w-full h-32 object-cover rounded-lg"
+                        />
+                        <button
+                          onClick={() => removeFile("carRegistration")}
+                          className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                        {uploadProgress.registration && (
+                          <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
+                            <Loader2 className="w-8 h-8 text-white animate-spin" />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                      Profile Photo <span className="text-red-500">*</span>
+                    </label>
+                    {!previews.profilePhoto ? (
+                      <div className="border-2 border-dashed border-[#bff202]/30 rounded-xl p-6 text-center hover:border-[#72bf00] transition-colors">
+                        <input
+                          type="file"
+                          id="profilePhoto"
+                          accept="image/*"
+                          onChange={(e) => handleFileChange(e, "profilePhoto")}
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor="profilePhoto"
+                          className="cursor-pointer block"
+                        >
+                          <ImageIcon className="w-10 h-10 text-[#72bf00] mx-auto mb-2" />
+                          <p className="text-sm text-[#01312D] font-semibold">
+                            Upload Profile Photo
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            JPG or PNG (Max 2MB)
+                          </p>
+                        </label>
+                      </div>
+                    ) : (
+                      <div className="relative inline-block">
+                        <img
+                          src={previews.profilePhoto}
+                          alt="Profile"
+                          className="w-24 h-24 rounded-full object-cover border-4 border-[#bff202]"
+                        />
+                        <button
+                          onClick={() => removeFile("profilePhoto")}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                        {uploadProgress.profile && (
+                          <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                            <Loader2 className="w-8 h-8 text-white animate-spin" />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // NOT_SUBMITTED Status - Show full verification form
-  if (isPending || fetchingProfile) {
-    return (
-      <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3A7717] border-t-transparent mx-auto mb-4"></div>
-          <p className="text-[#01312D]">Loading...</p>
+              <div className="bg-[#eafde7] rounded-xl p-4 border border-[#bff202]/20">
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    id="declaration"
+                    className="mt-1 w-4 h-4 text-[#3A7717] rounded"
+                    required
+                  />
+                  <label
+                    htmlFor="declaration"
+                    className="text-xs text-gray-600"
+                  >
+                    I hereby declare that all the information provided is true
+                    and correct.
+                  </label>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={prevStep}
+                  className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={
+                    loading ||
+                    !formData.driversLicense ||
+                    !formData.carRegistration ||
+                    !formData.profilePhoto
+                  }
+                  className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" /> Submitting...
+                    </>
+                  ) : (
+                    "Submit Verification"
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
-  if (!session) {
-    return null;
-  }
-
-  // NOT_SUBMITTED - Show full form
+  // NOT_SUBMITTED Status - Show full form
   return (
     <div className="min-h-screen bg-[#eafde7] pb-24">
       <div className="bg-white border-b border-[#bff202]/20 sticky top-0 z-20">
@@ -967,436 +961,387 @@ export default function VerifyPage() {
           </div>
         </div>
 
-        {/* Submit Success State */}
-        {submitSuccess ? (
-          <div className="text-center py-12">
-            <div className="w-20 h-20 bg-[#3A7717]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-10 h-10 text-[#3A7717]" />
-            </div>
-            <h2 className="text-2xl font-bold text-[#01312D] mb-2">
-              Verification Submitted!
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Your documents have been submitted successfully. Our admin will
-              review your application within 24-48 hours.
-            </p>
-            <button
-              onClick={() => router.push("/")}
-              className="bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white px-6 py-3 rounded-xl font-semibold"
-            >
-              Back to Home
-            </button>
-          </div>
-        ) : (
-          <>
-            {/* Step 1 */}
-            {step === 1 && (
+        {/* Step 1 */}
+        {step === 1 && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
+              <h2 className="text-lg font-bold text-[#01312D] mb-4 flex items-center gap-2">
+                <User className="w-5 h-5 text-[#3A7717]" /> Personal Information
+              </h2>
               <div className="space-y-4">
-                <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
-                  <h2 className="text-lg font-bold text-[#01312D] mb-4 flex items-center gap-2">
-                    <User className="w-5 h-5 text-[#3A7717]" /> Personal
-                    Information
-                  </h2>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Full Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.fullName}
-                        onChange={(e) =>
-                          setFormData({ ...formData, fullName: e.target.value })
-                        }
-                        placeholder="Enter your full name as per license"
-                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Date of Birth <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.dateOfBirth}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            dateOfBirth: e.target.value,
-                          })
-                        }
-                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Address <span className="text-red-500">*</span>
-                      </label>
-                      <textarea
-                        value={formData.address}
-                        onChange={(e) =>
-                          setFormData({ ...formData, address: e.target.value })
-                        }
-                        placeholder="Enter your full address"
-                        rows={3}
-                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                        required
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                          City
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.city}
-                          onChange={(e) =>
-                            setFormData({ ...formData, city: e.target.value })
-                          }
-                          placeholder="City"
-                          className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                          Pincode
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.pincode}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              pincode: e.target.value,
-                            })
-                          }
-                          placeholder="Pincode"
-                          className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl"
-                          required
-                        />
-                      </div>
-                    </div>
-                  </div>
+                <div>
+                  <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                    Full Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.fullName}
+                    onChange={(e) =>
+                      setFormData({ ...formData, fullName: e.target.value })
+                    }
+                    placeholder="Enter your full name as per license"
+                    className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    required
+                  />
                 </div>
-                <button
-                  onClick={nextStep}
-                  className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold"
-                >
-                  Continue
-                </button>
-              </div>
-            )}
-
-            {/* Step 2 */}
-            {step === 2 && (
-              <div className="space-y-4">
-                <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
-                  <h2 className="text-lg font-bold text-[#01312D] mb-4 flex items-center gap-2">
-                    <Car className="w-5 h-5 text-[#3A7717]" /> Vehicle
-                    Information
-                  </h2>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Car Registration Number{" "}
-                        <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.carRegistrationNumber}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            carRegistrationNumber: e.target.value.toUpperCase(),
-                          })
-                        }
-                        placeholder="e.g., KA01AB1234"
-                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl uppercase"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Car Model
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.carModel}
-                        onChange={(e) =>
-                          setFormData({ ...formData, carModel: e.target.value })
-                        }
-                        placeholder="e.g., Toyota Innova"
-                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl"
-                        required
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                          Year
-                        </label>
-                        <input
-                          type="number"
-                          value={formData.carYear}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              carYear: e.target.value,
-                            })
-                          }
-                          placeholder="2024"
-                          className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                          Color
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.carColor}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              carColor: e.target.value,
-                            })
-                          }
-                          placeholder="e.g., White"
-                          className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl"
-                          required
-                        />
-                      </div>
-                    </div>
-                  </div>
+                <div>
+                  <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                    Date of Birth <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.dateOfBirth}
+                    onChange={(e) =>
+                      setFormData({ ...formData, dateOfBirth: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    required
+                  />
                 </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={prevStep}
-                    className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold"
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={nextStep}
-                    className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold"
-                  >
-                    Continue
-                  </button>
+                <div>
+                  <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                    Address <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={formData.address}
+                    onChange={(e) =>
+                      setFormData({ ...formData, address: e.target.value })
+                    }
+                    placeholder="Enter your full address"
+                    rows={3}
+                    className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    required
+                  />
                 </div>
-              </div>
-            )}
-
-            {/* Step 3 */}
-            {step === 3 && (
-              <div className="space-y-4 pb-24">
-                <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
-                  <h2 className="text-lg font-bold text-[#01312D] mb-4 flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-[#3A7717]" /> Document
-                    Upload
-                  </h2>
-                  <div className="space-y-5">
-                    <div>
-                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Driver's License <span className="text-red-500">*</span>
-                      </label>
-                      {!previews.driversLicense ? (
-                        <div className="border-2 border-dashed border-[#bff202]/30 rounded-xl p-6 text-center hover:border-[#72bf00] transition-colors">
-                          <input
-                            type="file"
-                            id="driversLicense"
-                            accept="image/*"
-                            onChange={(e) =>
-                              handleFileChange(e, "driversLicense")
-                            }
-                            className="hidden"
-                          />
-                          <label
-                            htmlFor="driversLicense"
-                            className="cursor-pointer block"
-                          >
-                            <Camera className="w-10 h-10 text-[#72bf00] mx-auto mb-2" />
-                            <p className="text-sm text-[#01312D] font-semibold">
-                              Upload Driver's License
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              JPG or PNG (Max 5MB)
-                            </p>
-                          </label>
-                        </div>
-                      ) : (
-                        <div className="relative bg-[#eafde7] rounded-xl p-3">
-                          <img
-                            src={previews.driversLicense}
-                            alt="Driver's License"
-                            className="w-full h-32 object-cover rounded-lg"
-                          />
-                          <button
-                            onClick={() => removeFile("driversLicense")}
-                            className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                          {uploadProgress.license && (
-                            <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
-                              <Loader2 className="w-8 h-8 text-white animate-spin" />
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Car Registration Certificate{" "}
-                        <span className="text-red-500">*</span>
-                      </label>
-                      {!previews.carRegistration ? (
-                        <div className="border-2 border-dashed border-[#bff202]/30 rounded-xl p-6 text-center hover:border-[#72bf00] transition-colors">
-                          <input
-                            type="file"
-                            id="carRegistration"
-                            accept="image/*"
-                            onChange={(e) =>
-                              handleFileChange(e, "carRegistration")
-                            }
-                            className="hidden"
-                          />
-                          <label
-                            htmlFor="carRegistration"
-                            className="cursor-pointer block"
-                          >
-                            <FileText className="w-10 h-10 text-[#72bf00] mx-auto mb-2" />
-                            <p className="text-sm text-[#01312D] font-semibold">
-                              Upload RC
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              JPG or PNG (Max 5MB)
-                            </p>
-                          </label>
-                        </div>
-                      ) : (
-                        <div className="relative bg-[#eafde7] rounded-xl p-3">
-                          <img
-                            src={previews.carRegistration}
-                            alt="Car Registration"
-                            className="w-full h-32 object-cover rounded-lg"
-                          />
-                          <button
-                            onClick={() => removeFile("carRegistration")}
-                            className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                          {uploadProgress.registration && (
-                            <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
-                              <Loader2 className="w-8 h-8 text-white animate-spin" />
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Profile Photo <span className="text-red-500">*</span>
-                      </label>
-                      {!previews.profilePhoto ? (
-                        <div className="border-2 border-dashed border-[#bff202]/30 rounded-xl p-6 text-center hover:border-[#72bf00] transition-colors">
-                          <input
-                            type="file"
-                            id="profilePhoto"
-                            accept="image/*"
-                            onChange={(e) =>
-                              handleFileChange(e, "profilePhoto")
-                            }
-                            className="hidden"
-                          />
-                          <label
-                            htmlFor="profilePhoto"
-                            className="cursor-pointer block"
-                          >
-                            <ImageIcon className="w-10 h-10 text-[#72bf00] mx-auto mb-2" />
-                            <p className="text-sm text-[#01312D] font-semibold">
-                              Upload Profile Photo
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              JPG or PNG (Max 2MB)
-                            </p>
-                          </label>
-                        </div>
-                      ) : (
-                        <div className="relative inline-block">
-                          <img
-                            src={previews.profilePhoto}
-                            alt="Profile"
-                            className="w-24 h-24 rounded-full object-cover border-4 border-[#bff202]"
-                          />
-                          <button
-                            onClick={() => removeFile("profilePhoto")}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                          {uploadProgress.profile && (
-                            <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
-                              <Loader2 className="w-8 h-8 text-white animate-spin" />
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-[#eafde7] rounded-xl p-4 border border-[#bff202]/20">
-                  <div className="flex items-start gap-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                      City
+                    </label>
                     <input
-                      type="checkbox"
-                      id="declaration"
-                      className="mt-1 w-4 h-4 text-[#3A7717] rounded"
+                      type="text"
+                      value={formData.city}
+                      onChange={(e) =>
+                        setFormData({ ...formData, city: e.target.value })
+                      }
+                      placeholder="City"
+                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl"
                       required
                     />
-                    <label
-                      htmlFor="declaration"
-                      className="text-xs text-gray-600"
-                    >
-                      I hereby declare that all the information provided is true
-                      and correct.
+                  </div>
+                  <div>
+                    <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                      Pincode
                     </label>
+                    <input
+                      type="text"
+                      value={formData.pincode}
+                      onChange={(e) =>
+                        setFormData({ ...formData, pincode: e.target.value })
+                      }
+                      placeholder="Pincode"
+                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl"
+                      required
+                    />
                   </div>
                 </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={prevStep}
-                    className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold"
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={handleSubmit}
-                    disabled={
-                      loading ||
-                      !formData.driversLicense ||
-                      !formData.carRegistration ||
-                      !formData.profilePhoto
+              </div>
+            </div>
+            <button
+              onClick={nextStep}
+              className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold"
+            >
+              Continue
+            </button>
+          </div>
+        )}
+
+        {/* Step 2 */}
+        {step === 2 && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
+              <h2 className="text-lg font-bold text-[#01312D] mb-4 flex items-center gap-2">
+                <Car className="w-5 h-5 text-[#3A7717]" /> Vehicle Information
+              </h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                    Car Registration Number{" "}
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.carRegistrationNumber}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        carRegistrationNumber: e.target.value.toUpperCase(),
+                      })
                     }
-                    className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />{" "}
-                        Submitting...
-                      </>
-                    ) : (
-                      "Submit Verification"
-                    )}
-                  </button>
+                    placeholder="e.g., KA01AB1234"
+                    className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl uppercase"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                    Car Model
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.carModel}
+                    onChange={(e) =>
+                      setFormData({ ...formData, carModel: e.target.value })
+                    }
+                    placeholder="e.g., Toyota Innova"
+                    className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                      Year
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.carYear}
+                      onChange={(e) =>
+                        setFormData({ ...formData, carYear: e.target.value })
+                      }
+                      placeholder="2024"
+                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                      Color
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.carColor}
+                      onChange={(e) =>
+                        setFormData({ ...formData, carColor: e.target.value })
+                      }
+                      placeholder="e.g., White"
+                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl"
+                      required
+                    />
+                  </div>
                 </div>
               </div>
-            )}
-          </>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={prevStep}
+                className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold"
+              >
+                Back
+              </button>
+              <button
+                onClick={nextStep}
+                className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3 */}
+        {step === 3 && (
+          <div className="space-y-4 pb-24">
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
+              <h2 className="text-lg font-bold text-[#01312D] mb-4 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-[#3A7717]" /> Document Upload
+              </h2>
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                    Driver's License <span className="text-red-500">*</span>
+                  </label>
+                  {!previews.driversLicense ? (
+                    <div className="border-2 border-dashed border-[#bff202]/30 rounded-xl p-6 text-center hover:border-[#72bf00] transition-colors">
+                      <input
+                        type="file"
+                        id="driversLicense"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, "driversLicense")}
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="driversLicense"
+                        className="cursor-pointer block"
+                      >
+                        <Camera className="w-10 h-10 text-[#72bf00] mx-auto mb-2" />
+                        <p className="text-sm text-[#01312D] font-semibold">
+                          Upload Driver's License
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          JPG or PNG (Max 5MB)
+                        </p>
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="relative bg-[#eafde7] rounded-xl p-3">
+                      <img
+                        src={previews.driversLicense}
+                        alt="Driver's License"
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
+                      <button
+                        onClick={() => removeFile("driversLicense")}
+                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      {uploadProgress.license && (
+                        <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
+                          <Loader2 className="w-8 h-8 text-white animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                    Car Registration Certificate{" "}
+                    <span className="text-red-500">*</span>
+                  </label>
+                  {!previews.carRegistration ? (
+                    <div className="border-2 border-dashed border-[#bff202]/30 rounded-xl p-6 text-center hover:border-[#72bf00] transition-colors">
+                      <input
+                        type="file"
+                        id="carRegistration"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, "carRegistration")}
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="carRegistration"
+                        className="cursor-pointer block"
+                      >
+                        <FileText className="w-10 h-10 text-[#72bf00] mx-auto mb-2" />
+                        <p className="text-sm text-[#01312D] font-semibold">
+                          Upload RC
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          JPG or PNG (Max 5MB)
+                        </p>
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="relative bg-[#eafde7] rounded-xl p-3">
+                      <img
+                        src={previews.carRegistration}
+                        alt="Car Registration"
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
+                      <button
+                        onClick={() => removeFile("carRegistration")}
+                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      {uploadProgress.registration && (
+                        <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
+                          <Loader2 className="w-8 h-8 text-white animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                    Profile Photo <span className="text-red-500">*</span>
+                  </label>
+                  {!previews.profilePhoto ? (
+                    <div className="border-2 border-dashed border-[#bff202]/30 rounded-xl p-6 text-center hover:border-[#72bf00] transition-colors">
+                      <input
+                        type="file"
+                        id="profilePhoto"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, "profilePhoto")}
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="profilePhoto"
+                        className="cursor-pointer block"
+                      >
+                        <ImageIcon className="w-10 h-10 text-[#72bf00] mx-auto mb-2" />
+                        <p className="text-sm text-[#01312D] font-semibold">
+                          Upload Profile Photo
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          JPG or PNG (Max 2MB)
+                        </p>
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="relative inline-block">
+                      <img
+                        src={previews.profilePhoto}
+                        alt="Profile"
+                        className="w-24 h-24 rounded-full object-cover border-4 border-[#bff202]"
+                      />
+                      <button
+                        onClick={() => removeFile("profilePhoto")}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      {uploadProgress.profile && (
+                        <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                          <Loader2 className="w-8 h-8 text-white animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="bg-[#eafde7] rounded-xl p-4 border border-[#bff202]/20">
+              <div className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  id="declaration"
+                  className="mt-1 w-4 h-4 text-[#3A7717] rounded"
+                  required
+                />
+                <label htmlFor="declaration" className="text-xs text-gray-600">
+                  I hereby declare that all the information provided is true and
+                  correct.
+                </label>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={prevStep}
+                className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={
+                  loading ||
+                  !formData.driversLicense ||
+                  !formData.carRegistration ||
+                  !formData.profilePhoto
+                }
+                className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" /> Submitting...
+                  </>
+                ) : (
+                  "Submit Verification"
+                )}
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>
