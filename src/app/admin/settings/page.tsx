@@ -1,8 +1,7 @@
-// src/app/admin/settings/page.tsx - Fixed with all imports
-
+// src/app/admin/settings/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Settings,
   Bell,
@@ -11,29 +10,23 @@ import {
   MessageCircle,
   Mail,
   Smartphone,
-  Users,
   Car,
   Clock,
   Percent,
   Wallet,
-  Globe,
-  Database,
   Lock,
-  Eye,
-  EyeOff,
   Save,
   RefreshCw,
   AlertTriangle,
   CheckCircle,
-  XCircle,
-  HelpCircle,
   FileText,
   CreditCard,
   Building,
   MapPin,
   Phone,
   AtSign,
-  Fuel, // Added Fuel import
+  Fuel,
+  Loader2,
 } from "lucide-react";
 
 export default function AdminSettingsPage() {
@@ -41,8 +34,9 @@ export default function AdminSettingsPage() {
     "general" | "services" | "notifications" | "security" | "business"
   >("general");
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [showApiKey, setShowApiKey] = useState(false);
+  const [error, setError] = useState("");
 
   // General Settings
   const [generalSettings, setGeneralSettings] = useState({
@@ -62,11 +56,14 @@ export default function AdminSettingsPage() {
     airtimeEnabled: true,
     cashLoanEnabled: true,
     carWashEnabled: true,
-    loanInterestRate: 13,
+    fuelInterestRate: 13,
+    airtimeInterestRate: 13,
+    cashInterestRate: 13,
+    carwashInterestRate: 13,
     minLoanAmount: 1000,
     maxLoanAmount: 50000,
     repaymentPeriods: [7, 14, 21, 30],
-    defaultRepaymentPeriod: 14,
+    defaultRepaymentPeriod: 7,
     lateFeePercentage: 2,
     airtimeNetworks: ["Jio", "Airtel", "VI", "BSNL"],
     fuelTypes: ["Petrol", "Diesel"],
@@ -89,10 +86,10 @@ export default function AdminSettingsPage() {
   // Security Settings
   const [securitySettings, setSecuritySettings] = useState({
     twoFactorAuth: false,
-    sessionTimeout: 480, // minutes
+    sessionTimeout: 480,
     maxLoginAttempts: 5,
-    lockoutDuration: 15, // minutes
-    passwordExpiry: 90, // days
+    lockoutDuration: 15,
+    passwordExpiry: 90,
     allowMultipleSessions: false,
     ipWhitelisting: false,
     ipWhitelist: "",
@@ -113,17 +110,58 @@ export default function AdminSettingsPage() {
     privacyPolicy: "https://drivehub.com/privacy",
   });
 
-  const handleSave = async () => {
-    setSaving(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
-    setSaving(false);
+  // Fetch settings on load
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch("/api/admin/settings");
+      if (response.ok) {
+        const data = await response.json();
+        if (data.general) setGeneralSettings(data.general);
+        if (data.services) setServiceSettings(data.services);
+        if (data.notifications) setNotificationSettings(data.notifications);
+        if (data.security) setSecuritySettings(data.security);
+        if (data.business) setBusinessSettings(data.business);
+      }
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleInterestChange = (value: number) => {
-    setServiceSettings({ ...serviceSettings, loanInterestRate: value });
+  const handleSave = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          general: generalSettings,
+          services: serviceSettings,
+          notifications: notificationSettings,
+          security: securitySettings,
+          business: businessSettings,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to save settings");
+      }
+
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (error: any) {
+      console.error("Error saving settings:", error);
+      setError(error.message || "Failed to save settings");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const TabButton = ({
@@ -161,6 +199,17 @@ export default function AdminSettingsPage() {
     </div>
   );
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
+          <p className="text-[#01312D]">Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -176,6 +225,12 @@ export default function AdminSettingsPage() {
             <div className="flex items-center gap-2 px-3 py-2 bg-green-100 text-green-700 rounded-lg text-sm">
               <CheckCircle className="w-4 h-4" />
               Settings saved successfully!
+            </div>
+          )}
+          {error && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-red-100 text-red-700 rounded-lg text-sm">
+              <AlertTriangle className="w-4 h-4" />
+              {error}
             </div>
           )}
           <button
@@ -236,7 +291,7 @@ export default function AdminSettingsPage() {
                       siteDescription: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 />
               </div>
               <div>
@@ -254,7 +309,7 @@ export default function AdminSettingsPage() {
                         contactEmail: e.target.value,
                       })
                     }
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
               </div>
@@ -273,7 +328,7 @@ export default function AdminSettingsPage() {
                         contactPhone: e.target.value,
                       })
                     }
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
               </div>
@@ -292,7 +347,7 @@ export default function AdminSettingsPage() {
                       })
                     }
                     rows={2}
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
               </div>
@@ -308,7 +363,7 @@ export default function AdminSettingsPage() {
                       timezone: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 >
                   <option value="Asia/Kolkata">IST (UTC+5:30)</option>
                   <option value="UTC">UTC</option>
@@ -328,7 +383,7 @@ export default function AdminSettingsPage() {
                       dateFormat: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 >
                   <option value="DD/MM/YYYY">DD/MM/YYYY</option>
                   <option value="MM/DD/YYYY">MM/DD/YYYY</option>
@@ -430,27 +485,92 @@ export default function AdminSettingsPage() {
             </div>
           </SettingSection>
 
-          <SettingSection title="Loan Configuration">
+          <SettingSection title="Interest Rates (%)">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                  Interest Rate (%)
+                  Fuel Interest Rate
                 </label>
                 <div className="relative">
                   <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="number"
-                    value={serviceSettings.loanInterestRate}
+                    value={serviceSettings.fuelInterestRate}
                     onChange={(e) =>
-                      handleInterestChange(Number(e.target.value))
+                      setServiceSettings({
+                        ...serviceSettings,
+                        fuelInterestRate: Number(e.target.value),
+                      })
                     }
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                  Minimum Loan Amount (R)
+                  Airtime Interest Rate
+                </label>
+                <div className="relative">
+                  <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="number"
+                    value={serviceSettings.airtimeInterestRate}
+                    onChange={(e) =>
+                      setServiceSettings({
+                        ...serviceSettings,
+                        airtimeInterestRate: Number(e.target.value),
+                      })
+                    }
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                  Cash Loan Interest Rate
+                </label>
+                <div className="relative">
+                  <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="number"
+                    value={serviceSettings.cashInterestRate}
+                    onChange={(e) =>
+                      setServiceSettings({
+                        ...serviceSettings,
+                        cashInterestRate: Number(e.target.value),
+                      })
+                    }
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                  Car Wash Interest Rate
+                </label>
+                <div className="relative">
+                  <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="number"
+                    value={serviceSettings.carwashInterestRate}
+                    onChange={(e) =>
+                      setServiceSettings({
+                        ...serviceSettings,
+                        carwashInterestRate: Number(e.target.value),
+                      })
+                    }
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                  />
+                </div>
+              </div>
+            </div>
+          </SettingSection>
+
+          <SettingSection title="Loan Configuration">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                  Minimum Loan Amount (₹)
                 </label>
                 <input
                   type="number"
@@ -461,12 +581,12 @@ export default function AdminSettingsPage() {
                       minLoanAmount: Number(e.target.value),
                     })
                   }
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 />
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                  Maximum Loan Amount (R)
+                  Maximum Loan Amount (₹)
                 </label>
                 <input
                   type="number"
@@ -477,7 +597,7 @@ export default function AdminSettingsPage() {
                       maxLoanAmount: Number(e.target.value),
                     })
                   }
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 />
               </div>
               <div>
@@ -492,7 +612,7 @@ export default function AdminSettingsPage() {
                       defaultRepaymentPeriod: Number(e.target.value),
                     })
                   }
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 >
                   {serviceSettings.repaymentPeriods.map((days) => (
                     <option key={days} value={days}>
@@ -516,43 +636,8 @@ export default function AdminSettingsPage() {
                         lateFeePercentage: Number(e.target.value),
                       })
                     }
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
-                </div>
-              </div>
-            </div>
-          </SettingSection>
-
-          <SettingSection title="Available Networks & Fuel Types">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                  Airtime Networks
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {serviceSettings.airtimeNetworks.map((network) => (
-                    <span
-                      key={network}
-                      className="px-3 py-1 bg-[#eafde7] rounded-lg text-sm text-[#01312D]"
-                    >
-                      {network}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                  Fuel Types
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {serviceSettings.fuelTypes.map((type) => (
-                    <span
-                      key={type}
-                      className="px-3 py-1 bg-[#eafde7] rounded-lg text-sm text-[#01312D]"
-                    >
-                      {type}
-                    </span>
-                  ))}
                 </div>
               </div>
             </div>
@@ -651,7 +736,7 @@ export default function AdminSettingsPage() {
                         adminEmail: e.target.value,
                       })
                     }
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
               </div>
@@ -670,7 +755,7 @@ export default function AdminSettingsPage() {
                         adminPhone: e.target.value,
                       })
                     }
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
               </div>
@@ -689,7 +774,7 @@ export default function AdminSettingsPage() {
                         whatsappBusinessNumber: e.target.value,
                       })
                     }
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
               </div>
@@ -814,7 +899,7 @@ export default function AdminSettingsPage() {
                         sessionTimeout: Number(e.target.value),
                       })
                     }
-                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
                 <div>
@@ -830,7 +915,7 @@ export default function AdminSettingsPage() {
                         maxLoginAttempts: Number(e.target.value),
                       })
                     }
-                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
                 <div>
@@ -846,7 +931,7 @@ export default function AdminSettingsPage() {
                         lockoutDuration: Number(e.target.value),
                       })
                     }
-                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
                 <div>
@@ -862,7 +947,7 @@ export default function AdminSettingsPage() {
                         passwordExpiry: Number(e.target.value),
                       })
                     }
-                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
               </div>
@@ -934,7 +1019,7 @@ export default function AdminSettingsPage() {
                     }
                     rows={3}
                     placeholder="192.168.1.1&#10;10.0.0.1"
-                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
               )}
@@ -961,7 +1046,7 @@ export default function AdminSettingsPage() {
                       businessName: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 />
               </div>
               <div>
@@ -979,7 +1064,7 @@ export default function AdminSettingsPage() {
                         businessEmail: e.target.value,
                       })
                     }
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
               </div>
@@ -998,7 +1083,7 @@ export default function AdminSettingsPage() {
                         businessPhone: e.target.value,
                       })
                     }
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
               </div>
@@ -1015,7 +1100,7 @@ export default function AdminSettingsPage() {
                       gstNumber: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 />
               </div>
               <div>
@@ -1031,7 +1116,7 @@ export default function AdminSettingsPage() {
                       panNumber: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 />
               </div>
             </div>
@@ -1052,7 +1137,7 @@ export default function AdminSettingsPage() {
                       bankName: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 />
               </div>
               <div>
@@ -1068,7 +1153,7 @@ export default function AdminSettingsPage() {
                       accountNumber: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 />
               </div>
               <div>
@@ -1084,7 +1169,7 @@ export default function AdminSettingsPage() {
                       ifscCode: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 />
               </div>
               <div>
@@ -1102,7 +1187,7 @@ export default function AdminSettingsPage() {
                         upiId: e.target.value,
                       })
                     }
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
               </div>
@@ -1126,7 +1211,7 @@ export default function AdminSettingsPage() {
                         termsAndConditions: e.target.value,
                       })
                     }
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
               </div>
@@ -1145,7 +1230,7 @@ export default function AdminSettingsPage() {
                         privacyPolicy: e.target.value,
                       })
                     }
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
               </div>
