@@ -216,7 +216,7 @@ export default function AdminDashboard() {
   };
 
   const handleSendWhatsApp = (request: any) => {
-    const message = `DriveHub Service Request Confirmation\n\nRequest ID: ${request.id}\nDriver: ${request.driver}\nCar: ${request.carRegistration}\nService: ${request.type}\nAmount: ₹${request.amount}\nOTP: ${request.otp || "N/A"}\n\nPlease show this OTP to the cashier/attendant.`;
+    const message = `DriveHub Service Request Confirmation\n\nRequest ID: ${request.id}\nDriver: ${request.driver}\nCar: ${request.carRegistration}\nService: ${request.type}\nAmount: R${request.amount}\nOTP: ${request.otp || "N/A"}\n\nPlease show this OTP to the cashier/attendant.`;
     const whatsappUrl = `https://wa.me/${request.driverPhone?.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, "_blank");
   };
@@ -559,7 +559,7 @@ export default function AdminDashboard() {
                   {getTypeLabel(request.type)}
                 </p>
                 <p>
-                  <span className="text-gray-500">Amount:</span> ₹
+                  <span className="text-gray-500">Amount:</span> R
                   {request.amount?.toLocaleString()}
                 </p>
                 {request.fuelType && (
@@ -581,11 +581,11 @@ export default function AdminDashboard() {
                       {request.interestRate || 13}%
                     </p>
                     <p>
-                      <span className="text-gray-500">Interest Amount:</span> ₹
+                      <span className="text-gray-500">Interest Amount:</span> R
                       {request.interest?.toLocaleString()}
                     </p>
                     <p>
-                      <span className="text-gray-500">Total Repayable:</span> ₹
+                      <span className="text-gray-500">Total Repayable:</span> R
                       {request.totalRepayable?.toLocaleString()}
                     </p>
                     <p>
@@ -746,7 +746,7 @@ export default function AdminDashboard() {
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-[#01312D]">
-                  ₹{driver.totalSpent?.toLocaleString() || 0}
+                  R{driver.totalSpent?.toLocaleString() || 0}
                 </p>
                 <p className="text-xs text-gray-500">Total Spent</p>
               </div>
@@ -855,7 +855,7 @@ export default function AdminDashboard() {
             />
             <StatCard
               title="Total Revenue"
-              value={`₹${stats.totalRevenue.toLocaleString()}`}
+              value={`R${stats.totalRevenue.toLocaleString()}`}
               icon={DollarSign}
               color="bg-[#3A7717]"
             />
@@ -1041,7 +1041,7 @@ export default function AdminDashboard() {
                       </td>
                       <td className="p-4">
                         <span className="font-semibold text-[#3A7717]">
-                          ₹{driver.totalSpent?.toLocaleString() || 0}
+                          R{driver.totalSpent?.toLocaleString() || 0}
                         </span>
                       </td>
                       <td className="p-4">

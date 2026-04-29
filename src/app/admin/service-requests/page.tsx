@@ -157,24 +157,26 @@ export default function AdminServiceRequestsPage() {
   };
 
   const handleSendWhatsApp = (request: ServiceRequest, otp?: string) => {
+    console.log(request);
+
     const finalOtp = otp || request.otp || "N/A";
     const message = `*DriveHub - Service Request Approved* 🎉\n\nHello ${request.driverName},\n\nYour service request has been *APPROVED*! ✅\n\n📋 *Request Details:*
-━━━━━━━━━━━━━━━━━━━
-🆔 *Request ID:* ${request.id}
-🚗 *Vehicle:* ${request.carRegistration}
-📱 *Service:* ${getTypeLabel(request.type)}
-💰 *Amount:* ₹${request.amount?.toLocaleString()}
-🔐 *OTP:* ${finalOtp}
-━━━━━━━━━━━━━━━━━━━
+    ━━━━━━━━━━━━━━━━━━━
+    🆔 *Request ID:* ${request.id}
+    🚗 *Vehicle:* ${request.carRegistration}
+    📱 *Service:* ${getTypeLabel(request.type)}
+    💰 *Amount:* R${request.amount?.toLocaleString()}
+    🔐 *OTP:* ${finalOtp}
+    ━━━━━━━━━━━━━━━━━━━
 
 ${
   request.type === "cash"
     ? `📊 *Repayment Details:*
 • Interest Rate: ${request.interestRate || 13}%
-• Interest Amount: ₹${request.interest?.toLocaleString() || 0}
-• Total Repayable: ₹${request.totalRepayable?.toLocaleString() || 0}
+• Interest Amount: R${request.interest?.toLocaleString() || 0}
+• Total Repayable: R${request.totalRepayable?.toLocaleString() || 0}
 • Period: ${request.repaymentDays || 7} days
-• Daily Payment: ₹${Math.ceil((request.totalRepayable || request.amount) / (request.repaymentDays || 7)).toLocaleString()}
+• Daily Payment: R${Math.ceil((request.totalRepayable || request.amount) / (request.repaymentDays || 7)).toLocaleString()}
 
 `
     : ""
@@ -402,7 +404,7 @@ Thank you for choosing DriveHub! 🚀`;
                 <div className="flex justify-between">
                   <span className="text-gray-600">Amount:</span>
                   <span className="font-bold text-[#3A7717] text-lg">
-                    ₹{approvingRequest.amount?.toLocaleString()}
+                    R{approvingRequest.amount?.toLocaleString()}
                   </span>
                 </div>
                 {approvingRequest.type === "cash" && (
@@ -416,13 +418,13 @@ Thank you for choosing DriveHub! 🚀`;
                     <div className="flex justify-between">
                       <span className="text-gray-600">Interest Amount:</span>
                       <span className="font-semibold text-[#01312D]">
-                        ₹{approvingRequest.interest?.toLocaleString()}
+                        R{approvingRequest.interest?.toLocaleString()}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Total Repayable:</span>
                       <span className="font-bold text-[#01312D]">
-                        ₹{approvingRequest.totalRepayable?.toLocaleString()}
+                        R{approvingRequest.totalRepayable?.toLocaleString()}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -608,7 +610,7 @@ Thank you for choosing DriveHub! 🚀`;
                   {getTypeLabel(request.type)}
                 </p>
                 <p>
-                  <span className="text-gray-500">Amount:</span> ₹
+                  <span className="text-gray-500">Amount:</span> R
                   {request.amount?.toLocaleString()}
                 </p>
                 {request.fuelType && (
@@ -630,11 +632,11 @@ Thank you for choosing DriveHub! 🚀`;
                       {request.interestRate || 13}%
                     </p>
                     <p>
-                      <span className="text-gray-500">Interest Amount:</span> ₹
+                      <span className="text-gray-500">Interest Amount:</span> R
                       {request.interest?.toLocaleString()}
                     </p>
                     <p>
-                      <span className="text-gray-500">Total Repayable:</span> ₹
+                      <span className="text-gray-500">Total Repayable:</span> R
                       {request.totalRepayable?.toLocaleString()}
                     </p>
                     <p>
@@ -786,7 +788,7 @@ Thank you for choosing DriveHub! 🚀`;
         <div className="bg-white rounded-xl p-3 shadow-sm border border-[#bff202]/20">
           <p className="text-xs text-gray-500">Total Value</p>
           <p className="text-xl font-bold text-[#3A7717]">
-            ₹{stats.totalAmount.toLocaleString()}
+            R{stats.totalAmount.toLocaleString()}
           </p>
         </div>
       </div>
@@ -885,7 +887,7 @@ Thank you for choosing DriveHub! 🚀`;
                   </div>
                   <div className="text-right">
                     <p className="text-xl font-bold text-[#01312D]">
-                      ₹{request.amount?.toLocaleString()}
+                      R{request.amount?.toLocaleString()}
                     </p>
                     <p className="text-xs text-gray-500">
                       {new Date(request.requestDate).toLocaleDateString()}

@@ -47,12 +47,16 @@ interface Repayment {
 
 export default function LoanRepaymentsPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"outstanding" | "paid" | "all">("outstanding");
+  const [activeTab, setActiveTab] = useState<"outstanding" | "paid" | "all">(
+    "outstanding",
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [repayments, setRepayments] = useState<Repayment[]>([]);
-  const [selectedRepayment, setSelectedRepayment] = useState<Repayment | null>(null);
+  const [selectedRepayment, setSelectedRepayment] = useState<Repayment | null>(
+    null,
+  );
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [processing, setProcessing] = useState(false);
@@ -94,7 +98,9 @@ export default function LoanRepaymentsPage() {
       });
 
       if (response.ok) {
-        alert(`✅ Payment of ₹${amount.toLocaleString()} recorded successfully!`);
+        alert(
+          `✅ Payment of R${amount.toLocaleString()} recorded successfully!`,
+        );
         fetchRepayments();
         setShowPaymentModal(false);
         setPaymentAmount("");
@@ -145,28 +151,44 @@ export default function LoanRepaymentsPage() {
       (r) =>
         r.driverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.carRegistration.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.driverEmail.toLowerCase().includes(searchTerm.toLowerCase())
+        r.driverEmail.toLowerCase().includes(searchTerm.toLowerCase()),
     );
 
   const stats = {
-    totalOutstanding: repayments.filter((r) => r.status !== "paid").reduce((sum, r) => sum + r.remainingAmount, 0),
-    totalPaid: repayments.filter((r) => r.status === "paid").reduce((sum, r) => sum + r.repaidAmount, 0),
+    totalOutstanding: repayments
+      .filter((r) => r.status !== "paid")
+      .reduce((sum, r) => sum + r.remainingAmount, 0),
+    totalPaid: repayments
+      .filter((r) => r.status === "paid")
+      .reduce((sum, r) => sum + r.repaidAmount, 0),
     totalLoans: repayments.length,
     activeLoans: repayments.filter((r) => r.status !== "paid").length,
     overdueCount: repayments.filter((r) => r.status === "overdue").length,
   };
 
-  const PaymentModal = ({ repayment, onClose }: { repayment: Repayment; onClose: () => void }) => {
+  const PaymentModal = ({
+    repayment,
+    onClose,
+  }: {
+    repayment: Repayment;
+    onClose: () => void;
+  }) => {
     const [amount, setAmount] = useState(repayment.dailyPayment.toString());
     const maxAmount = repayment.remainingAmount;
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}></div>
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={onClose}
+        ></div>
         <div className="relative bg-white rounded-2xl max-w-md w-full">
           <div className="sticky top-0 bg-white border-b border-[#bff202]/20 p-5 flex justify-between items-center">
             <h2 className="text-xl font-bold text-[#01312D]">Record Payment</h2>
-            <button onClick={onClose} className="p-1 hover:bg-[#eafde7] rounded-lg">
+            <button
+              onClick={onClose}
+              className="p-1 hover:bg-[#eafde7] rounded-lg"
+            >
               <XCircle className="w-6 h-6 text-gray-500" />
             </button>
           </div>
@@ -174,17 +196,27 @@ export default function LoanRepaymentsPage() {
           <div className="p-5 space-y-4">
             <div className="bg-[#eafde7] rounded-xl p-4">
               <p className="text-sm text-gray-500">Driver</p>
-              <p className="font-semibold text-[#01312D]">{repayment.driverName}</p>
+              <p className="font-semibold text-[#01312D]">
+                {repayment.driverName}
+              </p>
               <p className="text-sm text-gray-500 mt-2">Car Registration</p>
-              <p className="font-semibold text-[#01312D]">{repayment.carRegistration}</p>
+              <p className="font-semibold text-[#01312D]">
+                {repayment.carRegistration}
+              </p>
               <p className="text-sm text-gray-500 mt-2">Remaining Amount</p>
-              <p className="text-2xl font-bold text-[#01312D]">₹{repayment.remainingAmount.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-[#01312D]">
+                R{repayment.remainingAmount.toLocaleString()}
+              </p>
               <p className="text-sm text-gray-500 mt-2">Daily Payment Amount</p>
-              <p className="font-semibold text-[#01312D]">₹{repayment.dailyPayment.toLocaleString()}/day</p>
+              <p className="font-semibold text-[#01312D]">
+                R{repayment.dailyPayment.toLocaleString()}/day
+              </p>
             </div>
 
             <div>
-              <label className="block text-[#01312D] font-semibold mb-2 text-sm">Payment Amount (₹)</label>
+              <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                Payment Amount (R)
+              </label>
               <input
                 type="number"
                 value={amount}
@@ -193,7 +225,9 @@ export default function LoanRepaymentsPage() {
                 min="1"
                 max={maxAmount}
               />
-              <p className="text-xs text-gray-500 mt-1">Max: ₹{maxAmount.toLocaleString()}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Max: R{maxAmount.toLocaleString()}
+              </p>
             </div>
 
             <div className="flex gap-3">
@@ -201,19 +235,22 @@ export default function LoanRepaymentsPage() {
                 onClick={() => setAmount(repayment.dailyPayment.toString())}
                 className="flex-1 py-2 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold"
               >
-                Daily Payment (₹{repayment.dailyPayment})
+                Daily Payment (R{repayment.dailyPayment})
               </button>
               <button
                 onClick={() => setAmount(repayment.remainingAmount.toString())}
                 className="flex-1 py-2 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold"
               >
-                Full Payment (₹{repayment.remainingAmount})
+                Full Payment (R{repayment.remainingAmount})
               </button>
             </div>
           </div>
 
           <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
-            <button onClick={onClose} className="flex-1 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold">
+            <button
+              onClick={onClose}
+              className="flex-1 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold"
+            >
               Cancel
             </button>
             <button
@@ -221,7 +258,11 @@ export default function LoanRepaymentsPage() {
               disabled={processing || !amount || parseFloat(amount) <= 0}
               className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
             >
-              {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+              {processing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <CheckCircle className="w-4 h-4" />
+              )}
               Record Payment
             </button>
           </div>
@@ -247,14 +288,18 @@ export default function LoanRepaymentsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-[#01312D]">Loan Repayments</h1>
-          <p className="text-gray-500 text-sm mt-1">Track and manage loan repayments</p>
+          <p className="text-gray-500 text-sm mt-1">
+            Track and manage loan repayments
+          </p>
         </div>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
           className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all"
         >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+          />
           Refresh
         </button>
       </div>
@@ -265,7 +310,9 @@ export default function LoanRepaymentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">Outstanding Amount</p>
-              <p className="text-2xl font-bold text-[#01312D]">₹{stats.totalOutstanding.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-[#01312D]">
+                R{stats.totalOutstanding.toLocaleString()}
+              </p>
             </div>
             <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
               <Wallet className="w-5 h-5 text-yellow-600" />
@@ -276,7 +323,9 @@ export default function LoanRepaymentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">Total Repaid</p>
-              <p className="text-2xl font-bold text-[#3A7717]">₹{stats.totalPaid.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-[#3A7717]">
+                R{stats.totalPaid.toLocaleString()}
+              </p>
             </div>
             <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
               <CheckCircle className="w-5 h-5 text-green-600" />
@@ -287,7 +336,9 @@ export default function LoanRepaymentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">Active Loans</p>
-              <p className="text-2xl font-bold text-[#01312D]">{stats.activeLoans}</p>
+              <p className="text-2xl font-bold text-[#01312D]">
+                {stats.activeLoans}
+              </p>
             </div>
             <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
               <TrendingUp className="w-5 h-5 text-blue-600" />
@@ -298,7 +349,9 @@ export default function LoanRepaymentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">Overdue</p>
-              <p className="text-2xl font-bold text-red-600">{stats.overdueCount}</p>
+              <p className="text-2xl font-bold text-red-600">
+                {stats.overdueCount}
+              </p>
             </div>
             <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
               <XCircle className="w-5 h-5 text-red-600" />
@@ -372,20 +425,31 @@ export default function LoanRepaymentsPage() {
           </div>
         ) : (
           filteredRepayments.map((repayment) => (
-            <div key={repayment.id} className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 hover:shadow-md transition-shadow">
+            <div
+              key={repayment.id}
+              className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 hover:shadow-md transition-shadow"
+            >
               <div className="flex items-start justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-[#eafde7] rounded-full flex items-center justify-center">
                     <User className="w-6 h-6 text-[#3A7717]" />
                   </div>
                   <div>
-                    <p className="font-semibold text-[#01312D]">{repayment.driverName}</p>
-                    <p className="text-xs text-gray-500">{repayment.carRegistration}</p>
-                    <p className="text-xs text-gray-500">{repayment.driverEmail}</p>
+                    <p className="font-semibold text-[#01312D]">
+                      {repayment.driverName}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {repayment.carRegistration}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {repayment.driverEmail}
+                    </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-xl font-bold text-[#01312D]">₹{repayment.remainingAmount.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-[#01312D]">
+                    R{repayment.remainingAmount.toLocaleString()}
+                  </p>
                   {getStatusBadge(repayment.status)}
                 </div>
               </div>
@@ -393,19 +457,27 @@ export default function LoanRepaymentsPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-3 border-t border-gray-100">
                 <div>
                   <p className="text-xs text-gray-500">Total Loan</p>
-                  <p className="font-semibold text-[#01312D]">₹{repayment.totalRepayable.toLocaleString()}</p>
+                  <p className="font-semibold text-[#01312D]">
+                    R{repayment.totalRepayable.toLocaleString()}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Repaid</p>
-                  <p className="font-semibold text-[#3A7717]">₹{repayment.repaidAmount.toLocaleString()}</p>
+                  <p className="font-semibold text-[#3A7717]">
+                    R{repayment.repaidAmount.toLocaleString()}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Daily Payment</p>
-                  <p className="font-semibold text-[#01312D]">₹{repayment.dailyPayment.toLocaleString()}</p>
+                  <p className="font-semibold text-[#01312D]">
+                    R{repayment.dailyPayment.toLocaleString()}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Due Date</p>
-                  <p className="font-semibold text-[#01312D]">{new Date(repayment.dueDate).toLocaleDateString()}</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {new Date(repayment.dueDate).toLocaleDateString()}
+                  </p>
                 </div>
               </div>
 
@@ -414,13 +486,18 @@ export default function LoanRepaymentsPage() {
                 <div className="flex justify-between text-xs mb-1">
                   <span className="text-gray-500">Repayment Progress</span>
                   <span className="font-semibold text-[#01312D]">
-                    {Math.round((repayment.repaidAmount / repayment.totalRepayable) * 100)}%
+                    {Math.round(
+                      (repayment.repaidAmount / repayment.totalRepayable) * 100,
+                    )}
+                    %
                   </span>
                 </div>
                 <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
                   <div
                     className="bg-[#3A7717] h-2 rounded-full transition-all"
-                    style={{ width: `${(repayment.repaidAmount / repayment.totalRepayable) * 100}%` }}
+                    style={{
+                      width: `${(repayment.repaidAmount / repayment.totalRepayable) * 100}%`,
+                    }}
                   ></div>
                 </div>
               </div>
@@ -450,7 +527,10 @@ export default function LoanRepaymentsPage() {
 
       {/* Payment Modal */}
       {showPaymentModal && selectedRepayment && (
-        <PaymentModal repayment={selectedRepayment} onClose={() => setShowPaymentModal(false)} />
+        <PaymentModal
+          repayment={selectedRepayment}
+          onClose={() => setShowPaymentModal(false)}
+        />
       )}
     </div>
   );

@@ -310,7 +310,7 @@ export default function HomePage() {
                   className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-semibold whitespace-nowrap ${
                     isAdmin
                       ? "bg-[#bff202] text-[#01312D]"
-                      : "bg-[#3A7717] text-white"
+                      : "bg-[#bff202] text-[#01312D]"
                   }`}
                 >
                   {isAdmin ? (
@@ -367,7 +367,7 @@ export default function HomePage() {
         <div className="text-center mb-6">
           <div className="inline-block bg-[#bff202]/20 rounded-full px-4 py-1 mb-3">
             <p className="text-xs font-semibold text-[#01312D]">
-              🚀 Everything for Drivers 🚀
+              Everything for Drivers
             </p>
           </div>
           <h1 className="text-3xl font-extrabold text-[#01312D] leading-tight mb-2">
