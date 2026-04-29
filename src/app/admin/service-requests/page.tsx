@@ -30,6 +30,7 @@ import {
   RefreshCw,
   X,
 } from "lucide-react";
+import { log } from "console";
 
 type RequestType = "fuel" | "airtime" | "cash" | "carwash";
 type RequestStatus = "pending" | "approved" | "completed" | "rejected";
@@ -98,6 +99,9 @@ export default function AdminServiceRequestsPage() {
           rejected: data.rejected || 0,
           totalAmount: data.totalRevenue || 0,
         });
+
+        console.log(data);
+        
       }
     } catch (error) {
       console.error("Error fetching requests:", error);
@@ -113,6 +117,10 @@ export default function AdminServiceRequestsPage() {
   };
 
   const handleApprove = async (request: ServiceRequest) => {
+    console.log("Request object:", request);
+    console.log("Request ID being sent:", request.id);
+    console.log("ID type:", typeof request.id);
+    console.log("ID length:", request.id?.length);
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     try {
       const response = await fetch("/api/admin/requests/approve", {

@@ -1,6 +1,7 @@
 // src/app/api/admin/requests/approve/route.ts
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
+import { ObjectId } from "mongodb"; // Import ObjectId
 
 export async function POST(request: Request) {
   try {
@@ -16,9 +17,20 @@ export async function POST(request: Request) {
     const { db } = await connectToDatabase();
     const serviceRequestsCollection = db.collection("serviceRequests");
 
-    // Find the request by ID
+    // Convert string ID to ObjectId
+    let objectId;
+    try {
+      objectId = new ObjectId(requestId);
+    } catch (error) {
+      return NextResponse.json(
+        { error: "Invalid request ID format" },
+        { status: 400 },
+      );
+    }
+
+    // Find the request by ID using ObjectId
     const requestDoc = await serviceRequestsCollection.findOne({
-      _id: requestId,
+      _id: objectId,
     });
 
     if (!requestDoc) {
@@ -27,7 +39,7 @@ export async function POST(request: Request) {
 
     // Update request status
     await serviceRequestsCollection.updateOne(
-      { _id: requestId },
+      { _id: objectId },
       {
         $set: {
           status: "approved",
