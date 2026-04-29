@@ -1,7 +1,8 @@
 // src/app/admin/service-requests/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search,
   Filter,
@@ -25,6 +26,9 @@ import {
   Phone,
   Copy,
   Check,
+  Loader2,
+  RefreshCw,
+  X,
 } from "lucide-react";
 
 type RequestType = "fuel" | "airtime" | "cash" | "carwash";
@@ -40,10 +44,11 @@ interface ServiceRequest {
   type: RequestType;
   amount: number;
   fuelType?: "petrol" | "diesel";
-  phoneNumber?: string; // for airtime
-  interest?: number; // for cash loans
-  totalRepayable?: number; // for cash loans
-  repaymentDays?: number; // for cash loans
+  phoneNumber?: string;
+  interest?: number;
+  totalRepayable?: number;
+  repaymentDays?: number;
+  interestRate?: number;
   status: RequestStatus;
   otp?: string;
   requestDate: string;
@@ -52,6 +57,7 @@ interface ServiceRequest {
 }
 
 export default function AdminServiceRequestsPage() {
+  const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<
     "all" | "pending" | "approved" | "completed" | "rejected"
   >("pending");
@@ -62,81 +68,136 @@ export default function AdminServiceRequestsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState<RequestType | "all">("all");
   const [copiedOtp, setCopiedOtp] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [requests, setRequests] = useState<ServiceRequest[]>([]);
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    approved: 0,
+    completed: 0,
+    rejected: 0,
+    totalAmount: 0,
+  });
 
-  // Sample data - will be replaced with Supabase
-  const requests: ServiceRequest[] = [
-    {
-      id: "REQ001",
-      driverName: "Rajesh Kumar",
-      driverEmail: "rajesh@example.com",
-      driverPhone: "+91 98765 43210",
-      carRegistration: "KA01AB1234",
-      location: "Indiranagar, Bangalore",
-      type: "fuel",
-      amount: 2500,
-      fuelType: "petrol",
-      status: "pending",
-      requestDate: "2024-01-20T10:30:00",
-    },
-    {
-      id: "REQ002",
-      driverName: "Priya Singh",
-      driverEmail: "priya@example.com",
-      driverPhone: "+91 98765 43211",
-      carRegistration: "MH02CD5678",
-      location: "Andheri, Mumbai",
-      type: "cash",
-      amount: 15000,
-      interest: 13,
-      totalRepayable: 16950,
-      repaymentDays: 14,
-      status: "pending",
-      requestDate: "2024-01-20T11:45:00",
-    },
-    {
-      id: "REQ003",
-      driverName: "Amit Patel",
-      driverEmail: "amit@example.com",
-      driverPhone: "+91 98765 43212",
-      carRegistration: "DL03EF9012",
-      location: "Connaught Place, Delhi",
-      type: "airtime",
-      amount: 500,
-      phoneNumber: "+91 98765 43212",
-      status: "approved",
-      otp: "123456",
-      requestDate: "2024-01-19T14:20:00",
-      approvedDate: "2024-01-19T15:00:00",
-    },
-    {
-      id: "REQ004",
-      driverName: "Sneha Reddy",
-      driverEmail: "sneha@example.com",
-      driverPhone: "+91 98765 43213",
-      carRegistration: "TS09GH3456",
-      location: "Hitech City, Hyderabad",
-      type: "carwash",
-      amount: 999,
-      status: "completed",
-      otp: "789012",
-      requestDate: "2024-01-18T09:15:00",
-      approvedDate: "2024-01-18T10:00:00",
-      completedDate: "2024-01-18T15:30:00",
-    },
-    {
-      id: "REQ005",
-      driverName: "Vikram Singh",
-      driverEmail: "vikram@example.com",
-      driverPhone: "+91 98765 43214",
-      carRegistration: "RJ14IJ7890",
-      location: "Vaishali Nagar, Jaipur",
-      type: "fuel",
-      amount: 3000,
-      fuelType: "diesel",
-      status: "pending",
-      requestDate: "2024-01-20T09:00:00",
-    },
-  ];
+  useEffect(() => {
+    fetchRequests();
+  }, []);
+
+  const fetchRequests = async () => {
+    try {
+      const response = await fetch("/api/admin/requests");
+      if (response.ok) {
+        const data = await response.json();
+        setRequests(data.requests || []);
+        setStats({
+          total: data.total || 0,
+          pending: data.pending || 0,
+          approved: data.approved || 0,
+          completed: data.completed || 0,
+          rejected: data.rejected || 0,
+          totalAmount: data.totalRevenue || 0,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching requests:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchRequests();
+  };
+
+  const handleApprove = async (request: ServiceRequest) => {
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    try {
+      const response = await fetch("/api/admin/requests/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: request.id,
+          otp,
+        }),
+      });
+      if (response.ok) {
+        alert(`✅ Approved ${request.id} with OTP: ${otp}`);
+        fetchRequests();
+        setShowModal(false);
+      } else {
+        const error = await response.json();
+        alert(error.error || "Failed to approve request");
+      }
+    } catch (error) {
+      console.error("Error approving request:", error);
+      alert("Failed to approve request");
+    }
+  };
+
+  const handleReject = async (request: ServiceRequest) => {
+    const reason = prompt("Please enter rejection reason:");
+    if (reason) {
+      try {
+        const response = await fetch("/api/admin/requests/reject", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId: request.id,
+            reason,
+          }),
+        });
+        if (response.ok) {
+          alert(`❌ Rejected ${request.id}`);
+          fetchRequests();
+          setShowModal(false);
+        } else {
+          const error = await response.json();
+          alert(error.error || "Failed to reject request");
+        }
+      } catch (error) {
+        console.error("Error rejecting request:", error);
+        alert("Failed to reject request");
+      }
+    }
+  };
+
+  const handleComplete = async (request: ServiceRequest) => {
+    try {
+      const response = await fetch("/api/admin/requests/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: request.id,
+        }),
+      });
+      if (response.ok) {
+        alert(`✅ Marked ${request.id} as completed`);
+        fetchRequests();
+        setShowModal(false);
+      } else {
+        const error = await response.json();
+        alert(error.error || "Failed to complete request");
+      }
+    } catch (error) {
+      console.error("Error completing request:", error);
+      alert("Failed to complete request");
+    }
+  };
+
+  const handleSendWhatsApp = (request: ServiceRequest) => {
+    const message = `DriveHub Service Request Confirmation\n\nRequest ID: ${request.id}\nDriver: ${request.driverName}\nCar: ${request.carRegistration}\nService: ${getTypeLabel(request.type)}\nAmount: ₹${request.amount}\nOTP: ${request.otp || "N/A"}\n\nPlease show this OTP to the cashier/attendant.`;
+    const whatsappUrl = `https://wa.me/${request.driverPhone?.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, "_blank");
+  };
+
+  const handleCopyOtp = (otp: string) => {
+    navigator.clipboard.writeText(otp);
+    setCopiedOtp(otp);
+    setTimeout(() => setCopiedOtp(null), 2000);
+  };
 
   const getStatusBadge = (status: RequestStatus) => {
     const config = {
@@ -211,55 +272,15 @@ export default function AdminServiceRequestsPage() {
     }
   };
 
-  const handleApprove = (request: ServiceRequest) => {
-    // Generate OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    alert(`Approved ${request.id} with OTP: ${otp}`);
-    // In production: Update database and send WhatsApp
-  };
-
-  const handleReject = (request: ServiceRequest) => {
-    const reason = prompt("Please enter rejection reason:");
-    if (reason) {
-      alert(`Rejected ${request.id} - Reason: ${reason}`);
-      // In production: Update database
-    }
-  };
-
-  const handleComplete = (request: ServiceRequest) => {
-    alert(`Marked ${request.id} as completed`);
-    // In production: Update database
-  };
-
-  const handleSendWhatsApp = (request: ServiceRequest) => {
-    const message = `DriveHub Service Request Confirmation\n\nRequest ID: ${request.id}\nDriver: ${request.driverName}\nCar: ${request.carRegistration}\nService: ${getTypeLabel(request.type)}\nAmount: R${request.amount}\nOTP: ${request.otp || "N/A"}\n\nPlease show this OTP to the cashier/attendant.`;
-    const whatsappUrl = `https://wa.me/${request.driverPhone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, "_blank");
-  };
-
-  const handleCopyOtp = (otp: string) => {
-    navigator.clipboard.writeText(otp);
-    setCopiedOtp(otp);
-    setTimeout(() => setCopiedOtp(null), 2000);
-  };
-
   const filteredRequests = requests
     .filter((r) => selectedTab === "all" || r.status === selectedTab)
     .filter((r) => selectedType === "all" || r.type === selectedType)
     .filter(
       (r) =>
-        r.driverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.carRegistration.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.id.toLowerCase().includes(searchTerm.toLowerCase()),
+        r.driverName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.carRegistration?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.id?.toLowerCase().includes(searchTerm.toLowerCase()),
     );
-
-  const stats = {
-    total: requests.length,
-    pending: requests.filter((r) => r.status === "pending").length,
-    approved: requests.filter((r) => r.status === "approved").length,
-    completed: requests.filter((r) => r.status === "completed").length,
-    totalAmount: requests.reduce((sum, r) => sum + r.amount, 0),
-  };
 
   const ViewDetailsModal = ({
     request,
@@ -295,7 +316,7 @@ export default function AdminServiceRequestsPage() {
               onClick={onClose}
               className="p-1 hover:bg-[#eafde7] rounded-lg"
             >
-              <XCircle className="w-6 h-6 text-gray-500" />
+              <X className="w-6 h-6 text-gray-500" />
             </button>
           </div>
 
@@ -342,8 +363,8 @@ export default function AdminServiceRequestsPage() {
                   {getTypeLabel(request.type)}
                 </p>
                 <p>
-                  <span className="text-gray-500">Amount:</span> R
-                  {request.amount.toLocaleString()}
+                  <span className="text-gray-500">Amount:</span> ₹
+                  {request.amount?.toLocaleString()}
                 </p>
                 {request.fuelType && (
                   <p>
@@ -360,11 +381,15 @@ export default function AdminServiceRequestsPage() {
                 {request.type === "cash" && (
                   <>
                     <p>
-                      <span className="text-gray-500">Interest (13%):</span> R
-                      {request.interest}
+                      <span className="text-gray-500">Interest Rate:</span>{" "}
+                      {request.interestRate || 13}%
                     </p>
                     <p>
-                      <span className="text-gray-500">Total Repayable:</span> R
+                      <span className="text-gray-500">Interest Amount:</span> ₹
+                      {request.interest?.toLocaleString()}
+                    </p>
+                    <p>
+                      <span className="text-gray-500">Total Repayable:</span> ₹
                       {request.totalRepayable?.toLocaleString()}
                     </p>
                     <p>
@@ -413,20 +438,14 @@ export default function AdminServiceRequestsPage() {
             {request.status === "pending" && (
               <>
                 <button
-                  onClick={() => {
-                    handleApprove(request);
-                    onClose();
-                  }}
+                  onClick={() => handleApprove(request)}
                   className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
                 >
                   <CheckCircle className="w-4 h-4" />
                   Approve Request
                 </button>
                 <button
-                  onClick={() => {
-                    handleReject(request);
-                    onClose();
-                  }}
+                  onClick={() => handleReject(request)}
                   className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
                 >
                   <XCircle className="w-4 h-4" />
@@ -444,10 +463,7 @@ export default function AdminServiceRequestsPage() {
                   Send WhatsApp
                 </button>
                 <button
-                  onClick={() => {
-                    handleComplete(request);
-                    onClose();
-                  }}
+                  onClick={() => handleComplete(request)}
                   className="flex-1 bg-[#01312D] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
                 >
                   <CheckCircle className="w-4 h-4" />
@@ -469,14 +485,39 @@ export default function AdminServiceRequestsPage() {
     );
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
+          <p className="text-[#01312D]">Loading service requests...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-[#01312D]">Service Requests</h1>
-        <p className="text-gray-500 text-sm mt-1">
-          Manage and approve driver service requests
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-[#01312D]">
+            Service Requests
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">
+            Manage and approve driver service requests
+          </p>
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all"
+        >
+          <RefreshCw
+            className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+          />
+          Refresh
+        </button>
       </div>
 
       {/* Stats Cards */}
@@ -500,7 +541,7 @@ export default function AdminServiceRequestsPage() {
         <div className="bg-white rounded-xl p-3 shadow-sm border border-[#bff202]/20">
           <p className="text-xs text-gray-500">Total Value</p>
           <p className="text-xl font-bold text-[#3A7717]">
-            R{stats.totalAmount.toLocaleString()}
+            ₹{stats.totalAmount.toLocaleString()}
           </p>
         </div>
       </div>
@@ -536,16 +577,22 @@ export default function AdminServiceRequestsPage() {
           <button
             key={tab}
             onClick={() => setSelectedTab(tab as any)}
-            className={`px-4 py-2 font-semibold capitalize transition-all whitespace-nowrap ${
-              selectedTab === tab
-                ? "text-[#3A7717] border-b-2 border-[#3A7717]"
-                : "text-gray-500"
-            }`}
+            className={`px-4 py-2 font-semibold capitalize transition-all whitespace-nowrap ${selectedTab === tab ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}
           >
             {tab}
             {tab === "pending" && stats.pending > 0 && (
               <span className="ml-1 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">
                 {stats.pending}
+              </span>
+            )}
+            {tab === "approved" && stats.approved > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 bg-blue-500 text-white text-xs rounded-full">
+                {stats.approved}
+              </span>
+            )}
+            {tab === "completed" && stats.completed > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 bg-green-500 text-white text-xs rounded-full">
+                {stats.completed}
               </span>
             )}
           </button>
@@ -555,7 +602,7 @@ export default function AdminServiceRequestsPage() {
       {/* Requests List */}
       <div className="space-y-3">
         {filteredRequests.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-2xl">
+          <div className="text-center py-12 bg-white rounded-2xl border border-[#bff202]/20">
             <div className="w-20 h-20 bg-[#eafde7] rounded-full flex items-center justify-center mx-auto mb-4">
               <Clock className="w-10 h-10 text-gray-400" />
             </div>
@@ -593,7 +640,7 @@ export default function AdminServiceRequestsPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-xl font-bold text-[#01312D]">
-                      R{request.amount.toLocaleString()}
+                      ₹{request.amount?.toLocaleString()}
                     </p>
                     <p className="text-xs text-gray-500">
                       {new Date(request.requestDate).toLocaleDateString()}
@@ -612,7 +659,6 @@ export default function AdminServiceRequestsPage() {
                     <Eye className="w-4 h-4" />
                     View Details
                   </button>
-
                   {request.status === "pending" && (
                     <>
                       <button
@@ -631,7 +677,6 @@ export default function AdminServiceRequestsPage() {
                       </button>
                     </>
                   )}
-
                   {request.status === "approved" && (
                     <>
                       <button
@@ -656,27 +701,6 @@ export default function AdminServiceRequestsPage() {
           })
         )}
       </div>
-
-      {/* Pagination */}
-      {filteredRequests.length > 0 && (
-        <div className="flex justify-center gap-2 pt-4">
-          <button className="w-8 h-8 bg-white rounded-lg flex items-center justify-center border border-[#bff202]/20">
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button className="w-8 h-8 bg-[#3A7717] text-white rounded-lg flex items-center justify-center">
-            1
-          </button>
-          <button className="w-8 h-8 bg-white rounded-lg flex items-center justify-center border border-[#bff202]/20">
-            2
-          </button>
-          <button className="w-8 h-8 bg-white rounded-lg flex items-center justify-center border border-[#bff202]/20">
-            3
-          </button>
-          <button className="w-8 h-8 bg-white rounded-lg flex items-center justify-center border border-[#bff202]/20">
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      )}
 
       {/* Modal */}
       {showModal && selectedRequest && (
