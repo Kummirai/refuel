@@ -475,7 +475,7 @@ export default function VerificationStatusPage() {
           <div className="flex gap-3">
             <button
               onClick={() =>
-                (window.location.href = "mailto:support@drivehub.com")
+                (window.location.href = "mailto:support@FueleX.com")
               }
               className="flex-1 px-4 py-2 bg-[#01312D] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2"
             >

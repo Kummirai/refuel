@@ -308,7 +308,7 @@ export default function HomePage() {
               </div>
               <div>
                 <h1 className="text-[#01312D] font-bold text-xl">
-                  Drive<span className="text-[#3A7717]">Hub</span>
+                  Fuel<span className="text-[#3A7717]">eX</span>
                 </h1>
                 <p className="text-[#72bf00] text-xs font-semibold">
                   Driver Services
@@ -560,7 +560,7 @@ export default function HomePage() {
                   </div>
                   <div className="flex-1">
                     <p className="text-[#01312D] font-bold text-sm">
-                      New to DriveHub?
+                      New to FueleX?
                     </p>
                     <p className="text-[#01312D]/80 text-xs">
                       Sign up now & get 10% off on first request!

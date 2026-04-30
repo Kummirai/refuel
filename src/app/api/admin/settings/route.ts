@@ -5,9 +5,9 @@ import { connectToDatabase } from "@/lib/db";
 // Default settings
 const DEFAULT_SETTINGS = {
   general: {
-    siteName: "DriveHub",
+    siteName: "FueleX",
     siteDescription: "Driver Services Platform",
-    contactEmail: "support@drivehub.com",
+    contactEmail: "support@FueleX.com",
     contactPhone: "+91 98765 43210",
     address: "123, Tech Park, Bangalore - 560001",
     timezone: "Asia/Kolkata",
@@ -35,7 +35,7 @@ const DEFAULT_SETTINGS = {
     emailNotifications: true,
     whatsappNotifications: true,
     smsNotifications: false,
-    adminEmail: "admin@drivehub.com",
+    adminEmail: "admin@FueleX.com",
     adminPhone: "+91 98765 43210",
     whatsappBusinessNumber: "+91 98765 43210",
     notifyOnNewVerification: true,
@@ -54,17 +54,17 @@ const DEFAULT_SETTINGS = {
     ipWhitelist: "",
   },
   business: {
-    businessName: "DriveHub Services Pvt Ltd",
-    businessEmail: "business@drivehub.com",
+    businessName: "FueleX Services Pvt Ltd",
+    businessEmail: "business@FueleX.com",
     businessPhone: "+27 782 677 436",
     gstNumber: "29ABCDE1234F1Z5",
     panNumber: "ABCDE1234F",
     bankName: "HDFC Bank",
     accountNumber: "XXXX1234",
     ifscCode: "HDFC0001234",
-    upiId: "drivehub@hdfcbank",
-    termsAndConditions: "https://drivehub.com/terms",
-    privacyPolicy: "https://drivehub.com/privacy",
+    upiId: "FueleX@hdfcbank",
+    termsAndConditions: "https://FueleX.com/terms",
+    privacyPolicy: "https://FueleX.com/privacy",
   },
 };
 

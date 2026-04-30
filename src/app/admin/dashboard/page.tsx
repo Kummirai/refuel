@@ -665,7 +665,7 @@ export default function AdminDashboard() {
         const currentDate = getCurrentDate();
         const currentTime = getCurrentTime();
 
-        const caption = `*DriveHub - Service Request Approved* 🎉
+        const caption = `*FueleX - Service Request Approved* 🎉
 
 Hello ${approvedRequest.driverName},
 
@@ -700,7 +700,7 @@ ${
 
 Please find your receipt attached below.
 
-Thank you for choosing DriveHub! 🚀
+Thank you for choosing FueleX! 🚀
 
 *This is a system generated message. Valid for 30 minutes.*`;
 
@@ -864,7 +864,7 @@ Thank you for choosing DriveHub! 🚀
                   zIndex: -1,
                 }}
               >
-                {/* Header with DriveHub Logo */}
+                {/* Header with FueleX Logo */}
                 <div
                   style={{
                     textAlign: "center",
@@ -881,7 +881,7 @@ Thank you for choosing DriveHub! 🚀
                       fontWeight: "bold",
                     }}
                   >
-                    🚗 DriveHub
+                    🚗 FueleX
                   </h2>
                   <p
                     style={{
@@ -1155,7 +1155,7 @@ Thank you for choosing DriveHub! 🚀
                     ✅ Valid for 30 minutes
                   </p>
                   <p style={{ margin: "0", fontSize: "10px", opacity: 0.7 }}>
-                    DriveHub Services • powered by DriveHub
+                    FueleX Services • powered by FueleX
                   </p>
                 </div>
               </div>

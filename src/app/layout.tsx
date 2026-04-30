@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DriveHub - Driver Services",
+  title: "FueleX - Driver Services",
   description: "Get fuel, cash, airtime & car wash instantly",
 };
 

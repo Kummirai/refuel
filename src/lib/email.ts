@@ -106,7 +106,7 @@ const generateAdminEmailHtml = (data: ServiceRequestEmailData): string => {
     <body>
       <div class="container">
         <div class="header">
-          <h1>🚗 DriveHub</h1>
+          <h1>🚗 FueleX</h1>
           <p>New Service Request Received</p>
         </div>
         <div class="content">
@@ -134,7 +134,7 @@ const generateAdminEmailHtml = (data: ServiceRequestEmailData): string => {
           </div>
         </div>
         <div class="footer">
-          <p>DriveHub Services • This is an automated notification</p>
+          <p>FueleX Services • This is an automated notification</p>
         </div>
       </div>
     </body>
@@ -145,11 +145,11 @@ const generateAdminEmailHtml = (data: ServiceRequestEmailData): string => {
 export async function sendAdminNotificationEmail(
   data: ServiceRequestEmailData,
 ) {
-  const adminEmail = process.env.ADMIN_EMAIL || "admin@drivehub.com";
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@FueleX.com";
 
   try {
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || '"DriveHub" <noreply@drivehub.com>',
+      from: process.env.EMAIL_FROM || '"FueleX" <noreply@FueleX.com>',
       to: adminEmail,
       subject: `🔔 New Service Request: ${data.requestId.slice(-6).toUpperCase()}`,
       html: generateAdminEmailHtml(data),
@@ -224,7 +224,7 @@ export async function sendDriverApprovalEmail(data: {
 }) {
   try {
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || '"DriveHub" <noreply@drivehub.com>',
+      from: process.env.EMAIL_FROM || '"FueleX" <noreply@FueleX.com>',
       to: data.driverEmail,
       subject: `✅ Service Request Approved - ${data.requestId.slice(-6).toUpperCase()}`,
       html: generateDriverApprovalHtml(data),
@@ -251,7 +251,7 @@ export async function sendDriverRejectionEmail(data: {
 }) {
   try {
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || '"DriveHub" <noreply@drivehub.com>',
+      from: process.env.EMAIL_FROM || '"FueleX" <noreply@FueleX.com>',
       to: data.driverEmail,
       subject: `❌ Service Request Rejected - ${data.requestId.slice(-6).toUpperCase()}`,
       html: generateDriverRejectionHtml(data),
@@ -318,7 +318,7 @@ const generateDriverRejectionHtml = (data: {
           </div>
           
           <hr style="margin: 30px 0 20px; border: none; border-top: 1px solid #e5e7eb;">
-          <p style="font-size: 12px; color: #6b7280; text-align: center;">DriveHub Services • This is an automated notification</p>
+          <p style="font-size: 12px; color: #6b7280; text-align: center;">FueleX Services • This is an automated notification</p>
         </div>
       </div>
     </body>
@@ -337,7 +337,7 @@ export async function sendVerificationNotificationEmail(data: {
   verificationId: string;
   submissionDate: string;
 }) {
-  const adminEmail = process.env.ADMIN_EMAIL || "admin@drivehub.com";
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@FueleX.com";
 
   const html = `
     <!DOCTYPE html>
@@ -366,7 +366,7 @@ export async function sendVerificationNotificationEmail(data: {
     <body>
       <div class="container">
         <div class="header">
-          <h1>🚗 DriveHub</h1>
+          <h1>🚗 FueleX</h1>
           <p style="color: #bff202; margin-top: 10px;">New Driver Verification Request</p>
         </div>
         <div class="content">
@@ -397,7 +397,7 @@ export async function sendVerificationNotificationEmail(data: {
           </div>
         </div>
         <div class="footer">
-          <p>DriveHub Services • This is an automated notification</p>
+          <p>FueleX Services • This is an automated notification</p>
           <p>Please review the driver's documents to approve or reject.</p>
         </div>
       </div>
@@ -407,7 +407,7 @@ export async function sendVerificationNotificationEmail(data: {
 
   try {
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || '"DriveHub" <noreply@drivehub.com>',
+      from: process.env.EMAIL_FROM || '"FueleX" <noreply@FueleX.com>',
       to: adminEmail,
       subject: `🔔 New Driver Verification Request - ${data.driverName}`,
       html: html,
@@ -478,11 +478,11 @@ export async function sendDriverVerificationResultEmail(data: {
           <ul>
             <li>Request fuel, airtime, cash loans, and car wash services</li>
             <li>Track your request history</li>
-            <li>Access all DriveHub features</li>
+            <li>Access all FueleX features</li>
           </ul>
           `
               : `
-          <p>Please re-submit your verification with correct information to continue using DriveHub services.</p>
+          <p>Please re-submit your verification with correct information to continue using FueleX services.</p>
           `
           }
           
@@ -509,11 +509,11 @@ export async function sendDriverVerificationResultEmail(data: {
     });
 
     await transporter.sendMail({
-      from: process.env.EMAIL_FROM || '"DriveHub" <noreply@drivehub.com>',
+      from: process.env.EMAIL_FROM || '"FueleX" <noreply@FueleX.com>',
       to: data.driverEmail,
       subject: isApproved
-        ? `✅ Driver Verification Approved - DriveHub`
-        : `❌ Driver Verification Rejected - DriveHub`,
+        ? `✅ Driver Verification Approved - FueleX`
+        : `❌ Driver Verification Rejected - FueleX`,
       html: html,
     });
     console.log(`✅ Driver verification ${data.status} email sent`);
