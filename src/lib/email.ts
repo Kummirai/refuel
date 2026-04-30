@@ -325,3 +325,199 @@ const generateDriverRejectionHtml = (data: {
     </html>
   `;
 };
+
+// Add this function to your existing email.ts file
+
+export async function sendVerificationNotificationEmail(data: {
+  driverName: string;
+  driverEmail: string;
+  driverPhone: string;
+  carRegistration: string;
+  carModel: string;
+  verificationId: string;
+  submissionDate: string;
+}) {
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@drivehub.com";
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>New Driver Verification Request</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #eafde7; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #01312D 0%, #3A7717 100%); padding: 30px; text-align: center; }
+        .header h1 { color: white; margin: 0; }
+        .content { padding: 30px; }
+        .section { background: #eafde7; border-radius: 12px; padding: 15px; margin-bottom: 20px; }
+        .section h3 { color: #01312D; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #bff202; }
+        .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #bff20240; }
+        .row:last-child { border-bottom: none; }
+        .label { color: #666; font-weight: 500; }
+        .value { color: #01312D; font-weight: 600; }
+        .button { display: inline-block; background: linear-gradient(135deg, #3A7717 0%, #72bf00 100%); color: white; text-decoration: none; padding: 12px 24px; border-radius: 12px; font-weight: 600; margin-top: 20px; }
+        .footer { background: #f5f5f5; padding: 20px; text-align: center; font-size: 12px; color: #999; }
+        .badge { display: inline-block; background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🚗 DriveHub</h1>
+          <p style="color: #bff202; margin-top: 10px;">New Driver Verification Request</p>
+        </div>
+        <div class="content">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <span class="badge">⏳ PENDING REVIEW</span>
+          </div>
+          
+          <div class="section">
+            <h3>👤 Driver Information</h3>
+            <div class="row"><span class="label">Driver Name:</span><span class="value">${data.driverName}</span></div>
+            <div class="row"><span class="label">Email:</span><span class="value">${data.driverEmail}</span></div>
+            <div class="row"><span class="label">Phone:</span><span class="value">${data.driverPhone}</span></div>
+            <div class="row"><span class="label">Car Registration:</span><span class="value">${data.carRegistration}</span></div>
+            <div class="row"><span class="label">Car Model:</span><span class="value">${data.carModel || "Not specified"}</span></div>
+            <div class="row"><span class="label">Submitted:</span><span class="value">${new Date(data.submissionDate).toLocaleString()}</span></div>
+          </div>
+          
+          <div class="section">
+            <h3>📋 Verification Status</h3>
+            <div class="row"><span class="label">Status:</span><span class="value">Pending Review</span></div>
+            <div class="row"><span class="label">Verification ID:</span><span class="value">${data.verificationId.slice(-8).toUpperCase()}</span></div>
+          </div>
+          
+          <div style="text-align: center;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/verifications" class="button">
+              📋 Review Verification
+            </a>
+          </div>
+        </div>
+        <div class="footer">
+          <p>DriveHub Services • This is an automated notification</p>
+          <p>Please review the driver's documents to approve or reject.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"DriveHub" <noreply@drivehub.com>',
+      to: adminEmail,
+      subject: `🔔 New Driver Verification Request - ${data.driverName}`,
+      html: html,
+      text: `New verification request from ${data.driverName} (${data.carRegistration})`,
+    });
+    console.log("✅ Verification notification email sent:", info.messageId);
+  } catch (error) {
+    console.error("❌ Error sending verification notification email:", error);
+  }
+}
+
+// Add this function to your email.ts file
+
+export async function sendDriverVerificationResultEmail(data: {
+  driverEmail: string;
+  driverName: string;
+  status: "approved" | "rejected";
+  reason: string | null;
+}) {
+  const isApproved = data.status === "approved";
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Driver Verification ${isApproved ? "Approved" : "Rejected"}</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #eafde7; margin: 0; padding: 20px; }
+        .container { max-width: 500px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, ${isApproved ? "#25D366 0%, #128C7E 100%" : "#dc2626 0%, #991b1b 100%"}); padding: 30px; text-align: center; }
+        .header h1 { color: white; margin: 0; }
+        .content { padding: 30px; }
+        .button { background: #3A7717; color: white; text-decoration: none; padding: 12px 24px; border-radius: 12px; display: inline-block; }
+        .reason-box { background: #fef2f2; border-left: 4px solid #dc2626; padding: 15px; border-radius: 12px; margin: 20px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>${isApproved ? "✅ Verification Approved!" : "❌ Verification Rejected"}</h1>
+        </div>
+        <div class="content">
+          <p>Hello ${data.driverName},</p>
+          <p>${
+            isApproved
+              ? "Congratulations! Your driver verification has been <strong>APPROVED</strong>! 🎉 You can now request services."
+              : "We regret to inform you that your driver verification has been <strong>REJECTED</strong>."
+          }
+          </p>
+          
+          ${
+            !isApproved && data.reason
+              ? `
+          <div class="reason-box">
+            <p style="margin: 0 0 5px 0; font-weight: bold; color: #991b1b;">Reason for rejection:</p>
+            <p style="margin: 0; color: #7f1d1d;">${data.reason}</p>
+          </div>
+          `
+              : ""
+          }
+          
+          ${
+            isApproved
+              ? `
+          <p>You can now:</p>
+          <ul>
+            <li>Request fuel, airtime, cash loans, and car wash services</li>
+            <li>Track your request history</li>
+            <li>Access all DriveHub features</li>
+          </ul>
+          `
+              : `
+          <p>Please re-submit your verification with correct information to continue using DriveHub services.</p>
+          `
+          }
+          
+          <div style="text-align: center; margin-top: 30px;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}${isApproved ? "/requests" : "/verify"}" class="button">
+              ${isApproved ? "🚗 Start Requesting" : "📝 Re-submit Verification"}
+            </a>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: parseInt(process.env.EMAIL_PORT || "587"),
+      secure: process.env.EMAIL_SECURE === "true",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+    });
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"DriveHub" <noreply@drivehub.com>',
+      to: data.driverEmail,
+      subject: isApproved
+        ? `✅ Driver Verification Approved - DriveHub`
+        : `❌ Driver Verification Rejected - DriveHub`,
+      html: html,
+    });
+    console.log(`✅ Driver verification ${data.status} email sent`);
+  } catch (error) {
+    console.error(`❌ Error sending verification ${data.status} email:`, error);
+  }
+}

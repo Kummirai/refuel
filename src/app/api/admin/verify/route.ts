@@ -1,65 +1,161 @@
 // src/app/api/admin/verify/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
+import { ObjectId } from "mongodb";
+import { sendDriverVerificationResultEmail } from "@/lib/email";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { verificationId, action, reason } = await request.json();
-    console.log(request.body);
-
-    if (!verificationId || !action) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 },
-      );
-    }
+    const body = await request.json();
+    const { verification, action, verificationId, reason } = body;
 
     const { db } = await connectToDatabase();
     const driverProfilesCollection = db.collection("driverProfiles");
-    const usersCollection = db.collection("user");
+    const usersCollection = db.collection("users");
 
-    // Get the verification document
-    const verification = await driverProfilesCollection.findOne({
-      userId: verificationId,
-    });
+    let profile;
+    let userId;
 
-    if (!verification) {
+    // Find the profile
+    if (verificationId) {
+      try {
+        const objectId = new ObjectId(verificationId);
+        profile = await driverProfilesCollection.findOne({ _id: objectId });
+        if (profile) {
+          userId = profile.userId;
+        }
+      } catch (error) {
+        console.error("Invalid verification ID format:", error);
+      }
+    } else if (verification && verification.id) {
+      try {
+        const objectId = new ObjectId(verification.id);
+        profile = await driverProfilesCollection.findOne({ _id: objectId });
+        if (profile) {
+          userId = profile.userId;
+        }
+      } catch (error) {
+        console.error("Invalid verification ID format:", error);
+      }
+    } else if (verification && verification.userId) {
+      profile = await driverProfilesCollection.findOne({
+        userId: verification.userId,
+      });
+      if (profile) {
+        userId = verification.userId;
+      }
+    }
+
+    if (!profile || !userId) {
       return NextResponse.json(
         { error: "Verification not found" },
         { status: 404 },
       );
     }
 
-    const newStatus = action === "approve" ? "approved" : "rejected";
+    // Get user details for email
+    const user = await usersCollection.findOne({ _id: userId });
 
-    // Update driver profile verification status
-    await driverProfilesCollection.updateOne(
-      { userId: verificationId },
-      {
-        $set: {
-          verificationStatus: newStatus,
-          isVerified: action === "approve",
-          reviewedAt: new Date(),
-          rejectionReason: action === "reject" ? reason : null,
+    if (action === "approve") {
+      // Update driver profile status
+      await driverProfilesCollection.updateOne(
+        { userId },
+        {
+          $set: {
+            verificationStatus: "approved",
+            verifiedAt: new Date(),
+            rejectionReason: null,
+            updatedAt: new Date(),
+          },
         },
-      },
-    );
+      );
 
-    // Update user's isVerified status
-    await usersCollection.updateOne(
-      { _id: verification },
-      {
-        $set: {
-          isVerified: action === "approve",
-          verificationStatus: newStatus,
+      // Update user's verification status
+      await usersCollection.updateOne(
+        { _id: userId },
+        {
+          $set: {
+            verificationStatus: "approved",
+            isVerified: true,
+            verifiedAt: new Date(),
+            rejectionReason: null,
+            updatedAt: new Date(),
+          },
         },
-      },
-    );
+      );
 
-    return NextResponse.json({
-      success: true,
-      message: `Verification ${action}d successfully`,
-    });
+      // Send email notification to driver (run in background)
+      (async () => {
+        try {
+          await sendDriverVerificationResultEmail({
+            driverEmail: user?.email || "",
+            driverName: profile.fullName || user?.name || "Driver",
+            status: "approved",
+            reason: null,
+          });
+          console.log("✅ Verification approved email sent to driver:", userId);
+        } catch (emailError) {
+          console.error("❌ Failed to send approval email:", emailError);
+        }
+      })();
+
+      return NextResponse.json({
+        success: true,
+        message: "Verification approved successfully",
+      });
+    } else if (action === "reject") {
+      // Update driver profile status
+      await driverProfilesCollection.updateOne(
+        { userId },
+        {
+          $set: {
+            verificationStatus: "rejected",
+            rejectedAt: new Date(),
+            rejectionReason: reason || "No reason provided",
+            updatedAt: new Date(),
+          },
+        },
+      );
+
+      // Update user's verification status
+      await usersCollection.updateOne(
+        { _id: userId },
+        {
+          $set: {
+            verificationStatus: "rejected",
+            isVerified: false,
+            rejectedAt: new Date(),
+            rejectionReason: reason || "No reason provided",
+            updatedAt: new Date(),
+          },
+        },
+      );
+
+      // Send email notification to driver (run in background)
+      (async () => {
+        try {
+          await sendDriverVerificationResultEmail({
+            driverEmail: user?.email || "",
+            driverName: profile.fullName || user?.name || "Driver",
+            status: "rejected",
+            reason: reason || "No reason provided",
+          });
+          console.log(
+            "✅ Verification rejection email sent to driver:",
+            userId,
+          );
+        } catch (emailError) {
+          console.error("❌ Failed to send rejection email:", emailError);
+        }
+      })();
+
+      return NextResponse.json({
+        success: true,
+        message: "Verification rejected successfully",
+      });
+    }
+
+    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (error) {
     console.error("Error processing verification:", error);
     return NextResponse.json(
