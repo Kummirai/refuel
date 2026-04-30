@@ -17,6 +17,10 @@ import {
   Download,
   Loader2,
   RefreshCw,
+  Home,
+  ClipboardList,
+  History,
+  User,
 } from "lucide-react";
 
 type RequestStatus = "pending" | "approved" | "completed" | "rejected";
@@ -130,6 +134,8 @@ export default function RequestHistoryPage() {
         return DollarSign;
       case "carwash":
         return Car;
+      default:
+        return Car; // Return a default icon
     }
   };
 
@@ -142,6 +148,8 @@ export default function RequestHistoryPage() {
       case "cash":
         return "text-[#72bf00] bg-[#eafde7]";
       case "carwash":
+        return "text-[#01312D] bg-[#eafde7]";
+      default:
         return "text-[#01312D] bg-[#eafde7]";
     }
   };
@@ -156,6 +164,8 @@ export default function RequestHistoryPage() {
         return "Cash Loan";
       case "carwash":
         return "Car Wash";
+      default:
+        return "Service";
     }
   };
 
@@ -180,8 +190,12 @@ export default function RequestHistoryPage() {
     request: Request;
     onClose: () => void;
   }) => {
-    const Icon = getTypeIcon(request.type);
+    const IconComponent = getTypeIcon(request.type);
     const date = new Date(request.date);
+
+    if (!IconComponent) {
+      return null;
+    }
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -195,7 +209,7 @@ export default function RequestHistoryPage() {
               <div
                 className={`w-10 h-10 rounded-xl flex items-center justify-center ${getTypeColor(request.type)}`}
               >
-                <Icon className="w-5 h-5" />
+                <IconComponent className="w-5 h-5" />
               </div>
               <div>
                 <h2 className="text-xl font-bold text-[#01312D]">
@@ -416,7 +430,7 @@ export default function RequestHistoryPage() {
         ) : (
           <div className="space-y-3">
             {filteredRequests.map((request) => {
-              const Icon = getTypeIcon(request.type);
+              const IconComponent = getTypeIcon(request.type);
               const typeColor = getTypeColor(request.type);
               const statusColor = getStatusColor(request.status);
               const date = new Date(request.date);
@@ -435,7 +449,7 @@ export default function RequestHistoryPage() {
                       <div
                         className={`w-10 h-10 rounded-xl flex items-center justify-center ${typeColor}`}
                       >
-                        <Icon className="w-5 h-5" />
+                        {IconComponent && <IconComponent className="w-5 h-5" />}
                       </div>
                       <div>
                         <p className="font-bold text-[#01312D] capitalize">
@@ -452,7 +466,7 @@ export default function RequestHistoryPage() {
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-center mb-3">
+                  <div className="flex justify-between items-between mb-3">
                     <div>
                       <p className="text-2xl font-bold text-[#01312D]">
                         R{request.amount.toLocaleString()}
@@ -511,106 +525,50 @@ export default function RequestHistoryPage() {
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 z-50 shadow-lg">
         <div className="flex justify-around items-center">
-          {[
-            { icon: HomeIcon, label: "Home", path: "/" },
-            { icon: ClipboardIcon, label: "Requests", path: "/requests" },
-            {
-              icon: HistoryIcon,
-              label: "History",
-              active: true,
-              path: "/requests/history",
-            },
-            { icon: UserIcon, label: "Profile", path: "/profile" },
-          ].map((item, index) => {
-            const IconComponent = item.icon;
-            return (
-              <button
-                key={index}
-                onClick={() => router.push(item.path)}
-                className="flex flex-col items-center gap-0.5 py-1 group"
-              >
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
-                    item.active
-                      ? "bg-[#bff202] scale-110 shadow-md"
-                      : "bg-[#eafde7] group-hover:bg-[#bff202]/50"
-                  }`}
-                >
-                  <IconComponent
-                    className={`w-5 h-5 ${
-                      item.active
-                        ? "text-[#01312D]"
-                        : "text-[#3A7717] group-hover:text-[#01312D]"
-                    }`}
-                  />
-                </div>
-                <span
-                  className={`text-xs ${
-                    item.active
-                      ? "text-[#01312D] font-bold"
-                      : "text-[#3A7717] group-hover:text-[#01312D]"
-                  }`}
-                >
-                  {item.label}
-                </span>
-              </button>
-            );
-          })}
+          <button
+            onClick={() => router.push("/")}
+            className="flex flex-col items-center gap-0.5 py-1 group"
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
+              <Home className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+            </div>
+            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+              Home
+            </span>
+          </button>
+          <button
+            onClick={() => router.push("/requests")}
+            className="flex flex-col items-center gap-0.5 py-1 group"
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
+              <ClipboardList className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+            </div>
+            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+              Requests
+            </span>
+          </button>
+          <button
+            onClick={() => router.push("/requests/history")}
+            className="flex flex-col items-center gap-0.5 py-1 group"
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#bff202] scale-110 shadow-md">
+              <History className="w-5 h-5 text-[#01312D]" />
+            </div>
+            <span className="text-xs text-[#01312D] font-bold">History</span>
+          </button>
+          <button
+            onClick={() => router.push("/profile")}
+            className="flex flex-col items-center gap-0.5 py-1 group"
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
+              <User className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+            </div>
+            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+              Profile
+            </span>
+          </button>
         </div>
       </nav>
     </div>
-  );
-}
-
-// Icon Components
-function HomeIcon(props: any) {
-  return (
-    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-      />
-    </svg>
-  );
-}
-
-function ClipboardIcon(props: any) {
-  return (
-    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-      />
-    </svg>
-  );
-}
-
-function HistoryIcon(props: any) {
-  return (
-    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-      />
-    </svg>
-  );
-}
-
-function UserIcon(props: any) {
-  return (
-    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-      />
-    </svg>
   );
 }
