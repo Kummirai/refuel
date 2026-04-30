@@ -1,4 +1,4 @@
-// src/app/page.tsx - Fixed for mobile touch responsiveness
+// src/app/page.tsx - Fixed loading state
 
 "use client";
 
@@ -11,12 +11,10 @@ import {
   Smartphone,
   DollarSign,
   Car,
-  Star,
   Clock,
   Shield,
   ChevronRight,
   Zap,
-  ThumbsUp,
   Truck,
   Headphones,
   Sparkles,
@@ -42,42 +40,37 @@ export default function HomePage() {
   const [verificationStatus, setVerificationStatus] = useState<
     "approved" | "pending" | "rejected" | "not_submitted"
   >("not_submitted");
-  const [isMobile, setIsMobile] = useState(false);
-
-  // Detect mobile device for better touch handling
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   useEffect(() => {
-    // Add a safety timeout — never spin forever
-    const timeout = setTimeout(() => {
+    // Safety timeout - never spin forever
+    const safetyTimeout = setTimeout(() => {
+      console.log("Safety timeout triggered - forcing loading false");
       setLoading(false);
     }, 5000);
 
     if (!isPending) {
-      clearTimeout(timeout);
+      clearTimeout(safetyTimeout);
 
       if (session) {
         const role = (session.user as any)?.role;
         setUserRole(role || null);
 
         if (role === "admin") {
+          // Admin users: immediately stop loading
+          console.log("Admin user detected, stopping loading");
           setLoading(false);
         } else {
+          // Non-admin users: fetch profile
           fetchUserProfile();
         }
       } else {
+        // No session: stop loading
+        console.log("No session, stopping loading");
         setLoading(false);
       }
     }
 
-    return () => clearTimeout(timeout);
+    return () => clearTimeout(safetyTimeout);
   }, [session, isPending]);
 
   const fetchUserProfile = async () => {
@@ -175,14 +168,14 @@ export default function HomePage() {
   const isAdmin = userRole === "admin";
 
   return (
-    <div className="min-h-screen bg-[#eafde7] relative overflow-hidden">
+    <div className="min-h-screen bg-[#eafde7] relative overflow-hidden pb-24">
       {/* Background Decorative Elements */}
       <div className="absolute top-0 right-0 w-80 h-80 bg-[#bff202]/10 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#3A7717]/5 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#72bf00]/5 rounded-full blur-3xl pointer-events-none"></div>
 
       {/* Main Content */}
-      <main className="relative z-10 px-5 pt-6 pb-24">
+      <main className="relative z-10 px-5 pt-6">
         {/* Header Section */}
         <div className="mb-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -284,7 +277,6 @@ export default function HomePage() {
           <button
             onClick={handleGetStarted}
             className="group relative bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white px-10 py-3.5 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2 touch-manipulation"
-            style={{ cursor: "pointer" }}
           >
             <span className="relative z-10">{getButtonText()}</span>
             <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
@@ -317,12 +309,6 @@ export default function HomePage() {
                     ? "opacity-50 cursor-not-allowed"
                     : "cursor-pointer"
                 }`}
-                style={{
-                  cursor:
-                    isLoggedIn && verificationStatus !== "approved"
-                      ? "not-allowed"
-                      : "pointer",
-                }}
               >
                 <div className="bg-gradient-to-r from-[#3A7717] to-[#72bf00] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                   <Fuel className="w-6 h-6 text-white" />
@@ -343,12 +329,6 @@ export default function HomePage() {
                     ? "opacity-50 cursor-not-allowed"
                     : "cursor-pointer"
                 }`}
-                style={{
-                  cursor:
-                    isLoggedIn && verificationStatus !== "approved"
-                      ? "not-allowed"
-                      : "pointer",
-                }}
               >
                 <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                   <Smartphone className="w-6 h-6 text-white" />
@@ -369,12 +349,6 @@ export default function HomePage() {
                     ? "opacity-50 cursor-not-allowed"
                     : "cursor-pointer"
                 }`}
-                style={{
-                  cursor:
-                    isLoggedIn && verificationStatus !== "approved"
-                      ? "not-allowed"
-                      : "pointer",
-                }}
               >
                 <div className="bg-gradient-to-r from-[#72bf00] to-[#bff202] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                   <DollarSign className="w-6 h-6 text-[#01312D]" />
@@ -395,12 +369,6 @@ export default function HomePage() {
                     ? "opacity-50 cursor-not-allowed"
                     : "cursor-pointer"
                 }`}
-                style={{
-                  cursor:
-                    isLoggedIn && verificationStatus !== "approved"
-                      ? "not-allowed"
-                      : "pointer",
-                }}
               >
                 <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                   <Car className="w-6 h-6 text-white" />
