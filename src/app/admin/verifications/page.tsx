@@ -25,6 +25,7 @@ import {
   Mail,
   Calendar,
   AlertCircle,
+  Image as ImageIcon,
 } from "lucide-react";
 
 export default function VerificationsPage() {
@@ -46,9 +47,11 @@ export default function VerificationsPage() {
   });
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
-  const [rejectingDriver, setRejectingDriver] = useState<any>(null);
+  const [selectedForAction, setSelectedForAction] = useState<any>(null);
+  const [fetchingProfile, setFetchingProfile] = useState(false);
 
   useEffect(() => {
     fetchVerifications();
@@ -60,23 +63,34 @@ export default function VerificationsPage() {
       if (response.ok) {
         const data = await response.json();
 
-        // Filter drivers by verification status
-        const pendingDrivers = data.drivers.filter(
+        // Only fetch basic info for the list (no profile details yet)
+        const mappedDrivers = (data.drivers || []).map((driver: any) => ({
+          id: driver.id || driver._id,
+          userId: driver.userId,
+          name: driver.name || driver.fullName,
+          email: driver.email,
+          verificationStatus: driver.verificationStatus,
+          carRegistration:
+            driver.carRegistration || driver.carRegistrationNumber,
+          profilePhotoUrl: driver.profilePhotoUrl,
+        }));
+
+        const pendingDrivers = mappedDrivers.filter(
           (d: any) => d.verificationStatus === "pending",
         );
-        const approvedDrivers = data.drivers.filter(
+        const approvedDrivers = mappedDrivers.filter(
           (d: any) => d.verificationStatus === "approved",
         );
-        const rejectedDrivers = data.drivers.filter(
+        const rejectedDrivers = mappedDrivers.filter(
           (d: any) => d.verificationStatus === "rejected",
         );
 
-        setVerifications(data.drivers);
+        setVerifications(mappedDrivers);
         setStats({
           pending: pendingDrivers.length,
           approved: approvedDrivers.length,
           rejected: rejectedDrivers.length,
-          total: data.drivers.length,
+          total: mappedDrivers.length,
         });
       }
     } catch (error) {
@@ -87,19 +101,69 @@ export default function VerificationsPage() {
     }
   };
 
+  const fetchDriverProfile = async (userId: string) => {
+    console.log(`front end ${userId}`);
+
+    setFetchingProfile(true);
+    try {
+      const response = await fetch(`/api/admin/drivers/profile?userId=${userId}`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.profile;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error fetching driver profile:", error);
+      return null;
+    } finally {
+      setFetchingProfile(false);
+    }
+  };
+
+  const handleViewDetails = async (driver: any) => {
+    setSelectedDriver(driver);
+    setShowModal(true);
+
+    console.log(driver);
+
+    // Fetch full profile details
+    const fullProfile = await fetchDriverProfile(driver.id);
+    if (fullProfile) {
+      setSelectedDriver((prev: any) => ({
+        ...prev,
+        ...fullProfile,
+      }));
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchVerifications();
   };
 
-  const handleApprove = async (driver: any) => {
+  const openApproveModal = (driver: any) => {
+    setSelectedForAction(driver);
+    setShowApproveModal(true);
+    setShowModal(false);
+  };
+
+  const openRejectModal = (driver: any) => {
+    setSelectedForAction(driver);
+    setRejectReason("");
+    setShowRejectModal(true);
+    setShowModal(false);
+  };
+
+  const handleConfirmApprove = async () => {
+    if (!selectedForAction) return;
+
     setApproving(true);
     try {
       const response = await fetch("/api/admin/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          verificationId: driver.id, // Send the full MongoDB ID
+          verificationId: selectedForAction.userId,
           action: "approve",
         }),
       });
@@ -107,10 +171,10 @@ export default function VerificationsPage() {
       const data = await response.json();
 
       if (response.ok) {
-        alert(`✅ Approved ${driver.name}'s verification`);
+        alert(`✅ Approved ${selectedForAction.name}'s verification`);
         fetchVerifications();
-        setShowModal(false);
-        setSelectedDriver(null);
+        setShowApproveModal(false);
+        setSelectedForAction(null);
       } else {
         alert(data.error || "Failed to approve verification");
       }
@@ -122,14 +186,9 @@ export default function VerificationsPage() {
     }
   };
 
-  const openRejectModal = (driver: any) => {
-    setRejectingDriver(driver);
-    setRejectReason("");
-    setShowRejectModal(true);
-    setShowModal(false);
-  };
-
   const handleConfirmReject = async () => {
+    if (!selectedForAction) return;
+
     if (!rejectReason.trim()) {
       alert("Please enter a reason for rejection");
       return;
@@ -141,7 +200,7 @@ export default function VerificationsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          verificationId: rejectingDriver.id, // Send the full MongoDB ID
+          verificationId: selectedForAction.userId,
           action: "reject",
           reason: rejectReason,
         }),
@@ -150,10 +209,10 @@ export default function VerificationsPage() {
       const data = await response.json();
 
       if (response.ok) {
-        alert(`❌ Rejected ${rejectingDriver.name}'s verification`);
+        alert(`❌ Rejected ${selectedForAction.name}'s verification`);
         fetchVerifications();
         setShowRejectModal(false);
-        setRejectingDriver(null);
+        setSelectedForAction(null);
         setRejectReason("");
       } else {
         alert(data.error || "Failed to reject verification");
@@ -195,9 +254,115 @@ export default function VerificationsPage() {
     }
   };
 
+  // Approval Modal Component
+  const ApproveModal = () => {
+    if (!showApproveModal || !selectedForAction) return null;
+
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => !approving && setShowApproveModal(false)}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-t-2xl p-5">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">
+                  Confirm Approval
+                </h2>
+                <p className="text-white/80 text-sm">
+                  Verify driver application
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 space-y-4">
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <User className="w-4 h-4 text-[#3A7717]" />
+                <h3 className="font-semibold text-[#01312D]">Driver Summary</h3>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Driver:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {selectedForAction.name}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Email:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {selectedForAction.email}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Car Registration:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {selectedForAction.carRegistration || "Not provided"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-green-50 rounded-xl p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-green-600 mt-0.5" />
+                <div>
+                  <p className="text-xs text-green-800">
+                    Are you sure you want to approve this driver?
+                  </p>
+                  <ul className="text-xs text-green-700 mt-1 space-y-0.5 list-disc list-inside">
+                    <li>The driver will be notified via email</li>
+                    <li>They can start requesting services immediately</li>
+                    <li>This action can be reversed later</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-100 p-5 flex gap-3">
+            <button
+              onClick={() => {
+                setShowApproveModal(false);
+                setSelectedForAction(null);
+              }}
+              disabled={approving}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmApprove}
+              disabled={approving}
+              className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+            >
+              {approving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Approving...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  Confirm Approval
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Rejection Modal Component
   const RejectionModal = () => {
-    if (!showRejectModal || !rejectingDriver) return null;
+    if (!showRejectModal || !selectedForAction) return null;
 
     return (
       <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
@@ -232,19 +397,19 @@ export default function VerificationsPage() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Driver:</span>
                   <span className="font-semibold text-[#01312D]">
-                    {rejectingDriver.name}
+                    {selectedForAction.name}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Email:</span>
                   <span className="font-semibold text-[#01312D]">
-                    {rejectingDriver.email}
+                    {selectedForAction.email}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Car Registration:</span>
                   <span className="font-semibold text-[#01312D]">
-                    {rejectingDriver.carRegistration || "Not provided"}
+                    {selectedForAction.carRegistration || "Not provided"}
                   </span>
                 </div>
               </div>
@@ -287,7 +452,7 @@ export default function VerificationsPage() {
             <button
               onClick={() => {
                 setShowRejectModal(false);
-                setRejectingDriver(null);
+                setSelectedForAction(null);
                 setRejectReason("");
               }}
               disabled={rejecting}
@@ -324,236 +489,289 @@ export default function VerificationsPage() {
   }: {
     driver: any;
     onClose: () => void;
-  }) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      ></div>
-      <div className="relative bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-[#bff202]/20 p-5 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-[#eafde7] rounded-full flex items-center justify-center">
-              <span className="text-xl font-bold text-[#01312D]">
-                {driver.name?.charAt(0) || "U"}
-              </span>
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-[#01312D]">
-                Verification Details
-              </h2>
-              <p className="text-sm text-gray-500">{driver.name}</p>
-            </div>
-          </div>
-          <button
+  }) => {
+    if (fetchingProfile && !driver.fullName) {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={onClose}
-            className="p-1 hover:bg-[#eafde7] rounded-lg"
-          >
-            <X className="w-6 h-6 text-gray-500" />
-          </button>
-        </div>
-
-        <div className="p-5 space-y-5">
-          {/* Personal Information */}
-          <div className="bg-[#eafde7] rounded-xl p-4">
-            <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
-              <User className="w-4 h-4 text-[#3A7717]" />
-              Personal Information
-            </h3>
-            <div className="space-y-2 text-sm">
-              <p>
-                <span className="text-gray-500">Full Name:</span>{" "}
-                <span className="font-semibold text-[#01312D]">
-                  {driver.name || "Not provided"}
-                </span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Mail className="w-3 h-3 text-gray-400" />
-                <span className="text-gray-500">Email:</span>
-                <span className="font-semibold text-[#01312D]">
-                  {driver.email || "Not provided"}
-                </span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Phone className="w-3 h-3 text-gray-400" />
-                <span className="text-gray-500">Phone:</span>
-                <span className="font-semibold text-[#01312D]">
-                  {driver.phone || "Not provided"}
-                </span>
-              </p>
-              <p className="flex items-start gap-2">
-                <MapPin className="w-3 h-3 text-gray-400 mt-0.5" />
-                <span className="text-gray-500">Address:</span>
-                <span className="font-semibold text-[#01312D]">
-                  {driver.address && driver.address !== "Not provided"
-                    ? driver.address
-                    : driver.fullAddress
-                      ? `${driver.fullAddress}, ${driver.city || ""}, ${driver.pincode || ""}`
-                      : "Not provided"}
-                </span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Calendar className="w-3 h-3 text-gray-400" />
-                <span className="text-gray-500">Submitted:</span>
-                <span className="font-semibold text-[#01312D]">
-                  {new Date(
-                    driver.submittedDate || driver.joinedDate,
-                  ).toLocaleDateString()}
-                </span>
-              </p>
-            </div>
-          </div>
-
-          {/* Vehicle Information */}
-          <div className="bg-[#eafde7] rounded-xl p-4">
-            <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
-              <Car className="w-4 h-4 text-[#3A7717]" />
-              Vehicle Information
-            </h3>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <p>
-                <span className="text-gray-500">Registration:</span>{" "}
-                <span className="font-semibold text-[#01312D]">
-                  {driver.carRegistration ||
-                    driver.carRegistrationNumber ||
-                    "Not provided"}
-                </span>
-              </p>
-              <p>
-                <span className="text-gray-500">Model:</span>{" "}
-                <span className="font-semibold text-[#01312D]">
-                  {driver.carModel || "Not provided"}
-                </span>
-              </p>
-              <p>
-                <span className="text-gray-500">Year:</span>{" "}
-                <span className="font-semibold text-[#01312D]">
-                  {driver.carYear || "Not provided"}
-                </span>
-              </p>
-              <p>
-                <span className="text-gray-500">Color:</span>{" "}
-                <span className="font-semibold text-[#01312D]">
-                  {driver.carColor || "Not provided"}
-                </span>
-              </p>
-            </div>
-          </div>
-
-          {/* Documents */}
-          <div className="bg-[#eafde7] rounded-xl p-4">
-            <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-[#3A7717]" />
-              Uploaded Documents
-            </h3>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between p-2 bg-white rounded-lg">
-                <span className="text-sm">Driver's License</span>
-                {driver.drivingLicenseUrl &&
-                driver.drivingLicenseUrl !== "pending" ? (
-                  <a
-                    href={driver.drivingLicenseUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#72bf00] text-sm font-semibold hover:underline"
-                  >
-                    View Document →
-                  </a>
-                ) : (
-                  <span className="text-xs text-gray-400">Not uploaded</span>
-                )}
-              </div>
-              <div className="flex items-center justify-between p-2 bg-white rounded-lg">
-                <span className="text-sm">RC Document (Car Registration)</span>
-                {driver.carRegistrationUrl &&
-                driver.carRegistrationUrl !== "pending" ? (
-                  <a
-                    href={driver.carRegistrationUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#72bf00] text-sm font-semibold hover:underline"
-                  >
-                    View Document →
-                  </a>
-                ) : (
-                  <span className="text-xs text-gray-400">Not uploaded</span>
-                )}
-              </div>
-              <div className="flex items-center justify-between p-2 bg-white rounded-lg">
-                <span className="text-sm">Profile Photo</span>
-                {driver.profilePhotoUrl &&
-                driver.profilePhotoUrl !== "pending" ? (
-                  <a
-                    href={driver.profilePhotoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#72bf00] text-sm font-semibold hover:underline"
-                  >
-                    View Photo →
-                  </a>
-                ) : (
-                  <span className="text-xs text-gray-400">Not uploaded</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Statistics */}
-          <div className="bg-[#eafde7] rounded-xl p-4">
-            <h3 className="font-semibold text-[#01312D] mb-3">Statistics</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="text-center bg-white rounded-lg p-2">
-                <p className="text-2xl font-bold text-[#01312D]">
-                  {driver.totalRequests || 0}
-                </p>
-                <p className="text-xs text-gray-500">Total Requests</p>
-              </div>
-              <div className="text-center bg-white rounded-lg p-2">
-                <p className="text-2xl font-bold text-[#3A7717]">
-                  ₹{(driver.totalSpent || 0).toLocaleString()}
-                </p>
-                <p className="text-xs text-gray-500">Total Spent</p>
-              </div>
-            </div>
+          ></div>
+          <div className="relative bg-white rounded-2xl max-w-md w-full p-8 text-center">
+            <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
+            <p className="text-[#01312D]">Loading driver details...</p>
           </div>
         </div>
+      );
+    }
 
-        <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
-          {driver.verificationStatus === "pending" && (
-            <>
-              <button
-                onClick={() => handleApprove(driver)}
-                disabled={approving}
-                className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#72bf00] transition-colors disabled:opacity-50"
-              >
-                {approving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <CheckCircle className="w-4 h-4" />
-                )}
-                Approve
-              </button>
-              <button
-                onClick={() => openRejectModal(driver)}
-                className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors"
-              >
-                <XCircle className="w-4 h-4" />
-                Reject
-              </button>
-            </>
-          )}
-          {driver.verificationStatus !== "pending" && (
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={onClose}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="sticky top-0 bg-white border-b border-[#bff202]/20 p-5 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              {driver.profilePhotoUrl &&
+              driver.profilePhotoUrl !== "pending" ? (
+                <img
+                  src={driver.profilePhotoUrl}
+                  alt={driver.name}
+                  className="w-12 h-12 rounded-full object-cover border-2 border-[#72bf00]"
+                />
+              ) : (
+                <div className="w-12 h-12 bg-[#eafde7] rounded-full flex items-center justify-center">
+                  <span className="text-xl font-bold text-[#01312D]">
+                    {driver.name?.charAt(0) || "U"}
+                  </span>
+                </div>
+              )}
+              <div>
+                <h2 className="text-xl font-bold text-[#01312D]">
+                  Verification Details
+                </h2>
+                <p className="text-sm text-gray-500">{driver.name}</p>
+              </div>
+            </div>
             <button
               onClick={onClose}
-              className="w-full bg-gray-500 text-white py-2 rounded-xl font-semibold hover:bg-gray-600 transition-colors"
+              className="p-1 hover:bg-[#eafde7] rounded-lg"
             >
-              Close
+              <X className="w-6 h-6 text-gray-500" />
             </button>
-          )}
+          </div>
+
+          <div className="p-5 space-y-5">
+            {/* Personal Information */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <User className="w-4 h-4 text-[#3A7717]" />
+                Personal Information
+              </h3>
+              <div className="space-y-2 text-sm">
+                <p>
+                  <span className="text-gray-500">Full Name:</span>{" "}
+                  <span className="font-semibold text-[#01312D]">
+                    {driver.fullName || driver.name || "Not provided"}
+                  </span>
+                </p>
+                <p className="flex items-center gap-2">
+                  <Mail className="w-3 h-3 text-gray-400" />
+                  <span className="text-gray-500">Email:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {driver.email || "Not provided"}
+                  </span>
+                </p>
+                <p className="flex items-center gap-2">
+                  <Phone className="w-3 h-3 text-gray-400" />
+                  <span className="text-gray-500">Phone:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {driver.phone || "Not provided"}
+                  </span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <MapPin className="w-3 h-3 text-gray-400 mt-0.5" />
+                  <span className="text-gray-500">Address:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {driver.address ? (
+                      <>
+                        {driver.address}
+                        <br />
+                        {driver.city && `${driver.city}`}
+                        {driver.pincode && ` - ${driver.pincode}`}
+                      </>
+                    ) : (
+                      "Not provided"
+                    )}
+                  </span>
+                </p>
+                <p className="flex items-center gap-2">
+                  <Calendar className="w-3 h-3 text-gray-400" />
+                  <span className="text-gray-500">Date of Birth:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {driver.dateOfBirth
+                      ? new Date(driver.dateOfBirth).toLocaleDateString()
+                      : "Not provided"}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            {/* Vehicle Information */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <Car className="w-4 h-4 text-[#3A7717]" />
+                Vehicle Information
+              </h3>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <p>
+                  <span className="text-gray-500">Registration:</span>{" "}
+                  <span className="font-semibold text-[#01312D]">
+                    {driver.carRegistration ||
+                      driver.carRegistrationNumber ||
+                      "Not provided"}
+                  </span>
+                </p>
+                <p>
+                  <span className="text-gray-500">Model:</span>{" "}
+                  <span className="font-semibold text-[#01312D]">
+                    {driver.carModel || "Not provided"}
+                  </span>
+                </p>
+                <p>
+                  <span className="text-gray-500">Year:</span>{" "}
+                  <span className="font-semibold text-[#01312D]">
+                    {driver.carYear || "Not provided"}
+                  </span>
+                </p>
+                <p>
+                  <span className="text-gray-500">Color:</span>{" "}
+                  <span className="font-semibold text-[#01312D]">
+                    {driver.carColor || "Not provided"}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            {/* Documents */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#3A7717]" />
+                Uploaded Documents
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-white rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Camera className="w-4 h-4 text-[#72bf00]" />
+                    <span className="text-sm font-medium">
+                      Driver's License
+                    </span>
+                  </div>
+                  {driver.drivingLicenseUrl &&
+                  driver.drivingLicenseUrl !== "pending" ? (
+                    <a
+                      href={driver.drivingLicenseUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#72bf00] text-sm font-semibold hover:underline flex items-center gap-1"
+                    >
+                      View Document →
+                    </a>
+                  ) : (
+                    <span className="text-xs text-gray-400">Not uploaded</span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between p-3 bg-white rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Car className="w-4 h-4 text-[#72bf00]" />
+                    <span className="text-sm font-medium">
+                      RC Document (Car Registration)
+                    </span>
+                  </div>
+                  {driver.carRegistrationUrl &&
+                  driver.carRegistrationUrl !== "pending" ? (
+                    <a
+                      href={driver.carRegistrationUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#72bf00] text-sm font-semibold hover:underline flex items-center gap-1"
+                    >
+                      View Document →
+                    </a>
+                  ) : (
+                    <span className="text-xs text-gray-400">Not uploaded</span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between p-3 bg-white rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4 text-[#72bf00]" />
+                    <span className="text-sm font-medium">Profile Photo</span>
+                  </div>
+                  {driver.profilePhotoUrl &&
+                  driver.profilePhotoUrl !== "pending" ? (
+                    <a
+                      href={driver.profilePhotoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#72bf00] text-sm font-semibold hover:underline flex items-center gap-1"
+                    >
+                      View Photo →
+                    </a>
+                  ) : (
+                    <span className="text-xs text-gray-400">Not uploaded</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Statistics */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3">Statistics</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="text-center bg-white rounded-lg p-3">
+                  <p className="text-2xl font-bold text-[#01312D]">
+                    {driver.totalRequests || 0}
+                  </p>
+                  <p className="text-xs text-gray-500">Total Requests</p>
+                </div>
+                <div className="text-center bg-white rounded-lg p-3">
+                  <p className="text-2xl font-bold text-[#3A7717]">
+                    ₹{(driver.totalSpent || 0).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-500">Total Spent</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Rejection Reason if rejected */}
+            {driver.verificationStatus === "rejected" &&
+              driver.rejectionReason && (
+                <div className="bg-red-50 rounded-xl p-4 border border-red-200">
+                  <h3 className="font-semibold text-red-800 mb-2 flex items-center gap-2">
+                    <XCircle className="w-4 h-4" />
+                    Rejection Reason
+                  </h3>
+                  <p className="text-sm text-red-700">
+                    {driver.rejectionReason}
+                  </p>
+                </div>
+              )}
+          </div>
+
+          <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
+            {driver.verificationStatus === "pending" && (
+              <>
+                <button
+                  onClick={() => openApproveModal(driver)}
+                  className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#72bf00] transition-colors"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Approve
+                </button>
+                <button
+                  onClick={() => openRejectModal(driver)}
+                  className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors"
+                >
+                  <XCircle className="w-4 h-4" />
+                  Reject
+                </button>
+              </>
+            )}
+            {driver.verificationStatus !== "pending" && (
+              <button
+                onClick={onClose}
+                className="w-full bg-gray-500 text-white py-2 rounded-xl font-semibold hover:bg-gray-600 transition-colors"
+              >
+                Close
+              </button>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const filteredVerifications = verifications.filter((v) => {
     const matchesTab = v.verificationStatus === selectedTab;
@@ -684,28 +902,32 @@ export default function VerificationsPage() {
             >
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-[#eafde7] rounded-full flex items-center justify-center">
-                    <User className="w-6 h-6 text-[#3A7717]" />
-                  </div>
+                  {driver.profilePhotoUrl &&
+                  driver.profilePhotoUrl !== "pending" ? (
+                    <img
+                      src={driver.profilePhotoUrl}
+                      alt={driver.name}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-[#72bf00]"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 bg-[#eafde7] rounded-full flex items-center justify-center">
+                      <User className="w-6 h-6 text-[#3A7717]" />
+                    </div>
+                  )}
                   <div>
                     <p className="font-semibold text-[#01312D]">
                       {driver.name}
                     </p>
                     <p className="text-xs text-gray-500">{driver.email}</p>
                     <p className="text-xs text-gray-500">
-                      {driver.carRegistration ||
-                        driver.carRegistrationNumber ||
-                        "No car registered"}
+                      {driver.carRegistration || "No car registered"}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   {getStatusBadge(driver.verificationStatus)}
                   <button
-                    onClick={() => {
-                      setSelectedDriver(driver);
-                      setShowModal(true);
-                    }}
+                    onClick={() => handleViewDetails(driver)}
                     className="px-3 py-1.5 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center gap-1 hover:bg-[#bff202]/30 transition-colors"
                   >
                     <Eye className="w-4 h-4" />
@@ -725,6 +947,7 @@ export default function VerificationsPage() {
           onClose={() => setShowModal(false)}
         />
       )}
+      <ApproveModal />
       <RejectionModal />
     </div>
   );
