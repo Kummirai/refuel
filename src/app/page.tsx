@@ -1,4 +1,4 @@
-// src/app/page.tsx - Quick Fix Version
+// src/app/page.tsx - Completely rewritten for mobile
 
 "use client";
 
@@ -18,13 +18,8 @@ import {
   Truck,
   Headphones,
   Sparkles,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
   LogOut,
   User,
-  FileCheck,
-  Hourglass,
   Home,
   ClipboardList,
   History,
@@ -33,62 +28,85 @@ import {
 
 export default function HomePage() {
   const router = useRouter();
-  const { data: session, isPending } = authClient.useSession();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [userName, setUserName] = useState("");
   const [loading, setLoading] = useState(true);
-  const [userProfile, setUserProfile] = useState<any>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [verificationStatus, setVerificationStatus] = useState<
-    "approved" | "pending" | "rejected" | "not_submitted"
-  >("not_submitted");
+  const [verificationStatus, setVerificationStatus] =
+    useState<string>("not_submitted");
 
-  // QUICK FIX - Force page to load after 1 second regardless of auth
+  // Simple auth check without using useSession hook
   useEffect(() => {
-    const timer = setTimeout(() => {
-      console.log("Force loading false - quick fix");
-      setLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
+    const checkAuth = async () => {
+      try {
+        // Try to get session from localStorage first
+        const cachedSession = localStorage.getItem("session");
+        if (cachedSession) {
+          const session = JSON.parse(cachedSession);
+          setIsLoggedIn(true);
+          const role = session.user?.role;
+          setIsAdmin(role === "admin");
+          setUserName(session.user?.name || "");
+          if (role !== "admin") {
+            await fetchProfile(session.user?.id);
+          }
+          setLoading(false);
+          return;
+        }
+
+        // If not in cache, try to fetch
+        const { data: session } = await authClient.getSession();
+
+        if (session) {
+          setIsLoggedIn(true);
+          const role = (session.user as any)?.role;
+          setIsAdmin(role === "admin");
+          setUserName(session.user?.name || "");
+
+          // Cache the session
+          localStorage.setItem("session", JSON.stringify(session));
+
+          if (role !== "admin") {
+            await fetchProfile(session.user?.id);
+          }
+        }
+      } catch (error) {
+        console.error("Auth check error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const fetchProfile = async (userId: string) => {
+      try {
+        const response = await fetch(`/api/driver/profile?userId=${userId}`);
+        if (response.ok) {
+          const profile = await response.json();
+          setVerificationStatus(profile?.verificationStatus || "not_submitted");
+        }
+      } catch (error) {
+        console.error("Profile fetch error:", error);
+      }
+    };
+
+    checkAuth();
   }, []);
-
-  // Still try to fetch real data in background
-  useEffect(() => {
-    if (!isPending && session) {
-      const role = (session.user as any)?.role;
-      setUserRole(role || null);
-
-      if (role !== "admin") {
-        fetchUserProfile();
-      }
-    }
-  }, [session, isPending]);
-
-  const fetchUserProfile = async () => {
-    try {
-      const response = await fetch(
-        `/api/driver/profile?userId=${session?.user?.id}`,
-      );
-      if (response.ok) {
-        const profile = await response.json();
-        setUserProfile(profile);
-        setVerificationStatus(profile?.verificationStatus || "not_submitted");
-      }
-    } catch (error) {
-      console.error("Error fetching profile:", error);
-    }
-  };
 
   const handleLogout = async () => {
     await authClient.signOut();
+    localStorage.removeItem("session");
+    setIsLoggedIn(false);
+    setIsAdmin(false);
     router.push("/");
   };
 
   const handleGetStarted = () => {
-    if (userRole === "admin") {
+    if (isAdmin) {
       router.push("/admin/dashboard");
       return;
     }
 
-    if (session) {
+    if (isLoggedIn) {
       if (verificationStatus === "approved") {
         router.push("/dashboard");
       } else {
@@ -100,12 +118,12 @@ export default function HomePage() {
   };
 
   const handleServiceRequest = (service: string) => {
-    if (!session) {
+    if (!isLoggedIn) {
       router.push("/auth/sign-in");
       return;
     }
 
-    if (userRole === "admin") {
+    if (isAdmin) {
       return;
     }
 
@@ -118,11 +136,11 @@ export default function HomePage() {
   };
 
   const getButtonText = () => {
-    if (userRole === "admin") {
+    if (isAdmin) {
       return "Go to Admin Panel";
     }
 
-    if (session) {
+    if (isLoggedIn) {
       if (verificationStatus === "approved") {
         return "Go to Dashboard";
       }
@@ -134,7 +152,7 @@ export default function HomePage() {
     return "Get Started";
   };
 
-  // Quick fix - loading only lasts 1 second max
+  // Show loading for max 2 seconds
   if (loading) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
@@ -146,15 +164,11 @@ export default function HomePage() {
     );
   }
 
-  const isLoggedIn = !!session;
-  const isAdmin = userRole === "admin";
-
   return (
     <div className="min-h-screen bg-[#eafde7] relative overflow-hidden pb-24">
       {/* Background Decorative Elements */}
       <div className="absolute top-0 right-0 w-80 h-80 bg-[#bff202]/10 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#3A7717]/5 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#72bf00]/5 rounded-full blur-3xl pointer-events-none"></div>
 
       {/* Main Content */}
       <main className="relative z-10 px-5 pt-6">
@@ -180,30 +194,15 @@ export default function HomePage() {
             </div>
 
             {/* Right Side Actions */}
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              {isLoggedIn && (
-                <div
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-semibold whitespace-nowrap bg-[#bff202] text-[#01312D]`}
-                >
-                  {isAdmin ? (
-                    <Shield className="w-3 h-3" />
-                  ) : (
-                    <User className="w-3 h-3" />
-                  )}
-                  {isAdmin ? "Admin" : "Driver"}
-                </div>
-              )}
-
-              {isLoggedIn && (
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-all whitespace-nowrap active:scale-95"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  Logout
-                </button>
-              )}
-            </div>
+            {isLoggedIn && (
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white active:scale-95"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Logout
+              </button>
+            )}
           </div>
 
           {/* Welcome Messages */}
@@ -211,9 +210,7 @@ export default function HomePage() {
             <div className="mt-4 bg-white/80 rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
               <p className="text-sm text-[#01312D]">
                 Welcome back,{" "}
-                <span className="font-bold">
-                  {session?.user?.name || "Driver"}!
-                </span>
+                <span className="font-bold">{userName || "Driver"}!</span>
               </p>
             </div>
           )}
@@ -224,7 +221,7 @@ export default function HomePage() {
                 <Shield className="w-8 h-8 text-[#bff202] shrink-0" />
                 <div>
                   <p className="font-bold">
-                    Welcome back, {session?.user?.name || "Admin"}!
+                    Welcome back, {userName || "Admin"}!
                   </p>
                   <p className="text-sm opacity-90">
                     Manage drivers and service requests from your admin panel.
@@ -258,39 +255,28 @@ export default function HomePage() {
         <div className="flex justify-center mb-12">
           <button
             onClick={handleGetStarted}
-            className="group relative bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white px-10 py-3.5 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2 touch-manipulation"
+            className="bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white px-8 py-3 rounded-full font-bold text-lg shadow-xl active:scale-95 transition-transform flex items-center gap-2"
           >
-            <span className="relative z-10">{getButtonText()}</span>
-            <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#3A7717] to-[#72bf00] opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full"></div>
+            <span>{getButtonText()}</span>
+            <ArrowRight className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Services Grid - Show for non-admin users */}
-        {(!isLoggedIn || (isLoggedIn && !isAdmin)) && (
+        {/* Services Grid */}
+        {(!isLoggedIn || (!isAdmin && verificationStatus !== "approved")) && (
           <div className="mb-10">
-            <div className="flex justify-between items-between mb-4">
-              <div>
-                <h2 className="text-xl font-bold text-[#01312D]">
-                  Our Services
-                </h2>
-                <p className="text-xs text-[#3A7717]">
-                  {isLoggedIn && verificationStatus !== "approved"
-                    ? "Complete verification to access services"
-                    : "Quick & reliable delivery"}
-                </p>
-              </div>
-            </div>
-
+            <h2 className="text-xl font-bold text-[#01312D] mb-4 text-center">
+              Our Services
+            </h2>
+            <p className="text-xs text-[#3A7717] text-center mb-4">
+              {isLoggedIn
+                ? "Complete verification to access services"
+                : "Quick & reliable delivery"}
+            </p>
             <div className="grid grid-cols-2 gap-4">
               <button
                 onClick={() => handleServiceRequest("fuel")}
-                disabled={isLoggedIn && verificationStatus !== "approved"}
-                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 active:scale-95 touch-manipulation ${
-                  isLoggedIn && verificationStatus !== "approved"
-                    ? "opacity-50 cursor-not-allowed"
-                    : "cursor-pointer"
-                }`}
+                className="bg-white rounded-2xl p-4 shadow-md active:scale-95 transition-transform text-left border border-[#bff202]/20"
               >
                 <div className="bg-gradient-to-r from-[#3A7717] to-[#72bf00] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                   <Fuel className="w-6 h-6 text-white" />
@@ -305,12 +291,7 @@ export default function HomePage() {
 
               <button
                 onClick={() => handleServiceRequest("airtime")}
-                disabled={isLoggedIn && verificationStatus !== "approved"}
-                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 active:scale-95 touch-manipulation ${
-                  isLoggedIn && verificationStatus !== "approved"
-                    ? "opacity-50 cursor-not-allowed"
-                    : "cursor-pointer"
-                }`}
+                className="bg-white rounded-2xl p-4 shadow-md active:scale-95 transition-transform text-left border border-[#bff202]/20"
               >
                 <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                   <Smartphone className="w-6 h-6 text-white" />
@@ -325,12 +306,7 @@ export default function HomePage() {
 
               <button
                 onClick={() => handleServiceRequest("cash")}
-                disabled={isLoggedIn && verificationStatus !== "approved"}
-                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 active:scale-95 touch-manipulation ${
-                  isLoggedIn && verificationStatus !== "approved"
-                    ? "opacity-50 cursor-not-allowed"
-                    : "cursor-pointer"
-                }`}
+                className="bg-white rounded-2xl p-4 shadow-md active:scale-95 transition-transform text-left border border-[#bff202]/20"
               >
                 <div className="bg-gradient-to-r from-[#72bf00] to-[#bff202] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                   <DollarSign className="w-6 h-6 text-[#01312D]" />
@@ -345,12 +321,7 @@ export default function HomePage() {
 
               <button
                 onClick={() => handleServiceRequest("carwash")}
-                disabled={isLoggedIn && verificationStatus !== "approved"}
-                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 active:scale-95 touch-manipulation ${
-                  isLoggedIn && verificationStatus !== "approved"
-                    ? "opacity-50 cursor-not-allowed"
-                    : "cursor-pointer"
-                }`}
+                className="bg-white rounded-2xl p-4 shadow-md active:scale-95 transition-transform text-left border border-[#bff202]/20"
               >
                 <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                   <Car className="w-6 h-6 text-white" />
@@ -366,84 +337,64 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Features Section - Hide for admin */}
+        {/* Features Section */}
         {!isAdmin && (
-          <>
-            <div className="mb-10">
-              <div className="text-center mb-4">
-                <h2 className="text-xl font-bold text-[#01312D]">
-                  Why Choose Us?
-                </h2>
-                <p className="text-xs text-[#3A7717]">
-                  Fast, secure & reliable service
+          <div className="mb-10">
+            <div className="text-center mb-4">
+              <h2 className="text-xl font-bold text-[#01312D]">
+                Why Choose Us?
+              </h2>
+              <p className="text-xs text-[#3A7717]">
+                Fast, secure & reliable service
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="text-center bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
+                <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <Zap className="w-5 h-5 text-[#3A7717]" />
+                </div>
+                <p className="text-[#01312D] font-semibold text-xs">
+                  Fast Delivery
                 </p>
               </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div className="text-center bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
-                  <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <Zap className="w-5 h-5 text-[#3A7717]" />
-                  </div>
-                  <p className="text-[#01312D] font-semibold text-xs">
-                    Fast Delivery
-                  </p>
+              <div className="text-center bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
+                <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <Shield className="w-5 h-5 text-[#3A7717]" />
                 </div>
-                <div className="text-center bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
-                  <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <Shield className="w-5 h-5 text-[#3A7717]" />
-                  </div>
-                  <p className="text-[#01312D] font-semibold text-xs">Secure</p>
+                <p className="text-[#01312D] font-semibold text-xs">Secure</p>
+              </div>
+              <div className="text-center bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
+                <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <Clock className="w-5 h-5 text-[#3A7717]" />
                 </div>
-                <div className="text-center bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
-                  <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <Clock className="w-5 h-5 text-[#3A7717]" />
-                  </div>
-                  <p className="text-[#01312D] font-semibold text-xs">
-                    24/7 Support
-                  </p>
-                </div>
+                <p className="text-[#01312D] font-semibold text-xs">
+                  24/7 Support
+                </p>
               </div>
             </div>
+          </div>
+        )}
 
-            {!isLoggedIn && (
-              <div className="mt-6 bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-2xl p-4 shadow-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md shrink-0">
-                    <Truck className="w-6 h-6 text-[#01312D]" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-[#01312D] font-bold text-sm">
-                      New to FueleX?
-                    </p>
-                    <p className="text-[#01312D]/80 text-xs">
-                      Sign up now & get 10% off on first request!
-                    </p>
-                  </div>
-                </div>
+        {/* Support Section */}
+        {!isAdmin && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center shrink-0">
+                <Headphones className="w-5 h-5 text-[#3A7717]" />
               </div>
-            )}
-
-            <div className="mt-6">
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center shrink-0">
-                    <Headphones className="w-5 h-5 text-[#3A7717]" />
-                  </div>
-                  <div>
-                    <p className="text-[#01312D] font-semibold text-sm">
-                      24/7 Customer Support
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Need help? We're here for you
-                    </p>
-                  </div>
-                </div>
-                <button className="text-[#72bf00] font-semibold text-sm whitespace-nowrap">
-                  Contact
-                </button>
+              <div>
+                <p className="text-[#01312D] font-semibold text-sm">
+                  24/7 Customer Support
+                </p>
+                <p className="text-xs text-gray-500">
+                  Need help? We're here for you
+                </p>
               </div>
             </div>
-          </>
+            <button className="text-[#72bf00] font-semibold text-sm">
+              Contact
+            </button>
+          </div>
         )}
       </main>
 
@@ -453,7 +404,7 @@ export default function HomePage() {
           <div className="flex justify-around items-center">
             <button
               onClick={() => router.push("/")}
-              className="flex flex-col items-center gap-0.5 py-1 group active:scale-95 transition-transform touch-manipulation"
+              className="flex flex-col items-center gap-0.5 py-1 active:scale-95 transition-transform"
             >
               <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#bff202] scale-110 shadow-md">
                 <Home className="w-5 h-5 text-[#01312D]" />
@@ -462,57 +413,39 @@ export default function HomePage() {
             </button>
 
             <button
-              onClick={() => {
-                if (!isLoggedIn) {
-                  router.push("/auth/sign-in");
-                } else {
-                  router.push("/requests");
-                }
-              }}
-              className="flex flex-col items-center gap-0.5 py-1 group active:scale-95 transition-transform touch-manipulation"
+              onClick={() =>
+                router.push(isLoggedIn ? "/requests" : "/auth/sign-in")
+              }
+              className="flex flex-col items-center gap-0.5 py-1 active:scale-95 transition-transform"
             >
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-                <ClipboardList className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7]">
+                <ClipboardList className="w-5 h-5 text-[#3A7717]" />
               </div>
-              <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-                Requests
-              </span>
+              <span className="text-xs text-[#3A7717]">Requests</span>
             </button>
 
             <button
-              onClick={() => {
-                if (!isLoggedIn) {
-                  router.push("/auth/sign-in");
-                } else {
-                  router.push("/requests/history");
-                }
-              }}
-              className="flex flex-col items-center gap-0.5 py-1 group active:scale-95 transition-transform touch-manipulation"
+              onClick={() =>
+                router.push(isLoggedIn ? "/requests/history" : "/auth/sign-in")
+              }
+              className="flex flex-col items-center gap-0.5 py-1 active:scale-95 transition-transform"
             >
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-                <History className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7]">
+                <History className="w-5 h-5 text-[#3A7717]" />
               </div>
-              <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-                History
-              </span>
+              <span className="text-xs text-[#3A7717]">History</span>
             </button>
 
             <button
-              onClick={() => {
-                if (!isLoggedIn) {
-                  router.push("/auth/sign-in");
-                } else {
-                  router.push("/profile");
-                }
-              }}
-              className="flex flex-col items-center gap-0.5 py-1 group active:scale-95 transition-transform touch-manipulation"
+              onClick={() =>
+                router.push(isLoggedIn ? "/profile" : "/auth/sign-in")
+              }
+              className="flex flex-col items-center gap-0.5 py-1 active:scale-95 transition-transform"
             >
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-                <UserCircle className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7]">
+                <UserCircle className="w-5 h-5 text-[#3A7717]" />
               </div>
-              <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-                Profile
-              </span>
+              <span className="text-xs text-[#3A7717]">Profile</span>
             </button>
           </div>
         </nav>
