@@ -148,7 +148,7 @@ export default function AdminLayout({
             </div>
             <div>
               <h1 className="text-white font-bold text-xl">
-                Drive<span className="text-[#bff202]">Hub</span>
+                Fuel<span className="text-[#bff202]">eX</span>
               </h1>
               <p className="text-[#72bf00] text-xs">Admin Panel</p>
             </div>
