@@ -1,6 +1,39 @@
 // src/app/api/admin/drivers/route.ts
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
+import { ObjectId } from "mongodb";
+
+interface User {
+  _id: ObjectId;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface DriverProfile {
+  _id: ObjectId;
+  userId: string;
+  carRegistrationNumber?: string;
+  carModel?: string;
+  carYear?: number;
+  verificationStatus?: string;
+  rating?: number;
+  activeLoan?: any;
+  drivingLicenseUrl?: string;
+  carRegistrationUrl?: string;
+  profilePhotoUrl?: string;
+  address?: string;
+  city?: string;
+  createdAt?: Date;
+  fullName?: string;
+}
+
+interface ServiceRequest {
+  amount: number;
+}
 
 export async function GET() {
   try {
@@ -15,15 +48,16 @@ export async function GET() {
 
     // Get driver profiles and request counts
     const driversWithData = await Promise.all(
-      drivers.map(async (driver) => {
-        const profile = await driverProfilesCollection.findOne({
+      drivers.map(async (driver: User) => {
+        const profile = (await driverProfilesCollection.findOne({
           userId: driver._id.toString(),
-        });
+        })) as DriverProfile | null;
 
         // Get driver's request count and total spent
-        const driverRequests = await serviceRequestsCollection
+        const driverRequests = (await serviceRequestsCollection
           .find({ userId: driver._id.toString() })
-          .toArray();
+          .toArray()) as ServiceRequest[];
+
         const totalRequests = driverRequests.length;
         const totalSpent = driverRequests.reduce(
           (sum, req) => sum + (req.amount || 0),
@@ -32,6 +66,7 @@ export async function GET() {
 
         return {
           id: driver._id,
+          userId: driver._id.toString(),
           name: driver.name,
           email: driver.email,
           phone: driver.phone,
@@ -50,17 +85,18 @@ export async function GET() {
     );
 
     // Get recent pending verifications (last 5)
-    const recentVerificationsRaw = await driverProfilesCollection
+    const recentVerificationsRaw = (await driverProfilesCollection
       .find({ verificationStatus: "pending" })
       .sort({ createdAt: -1 })
       .limit(5)
-      .toArray();
+      .toArray()) as DriverProfile[];
 
     const recentVerifications = await Promise.all(
-      recentVerificationsRaw.map(async (verification) => {
-        const user = await usersCollection.findOne({
+      recentVerificationsRaw.map(async (verification: DriverProfile) => {
+        const user = (await usersCollection.findOne({
           _id: verification.userId,
-        });
+        })) as User | null;
+
         return {
           id: verification._id,
           name: user?.name || "Unknown",

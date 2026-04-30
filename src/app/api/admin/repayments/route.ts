@@ -15,7 +15,7 @@ export async function GET() {
       .toArray();
 
     const repayments = await Promise.all(
-      loans.map(async (loan) => {
+      loans.map(async (loan: any) => {
         const driver = await usersCollection.findOne({ _id: loan.userId });
 
         // Calculate repayment status

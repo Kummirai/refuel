@@ -21,7 +21,7 @@ export async function GET() {
 
     // Get driver details for each request
     const requestsWithDetails = await Promise.all(
-      requests.map(async (request) => {
+      requests.map(async (request: any) => {
         // Convert userId to ObjectId if it's a string, otherwise use as is
         let userIdQuery;
         try {
