@@ -43,6 +43,8 @@ export default function HomePage() {
     "approved" | "pending" | "rejected" | "not_submitted"
   >("not_submitted");
 
+  console.log("APP URL:", process.env.NEXT_PUBLIC_APP_URL);
+
   useEffect(() => {
     // Add a safety timeout — never spin forever
     const timeout = setTimeout(() => {
