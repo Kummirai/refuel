@@ -691,7 +691,7 @@ export default function AdminServiceRequestsPage() {
       } catch (error) {
         console.error("Error generating image:", error);
         setErrorMessage(
-          "Failed to generate receipt image: " + (error as Error).message,
+          "Failed to Download Image image: " + (error as Error).message,
         );
         setShowErrorModal(true);
       } finally {
@@ -1277,11 +1277,11 @@ Thank you for choosing DriveHub! 🚀
               >
                 {imageGenerating ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> Generating...
+                    <Loader2 className="w-4 h-4 animate-spin" /> Downloading...
                   </>
                 ) : (
                   <>
-                    <ImageIcon className="w-4 h-4" /> Generate Receipt
+                    <ImageIcon className="w-4 h-4" /> Download Image
                   </>
                 )}
               </button>

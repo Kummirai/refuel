@@ -639,9 +639,7 @@ export default function AdminDashboard() {
         }
       } catch (error) {
         console.error("Error generating image:", error);
-        alert(
-          "❌ Failed to generate receipt image: " + (error as Error).message,
-        );
+        alert("❌ Failed to Download Image image: " + (error as Error).message);
       } finally {
         setImageGenerating(false);
       }
@@ -1267,12 +1265,12 @@ Thank you for choosing DriveHub! 🚀
                 {imageGenerating ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Generating...
+                    Downloading...
                   </>
                 ) : (
                   <>
                     <ImageIcon className="w-4 h-4" />
-                    Generate Receipt
+                    Download Image
                   </>
                 )}
               </button>
