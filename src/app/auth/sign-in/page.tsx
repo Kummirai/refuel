@@ -238,50 +238,6 @@ export default function SignInPage() {
             </Link>
           </p>
         </div>
-
-        {/* Demo Credentials */}
-        <div className="mt-8 p-4 bg-[#eafde7] rounded-xl border border-[#bff202]/20">
-          <p className="text-xs text-[#01312D] font-semibold text-center mb-2">
-            Demo Credentials
-          </p>
-          <div className="space-y-2 text-xs text-gray-600">
-            <p>👑 Admin: admin@drivehub.com / admin123</p>
-            <p>🚗 Verified Driver: driver@drivehub.com / driver123</p>
-            <p>📝 Pending Driver: pending@drivehub.com / pending123</p>
-            <p>❌ Rejected Driver: rejected@drivehub.com / rejected123</p>
-          </div>
-          <p className="text-xs text-gray-400 text-center mt-2">
-            Note: Create an account first to test driver features
-          </p>
-        </div>
-
-        {/* Info Box */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5" />
-            <div className="text-xs text-blue-700">
-              <p className="font-semibold mb-1">Verification Status Guide:</p>
-              <ul className="space-y-1">
-                <li>
-                  • <span className="font-medium">Verified Driver:</span>{" "}
-                  Redirects to Homepage with full access
-                </li>
-                <li>
-                  • <span className="font-medium">Pending Verification:</span>{" "}
-                  Redirects to Status page
-                </li>
-                <li>
-                  • <span className="font-medium">Rejected Verification:</span>{" "}
-                  Redirects to Verification page to re-submit
-                </li>
-                <li>
-                  • <span className="font-medium">New User:</span> Redirects to
-                  Verification page to submit documents
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
