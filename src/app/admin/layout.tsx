@@ -18,6 +18,18 @@ import {
   Loader2,
 } from "lucide-react";
 
+// Define extended user type locally
+interface ExtendedUser {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  role?: string;
+  image?: string | null;
+}
+
 export default function AdminLayout({
   children,
 }: {
@@ -43,14 +55,17 @@ export default function AdminLayout({
       return;
     }
 
+    // Cast to any to access role property
+    const user = session.user as any;
+
     // Check if user is admin
-    if (session.user?.role !== "admin") {
-      console.log("User is not admin, role:", session.user?.role);
+    if (user?.role !== "admin") {
+      console.log("User is not admin, role:", user?.role);
       router.push("/");
       return;
     }
 
-    console.log("Admin authorized:", session.user?.email);
+    console.log("Admin authorized:", user?.email);
     setIsAuthorized(true);
   };
 
@@ -73,6 +88,8 @@ export default function AdminLayout({
   if (!isAuthorized) {
     return null;
   }
+
+  const user = session?.user as any;
 
   const navItems = [
     {
@@ -98,7 +115,7 @@ export default function AdminLayout({
       label: "Repayments",
       path: "/admin/repayments",
       active: pathname === "/admin/repayments",
-    }, // Add this
+    },
     {
       icon: Settings,
       label: "Settings",
@@ -190,12 +207,12 @@ export default function AdminLayout({
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-[#eafde7] rounded-full flex items-center justify-center">
                   <span className="text-[#01312D] font-bold">
-                    {session?.user?.name?.charAt(0) || "A"}
+                    {user?.name?.charAt(0) || "A"}
                   </span>
                 </div>
                 <div className="hidden sm:block">
                   <p className="text-sm font-semibold text-[#01312D]">
-                    {session?.user?.name || "Admin"}
+                    {user?.name || "Admin"}
                   </p>
                   <p className="text-xs text-gray-500">Administrator</p>
                 </div>
