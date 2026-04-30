@@ -51,6 +51,7 @@ export default function SignUpPage() {
     }
 
     try {
+      // Include phone in signup since backend requires it
       const { data, error: signUpError } = await authClient.signUp.email({
         email: formData.email,
         password: formData.password,
@@ -63,18 +64,7 @@ export default function SignUpPage() {
       }
 
       if (data) {
-        // Create driver profile in MongoDB
-        await fetch("/api/driver/profile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: data.user.id,
-            name: formData.name,
-            email: formData.email,
-            phone: formData.phone,
-          }),
-        });
-
+        // Additional profile data can be updated here if needed
         router.push("/verify");
       }
     } catch (err: any) {
