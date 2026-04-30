@@ -41,6 +41,7 @@ interface ServiceRequest {
   driverEmail: string;
   driverPhone: string;
   carRegistration: string;
+  carModel?: string;
   location: string;
   type: RequestType;
   amount: number;
@@ -577,27 +578,46 @@ Thank you for choosing DriveHub! 🚀`;
               <div className="space-y-2 text-sm">
                 <p>
                   <span className="text-gray-500">Name:</span>{" "}
-                  {request.driverName}
+                  <span className="font-semibold text-[#01312D]">
+                    {request.driverName || "N/A"}
+                  </span>
                 </p>
                 <p>
                   <span className="text-gray-500">Email:</span>{" "}
-                  {request.driverEmail}
+                  <span className="font-semibold text-[#01312D]">
+                    {request.driverEmail || "N/A"}
+                  </span>
                 </p>
                 <p>
                   <span className="text-gray-500">Phone:</span>{" "}
-                  {request.driverPhone}
+                  <span className="font-semibold text-[#01312D]">
+                    {request.driverPhone || "N/A"}
+                  </span>
                 </p>
                 <p>
-                  <span className="text-gray-500">Car Reg:</span>{" "}
-                  {request.carRegistration}
+                  <span className="text-gray-500">Car Registration:</span>{" "}
+                  <span className="font-semibold text-[#01312D]">
+                    {request.carRegistration || "N/A"}
+                  </span>
                 </p>
-                <p>
-                  <span className="text-gray-500">Location:</span>{" "}
-                  {request.location}
-                </p>
+                {request.carModel && (
+                  <p>
+                    <span className="text-gray-500">Car Model:</span>{" "}
+                    <span className="font-semibold text-[#01312D]">
+                      {request.carModel}
+                    </span>
+                  </p>
+                )}
+                {request.location && request.location !== "Not provided" && (
+                  <p>
+                    <span className="text-gray-500">Location:</span>{" "}
+                    <span className="font-semibold text-[#01312D]">
+                      {request.location}
+                    </span>
+                  </p>
+                )}
               </div>
             </div>
-
             {/* Request Details */}
             <div className="bg-[#eafde7] rounded-xl p-4">
               <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">

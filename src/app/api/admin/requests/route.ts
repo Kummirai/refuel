@@ -1,6 +1,7 @@
 // src/app/api/admin/requests/route.ts
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
+import { ObjectId } from "mongodb";
 
 export async function GET() {
   try {
@@ -8,6 +9,7 @@ export async function GET() {
 
     const serviceRequestsCollection = db.collection("serviceRequests");
     const usersCollection = db.collection("user");
+    const driverProfilesCollection = db.collection("driverProfiles");
 
     // Get all service requests sorted by date
     const requests = await serviceRequestsCollection
@@ -15,27 +17,75 @@ export async function GET() {
       .sort({ requestDate: -1 })
       .toArray();
 
-    console.log(requests);
+    console.log("Found requests:", requests.length);
 
     // Get driver details for each request
     const requestsWithDetails = await Promise.all(
       requests.map(async (request) => {
-        const driver = await usersCollection.findOne({ _id: request.userId });
+        // Convert userId to ObjectId if it's a string, otherwise use as is
+        let userIdQuery;
+        try {
+          // Try to convert string to ObjectId
+          userIdQuery = new ObjectId(request.userId);
+        } catch {
+          // If it's already an ObjectId or invalid, use as string
+          userIdQuery = request.userId;
+        }
+
+        // Get user from users collection (try both ObjectId and string)
+        let user = await usersCollection.findOne({ _id: userIdQuery });
+
+        // If not found, try as string
+        if (!user && typeof request.userId === "string") {
+          user = await usersCollection.findOne({ _id: request.userId });
+        }
+
+        // Get driver profile (try both formats)
+        let driverProfile = await driverProfilesCollection.findOne({
+          userId: userIdQuery,
+        });
+        if (!driverProfile && typeof request.userId === "string") {
+          driverProfile = await driverProfilesCollection.findOne({
+            userId: request.userId,
+          });
+        }
+
+        console.log(
+          `Request ${request._id}: User found = ${!!user}, Profile found = ${!!driverProfile}`,
+        );
+
         return {
-          id: request._id,
+          id: request._id.toString().slice(-6).toUpperCase(),
           type: request.type,
           amount: request.amount,
-          driver: driver?.name || "Unknown",
+          driverName:
+            request.driverName ||
+            user?.name ||
+            driverProfile?.fullName ||
+            driverProfile?.name ||
+            "Unknown",
           driverId: request.userId,
-          driverEmail: driver?.email,
-          driverPhone: driver?.phone,
-          carRegistration: request.carNumber,
-          location: request.location,
+          driverEmail: request.driverEmail || user?.email || "Unknown",
+          driverPhone:
+            request.contactPhone ||
+            request.driverPhone ||
+            user?.phone ||
+            driverProfile?.phone ||
+            "Unknown",
+          carRegistration:
+            request.carNumber ||
+            driverProfile?.carRegistrationNumber ||
+            "Not provided",
+          carModel:
+            request.carModel || driverProfile?.carModel || "Not provided",
+          location:
+            request.location || driverProfile?.address || "Not provided",
           fuelType: request.fuelType,
-          phoneNumber: request.phoneNumber,
+          phoneNumber: request.recipientPhoneNumber || request.phoneNumber,
           interest: request.interest,
           totalRepayable: request.totalRepayable,
           repaymentDays: request.repaymentDays,
+          interestRate: request.interestRate,
           date: request.requestDate,
           status: request.status,
           otp: request.otp,
@@ -43,18 +93,22 @@ export async function GET() {
       }),
     );
 
-    // Get recent pending requests (last 5)
-    const recentPending = requestsWithDetails
-      .filter((r) => r.status === "pending")
-      .slice(0, 5);
+    console.log("Requests with details:", requestsWithDetails.length);
+    console.log("First request details:", requestsWithDetails[0]);
 
     // Calculate stats
     const total = requestsWithDetails.length;
     const pending = requestsWithDetails.filter(
       (r) => r.status === "pending",
     ).length;
+    const approved = requestsWithDetails.filter(
+      (r) => r.status === "approved",
+    ).length;
     const completed = requestsWithDetails.filter(
       (r) => r.status === "completed",
+    ).length;
+    const rejected = requestsWithDetails.filter(
+      (r) => r.status === "rejected",
     ).length;
     const totalRevenue = requestsWithDetails
       .filter((r) => r.status === "completed")
@@ -62,10 +116,14 @@ export async function GET() {
 
     return NextResponse.json({
       requests: requestsWithDetails,
-      recent: recentPending,
+      recent: requestsWithDetails
+        .filter((r) => r.status === "pending")
+        .slice(0, 5),
       total,
       pending,
+      approved,
       completed,
+      rejected,
       totalRevenue,
     });
   } catch (error) {
