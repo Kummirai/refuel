@@ -1,10 +1,13 @@
-// src/app/api/admin/requests/reject/route.ts
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
+import { ObjectId } from "mongodb";
+import { sendDriverRejectionEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
   try {
     const { requestId, reason } = await request.json();
+
+    console.log("Rejecting request:", requestId, "Reason:", reason);
 
     if (!requestId) {
       return NextResponse.json(
@@ -16,9 +19,20 @@ export async function POST(request: Request) {
     const { db } = await connectToDatabase();
     const serviceRequestsCollection = db.collection("serviceRequests");
 
-    // Find the request by ID
+    // Convert string ID to ObjectId
+    let objectId;
+    try {
+      objectId = new ObjectId(requestId);
+    } catch (error) {
+      return NextResponse.json(
+        { error: "Invalid request ID format" },
+        { status: 400 },
+      );
+    }
+
+    // Find the request by ID using ObjectId
     const requestDoc = await serviceRequestsCollection.findOne({
-      _id: requestId,
+      _id: objectId,
     });
 
     if (!requestDoc) {
@@ -27,15 +41,33 @@ export async function POST(request: Request) {
 
     // Update request status
     await serviceRequestsCollection.updateOne(
-      { _id: requestId },
+      { _id: objectId },
       {
         $set: {
           status: "rejected",
           rejectionReason: reason || "No reason provided",
-          approvedDate: new Date(),
+          rejectedDate: new Date(),
         },
       },
     );
+
+    // Send email notification to driver (run in background)
+    (async () => {
+      try {
+        await sendDriverRejectionEmail({
+          driverEmail: requestDoc.driverEmail,
+          driverName: requestDoc.driverName,
+          requestId: requestId,
+          serviceType: requestDoc.type,
+          amount: requestDoc.amount,
+          reason: reason || "No reason provided",
+        });
+        console.log("Driver rejection email sent for request:", requestId);
+      } catch (emailError) {
+        console.error("Failed to send driver rejection email:", emailError);
+        // Don't fail the request if email fails
+      }
+    })();
 
     return NextResponse.json({
       success: true,

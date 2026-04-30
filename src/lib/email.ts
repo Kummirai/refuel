@@ -238,3 +238,90 @@ export async function sendDriverApprovalEmail(data: {
     return null;
   }
 }
+
+// Add this function to your existing email.ts file
+
+export async function sendDriverRejectionEmail(data: {
+  driverEmail: string;
+  driverName: string;
+  requestId: string;
+  serviceType: string;
+  amount: number;
+  reason: string;
+}) {
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"DriveHub" <noreply@drivehub.com>',
+      to: data.driverEmail,
+      subject: `❌ Service Request Rejected - ${data.requestId.slice(-6).toUpperCase()}`,
+      html: generateDriverRejectionHtml(data),
+      text: `Your request for ₹${data.amount} has been rejected. Reason: ${data.reason}`,
+    });
+
+    console.log("✅ Driver rejection email sent:", info.messageId);
+    return info;
+  } catch (error) {
+    console.error("❌ Error sending driver rejection email:", error);
+    return null;
+  }
+}
+
+const generateDriverRejectionHtml = (data: {
+  driverName: string;
+  requestId: string;
+  serviceType: string;
+  amount: number;
+  reason: string;
+}) => {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Service Request Rejected</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #eafde7; margin: 0; padding: 20px; }
+        .container { max-width: 500px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); }
+        .header { background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); padding: 30px; text-align: center; }
+        .header h1 { color: white; margin: 0; }
+        .content { padding: 30px; }
+        .reason-box { background: #fef2f2; border-left: 4px solid #dc2626; padding: 15px; border-radius: 12px; margin: 20px 0; }
+        .button { background: #dc2626; color: white; text-decoration: none; padding: 12px 24px; border-radius: 12px; display: inline-block; }
+        .button-secondary { background: #3A7717; color: white; text-decoration: none; padding: 12px 24px; border-radius: 12px; display: inline-block; margin-left: 10px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>❌ Request Rejected</h1>
+        </div>
+        <div class="content">
+          <p>Hello ${data.driverName},</p>
+          <p>We regret to inform you that your service request has been <strong>REJECTED</strong>.</p>
+          
+          <div class="reason-box">
+            <p style="margin: 0 0 5px 0; font-weight: bold; color: #991b1b;">Reason for rejection:</p>
+            <p style="margin: 0; color: #7f1d1d;">${data.reason}</p>
+          </div>
+          
+          <p><strong>Request Details:</strong></p>
+          <p>📋 Request ID: ${data.requestId.slice(-6).toUpperCase()}<br>
+          🚗 Service: ${data.serviceType}<br>
+          💰 Amount: ₹${data.amount.toLocaleString()}</p>
+          
+          <p>If you have any questions, please contact our support team.</p>
+          
+          <div style="text-align: center; margin-top: 30px;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/requests/new" class="button-secondary">Submit New Request</a>
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/requests/history" class="button">View History</a>
+          </div>
+          
+          <hr style="margin: 30px 0 20px; border: none; border-top: 1px solid #e5e7eb;">
+          <p style="font-size: 12px; color: #6b7280; text-align: center;">DriveHub Services • This is an automated notification</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};

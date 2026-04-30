@@ -105,6 +105,13 @@ export default function AdminServiceRequestsPage() {
     useState<ServiceRequest | null>(null);
   const [completeLoading, setCompleteLoading] = useState(false);
 
+  // Rejection modal states
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectingRequest, setRejectingRequest] =
+    useState<ServiceRequest | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [rejectLoading, setRejectLoading] = useState(false);
+
   useEffect(() => {
     fetchRequests();
   }, []);
@@ -226,35 +233,54 @@ export default function AdminServiceRequestsPage() {
     }
   };
 
-  const handleReject = async (request: ServiceRequest) => {
-    const reason = prompt("Please enter rejection reason:");
-    if (reason) {
-      try {
-        const response = await fetch("/api/admin/requests/reject", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            requestId: request.id,
-            reason,
-          }),
-        });
-        if (response.ok) {
-          setSuccessMessage(
-            `❌ Request ${request.id.slice(-6).toUpperCase()} rejected successfully`,
-          );
-          setShowSuccessModal(true);
-          fetchRequests();
-          setShowModal(false);
-        } else {
-          const error = await response.json();
-          setErrorMessage(error.error || "Failed to reject request");
-          setShowErrorModal(true);
-        }
-      } catch (error) {
-        console.error("Error rejecting request:", error);
-        setErrorMessage("Failed to reject request");
+  // Updated handleReject to open modal instead of prompt
+  const handleReject = (request: ServiceRequest) => {
+    setRejectingRequest(request);
+    setRejectionReason("");
+    setShowRejectModal(true);
+    setShowModal(false);
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectingRequest) return;
+
+    if (!rejectionReason.trim()) {
+      setErrorMessage("Please enter a reason for rejection");
+      setShowErrorModal(true);
+      return;
+    }
+
+    setRejectLoading(true);
+    try {
+      const response = await fetch("/api/admin/requests/reject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: rejectingRequest.id,
+          reason: rejectionReason,
+        }),
+      });
+
+      if (response.ok) {
+        setSuccessMessage(
+          `❌ Request ${rejectingRequest.id.slice(-6).toUpperCase()} rejected successfully`,
+        );
+        setShowSuccessModal(true);
+        fetchRequests();
+        setShowRejectModal(false);
+        setRejectingRequest(null);
+        setRejectionReason("");
+      } else {
+        const error = await response.json();
+        setErrorMessage(error.error || "Failed to reject request");
         setShowErrorModal(true);
       }
+    } catch (error) {
+      console.error("Error rejecting request:", error);
+      setErrorMessage("Failed to reject request");
+      setShowErrorModal(true);
+    } finally {
+      setRejectLoading(false);
     }
   };
 
@@ -606,6 +632,140 @@ export default function AdminServiceRequestsPage() {
                 <>
                   <CheckCircle className="w-4 h-4" />
                   Confirm Complete
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Rejection Modal Component
+  const RejectionModal = () => {
+    if (!showRejectModal || !rejectingRequest) return null;
+
+    const TypeIcon = getTypeIcon(rejectingRequest.type);
+
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => !rejectLoading && setShowRejectModal(false)}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-t-2xl p-5">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                <XCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">
+                  Confirm Rejection
+                </h2>
+                <p className="text-white/80 text-sm">
+                  Provide rejection reason
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 space-y-4">
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <TypeIcon className="w-4 h-4 text-[#3A7717]" />
+                <h3 className="font-semibold text-[#01312D]">
+                  Request Summary
+                </h3>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Driver:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {rejectingRequest.driverName}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Vehicle:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {rejectingRequest.carRegistration}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Service:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {getTypeLabel(rejectingRequest.type)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Amount:</span>
+                  <span className="font-bold text-[#3A7717] text-lg">
+                    ₹{rejectingRequest.amount?.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                Rejection Reason <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Please explain why this request is being rejected..."
+                className="w-full px-4 py-3 bg-white border border-red-200 rounded-xl focus:outline-none focus:border-red-500 resize-none"
+                rows={4}
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                This reason will be sent to the driver via email
+              </p>
+            </div>
+
+            <div className="bg-red-50 rounded-xl p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-red-600 mt-0.5" />
+                <div>
+                  <p className="text-xs text-red-800">
+                    Are you sure you want to reject this request?
+                  </p>
+                  <ul className="text-xs text-red-700 mt-1 space-y-0.5 list-disc list-inside">
+                    <li>This action cannot be undone</li>
+                    <li>The driver will be notified via email</li>
+                    <li>The request will be moved to rejected tab</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-100 p-5 flex gap-3">
+            <button
+              onClick={() => {
+                setShowRejectModal(false);
+                setRejectingRequest(null);
+                setRejectionReason("");
+              }}
+              disabled={rejectLoading}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmReject}
+              disabled={rejectLoading}
+              className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+            >
+              {rejectLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Rejecting...
+                </>
+              ) : (
+                <>
+                  <XCircle className="w-4 h-4" />
+                  Confirm Rejection
                 </>
               )}
             </button>
@@ -1823,6 +1983,7 @@ Thank you for choosing DriveHub! 🚀
       {showApproveModal && <ApprovalModal />}
       {showWhatsAppModal && approvedRequest && <WhatsAppModal />}
       {showCompleteConfirmModal && <CompleteConfirmModal />}
+      {showRejectModal && <RejectionModal />}
       <SuccessModal />
       <ErrorModal />
     </div>
