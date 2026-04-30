@@ -274,7 +274,7 @@ export default function RequestsPage() {
           <div className="flex justify-between">
             <span className="text-[#01312D]">Amount:</span>
             <span className="font-semibold text-[#01312D]">
-              ₹{amountNum.toLocaleString()}
+              R{amountNum.toLocaleString()}
             </span>
           </div>
           {additionalInfo}
@@ -293,7 +293,7 @@ export default function RequestsPage() {
           <div className="flex justify-between">
             <span className="text-[#01312D]">Interest Amount:</span>
             <span className="font-semibold text-[#01312D]">
-              + ₹{interest.toLocaleString()}
+              + R{interest.toLocaleString()}
             </span>
           </div>
           <div className="flex justify-between pt-2 border-t border-[#01312D]/20">
@@ -301,7 +301,7 @@ export default function RequestsPage() {
               Total Repayable:
             </span>
             <span className="font-bold text-[#01312D]">
-              ₹{totalRepayable.toLocaleString()}
+              R{totalRepayable.toLocaleString()}
             </span>
           </div>
           <div className="flex justify-between">
@@ -313,7 +313,7 @@ export default function RequestsPage() {
           <div className="flex justify-between bg-[#01312D]/10 rounded-lg p-2 -mx-1">
             <span className="font-semibold text-[#01312D]">Daily Payment:</span>
             <span className="font-bold text-[#01312D]">
-              ₹{Math.ceil(dailyPayment).toLocaleString()}/day
+              R{Math.ceil(dailyPayment).toLocaleString()}/day
             </span>
           </div>
         </div>
@@ -482,11 +482,11 @@ export default function RequestsPage() {
   const getPlaceholder = () => {
     switch (selectedService) {
       case "fuel":
-        return "Enter amount in ₹ (e.g., 2000)";
+        return "Enter amount in R (e.g., 2000)";
       case "airtime":
-        return "Enter amount in ₹ (e.g., 500)";
+        return "Enter amount in R (e.g., 500)";
       case "cash":
-        return "Enter loan amount in ₹ (e.g., 5000)";
+        return "Enter loan amount in R (e.g., 5000)";
       case "carwash":
         return "Select package";
     }
@@ -775,7 +775,7 @@ export default function RequestsPage() {
                             {pkg.description}
                           </p>
                         </div>
-                        <p className="text-xl font-bold">₹{pkg.price}</p>
+                        <p className="text-xl font-bold">R{pkg.price}</p>
                       </div>
                     </button>
                   ))}
@@ -803,7 +803,7 @@ export default function RequestsPage() {
                           onClick={() => setAmount(amt.toString())}
                           className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
                         >
-                          ₹{amt}
+                          R{amt}
                         </button>
                       ))}
                     </div>
@@ -818,7 +818,7 @@ export default function RequestsPage() {
                           onClick={() => setAmount(amt.toString())}
                           className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
                         >
-                          ₹{amt}
+                          R{amt}
                         </button>
                       ))}
                     </div>

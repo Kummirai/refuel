@@ -326,7 +326,7 @@ export default function ProfilePage() {
             <Wallet className="w-4 h-4 text-[#3A7717]" />
           </div>
           <p className="text-lg font-bold text-[#01312D]">
-            ₹{userData.totalSpent.toLocaleString()}
+            R{userData.totalSpent.toLocaleString()}
           </p>
           <p className="text-xs text-gray-500">Spent</p>
         </div>

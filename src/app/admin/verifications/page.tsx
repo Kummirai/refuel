@@ -722,7 +722,7 @@ export default function VerificationsPage() {
                 </div>
                 <div className="text-center bg-white rounded-lg p-3">
                   <p className="text-2xl font-bold text-[#3A7717]">
-                    ₹{(driver.totalSpent || 0).toLocaleString()}
+                    R{(driver.totalSpent || 0).toLocaleString()}
                   </p>
                   <p className="text-xs text-gray-500">Total Spent</p>
                 </div>

@@ -125,7 +125,7 @@ const generateAdminEmailHtml = (data: ServiceRequestEmailData): string => {
             <h3>📋 Request Details</h3>
             <div class="row"><span class="label">Service Type:</span><span class="value">${serviceTypeMap[data.serviceType] || data.serviceType}</span></div>
             <div class="row"><span class="label">Request ID:</span><span class="value">${data.requestId.slice(-6).toUpperCase()}</span></div>
-            <div class="row"><span class="label">Amount:</span><span class="value amount">₹${data.amount.toLocaleString()}</span></div>
+            <div class="row"><span class="label">Amount:</span><span class="value amount">R${data.amount.toLocaleString()}</span></div>
             ${data.phoneNumber ? `<div class="row"><span class="label">Contact Number:</span><span class="value">${data.phoneNumber}</span></div>` : ""}
             <div class="row"><span class="label">Request Date:</span><span class="value">${new Date(data.requestDate).toLocaleString()}</span></div>
           </div>
@@ -153,7 +153,7 @@ export async function sendAdminNotificationEmail(
       to: adminEmail,
       subject: `🔔 New Service Request: ${data.requestId.slice(-6).toUpperCase()}`,
       html: generateAdminEmailHtml(data),
-      text: `New service request from ${data.driverName} for ₹${data.amount}`,
+      text: `New service request from ${data.driverName} for R${data.amount}`,
     });
 
     console.log("✅ Admin notification email sent:", info.messageId);
@@ -203,7 +203,7 @@ const generateDriverApprovalHtml = (data: {
           </div>
           <p><strong>Request ID:</strong> ${data.requestId.slice(-6).toUpperCase()}</p>
           <p><strong>Service:</strong> ${data.serviceType}</p>
-          <p><strong>Amount:</strong> ₹${data.amount.toLocaleString()}</p>
+          <p><strong>Amount:</strong> R${data.amount.toLocaleString()}</p>
           <div style="text-align: center;">
             <a href="${process.env.NEXT_PUBLIC_APP_URL}/requests/history" class="button">View My Requests</a>
           </div>
@@ -228,7 +228,7 @@ export async function sendDriverApprovalEmail(data: {
       to: data.driverEmail,
       subject: `✅ Service Request Approved - ${data.requestId.slice(-6).toUpperCase()}`,
       html: generateDriverApprovalHtml(data),
-      text: `Your request for ₹${data.amount} has been approved. OTP: ${data.otp}`,
+      text: `Your request for R${data.amount} has been approved. OTP: ${data.otp}`,
     });
 
     console.log("✅ Driver approval email sent:", info.messageId);
@@ -255,7 +255,7 @@ export async function sendDriverRejectionEmail(data: {
       to: data.driverEmail,
       subject: `❌ Service Request Rejected - ${data.requestId.slice(-6).toUpperCase()}`,
       html: generateDriverRejectionHtml(data),
-      text: `Your request for ₹${data.amount} has been rejected. Reason: ${data.reason}`,
+      text: `Your request for R${data.amount} has been rejected. Reason: ${data.reason}`,
     });
 
     console.log("✅ Driver rejection email sent:", info.messageId);
@@ -308,7 +308,7 @@ const generateDriverRejectionHtml = (data: {
           <p><strong>Request Details:</strong></p>
           <p>📋 Request ID: ${data.requestId.slice(-6).toUpperCase()}<br>
           🚗 Service: ${data.serviceType}<br>
-          💰 Amount: ₹${data.amount.toLocaleString()}</p>
+          💰 Amount: R${data.amount.toLocaleString()}</p>
           
           <p>If you have any questions, please contact our support team.</p>
           

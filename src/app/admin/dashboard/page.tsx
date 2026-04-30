@@ -677,7 +677,7 @@ Your service request has been *APPROVED*! ✅
 🆔 *Request ID:* ${approvedRequest.id.slice(-6).toUpperCase()}
 🚗 *Vehicle:* ${approvedRequest.carRegistration}
 📱 *Service:* ${getTypeLabel(approvedRequest.type)}
-💰 *Amount:* ₹${approvedRequest.amount?.toLocaleString()}
+💰 *Amount:* R${approvedRequest.amount?.toLocaleString()}
 🔐 *${transactionLabel}:* ${finalOtp}
 📅 *Date:* ${currentDate}
 ⏰ *Time:* ${currentTime}
@@ -687,10 +687,10 @@ ${
   approvedRequest.type === "cash"
     ? `📊 *Repayment Details:*
 • Interest Rate: ${approvedRequest.interestRate || 13}%
-• Interest Amount: ₹${approvedRequest.interest?.toLocaleString() || 0}
-• Total Repayable: ₹${approvedRequest.totalRepayable?.toLocaleString() || 0}
+• Interest Amount: R${approvedRequest.interest?.toLocaleString() || 0}
+• Total Repayable: R${approvedRequest.totalRepayable?.toLocaleString() || 0}
 • Period: ${approvedRequest.repaymentDays || 7} days
-• Daily Payment: ₹${Math.ceil((approvedRequest.totalRepayable || approvedRequest.amount) / (approvedRequest.repaymentDays || 7)).toLocaleString()}
+• Daily Payment: R${Math.ceil((approvedRequest.totalRepayable || approvedRequest.amount) / (approvedRequest.repaymentDays || 7)).toLocaleString()}
 
 `
     : ""
@@ -1011,7 +1011,7 @@ Thank you for choosing DriveHub! 🚀
                     >
                       <span style={{ color: "#666" }}>Amount:</span>
                       <strong style={{ color: "#3A7717", fontSize: "16px" }}>
-                        ₹{approvedRequest.amount?.toLocaleString()}
+                        R{approvedRequest.amount?.toLocaleString()}
                       </strong>
                     </div>
                     <div
@@ -1107,7 +1107,7 @@ Thank you for choosing DriveHub! 🚀
                         >
                           <span>Interest Amount:</span>
                           <strong>
-                            ₹{approvedRequest.interest?.toLocaleString() || 0}
+                            R{approvedRequest.interest?.toLocaleString() || 0}
                           </strong>
                         </div>
                         <div
@@ -1119,7 +1119,7 @@ Thank you for choosing DriveHub! 🚀
                         >
                           <span>Total Repayable:</span>
                           <strong>
-                            ₹
+                            R
                             {approvedRequest.totalRepayable?.toLocaleString() ||
                               0}
                           </strong>
@@ -1195,7 +1195,7 @@ Thank you for choosing DriveHub! 🚀
                     <DollarSign className="w-4 h-4 text-green-600" />
                     <span className="text-gray-600">Amount:</span>
                     <span className="font-bold text-green-600">
-                      ₹{approvedRequest.amount?.toLocaleString()}
+                      R{approvedRequest.amount?.toLocaleString()}
                     </span>
                   </p>
                 </div>
@@ -1370,7 +1370,7 @@ Thank you for choosing DriveHub! 🚀
                 <div className="flex justify-between">
                   <span className="text-gray-600">Amount:</span>
                   <span className="font-bold text-[#3A7717] text-lg">
-                    ₹{approvingRequest.amount?.toLocaleString()}
+                    R{approvingRequest.amount?.toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -1501,7 +1501,7 @@ Thank you for choosing DriveHub! 🚀
                   {getTypeLabel(request.type)}
                 </p>
                 <p>
-                  <span className="text-gray-500">Amount:</span> ₹
+                  <span className="text-gray-500">Amount:</span> R
                   {request.amount?.toLocaleString()}
                 </p>
                 <p>
@@ -1764,7 +1764,7 @@ Thank you for choosing DriveHub! 🚀
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-[#01312D]">
-                  ₹{(driver.totalSpent || 0).toLocaleString()}
+                  R{(driver.totalSpent || 0).toLocaleString()}
                 </p>
                 <p className="text-xs text-gray-500">Total Spent</p>
               </div>
@@ -1871,7 +1871,7 @@ Thank you for choosing DriveHub! 🚀
             />
             <StatCard
               title="Total Revenue"
-              value={`₹${stats.totalRevenue.toLocaleString()}`}
+              value={`R${stats.totalRevenue.toLocaleString()}`}
               icon={DollarSign}
               color="bg-[#3A7717]"
             />
@@ -2059,7 +2059,7 @@ Thank you for choosing DriveHub! 🚀
                       </td>
                       <td className="p-4">
                         <span className="font-semibold text-[#3A7717]">
-                          ₹{(driver.totalSpent || 0).toLocaleString()}
+                          R{(driver.totalSpent || 0).toLocaleString()}
                         </span>
                       </td>
                       <td className="p-4">
