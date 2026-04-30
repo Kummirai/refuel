@@ -1,4 +1,4 @@
-// src/app/page.tsx - Fixed admin redirect
+// src/app/page.tsx - Fixed for mobile touch responsiveness
 
 "use client";
 
@@ -42,14 +42,23 @@ export default function HomePage() {
   const [verificationStatus, setVerificationStatus] = useState<
     "approved" | "pending" | "rejected" | "not_submitted"
   >("not_submitted");
+  const [isMobile, setIsMobile] = useState(false);
 
-  console.log("APP URL:", process.env.NEXT_PUBLIC_APP_URL);
+  // Detect mobile device for better touch handling
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   useEffect(() => {
     // Add a safety timeout — never spin forever
     const timeout = setTimeout(() => {
       setLoading(false);
-    }, 5000); // 5 seconds max
+    }, 5000);
 
     if (!isPending) {
       clearTimeout(timeout);
@@ -72,7 +81,6 @@ export default function HomePage() {
   }, [session, isPending]);
 
   const fetchUserProfile = async () => {
-    // Add an abort controller for timeout
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
 
@@ -88,10 +96,9 @@ export default function HomePage() {
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
-      // Don't re-throw — just fall through to finally
     } finally {
       clearTimeout(timeout);
-      setLoading(false); // always unblock UI
+      setLoading(false);
     }
   };
 
@@ -101,11 +108,7 @@ export default function HomePage() {
   };
 
   const handleGetStarted = () => {
-    console.log("Get Started clicked. User role:", userRole); // Debug log
-
-    // Check if user is admin via role
     if (userRole === "admin") {
-      console.log("Redirecting to admin dashboard");
       router.push("/admin/dashboard");
       return;
     }
@@ -156,135 +159,17 @@ export default function HomePage() {
     return "Get Started";
   };
 
-  const VerificationStatusBadge = () => {
-    const getStatusConfig = () => {
-      switch (verificationStatus) {
-        case "approved":
-          return {
-            icon: CheckCircle,
-            title: "Verified Account",
-            message: "Your account is verified. You can access all services.",
-            color: "text-[#3A7717]",
-            bgColor: "bg-[#3A7717]/10",
-            borderColor: "border-[#3A7717]",
-            buttonText: "Go to Dashboard",
-            buttonAction: () => router.push("/dashboard"),
-          };
-        case "pending":
-          return {
-            icon: Hourglass,
-            title: "Verification Pending",
-            message:
-              "Your documents are being reviewed by our admin. This usually takes 24-48 hours. You will be notified once verified.",
-            color: "text-yellow-600",
-            bgColor: "bg-yellow-50",
-            borderColor: "border-yellow-200",
-            buttonText: "Check Status",
-            buttonAction: () => router.push("/verify/status"),
-          };
-        case "rejected":
-          return {
-            icon: XCircle,
-            title: "Verification Failed",
-            message:
-              "Your documents were not approved. Please re-submit with correct information.",
-            color: "text-red-600",
-            bgColor: "bg-red-50",
-            borderColor: "border-red-200",
-            buttonText: "Re-submit",
-            buttonAction: () => router.push("/verify"),
-          };
-        default:
-          return {
-            icon: AlertCircle,
-            title: "Verification Required",
-            message:
-              "Complete verification to access fuel, cash, airtime & car wash services.",
-            color: "text-[#01312D]",
-            bgColor: "bg-[#eafde7]",
-            borderColor: "border-[#bff202]",
-            buttonText: "Verify Now",
-            buttonAction: () => router.push("/verify"),
-          };
-      }
-    };
-
-    const config = getStatusConfig();
-    const Icon = config.icon;
-
+  // Show loading state
+  if (loading || isPending) {
     return (
-      <div
-        className={`rounded-2xl p-4 border ${config.bgColor} ${config.borderColor} mb-6`}
-      >
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3 flex-1">
-            <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center ${config.bgColor}`}
-            >
-              <Icon className={`w-5 h-5 ${config.color}`} />
-            </div>
-            <div className="flex-1">
-              <h3 className={`font-bold ${config.color}`}>{config.title}</h3>
-              <p className="text-xs text-gray-600 mt-1">{config.message}</p>
-            </div>
-          </div>
-
-          <button
-            onClick={config.buttonAction}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap ${
-              verificationStatus === "pending"
-                ? "bg-yellow-600 text-white"
-                : verificationStatus === "rejected"
-                  ? "bg-red-600 text-white"
-                  : verificationStatus === "approved"
-                    ? "bg-[#3A7717] text-white"
-                    : "bg-[#01312D] text-white"
-            }`}
-          >
-            {config.buttonText} →
-          </button>
+      <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#3A7717] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-[#01312D]">Loading...</p>
         </div>
       </div>
     );
-  };
-
-  const DocumentsSubmittedBadge = () => {
-    if (verificationStatus !== "pending") return null;
-
-    const hasDocuments =
-      userProfile?.drivingLicenseUrl &&
-      userProfile?.carRegistrationUrl &&
-      userProfile?.profilePhotoUrl;
-
-    if (!hasDocuments) return null;
-
-    return (
-      <div className="bg-green-50 rounded-xl p-4 border border-green-200 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-            <FileCheck className="w-5 h-5 text-green-600" />
-          </div>
-          <div className="flex-1">
-            <p className="font-semibold text-green-800">Documents Submitted</p>
-            <p className="text-xs text-green-700">
-              Your documents have been received. Our admin is reviewing them.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // if (loading || isPending) {
-  //   return (
-  //     <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
-  //       <div className="text-center">
-  //         <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3A7717] border-t-transparent mx-auto mb-4"></div>
-  //         <p className="text-[#01312D]">Loading...</p>
-  //       </div>
-  //     </div>
-  //   );
-  // }
+  }
 
   const isLoggedIn = !!session;
   const isAdmin = userRole === "admin";
@@ -302,7 +187,10 @@ export default function HomePage() {
         <div className="mb-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             {/* Logo */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div
+              className="flex items-center gap-2 shrink-0 cursor-pointer"
+              onClick={() => router.push("/")}
+            >
               <div className="w-10 h-10 bg-[#01312D] rounded-xl flex items-center justify-center shadow-lg">
                 <Sparkles className="w-5 h-5 text-[#bff202]" />
               </div>
@@ -320,11 +208,7 @@ export default function HomePage() {
             <div className="flex items-center gap-2 flex-wrap justify-end">
               {isLoggedIn && (
                 <div
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-semibold whitespace-nowrap ${
-                    isAdmin
-                      ? "bg-[#bff202] text-[#01312D]"
-                      : "bg-[#bff202] text-[#01312D]"
-                  }`}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-semibold whitespace-nowrap bg-[#bff202] text-[#01312D]`}
                 >
                   {isAdmin ? (
                     <Shield className="w-3 h-3" />
@@ -338,7 +222,7 @@ export default function HomePage() {
               {isLoggedIn && (
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-all whitespace-nowrap"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-all whitespace-nowrap active:scale-95"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   Logout
@@ -360,7 +244,7 @@ export default function HomePage() {
           )}
 
           {isLoggedIn && isAdmin && (
-            <div className="mt-4 bg-linear-to-r from-[#01312D] to-[#3A7717] rounded-2xl p-4 text-white">
+            <div className="mt-4 bg-gradient-to-r from-[#01312D] to-[#3A7717] rounded-2xl p-4 text-white">
               <div className="flex items-center gap-3">
                 <Shield className="w-8 h-8 text-[#bff202] shrink-0" />
                 <div>
@@ -399,24 +283,19 @@ export default function HomePage() {
         <div className="flex justify-center mb-12">
           <button
             onClick={handleGetStarted}
-            className="group relative bg-linear-to-r from-[#01312D] to-[#3A7717] text-white px-10 py-3.5 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
+            className="group relative bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white px-10 py-3.5 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2 touch-manipulation"
+            style={{ cursor: "pointer" }}
           >
             <span className="relative z-10">{getButtonText()}</span>
             <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
-            <div className="absolute inset-0 bg-linear-to-r from-[#3A7717] to-[#72bf00] opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-[#3A7717] to-[#72bf00] opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full"></div>
           </button>
         </div>
-
-        {/* Documents Submitted Badge */}
-        <DocumentsSubmittedBadge />
-
-        {/* VERIFICATION STATUS BADGE */}
-        {isLoggedIn && !isAdmin && <VerificationStatusBadge />}
 
         {/* Services Grid - Show for non-admin users */}
         {(!isLoggedIn || (isLoggedIn && !isAdmin)) && (
           <div className="mb-10">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-between mb-4">
               <div>
                 <h2 className="text-xl font-bold text-[#01312D]">
                   Our Services
@@ -433,13 +312,19 @@ export default function HomePage() {
               <button
                 onClick={() => handleServiceRequest("fuel")}
                 disabled={isLoggedIn && verificationStatus !== "approved"}
-                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
+                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 active:scale-95 touch-manipulation ${
                   isLoggedIn && verificationStatus !== "approved"
                     ? "opacity-50 cursor-not-allowed"
-                    : ""
+                    : "cursor-pointer"
                 }`}
+                style={{
+                  cursor:
+                    isLoggedIn && verificationStatus !== "approved"
+                      ? "not-allowed"
+                      : "pointer",
+                }}
               >
-                <div className="bg-linear-to-r from-[#3A7717] to-[#72bf00] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
+                <div className="bg-gradient-to-r from-[#3A7717] to-[#72bf00] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                   <Fuel className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="font-bold text-[#01312D] text-lg">Fuel</h3>
@@ -453,13 +338,19 @@ export default function HomePage() {
               <button
                 onClick={() => handleServiceRequest("airtime")}
                 disabled={isLoggedIn && verificationStatus !== "approved"}
-                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
+                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 active:scale-95 touch-manipulation ${
                   isLoggedIn && verificationStatus !== "approved"
                     ? "opacity-50 cursor-not-allowed"
-                    : ""
+                    : "cursor-pointer"
                 }`}
+                style={{
+                  cursor:
+                    isLoggedIn && verificationStatus !== "approved"
+                      ? "not-allowed"
+                      : "pointer",
+                }}
               >
-                <div className="bg-linear-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
+                <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                   <Smartphone className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="font-bold text-[#01312D] text-lg">Airtime</h3>
@@ -473,13 +364,19 @@ export default function HomePage() {
               <button
                 onClick={() => handleServiceRequest("cash")}
                 disabled={isLoggedIn && verificationStatus !== "approved"}
-                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
+                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 active:scale-95 touch-manipulation ${
                   isLoggedIn && verificationStatus !== "approved"
                     ? "opacity-50 cursor-not-allowed"
-                    : ""
+                    : "cursor-pointer"
                 }`}
+                style={{
+                  cursor:
+                    isLoggedIn && verificationStatus !== "approved"
+                      ? "not-allowed"
+                      : "pointer",
+                }}
               >
-                <div className="bg-linear-to-r from-[#72bf00] to-[#bff202] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
+                <div className="bg-gradient-to-r from-[#72bf00] to-[#bff202] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                   <DollarSign className="w-6 h-6 text-[#01312D]" />
                 </div>
                 <h3 className="font-bold text-[#01312D] text-lg">Cash</h3>
@@ -493,13 +390,19 @@ export default function HomePage() {
               <button
                 onClick={() => handleServiceRequest("carwash")}
                 disabled={isLoggedIn && verificationStatus !== "approved"}
-                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
+                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 active:scale-95 touch-manipulation ${
                   isLoggedIn && verificationStatus !== "approved"
                     ? "opacity-50 cursor-not-allowed"
-                    : ""
+                    : "cursor-pointer"
                 }`}
+                style={{
+                  cursor:
+                    isLoggedIn && verificationStatus !== "approved"
+                      ? "not-allowed"
+                      : "pointer",
+                }}
               >
-                <div className="bg-linear-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
+                <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                   <Car className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="font-bold text-[#01312D] text-lg">Car Wash</h3>
@@ -553,7 +456,7 @@ export default function HomePage() {
             </div>
 
             {!isLoggedIn && (
-              <div className="mt-6 bg-linear-to-r from-[#bff202] to-[#72bf00] rounded-2xl p-4 shadow-lg">
+              <div className="mt-6 bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-2xl p-4 shadow-lg">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md shrink-0">
                     <Truck className="w-6 h-6 text-[#01312D]" />
@@ -600,7 +503,7 @@ export default function HomePage() {
           <div className="flex justify-around items-center">
             <button
               onClick={() => router.push("/")}
-              className="flex flex-col items-center gap-0.5 py-1 group"
+              className="flex flex-col items-center gap-0.5 py-1 group active:scale-95 transition-transform touch-manipulation"
             >
               <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#bff202] scale-110 shadow-md">
                 <Home className="w-5 h-5 text-[#01312D]" />
@@ -616,7 +519,7 @@ export default function HomePage() {
                   router.push("/requests");
                 }
               }}
-              className="flex flex-col items-center gap-0.5 py-1 group"
+              className="flex flex-col items-center gap-0.5 py-1 group active:scale-95 transition-transform touch-manipulation"
             >
               <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
                 <ClipboardList className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
@@ -634,7 +537,7 @@ export default function HomePage() {
                   router.push("/requests/history");
                 }
               }}
-              className="flex flex-col items-center gap-0.5 py-1 group"
+              className="flex flex-col items-center gap-0.5 py-1 group active:scale-95 transition-transform touch-manipulation"
             >
               <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
                 <History className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
@@ -652,7 +555,7 @@ export default function HomePage() {
                   router.push("/profile");
                 }
               }}
-              className="flex flex-col items-center gap-0.5 py-1 group"
+              className="flex flex-col items-center gap-0.5 py-1 group active:scale-95 transition-transform touch-manipulation"
             >
               <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
                 <UserCircle className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
