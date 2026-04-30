@@ -44,14 +44,16 @@ export default function HomePage() {
   >("not_submitted");
 
   useEffect(() => {
+    // Add a safety timeout — never spin forever
+    const timeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000); // 5 seconds max
+
     if (!isPending) {
-      console.log("Session data:", session); // Debug log
+      clearTimeout(timeout);
 
       if (session) {
-        // Get role from session - Better Auth stores role in user object
         const role = (session.user as any)?.role;
-        console.log("User role from session:", role); // Debug log
-
         setUserRole(role || null);
 
         if (role === "admin") {
@@ -63,12 +65,19 @@ export default function HomePage() {
         setLoading(false);
       }
     }
+
+    return () => clearTimeout(timeout);
   }, [session, isPending]);
 
   const fetchUserProfile = async () => {
+    // Add an abort controller for timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
     try {
       const response = await fetch(
         `/api/driver/profile?userId=${session?.user?.id}`,
+        { signal: controller.signal },
       );
       if (response.ok) {
         const profile = await response.json();
@@ -77,8 +86,10 @@ export default function HomePage() {
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
+      // Don't re-throw — just fall through to finally
     } finally {
-      setLoading(false);
+      clearTimeout(timeout);
+      setLoading(false); // always unblock UI
     }
   };
 
