@@ -55,7 +55,7 @@ export async function GET() {
         );
 
         return {
-          id: request._id.toString().slice(-6).toUpperCase(),
+          id: request._id,
           type: request.type,
           amount: request.amount,
           driverName:

@@ -7,6 +7,8 @@ export async function POST(request: Request) {
   try {
     const { requestId, otp } = await request.json();
 
+    console.log(requestId);
+
     if (!requestId || !otp) {
       return NextResponse.json(
         { error: "Missing required fields" },
