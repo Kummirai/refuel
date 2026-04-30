@@ -49,7 +49,7 @@ export default function HomePage() {
 
       if (session) {
         // Get role from session - Better Auth stores role in user object
-        const role = session.user?.role;
+        const role = (session.user as any)?.role;
         console.log("User role from session:", role); // Debug log
 
         setUserRole(role || null);
@@ -289,7 +289,7 @@ export default function HomePage() {
         <div className="mb-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             {/* Logo */}
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
               <div className="w-10 h-10 bg-[#01312D] rounded-xl flex items-center justify-center shadow-lg">
                 <Sparkles className="w-5 h-5 text-[#bff202]" />
               </div>
@@ -347,9 +347,9 @@ export default function HomePage() {
           )}
 
           {isLoggedIn && isAdmin && (
-            <div className="mt-4 bg-gradient-to-r from-[#01312D] to-[#3A7717] rounded-2xl p-4 text-white">
+            <div className="mt-4 bg-linear-to-r from-[#01312D] to-[#3A7717] rounded-2xl p-4 text-white">
               <div className="flex items-center gap-3">
-                <Shield className="w-8 h-8 text-[#bff202] flex-shrink-0" />
+                <Shield className="w-8 h-8 text-[#bff202] shrink-0" />
                 <div>
                   <p className="font-bold">
                     Welcome back, {session?.user?.name || "Admin"}!
@@ -386,11 +386,11 @@ export default function HomePage() {
         <div className="flex justify-center mb-12">
           <button
             onClick={handleGetStarted}
-            className="group relative bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white px-10 py-3.5 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
+            className="group relative bg-linear-to-r from-[#01312D] to-[#3A7717] text-white px-10 py-3.5 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
           >
             <span className="relative z-10">{getButtonText()}</span>
             <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#3A7717] to-[#72bf00] opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full"></div>
+            <div className="absolute inset-0 bg-linear-to-r from-[#3A7717] to-[#72bf00] opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full"></div>
           </button>
         </div>
 
@@ -426,7 +426,7 @@ export default function HomePage() {
                     : ""
                 }`}
               >
-                <div className="bg-gradient-to-r from-[#3A7717] to-[#72bf00] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
+                <div className="bg-linear-to-r from-[#3A7717] to-[#72bf00] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                   <Fuel className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="font-bold text-[#01312D] text-lg">Fuel</h3>
@@ -446,7 +446,7 @@ export default function HomePage() {
                     : ""
                 }`}
               >
-                <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
+                <div className="bg-linear-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                   <Smartphone className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="font-bold text-[#01312D] text-lg">Airtime</h3>
@@ -466,7 +466,7 @@ export default function HomePage() {
                     : ""
                 }`}
               >
-                <div className="bg-gradient-to-r from-[#72bf00] to-[#bff202] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
+                <div className="bg-linear-to-r from-[#72bf00] to-[#bff202] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                   <DollarSign className="w-6 h-6 text-[#01312D]" />
                 </div>
                 <h3 className="font-bold text-[#01312D] text-lg">Cash</h3>
@@ -486,7 +486,7 @@ export default function HomePage() {
                     : ""
                 }`}
               >
-                <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
+                <div className="bg-linear-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                   <Car className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="font-bold text-[#01312D] text-lg">Car Wash</h3>
@@ -540,9 +540,9 @@ export default function HomePage() {
             </div>
 
             {!isLoggedIn && (
-              <div className="mt-6 bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-2xl p-4 shadow-lg">
+              <div className="mt-6 bg-linear-to-r from-[#bff202] to-[#72bf00] rounded-2xl p-4 shadow-lg">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md flex-shrink-0">
+                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md shrink-0">
                     <Truck className="w-6 h-6 text-[#01312D]" />
                   </div>
                   <div className="flex-1">
@@ -560,7 +560,7 @@ export default function HomePage() {
             <div className="mt-6">
               <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0">
+                  <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center shrink-0">
                     <Headphones className="w-5 h-5 text-[#3A7717]" />
                   </div>
                   <div>

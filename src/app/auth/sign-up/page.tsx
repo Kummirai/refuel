@@ -51,30 +51,20 @@ export default function SignUpPage() {
     }
 
     try {
+      // Include phone in signup since backend requires it
       const { data, error: signUpError } = await authClient.signUp.email({
         email: formData.email,
         password: formData.password,
         name: formData.name,
         phone: formData.phone,
-      });
+      } as any);
 
       if (signUpError) {
         throw new Error(signUpError.message);
       }
 
       if (data) {
-        // Create driver profile in MongoDB
-        await fetch("/api/driver/profile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: data.user.id,
-            name: formData.name,
-            email: formData.email,
-            phone: formData.phone,
-          }),
-        });
-
+        // Additional profile data can be updated here if needed
         router.push("/verify");
       }
     } catch (err: any) {
@@ -86,7 +76,7 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#eafde7] to-white relative overflow-hidden">
+    <div className="min-h-screen bg-linear-to-b from-[#eafde7] to-white relative overflow-hidden">
       {/* Background Decorative Elements */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-[#bff202]/10 rounded-full blur-3xl"></div>
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#3A7717]/5 rounded-full blur-3xl"></div>
@@ -105,7 +95,7 @@ export default function SignUpPage() {
       <div className="relative z-10 px-5 pt-4 pb-12">
         {/* Logo & Header */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-[#01312D] to-[#3A7717] rounded-2xl shadow-xl mb-4">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-linear-to-r from-[#01312D] to-[#3A7717] rounded-2xl shadow-xl mb-4">
             <Sparkles className="w-10 h-10 text-[#bff202]" />
           </div>
           <h1 className="text-3xl font-bold text-[#01312D] mb-2">
@@ -273,7 +263,7 @@ export default function SignUpPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
+            className="w-full bg-linear-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
           >
             {loading ? (
               <>
