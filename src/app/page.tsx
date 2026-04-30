@@ -1,4 +1,4 @@
-// src/app/page.tsx - Fixed loading state
+// src/app/page.tsx - Fixed loading with better debugging
 
 "use client";
 
@@ -40,37 +40,43 @@ export default function HomePage() {
   const [verificationStatus, setVerificationStatus] = useState<
     "approved" | "pending" | "rejected" | "not_submitted"
   >("not_submitted");
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
-    // Safety timeout - never spin forever
-    const safetyTimeout = setTimeout(() => {
-      console.log("Safety timeout triggered - forcing loading false");
+    console.log("Auth state - isPending:", isPending, "session:", !!session);
+
+    // Force loading to stop after 3 seconds regardless
+    const forceTimeout = setTimeout(() => {
+      console.log("Force timeout triggered - stopping loading");
       setLoading(false);
-    }, 5000);
+      setAuthChecked(true);
+    }, 3000);
 
     if (!isPending) {
-      clearTimeout(safetyTimeout);
+      clearTimeout(forceTimeout);
+      console.log("Auth check complete");
 
       if (session) {
         const role = (session.user as any)?.role;
+        console.log("User role:", role);
         setUserRole(role || null);
 
         if (role === "admin") {
-          // Admin users: immediately stop loading
-          console.log("Admin user detected, stopping loading");
+          console.log("Admin user - stopping loading");
           setLoading(false);
+          setAuthChecked(true);
         } else {
-          // Non-admin users: fetch profile
+          console.log("Driver user - fetching profile");
           fetchUserProfile();
         }
       } else {
-        // No session: stop loading
-        console.log("No session, stopping loading");
+        console.log("No session - user not logged in");
         setLoading(false);
+        setAuthChecked(true);
       }
     }
 
-    return () => clearTimeout(safetyTimeout);
+    return () => clearTimeout(forceTimeout);
   }, [session, isPending]);
 
   const fetchUserProfile = async () => {
@@ -78,20 +84,26 @@ export default function HomePage() {
     const timeout = setTimeout(() => controller.abort(), 5000);
 
     try {
+      console.log("Fetching profile for user:", session?.user?.id);
       const response = await fetch(
         `/api/driver/profile?userId=${session?.user?.id}`,
         { signal: controller.signal },
       );
       if (response.ok) {
         const profile = await response.json();
+        console.log("Profile fetched:", profile);
         setUserProfile(profile);
         setVerificationStatus(profile?.verificationStatus || "not_submitted");
+      } else {
+        console.log("Profile fetch failed with status:", response.status);
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
     } finally {
       clearTimeout(timeout);
+      console.log("Profile fetch complete - stopping loading");
       setLoading(false);
+      setAuthChecked(true);
     }
   };
 
