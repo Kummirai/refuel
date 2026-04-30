@@ -38,7 +38,6 @@ import {
   MessageCircle,
   ImageIcon,
   Check,
-  Whatsapp,
 } from "lucide-react";
 
 type RequestType = "fuel" | "airtime" | "cash" | "carwash";
