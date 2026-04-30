@@ -275,16 +275,16 @@ export default function HomePage() {
     );
   };
 
-  // if (loading || isPending) {
-  //   return (
-  //     <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
-  //       <div className="text-center">
-  //         <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3A7717] border-t-transparent mx-auto mb-4"></div>
-  //         <p className="text-[#01312D]">Loading...</p>
-  //       </div>
-  //     </div>
-  //   );
-  // }
+  if (loading || isPending) {
+    return (
+      <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3A7717] border-t-transparent mx-auto mb-4"></div>
+          <p className="text-[#01312D]">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const isLoggedIn = !!session;
   const isAdmin = userRole === "admin";
@@ -308,7 +308,7 @@ export default function HomePage() {
               </div>
               <div>
                 <h1 className="text-[#01312D] font-bold text-xl">
-                  Fuel<span className="text-[#3A7717]">eX</span>
+                  Drive<span className="text-[#3A7717]">Hub</span>
                 </h1>
                 <p className="text-[#72bf00] text-xs font-semibold">
                   Driver Services
@@ -560,7 +560,7 @@ export default function HomePage() {
                   </div>
                   <div className="flex-1">
                     <p className="text-[#01312D] font-bold text-sm">
-                      New to FueleX?
+                      New to DriveHub?
                     </p>
                     <p className="text-[#01312D]/80 text-xs">
                       Sign up now & get 10% off on first request!
