@@ -1,13 +1,14 @@
 // src/app/api/admin/requests/approve/route.ts
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
-import { ObjectId } from "mongodb"; // Import ObjectId
+import { ObjectId } from "mongodb";
+import { sendDriverApprovalEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
   try {
     const { requestId, otp } = await request.json();
 
-    console.log(requestId);
+    console.log("Approving request:", requestId);
 
     if (!requestId || !otp) {
       return NextResponse.json(
@@ -50,6 +51,24 @@ export async function POST(request: Request) {
         },
       },
     );
+
+    // Send email notification to driver (run in background, don't await)
+    (async () => {
+      try {
+        await sendDriverApprovalEmail({
+          driverEmail: requestDoc.driverEmail,
+          driverName: requestDoc.driverName,
+          requestId: requestId,
+          serviceType: requestDoc.type,
+          amount: requestDoc.amount,
+          otp: otp,
+        });
+        console.log("Driver approval email sent for request:", requestId);
+      } catch (emailError) {
+        console.error("Failed to send driver approval email:", emailError);
+        // Don't fail the request if email fails
+      }
+    })();
 
     return NextResponse.json({
       success: true,

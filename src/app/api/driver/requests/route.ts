@@ -1,6 +1,7 @@
 // src/app/api/driver/requests/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
+import { sendAdminNotificationEmail } from "@/lib/email";
 
 export async function GET(request: NextRequest) {
   try {
@@ -110,6 +111,7 @@ export async function POST(request: NextRequest) {
     console.log("Saving request data:", requestData);
 
     const result = await serviceRequestsCollection.insertOne(requestData);
+    const requestId = result.insertedId.toString();
 
     // Update driver's total requests count
     try {
@@ -129,9 +131,36 @@ export async function POST(request: NextRequest) {
       // Don't fail the request if stats update fails
     }
 
+    // Send email notification to admin (don't await to avoid blocking response)
+    // Run in background
+    (async () => {
+      try {
+        await sendAdminNotificationEmail({
+          requestId: requestId,
+          driverName: driverName || "Unknown",
+          driverEmail: driverEmail || "",
+          driverPhone: driverPhone || "",
+          carRegistration: carNumber,
+          carModel: carModel,
+          serviceType: type,
+          amount: amount,
+          phoneNumber: contactPhone,
+          fuelType: fuelType,
+          interest: interest,
+          totalRepayable: totalRepayable,
+          repaymentDays: repaymentDays,
+          requestDate: new Date().toISOString(),
+        });
+        console.log("Admin notification email sent for request:", requestId);
+      } catch (emailError) {
+        console.error("Failed to send admin notification email:", emailError);
+        // Don't fail the request if email fails
+      }
+    })();
+
     return NextResponse.json({
       success: true,
-      requestId: result.insertedId,
+      requestId: requestId,
       message: "Request submitted successfully",
     });
   } catch (error) {
