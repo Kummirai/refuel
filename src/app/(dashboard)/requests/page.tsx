@@ -1,6 +1,7 @@
 // src/app/requests/page.tsx
 "use client";
 
+import { Suspense } from "react";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
@@ -81,7 +82,8 @@ const DEFAULT_CONFIG: Record<
   },
 };
 
-export default function RequestsPage() {
+// Create a separate component that uses useSearchParams
+function RequestsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, isPending } = authClient.useSession();
@@ -263,7 +265,7 @@ export default function RequestsPage() {
     }
 
     return (
-      <div className="bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-xl p-4 mt-3">
+      <div className="bg-linear-to-r from-[#bff202] to-[#72bf00] rounded-xl p-4 mt-3">
         <div className="flex items-center gap-2 mb-3">
           <Icon className="w-4 h-4 text-[#01312D]" />
           <p className="text-sm font-semibold text-[#01312D]">
@@ -339,7 +341,7 @@ export default function RequestsPage() {
               onClick={() => setSelectedRepaymentDays(days)}
               className={`flex-1 py-2 rounded-xl font-semibold transition-all ${
                 selectedRepaymentDays === days
-                  ? "bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white shadow-md"
+                  ? "bg-linear-to-r from-[#01312D] to-[#3A7717] text-white shadow-md"
                   : "bg-white border border-[#bff202]/20 text-[#01312D]"
               }`}
             >
@@ -586,7 +588,7 @@ export default function RequestsPage() {
               driverDetails.verificationStatus === "not_submitted") && (
               <button
                 onClick={() => router.push("/verify")}
-                className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold mt-2"
+                className="w-full bg-linear-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold mt-2"
               >
                 {driverDetails.verificationStatus === "rejected"
                   ? "Re-submit Documents →"
@@ -716,7 +718,7 @@ export default function RequestsPage() {
                     }}
                     className={`flex flex-col items-center gap-1 p-3 rounded-2xl transition-all duration-300 ${
                       isActive
-                        ? `bg-gradient-to-r ${service.color} text-white shadow-lg scale-105`
+                        ? `bg-linear-to-r ${service.color} text-white shadow-lg scale-105`
                         : "bg-white text-[#01312D] border border-[#bff202]/20"
                     }`}
                   >
@@ -762,7 +764,7 @@ export default function RequestsPage() {
                       onClick={() => setAmount(pkg.price.toString())}
                       className={`w-full p-4 rounded-2xl text-left transition-all ${
                         amount === pkg.price.toString()
-                          ? "bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white shadow-lg"
+                          ? "bg-linear-to-r from-[#01312D] to-[#3A7717] text-white shadow-lg"
                           : "bg-white border border-[#bff202]/20 text-[#01312D]"
                       }`}
                     >
@@ -857,14 +859,14 @@ export default function RequestsPage() {
                   <button
                     type="button"
                     onClick={() => setFuelType("petrol")}
-                    className={`flex-1 py-3 rounded-xl font-semibold transition-all ${fuelType === "petrol" ? "bg-gradient-to-r from-[#3A7717] to-[#72bf00] text-white shadow-md" : "bg-white border border-[#bff202]/20 text-[#01312D]"}`}
+                    className={`flex-1 py-3 rounded-xl font-semibold transition-all ${fuelType === "petrol" ? "bg-linear-to-r from-[#3A7717] to-[#72bf00] text-white shadow-md" : "bg-white border border-[#bff202]/20 text-[#01312D]"}`}
                   >
                     ⛽ Petrol
                   </button>
                   <button
                     type="button"
                     onClick={() => setFuelType("diesel")}
-                    className={`flex-1 py-3 rounded-xl font-semibold transition-all ${fuelType === "diesel" ? "bg-gradient-to-r from-[#3A7717] to-[#72bf00] text-white shadow-md" : "bg-white border border-[#bff202]/20 text-[#01312D]"}`}
+                    className={`flex-1 py-3 rounded-xl font-semibold transition-all ${fuelType === "diesel" ? "bg-linear-to-r from-[#3A7717] to-[#72bf00] text-white shadow-md" : "bg-white border border-[#bff202]/20 text-[#01312D]"}`}
                   >
                     🛢️ Diesel
                   </button>
@@ -898,7 +900,7 @@ export default function RequestsPage() {
             <button
               type="submit"
               disabled={loading || !amount || !phoneNumber}
-              className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
+              className="w-full bg-linear-to-r from-[#01312D] to-[#3A7717] text-white py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
             >
               {loading ? (
                 <>
@@ -978,5 +980,23 @@ export default function RequestsPage() {
         </div>
       </nav>
     </div>
+  );
+}
+
+// Main export with Suspense boundary
+export default function RequestsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
+            <p className="text-[#01312D]">Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <RequestsPageContent />
+    </Suspense>
   );
 }
