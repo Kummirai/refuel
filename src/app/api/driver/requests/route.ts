@@ -35,21 +35,47 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    console.log("Received request body:", body);
+
     const {
       userId,
       type,
       amount,
       carNumber,
-      location,
+      carModel,
       fuelType,
-      phoneNumber,
+      contactPhone, // Changed from phoneNumber to contactPhone
       interest,
       totalRepayable,
+      interestRate,
+      repaymentDays,
+      dailyPayment,
+      driverName,
+      driverPhone,
+      driverEmail,
+      package: packageName,
+      packageDescription,
     } = body;
 
+    // Validate required fields
     if (!userId || !type || !amount) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Missing required fields: userId, type, or amount" },
+        { status: 400 },
+      );
+    }
+
+    // Validate phone number
+    if (!contactPhone) {
+      return NextResponse.json(
+        { error: "Contact phone number is required" },
+        { status: 400 },
+      );
+    }
+
+    if (!carNumber) {
+      return NextResponse.json(
+        { error: "Car registration number is required" },
         { status: 400 },
       );
     }
@@ -57,22 +83,51 @@ export async function POST(request: NextRequest) {
     const { db } = await connectToDatabase();
     const serviceRequestsCollection = db.collection("serviceRequests");
 
+    // Prepare request data with all fields
     const requestData = {
       userId,
       type,
       amount,
       carNumber,
-      location,
-      fuelType,
-      phoneNumber,
-      interest,
-      totalRepayable,
+      carModel: carModel || "",
+      fuelType: fuelType || null,
+      contactPhone, // Save the contact phone number
+      driverName: driverName || "",
+      driverPhone: driverPhone || "",
+      driverEmail: driverEmail || "",
+      interest: interest || 0,
+      totalRepayable: totalRepayable || amount,
+      interestRate: interestRate || 13,
+      repaymentDays: repaymentDays || 7,
+      dailyPayment: dailyPayment || Math.ceil((amount * 1.13) / 7),
+      package: packageName || null,
+      packageDescription: packageDescription || null,
       status: "pending",
       requestDate: new Date(),
       createdAt: new Date(),
     };
 
+    console.log("Saving request data:", requestData);
+
     const result = await serviceRequestsCollection.insertOne(requestData);
+
+    // Update driver's total requests count
+    try {
+      const usersCollection = db.collection("user");
+      await usersCollection.updateOne(
+        { _id: userId },
+        { $inc: { totalRequests: 1 } },
+      );
+
+      const driverProfilesCollection = db.collection("driverProfiles");
+      await driverProfilesCollection.updateOne(
+        { userId: userId },
+        { $inc: { totalRequests: 1, totalSpent: amount } },
+      );
+    } catch (updateError) {
+      console.error("Error updating driver stats:", updateError);
+      // Don't fail the request if stats update fails
+    }
 
     return NextResponse.json({
       success: true,

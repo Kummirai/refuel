@@ -91,7 +91,7 @@ export default function RequestsPage() {
     useState<ServiceType>(initialType);
   const [amount, setAmount] = useState<string>("");
   const [fuelType, setFuelType] = useState<"petrol" | "diesel">("petrol");
-  const [phoneNumber, setPhoneNumber] = useState<string>("");
+  const [phoneNumber, setPhoneNumber] = useState<string>(""); // Phone number for all services
   const [showSuccess, setShowSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -180,8 +180,6 @@ export default function RequestsPage() {
     }
   }, [session, isPending, router, settingsLoading]);
 
-  console.log(session);
-
   const fetchDriverDetails = async () => {
     try {
       const response = await fetch(
@@ -240,15 +238,6 @@ export default function RequestsPage() {
           </span>
         </div>
       );
-    } else if (selectedService === "airtime") {
-      additionalInfo = (
-        <div className="flex justify-between">
-          <span className="text-white/80">Mobile Number:</span>
-          <span className="font-semibold text-white">
-            {phoneNumber || "Not entered"}
-          </span>
-        </div>
-      );
     } else if (selectedService === "carwash") {
       const selectedPackage = carWashPackages.find(
         (p) => p.price === amountNum,
@@ -285,10 +274,16 @@ export default function RequestsPage() {
           <div className="flex justify-between">
             <span className="text-[#01312D]">Amount:</span>
             <span className="font-semibold text-[#01312D]">
-              R{amountNum.toLocaleString()}
+              ₹{amountNum.toLocaleString()}
             </span>
           </div>
           {additionalInfo}
+          <div className="flex justify-between">
+            <span className="text-[#01312D]">Contact Number:</span>
+            <span className="font-semibold text-[#01312D]">
+              {phoneNumber || "Not entered"}
+            </span>
+          </div>
           <div className="flex justify-between">
             <span className="text-[#01312D]">Interest Rate:</span>
             <span className="font-semibold text-[#01312D]">
@@ -298,7 +293,7 @@ export default function RequestsPage() {
           <div className="flex justify-between">
             <span className="text-[#01312D]">Interest Amount:</span>
             <span className="font-semibold text-[#01312D]">
-              + R{interest.toLocaleString()}
+              + ₹{interest.toLocaleString()}
             </span>
           </div>
           <div className="flex justify-between pt-2 border-t border-[#01312D]/20">
@@ -306,7 +301,7 @@ export default function RequestsPage() {
               Total Repayable:
             </span>
             <span className="font-bold text-[#01312D]">
-              R{totalRepayable.toLocaleString()}
+              ₹{totalRepayable.toLocaleString()}
             </span>
           </div>
           <div className="flex justify-between">
@@ -318,7 +313,7 @@ export default function RequestsPage() {
           <div className="flex justify-between bg-[#01312D]/10 rounded-lg p-2 -mx-1">
             <span className="font-semibold text-[#01312D]">Daily Payment:</span>
             <span className="font-bold text-[#01312D]">
-              R{Math.ceil(dailyPayment).toLocaleString()}/day
+              ₹{Math.ceil(dailyPayment).toLocaleString()}/day
             </span>
           </div>
         </div>
@@ -412,10 +407,8 @@ export default function RequestsPage() {
       return;
     }
 
-    if (
-      selectedService === "airtime" &&
-      (!phoneNumber || phoneNumber.length < 10)
-    ) {
+    // Validate phone number for all services
+    if (!phoneNumber || phoneNumber.length < 10) {
       setError("Please enter a valid 10-digit phone number");
       setLoading(false);
       return;
@@ -435,9 +428,11 @@ export default function RequestsPage() {
         userId: session?.user?.id,
         type: selectedService,
         amount: amountNum,
-        driverName: driverDetails.fullName,
         carNumber: driverDetails.carRegistrationNumber,
         carModel: driverDetails.carModel,
+        fuelType: selectedService === "fuel" ? fuelType : null,
+        contactPhone: phoneNumber, // This will be saved as contactPhone
+        driverName: driverDetails.fullName,
         driverPhone: driverDetails.phone,
         driverEmail: driverDetails.email,
         interest: interest,
@@ -447,12 +442,7 @@ export default function RequestsPage() {
         dailyPayment: Math.ceil(dailyPayment),
       };
 
-      if (selectedService === "fuel") {
-        requestData.fuelType = fuelType;
-      }
-      if (selectedService === "airtime") {
-        requestData.phoneNumber = phoneNumber;
-      }
+      // Add package info for car wash
       if (selectedService === "carwash") {
         const selectedPackage = carWashPackages.find(
           (p) => p.price === amountNum,
@@ -460,6 +450,8 @@ export default function RequestsPage() {
         requestData.package = selectedPackage?.name || "Custom";
         requestData.packageDescription = selectedPackage?.description || "";
       }
+
+      console.log("Submitting request with data:", requestData);
 
       const response = await fetch("/api/driver/requests", {
         method: "POST",
@@ -487,15 +479,14 @@ export default function RequestsPage() {
       setLoading(false);
     }
   };
-
   const getPlaceholder = () => {
     switch (selectedService) {
       case "fuel":
-        return "Enter amount in R (e.g., 2000)";
+        return "Enter amount in ₹ (e.g., 2000)";
       case "airtime":
-        return "Enter amount in R (e.g., 500)";
+        return "Enter amount in ₹ (e.g., 500)";
       case "cash":
-        return "Enter loan amount in R (e.g., 5000)";
+        return "Enter loan amount in ₹ (e.g., 5000)";
       case "carwash":
         return "Select package";
     }
@@ -692,9 +683,9 @@ export default function RequestsPage() {
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-500">Phone</p>
+                <p className="text-xs text-gray-500">Registered Phone</p>
                 <p className="font-semibold text-[#01312D]">
-                  {driverDetails.phone}
+                  {driverDetails.phone || "Not set"}
                 </p>
               </div>
               <div>
@@ -719,7 +710,6 @@ export default function RequestsPage() {
                       setSelectedService(service.id);
                       setAmount("");
                       setError("");
-                      setPhoneNumber("");
                       setSelectedRepaymentDays(
                         serviceConfig[service.id].defaultRepaymentDays,
                       );
@@ -785,7 +775,7 @@ export default function RequestsPage() {
                             {pkg.description}
                           </p>
                         </div>
-                        <p className="text-xl font-bold">R{pkg.price}</p>
+                        <p className="text-xl font-bold">₹{pkg.price}</p>
                       </div>
                     </button>
                   ))}
@@ -813,22 +803,7 @@ export default function RequestsPage() {
                           onClick={() => setAmount(amt.toString())}
                           className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
                         >
-                          R{amt}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {selectedService === "airtime" && (
-                    <div className="flex gap-2 mt-2 flex-wrap">
-                      {[100, 200, 500, 1000].map((amt) => (
-                        <button
-                          key={amt}
-                          type="button"
-                          onClick={() => setAmount(amt.toString())}
-                          className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
-                        >
-                          R{amt}
+                          ₹{amt}
                         </button>
                       ))}
                     </div>
@@ -843,13 +818,34 @@ export default function RequestsPage() {
                           onClick={() => setAmount(amt.toString())}
                           className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
                         >
-                          R{amt}
+                          ₹{amt}
                         </button>
                       ))}
                     </div>
                   )}
                 </>
               )}
+            </div>
+
+            {/* Contact Phone Number - Required for all services */}
+            <div>
+              <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                Contact Phone Number <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#72bf00]" />
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="Enter 10-digit mobile number"
+                  className="w-full pl-10 pr-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                  required
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                We'll use this number to contact you about your request
+              </p>
             </div>
 
             {selectedService === "fuel" && (
@@ -872,25 +868,6 @@ export default function RequestsPage() {
                   >
                     🛢️ Diesel
                   </button>
-                </div>
-              </div>
-            )}
-
-            {selectedService === "airtime" && (
-              <div>
-                <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                  Phone Number
-                </label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#72bf00]" />
-                  <input
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="Enter 10-digit mobile number"
-                    className="w-full pl-10 pr-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                    required
-                  />
                 </div>
               </div>
             )}
@@ -920,11 +897,7 @@ export default function RequestsPage() {
 
             <button
               type="submit"
-              disabled={
-                loading ||
-                !amount ||
-                (selectedService === "airtime" && !phoneNumber)
-              }
+              disabled={loading || !amount || !phoneNumber}
               className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
             >
               {loading ? (

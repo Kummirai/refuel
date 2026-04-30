@@ -30,6 +30,9 @@ import {
   ThumbsUp,
   Loader2,
   Image as ImageIcon,
+  Home,
+  ClipboardList,
+  UserCircle,
 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -47,6 +50,8 @@ export default function ProfilePage() {
     email: "",
     phone: "",
     address: "",
+    city: "",
+    pincode: "",
     carRegistration: "",
     carModel: "",
     carYear: "",
@@ -95,10 +100,10 @@ export default function ProfilePage() {
         setUserData({
           name: data?.fullName || session?.user?.name || "",
           email: session?.user?.email || "",
-          phone: data?.phone || session?.user?.phone || "",
-          address: data?.address
-            ? `${data.address}, ${data.city} - ${data.pincode}`
-            : "Not provided",
+          phone: data?.phone || "",
+          address: data?.address || "Not provided",
+          city: data?.city || "Not provided",
+          pincode: data?.pincode || "Not provided",
           carRegistration: data?.carRegistrationNumber || "Not provided",
           carModel: data?.carModel || "Not provided",
           carYear: data?.carYear || "Not provided",
@@ -125,14 +130,12 @@ export default function ProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
     if (!allowedTypes.includes(file.type)) {
       alert("Only JPG and PNG files are allowed");
       return;
     }
 
-    // Validate file size (2MB max)
     const maxSize = 2 * 1024 * 1024;
     if (file.size > maxSize) {
       alert("File too large. Max size is 2MB");
@@ -158,7 +161,6 @@ export default function ProfilePage() {
         throw new Error(data.error || "Failed to upload photo");
       }
 
-      // Update profile with new photo URL
       const updateResponse = await fetch("/api/driver/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -231,18 +233,23 @@ export default function ProfilePage() {
     return null;
   }
 
+  // Format full address
+  const fullAddress =
+    userData.address !== "Not provided"
+      ? `${userData.address}, ${userData.city} - ${userData.pincode}`
+      : "Not provided";
+
   return (
     <div className="min-h-screen bg-[#eafde7] pb-24">
       {/* Header with Cover Photo */}
       <div className="relative">
-        {/* Cover Image */}
         <div className="h-32 bg-gradient-to-r from-[#01312D] to-[#3A7717] relative">
           <button className="absolute bottom-2 right-2 bg-black/50 p-1.5 rounded-full">
             <Camera className="w-4 h-4 text-white" />
           </button>
         </div>
 
-        {/* Profile Avatar - Now with actual driver image */}
+        {/* Profile Avatar */}
         <div className="absolute -bottom-12 left-5">
           <div className="relative">
             <div className="w-24 h-24 bg-white rounded-full shadow-xl flex items-center justify-center border-4 border-white overflow-hidden">
@@ -253,7 +260,7 @@ export default function ProfilePage() {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-[#01312D] to-[#3A7717] rounded-xl flex items-center justify-center">
+                <div className="w-full h-full bg-gradient-to-br from-[#01312D] to-[#3A7717] rounded-full flex items-center justify-center">
                   <span className="text-4xl text-white font-bold">
                     {userData.name.charAt(0) || "U"}
                   </span>
@@ -319,7 +326,7 @@ export default function ProfilePage() {
             <Wallet className="w-4 h-4 text-[#3A7717]" />
           </div>
           <p className="text-lg font-bold text-[#01312D]">
-            R{userData.totalSpent.toLocaleString()}
+            ₹{userData.totalSpent.toLocaleString()}
           </p>
           <p className="text-xs text-gray-500">Spent</p>
         </div>
@@ -417,7 +424,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Tab Content - Same as before, keeping the existing content */}
+      {/* Tab Content */}
       <div className="p-5">
         {/* Profile Tab */}
         {activeTab === "profile" && (
@@ -439,14 +446,16 @@ export default function ProfilePage() {
                   <Phone className="w-4 h-4 text-[#72bf00]" />
                   <div>
                     <p className="text-xs text-gray-500">Phone</p>
-                    <p className="text-sm text-[#01312D]">{userData.phone}</p>
+                    <p className="text-sm text-[#01312D]">
+                      {userData.phone || "Not provided"}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <MapPin className="w-4 h-4 text-[#72bf00]" />
                   <div className="flex-1">
                     <p className="text-xs text-gray-500">Address</p>
-                    <p className="text-sm text-[#01312D]">{userData.address}</p>
+                    <p className="text-sm text-[#01312D]">{fullAddress}</p>
                   </div>
                 </div>
               </div>
@@ -495,7 +504,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Loans & History Tab - Keep existing */}
+        {/* Loans & History Tab */}
         {activeTab === "loans" && (
           <div className="space-y-4">
             <div className="bg-white rounded-2xl p-8 text-center shadow-sm border border-[#bff202]/20">
@@ -552,7 +561,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Settings Tab - Keep existing */}
+        {/* Settings Tab */}
         {activeTab === "settings" && (
           <div className="space-y-4">
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
@@ -671,106 +680,50 @@ export default function ProfilePage() {
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 z-50 shadow-lg">
         <div className="flex justify-around items-center">
-          {[
-            { icon: HomeIcon, label: "Home", path: "/" },
-            { icon: ClipboardIcon, label: "Requests", path: "/requests" },
-            { icon: HistoryIcon, label: "History", path: "/requests/history" },
-            {
-              icon: UserIcon,
-              label: "Profile",
-              active: true,
-              path: "/profile",
-            },
-          ].map((item, index) => {
-            const IconComponent = item.icon;
-            return (
-              <button
-                key={index}
-                onClick={() => router.push(item.path)}
-                className="flex flex-col items-center gap-0.5 py-1 group"
-              >
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
-                    item.active
-                      ? "bg-[#bff202] scale-110 shadow-md"
-                      : "bg-[#eafde7] group-hover:bg-[#bff202]/50"
-                  }`}
-                >
-                  <IconComponent
-                    className={`w-5 h-5 ${
-                      item.active
-                        ? "text-[#01312D]"
-                        : "text-[#3A7717] group-hover:text-[#01312D]"
-                    }`}
-                  />
-                </div>
-                <span
-                  className={`text-xs ${
-                    item.active
-                      ? "text-[#01312D] font-bold"
-                      : "text-[#3A7717] group-hover:text-[#01312D]"
-                  }`}
-                >
-                  {item.label}
-                </span>
-              </button>
-            );
-          })}
+          <button
+            onClick={() => router.push("/")}
+            className="flex flex-col items-center gap-0.5 py-1 group"
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
+              <Home className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+            </div>
+            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+              Home
+            </span>
+          </button>
+          <button
+            onClick={() => router.push("/requests")}
+            className="flex flex-col items-center gap-0.5 py-1 group"
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
+              <ClipboardList className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+            </div>
+            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+              Requests
+            </span>
+          </button>
+          <button
+            onClick={() => router.push("/requests/history")}
+            className="flex flex-col items-center gap-0.5 py-1 group"
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
+              <History className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+            </div>
+            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+              History
+            </span>
+          </button>
+          <button
+            onClick={() => router.push("/profile")}
+            className="flex flex-col items-center gap-0.5 py-1 group"
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#bff202] scale-110 shadow-md">
+              <UserCircle className="w-5 h-5 text-[#01312D]" />
+            </div>
+            <span className="text-xs text-[#01312D] font-bold">Profile</span>
+          </button>
         </div>
       </nav>
     </div>
-  );
-}
-
-// Icon Components
-function HomeIcon(props: any) {
-  return (
-    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-      />
-    </svg>
-  );
-}
-
-function ClipboardIcon(props: any) {
-  return (
-    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-      />
-    </svg>
-  );
-}
-
-function HistoryIcon(props: any) {
-  return (
-    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-      />
-    </svg>
-  );
-}
-
-function UserIcon(props: any) {
-  return (
-    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-      />
-    </svg>
   );
 }
