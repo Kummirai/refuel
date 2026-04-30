@@ -41,7 +41,7 @@ export async function GET() {
       .find({ status: "completed" })
       .toArray();
     const totalRevenue = completedRequestsData.reduce(
-      (sum, req) => sum + (req.amount || 0),
+      (sum: any, req: any) => sum + (req.amount || 0),
       0,
     );
 
@@ -51,8 +51,10 @@ export async function GET() {
       .toArray();
     const averageRating =
       driversWithRatings.length > 0
-        ? driversWithRatings.reduce((sum, d) => sum + (d.rating || 0), 0) /
-          driversWithRatings.length
+        ? driversWithRatings.reduce(
+            (sum: any, d: any) => sum + (d.rating || 0),
+            0,
+          ) / driversWithRatings.length
         : 0;
 
     // Get active loans (cash requests that are approved but not completed)
@@ -67,7 +69,7 @@ export async function GET() {
       .find({ type: "cash", status: "approved" })
       .toArray();
     const totalLoanAmount = loanData.reduce(
-      (sum, loan) => sum + (loan.amount || 0),
+      (sum: any, loan: any) => sum + (loan.amount || 0),
       0,
     );
 

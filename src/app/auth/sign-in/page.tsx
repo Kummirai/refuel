@@ -29,7 +29,9 @@ export default function SignInPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (!isPending && session) {
-      if (session.user?.role === "admin") {
+      // Use type assertion to access role property
+      const userRole = (session.user as any)?.role;
+      if (userRole === "admin") {
         router.push("/admin/dashboard");
       } else {
         router.push("/");
@@ -56,7 +58,8 @@ export default function SignInPage() {
         // Get the session to check user role and details
         const { data: sessionData } = await authClient.getSession();
 
-        if (sessionData?.user?.role === "admin") {
+        const userRole = (sessionData?.user as any)?.role;
+        if (userRole === "admin") {
           // Admin goes to admin dashboard
           router.push("/admin/dashboard");
           return;
