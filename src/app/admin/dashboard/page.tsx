@@ -1,8 +1,9 @@
 // src/app/admin/dashboard/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { toPng } from "html-to-image";
 import {
   Users,
   ClipboardList,
@@ -32,7 +33,39 @@ import {
   FileText,
   MapPin,
   IndianRupee,
+  Loader2,
+  AlertCircle,
+  MessageCircle,
+  ImageIcon,
+  Check,
+  Whatsapp,
 } from "lucide-react";
+
+type RequestType = "fuel" | "airtime" | "cash" | "carwash";
+type RequestStatus = "pending" | "approved" | "completed" | "rejected";
+
+interface ServiceRequest {
+  id: string;
+  driverName: string;
+  driverEmail: string;
+  driverPhone: string;
+  carRegistration: string;
+  carModel?: string;
+  location: string;
+  type: RequestType;
+  amount: number;
+  fuelType?: "petrol" | "diesel";
+  phoneNumber?: string;
+  interest?: number;
+  totalRepayable?: number;
+  repaymentDays?: number;
+  interestRate?: number;
+  status: RequestStatus;
+  otp?: string;
+  requestDate: string;
+  approvedDate?: string;
+  completedDate?: string;
+}
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -46,9 +79,20 @@ export default function AdminDashboard() {
   const [showDriverModal, setShowDriverModal] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [approvingRequest, setApprovingRequest] = useState<any>(null);
+  const [approvedRequest, setApprovedRequest] = useState<any>(null);
+  const [generatedOtp, setGeneratedOtp] = useState("");
+  const [approvalLoading, setApprovalLoading] = useState(false);
+  const [whatsappLoading, setWhatsappLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [copiedOtp, setCopiedOtp] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   const [stats, setStats] = useState({
     totalDrivers: 0,
@@ -75,14 +119,12 @@ export default function AdminDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch stats
       const statsRes = await fetch("/api/admin/stats");
       if (statsRes.ok) {
         const statsData = await statsRes.json();
         setStats(statsData);
       }
 
-      // Fetch drivers
       const driversRes = await fetch("/api/admin/drivers");
       if (driversRes.ok) {
         const driversData = await driversRes.json();
@@ -90,7 +132,6 @@ export default function AdminDashboard() {
         setRecentVerifications(driversData.recent || []);
       }
 
-      // Fetch requests
       const requestsRes = await fetch("/api/admin/requests");
       if (requestsRes.ok) {
         const requestsData = await requestsRes.json();
@@ -109,9 +150,109 @@ export default function AdminDashboard() {
     await fetchDashboardData();
   };
 
-  const handleApproveVerification = async (verification: any) => {
-    console.log(verification);
+  const openApproveModal = (request: any) => {
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    setGeneratedOtp(otp);
+    setApprovingRequest(request);
+    setShowApproveModal(true);
+  };
 
+  const handleConfirmApprove = async () => {
+    if (!approvingRequest) return;
+
+    setApprovalLoading(true);
+    try {
+      const response = await fetch("/api/admin/requests/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: approvingRequest.id,
+          otp: generatedOtp,
+        }),
+      });
+
+      if (response.ok) {
+        const updatedRequest = {
+          ...approvingRequest,
+          otp: generatedOtp,
+          status: "approved" as RequestStatus,
+        };
+        setApprovedRequest(updatedRequest);
+        setShowApproveModal(false);
+        setShowWhatsAppModal(true);
+        await fetchDashboardData();
+        setShowRequestModal(false);
+      } else {
+        const error = await response.json();
+        setErrorMessage(error.error || "Failed to approve request");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error approving request:", error);
+      setErrorMessage("Failed to approve request");
+      setShowErrorModal(true);
+    } finally {
+      setApprovalLoading(false);
+    }
+  };
+
+  const handleRejectRequest = async (request: any) => {
+    const reason = prompt("Please enter rejection reason:");
+    if (reason) {
+      try {
+        const response = await fetch("/api/admin/requests/reject", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId: request.id,
+            reason,
+          }),
+        });
+        if (response.ok) {
+          setSuccessMessage(`✅ Request ${request.id.slice(-6).toUpperCase()} rejected successfully`);
+          setShowSuccessModal(true);
+          fetchDashboardData();
+          setShowRequestModal(false);
+        } else {
+          const error = await response.json();
+          setErrorMessage(error.error || "Failed to reject request");
+          setShowErrorModal(true);
+        }
+      } catch (error) {
+        console.error("Error rejecting request:", error);
+        setErrorMessage("Failed to reject request");
+        setShowErrorModal(true);
+      }
+    }
+  };
+
+  const handleComplete = async (request: any) => {
+    try {
+      const response = await fetch("/api/admin/requests/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: request.id,
+        }),
+      });
+      if (response.ok) {
+        setSuccessMessage(`✅ Request ${request.id.slice(-6).toUpperCase()} marked as completed`);
+        setShowSuccessModal(true);
+        fetchDashboardData();
+        setShowRequestModal(false);
+      } else {
+        const error = await response.json();
+        setErrorMessage(error.error || "Failed to complete request");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error completing request:", error);
+      setErrorMessage("Failed to complete request");
+      setShowErrorModal(true);
+    }
+  };
+
+  const handleApproveVerification = async (verification: any) => {
     try {
       const response = await fetch("/api/admin/verify", {
         method: "POST",
@@ -122,16 +263,19 @@ export default function AdminDashboard() {
         }),
       });
       if (response.ok) {
-        alert(`✅ Approved ${verification.name}'s verification`);
+        setSuccessMessage(`✅ Approved ${verification.name}'s verification`);
+        setShowSuccessModal(true);
         fetchDashboardData();
         setShowVerificationModal(false);
       } else {
         const error = await response.json();
-        alert(error.error || "Failed to approve verification");
+        setErrorMessage(error.error || "Failed to approve verification");
+        setShowErrorModal(true);
       }
     } catch (error) {
       console.error("Error approving verification:", error);
-      alert("Failed to approve verification");
+      setErrorMessage("Failed to approve verification");
+      setShowErrorModal(true);
     }
   };
 
@@ -149,76 +293,21 @@ export default function AdminDashboard() {
           }),
         });
         if (response.ok) {
-          alert(`❌ Rejected ${verification.name}'s verification`);
+          setSuccessMessage(`❌ Rejected ${verification.name}'s verification`);
+          setShowSuccessModal(true);
           fetchDashboardData();
           setShowVerificationModal(false);
         } else {
           const error = await response.json();
-          alert(error.error || "Failed to reject verification");
+          setErrorMessage(error.error || "Failed to reject verification");
+          setShowErrorModal(true);
         }
       } catch (error) {
         console.error("Error rejecting verification:", error);
-        alert("Failed to reject verification");
+        setErrorMessage("Failed to reject verification");
+        setShowErrorModal(true);
       }
     }
-  };
-
-  const handleApproveRequest = async (request: any) => {
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    try {
-      const response = await fetch("/api/admin/requests/approve", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          requestId: request.id,
-          otp,
-        }),
-      });
-      if (response.ok) {
-        alert(`✅ Approved ${request.id} with OTP: ${otp}`);
-        fetchDashboardData();
-        setShowRequestModal(false);
-      } else {
-        const error = await response.json();
-        alert(error.error || "Failed to approve request");
-      }
-    } catch (error) {
-      console.error("Error approving request:", error);
-      alert("Failed to approve request");
-    }
-  };
-
-  const handleRejectRequest = async (request: any) => {
-    const reason = prompt("Please enter rejection reason:");
-    if (reason) {
-      try {
-        const response = await fetch("/api/admin/requests/reject", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            requestId: request.id,
-            reason,
-          }),
-        });
-        if (response.ok) {
-          alert(`❌ Rejected ${request.id}`);
-          fetchDashboardData();
-          setShowRequestModal(false);
-        } else {
-          const error = await response.json();
-          alert(error.error || "Failed to reject request");
-        }
-      } catch (error) {
-        console.error("Error rejecting request:", error);
-        alert("Failed to reject request");
-      }
-    }
-  };
-
-  const handleSendWhatsApp = (request: any) => {
-    const message = `DriveHub Service Request Confirmation\n\nRequest ID: ${request.id}\nDriver: ${request.driver}\nCar: ${request.carRegistration}\nService: ${request.type}\nAmount: R${request.amount}\nOTP: ${request.otp || "N/A"}\n\nPlease show this OTP to the cashier/attendant.`;
-    const whatsappUrl = `https://wa.me/${request.driverPhone?.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, "_blank");
   };
 
   const handleCopyOtp = (otp: string) => {
@@ -256,6 +345,37 @@ export default function AdminDashboard() {
     }
   };
 
+  const getRequestStatusBadge = (status: string) => {
+    switch (status) {
+      case "pending":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-yellow-100 text-yellow-700">
+            <Clock className="w-3 h-3" /> Pending
+          </span>
+        );
+      case "approved":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-blue-100 text-blue-700">
+            <CheckCircle className="w-3 h-3" /> Approved
+          </span>
+        );
+      case "completed":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-green-100 text-green-700">
+            <CheckCircle className="w-3 h-3" /> Completed
+          </span>
+        );
+      case "rejected":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-red-100 text-red-700">
+            <XCircle className="w-3 h-3" /> Rejected
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
+
   const getTypeLabel = (type: string) => {
     switch (type) {
       case "fuel":
@@ -271,350 +391,507 @@ export default function AdminDashboard() {
     }
   };
 
-  const StatCard = ({ title, value, icon: Icon, color }: any) => (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20 hover:shadow-md transition-shadow">
-      <div className="flex justify-between items-start">
-        <div>
-          <p className="text-gray-500 text-sm">{title}</p>
-          <p className="text-2xl font-bold text-[#01312D] mt-1">{value}</p>
-        </div>
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case "fuel":
+        return Fuel;
+      case "airtime":
+        return Smartphone;
+      case "cash":
+        return DollarSign;
+      default:
+        return Car;
+    }
+  };
+
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case "fuel":
+        return "bg-green-100 text-green-700";
+      case "airtime":
+        return "bg-blue-100 text-blue-700";
+      case "cash":
+        return "bg-yellow-100 text-yellow-700";
+      default:
+        return "bg-purple-100 text-purple-700";
+    }
+  };
+
+  // Success Modal Component
+  const SuccessModal = () => {
+    if (!showSuccessModal) return null;
+
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
         <div
-          className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}
-        >
-          <Icon className="w-6 h-6 text-white" />
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowSuccessModal(false)}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-t-2xl p-5">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">Success!</h2>
+                <p className="text-white/80 text-sm">Operation completed</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 text-center">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-10 h-10 text-green-600" />
+            </div>
+            <p className="text-[#01312D] font-semibold mb-2">
+              {successMessage}
+            </p>
+          </div>
+
+          <div className="border-t border-gray-100 p-5">
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              className="w-full bg-[#01312D] text-white py-2 rounded-xl font-semibold hover:bg-[#3A7717] transition-colors"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
-  // Verification Details Modal
-  const VerificationDetailsModal = ({
-    verification,
-    onClose,
-  }: {
-    verification: any;
-    onClose: () => void;
-  }) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      ></div>
-      <div className="relative bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-[#bff202]/20 p-5 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-[#eafde7] rounded-full flex items-center justify-center">
-              <span className="text-xl font-bold text-[#01312D]">
-                {verification.name?.charAt(0) || "U"}
-              </span>
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-[#01312D]">
-                Verification Details
-              </h2>
-              <p className="text-sm text-gray-500">{verification.name}</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-[#eafde7] rounded-lg"
-          >
-            <X className="w-6 h-6 text-gray-500" />
-          </button>
-        </div>
+  // Error Modal Component
+  const ErrorModal = () => {
+    if (!showErrorModal) return null;
 
-        <div className="p-5 space-y-5">
-          {/* Personal Information */}
-          <div className="bg-[#eafde7] rounded-xl p-4">
-            <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
-              <User className="w-4 h-4 text-[#3A7717]" />
-              Personal Information
-            </h3>
-            <div className="space-y-2 text-sm">
-              <p>
-                <span className="text-gray-500">Full Name:</span>{" "}
-                {verification.name}
-              </p>
-              <p>
-                <span className="text-gray-500">Email:</span>{" "}
-                {verification.email}
-              </p>
-              <p>
-                <span className="text-gray-500">Phone:</span>{" "}
-                {verification.phone}
-              </p>
-              <p>
-                <span className="text-gray-500">Address:</span>{" "}
-                {verification.address || "Not provided"}
-              </p>
-              <p>
-                <span className="text-gray-500">Submitted:</span>{" "}
-                {new Date(verification.date).toLocaleDateString()}
-              </p>
-            </div>
-          </div>
-
-          {/* Vehicle Information */}
-          <div className="bg-[#eafde7] rounded-xl p-4">
-            <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
-              <Car className="w-4 h-4 text-[#3A7717]" />
-              Vehicle Information
-            </h3>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <p>
-                <span className="text-gray-500">Registration:</span>{" "}
-                {verification.carRegistration || "Not provided"}
-              </p>
-              <p>
-                <span className="text-gray-500">Model:</span>{" "}
-                {verification.carModel || "Not provided"}
-              </p>
-              <p>
-                <span className="text-gray-500">Year:</span>{" "}
-                {verification.carYear || "Not provided"}
-              </p>
-            </div>
-          </div>
-
-          {/* Documents */}
-          <div className="bg-[#eafde7] rounded-xl p-4">
-            <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-[#3A7717]" />
-              Uploaded Documents
-            </h3>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between p-2 bg-white rounded-lg">
-                <span className="text-sm">Driver's License</span>
-                {verification.documents?.license ? (
-                  <a
-                    href={verification.documents.license}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#72bf00] text-sm font-semibold"
-                  >
-                    View
-                  </a>
-                ) : (
-                  <span className="text-xs text-gray-400">Not uploaded</span>
-                )}
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowErrorModal(false)}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-t-2xl p-5">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                <XCircle className="w-6 h-6 text-white" />
               </div>
-              <div className="flex items-center justify-between p-2 bg-white rounded-lg">
-                <span className="text-sm">RC Document</span>
-                {verification.documents?.registration ? (
-                  <a
-                    href={verification.documents.registration}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#72bf00] text-sm font-semibold"
-                  >
-                    View
-                  </a>
-                ) : (
-                  <span className="text-xs text-gray-400">Not uploaded</span>
-                )}
-              </div>
-              <div className="flex items-center justify-between p-2 bg-white rounded-lg">
-                <span className="text-sm">Profile Photo</span>
-                {verification.documents?.profilePhoto ? (
-                  <a
-                    href={verification.documents.profilePhoto}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#72bf00] text-sm font-semibold"
-                  >
-                    View
-                  </a>
-                ) : (
-                  <span className="text-xs text-gray-400">Not uploaded</span>
-                )}
+              <div>
+                <h2 className="text-xl font-bold text-white">Error!</h2>
+                <p className="text-white/80 text-sm">Operation failed</p>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
-          <button
-            onClick={() => handleApproveVerification(verification)}
-            className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
-          >
-            <CheckCircle className="w-4 h-4" />
-            Approve Verification
-          </button>
-          <button
-            onClick={() => handleRejectVerification(verification)}
-            className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
-          >
-            <XCircle className="w-4 h-4" />
-            Reject
-          </button>
+          <div className="p-5 text-center">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-10 h-10 text-red-600" />
+            </div>
+            <p className="text-[#01312D] font-semibold mb-2">
+              {errorMessage}
+            </p>
+          </div>
+
+          <div className="border-t border-gray-100 p-5">
+            <button
+              onClick={() => setShowErrorModal(false)}
+              className="w-full bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
-  // Service Request Details Modal
-  const RequestDetailsModal = ({
-    request,
-    onClose,
-  }: {
-    request: any;
-    onClose: () => void;
-  }) => {
-    const getTypeIcon = () => {
-      switch (request.type) {
-        case "fuel":
-          return <Fuel className="w-5 h-5" />;
-        case "airtime":
-          return <Smartphone className="w-5 h-5" />;
-        case "cash":
-          return <DollarSign className="w-5 h-5" />;
-        default:
-          return <Car className="w-5 h-5" />;
+  // WhatsApp Modal Component
+  const WhatsAppModal = () => {
+    if (!approvedRequest) return null;
+
+    const receiptRef = useRef<HTMLDivElement>(null);
+    const [imageGenerating, setImageGenerating] = useState(false);
+    const [showDownloadSuccessModal, setShowDownloadSuccessModal] = useState(false);
+    const [downloadedImageUrl, setDownloadedImageUrl] = useState<string | null>(null);
+
+    const handleGenerateImage = async () => {
+      if (!receiptRef.current) return;
+
+      setImageGenerating(true);
+      try {
+        const receiptElement = receiptRef.current;
+        receiptElement.style.position = "fixed";
+        receiptElement.style.left = "0";
+        receiptElement.style.top = "0";
+        receiptElement.style.zIndex = "-1";
+        receiptElement.style.opacity = "1";
+
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        const dataUrl = await toPng(receiptElement, {
+          quality: 0.95,
+          backgroundColor: "#ffffff",
+          pixelRatio: 2,
+        });
+
+        receiptElement.style.position = "absolute";
+        receiptElement.style.left = "-9999px";
+        receiptElement.style.top = "-9999px";
+        receiptElement.style.zIndex = "";
+
+        const link = document.createElement("a");
+        link.download = `DriveHub_Receipt_${approvedRequest.id.slice(-6)}.png`;
+        link.href = dataUrl;
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        setDownloadedImageUrl(dataUrl);
+        setShowDownloadSuccessModal(true);
+      } catch (error) {
+        console.error("Error generating image:", error);
+        setErrorMessage("Failed to generate receipt image");
+        setShowErrorModal(true);
+
+        if (receiptRef.current) {
+          receiptRef.current.style.position = "absolute";
+          receiptRef.current.style.left = "-9999px";
+          receiptRef.current.style.top = "-9999px";
+        }
+      } finally {
+        setImageGenerating(false);
       }
     };
 
-    const getTypeColor = () => {
-      switch (request.type) {
-        case "fuel":
-          return "bg-green-100 text-green-700";
-        case "airtime":
-          return "bg-blue-100 text-blue-700";
-        case "cash":
-          return "bg-yellow-100 text-yellow-700";
-        default:
-          return "bg-purple-100 text-purple-700";
+    const getWhatsAppUrl = (phoneNumber: string, message: string) => {
+      const cleanPhone = phoneNumber.replace(/[^0-9]/g, "");
+      let fullPhone = cleanPhone;
+      if (!cleanPhone.startsWith("27") && cleanPhone.length === 9) {
+        fullPhone = `27${cleanPhone}`;
       }
+      return `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`;
+    };
+
+    const handleSendWhatsApp = async (request: any, otp?: string) => {
+      setWhatsappLoading(true);
+      const finalOtp = otp || request.otp || generatedOtp;
+
+      const message = `*DriveHub - Service Request Approved* 🎉
+
+Hello ${request.driverName || request.driver},
+
+Your service request has been *APPROVED*! ✅
+
+📋 *Request Details:*
+━━━━━━━━━━━━━━━━━━━
+🆔 *Request ID:* ${request.id.slice(-6).toUpperCase()}
+🚗 *Vehicle:* ${request.carRegistration}
+📱 *Service:* ${getTypeLabel(request.type)}
+💰 *Amount:* ₹${request.amount?.toLocaleString()}
+🔐 *OTP:* ${finalOtp}
+━━━━━━━━━━━━━━━━━━━
+
+📍 *Instructions:*
+1. Show this OTP to the cashier/attendant
+2. The amount will be processed within 30 minutes
+3. Keep this message for reference
+
+Need help? Contact support.
+
+Thank you for choosing DriveHub! 🚀`;
+
+      const whatsappUrl = getWhatsAppUrl(request.driverPhone, message);
+      window.open(whatsappUrl, "_blank");
+
+      setTimeout(() => {
+        setWhatsappLoading(false);
+        setShowWhatsAppModal(false);
+        setApprovedRequest(null);
+        setApprovingRequest(null);
+      }, 1000);
+    };
+
+    const DownloadSuccessModal = () => {
+      if (!showDownloadSuccessModal) return null;
+
+      return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowDownloadSuccessModal(false)}
+          ></div>
+          <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl">
+            <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-t-2xl p-5">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">Download Successful!</h2>
+                  <p className="text-white/80 text-sm">Receipt image saved</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-5 text-center">
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <ImageIcon className="w-10 h-10 text-green-600" />
+              </div>
+              <p className="text-[#01312D] font-semibold mb-2">Receipt downloaded successfully!</p>
+              {downloadedImageUrl && (
+                <div className="bg-gray-50 rounded-xl p-3 mb-4">
+                  <p className="text-xs text-gray-500 mb-2">Preview:</p>
+                  <img src={downloadedImageUrl} alt="Receipt Preview" className="max-w-full h-auto rounded-lg mx-auto" style={{ maxHeight: "150px" }} />
+                </div>
+              )}
+            </div>
+            <div className="border-t border-gray-100 p-5">
+              <button onClick={() => setShowDownloadSuccessModal(false)} className="w-full bg-[#01312D] text-white py-2 rounded-xl font-semibold">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      );
     };
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div
-          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-          onClick={onClose}
-        ></div>
-        <div className="relative bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-          <div className="sticky top-0 bg-white border-b border-[#bff202]/20 p-5 flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div
-                className={`w-12 h-12 rounded-xl flex items-center justify-center ${getTypeColor()}`}
-              >
-                {getTypeIcon()}
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-[#01312D]">
-                  {getTypeLabel(request.type)} Request
-                </h2>
-                <p className="text-sm text-gray-500">ID: {request.id}</p>
+      <>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !whatsappLoading && setShowWhatsAppModal(false)}></div>
+          <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-[#25D366] to-[#128C7E] rounded-t-2xl p-5 sticky top-0 z-10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <MessageCircle className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Send WhatsApp</h2>
+                    <p className="text-white/80 text-sm">Share OTP with the driver</p>
+                  </div>
+                </div>
+                {!whatsappLoading && (
+                  <button onClick={() => setShowWhatsAppModal(false)} className="p-1 hover:bg-white/10 rounded-lg">
+                    <X className="w-5 h-5 text-white" />
+                  </button>
+                )}
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-1 hover:bg-[#eafde7] rounded-lg"
-            >
+
+            <div className="p-5 space-y-4">
+              <div ref={receiptRef} style={{ position: "fixed", left: "-9999px", top: "0", width: "400px", background: "white", borderRadius: "20px", padding: "20px" }}>
+                <div style={{ textAlign: "center", borderBottom: "2px solid #3A7717", paddingBottom: "15px", marginBottom: "15px" }}>
+                  <h2 style={{ color: "#01312D", fontSize: "24px" }}>DriveHub</h2>
+                  <p style={{ color: "#72bf00" }}>Service Receipt</p>
+                </div>
+                <div style={{ background: "#eafde7", borderRadius: "10px", padding: "15px", textAlign: "center", marginBottom: "15px" }}>
+                  <p style={{ color: "#666" }}>Your OTP Code</p>
+                  <div style={{ fontSize: "48px", fontWeight: "bold", letterSpacing: "5px", color: "#01312D", margin: "10px 0" }}>{approvedRequest.otp || generatedOtp}</div>
+                </div>
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
+                    <span>Driver:</span> <strong>{approvedRequest.driverName || approvedRequest.driver}</strong>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
+                    <span>Vehicle:</span> <strong>{approvedRequest.carRegistration}</strong>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
+                    <span>Service:</span> <strong>{getTypeLabel(approvedRequest.type)}</strong>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span>Amount:</span> <strong>₹{approvedRequest.amount?.toLocaleString()}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-green-50 rounded-xl p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                    <User className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-[#01312D]">{approvedRequest.driverName || approvedRequest.driver}</h3>
+                    <p className="text-xs text-gray-500">{approvedRequest.carRegistration}</p>
+                  </div>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <p className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-green-600" />
+                    <span className="font-semibold">{approvedRequest.driverPhone}</span>
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-green-600" />
+                    <span className="font-bold text-green-600">₹{approvedRequest.amount?.toLocaleString()}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-r from-yellow-400 to-orange-400 rounded-xl p-5 text-center">
+                <p className="text-white text-sm font-semibold mb-2">🔐 One-Time Password (OTP)</p>
+                <div className="bg-white rounded-xl p-4 mb-3">
+                  <code className="text-4xl font-bold tracking-wider text-[#01312D]">{approvedRequest.otp || generatedOtp}</code>
+                </div>
+                <button onClick={() => handleCopyOtp(approvedRequest.otp || generatedOtp)} className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-white font-semibold">
+                  <Copy className="w-4 h-4" /> Copy OTP
+                </button>
+              </div>
+            </div>
+
+            <div className="border-t p-5 flex gap-3 sticky bottom-0 bg-white">
+              <button onClick={handleGenerateImage} disabled={whatsappLoading || imageGenerating} className="flex-1 bg-[#01312D] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
+                {imageGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
+                Download as Image
+              </button>
+              <button onClick={() => handleSendWhatsApp(approvedRequest, approvedRequest.otp || generatedOtp)} disabled={whatsappLoading} className="flex-1 bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
+                {whatsappLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
+                Send via WhatsApp
+              </button>
+            </div>
+          </div>
+        </div>
+        <DownloadSuccessModal />
+      </>
+    );
+  };
+
+  // Approval Modal Component
+  const ApprovalModal = () => {
+    if (!approvingRequest) return null;
+
+    const TypeIcon = getTypeIcon(approvingRequest.type);
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !approvalLoading && setShowApproveModal(false)}></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl">
+          <div className="bg-gradient-to-r from-[#3A7717] to-[#72bf00] rounded-t-2xl p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">Confirm Approval</h2>
+                  <p className="text-white/80 text-sm">Review and confirm request approval</p>
+                </div>
+              </div>
+              {!approvalLoading && (
+                <button onClick={() => setShowApproveModal(false)} className="p-1 hover:bg-white/10 rounded-lg">
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="p-5 space-y-4">
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <TypeIcon className="w-4 h-4 text-[#3A7717]" />
+                <h3 className="font-semibold text-[#01312D]">Request Summary</h3>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Driver:</span>
+                  <span className="font-semibold">{approvingRequest.driverName || approvingRequest.driver}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Vehicle:</span>
+                  <span className="font-semibold">{approvingRequest.carRegistration}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Service:</span>
+                  <span className="font-semibold">{getTypeLabel(approvingRequest.type)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Amount:</span>
+                  <span className="font-bold text-[#3A7717] text-lg">₹{approvingRequest.amount?.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+              <label className="block text-yellow-800 font-semibold mb-2 text-sm">🔐 One-Time Password (OTP)</label>
+              <div className="flex items-center gap-3">
+                <code className="flex-1 bg-white px-4 py-3 rounded-xl font-mono text-2xl font-bold text-center text-[#01312D] border border-yellow-300">
+                  {generatedOtp}
+                </code>
+                <button onClick={() => handleCopyOtp(generatedOtp)} className="p-3 bg-white rounded-xl border border-yellow-300 hover:bg-yellow-100">
+                  {copiedOtp === generatedOtp ? <Check className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5 text-yellow-700" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t p-5 flex gap-3">
+            <button onClick={() => setShowApproveModal(false)} disabled={approvalLoading} className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700">
+              Cancel
+            </button>
+            <button onClick={handleConfirmApprove} disabled={approvalLoading} className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72bf00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
+              {approvalLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+              Confirm Approval
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Request Details Modal (Updated with approve/complete buttons)
+  const RequestDetailsModal = ({ request, onClose }: { request: any; onClose: () => void }) => {
+    const TypeIcon = getTypeIcon(request.type);
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}></div>
+        <div className="relative bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="sticky top-0 bg-white border-b p-5 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${getTypeColor(request.type)}`}>
+                <TypeIcon className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-[#01312D]">{getTypeLabel(request.type)} Request</h2>
+                <p className="text-sm text-gray-500">ID: {request.id.slice(-6).toUpperCase()}</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="p-1 hover:bg-[#eafde7] rounded-lg">
               <X className="w-6 h-6 text-gray-500" />
             </button>
           </div>
 
           <div className="p-5 space-y-5">
-            {/* Driver Information */}
             <div className="bg-[#eafde7] rounded-xl p-4">
               <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
-                <User className="w-4 h-4 text-[#3A7717]" />
-                Driver Information
+                <User className="w-4 h-4 text-[#3A7717]" /> Driver Information
               </h3>
               <div className="space-y-2 text-sm">
-                <p>
-                  <span className="text-gray-500">Name:</span> {request.driver}
-                </p>
-                <p>
-                  <span className="text-gray-500">Email:</span>{" "}
-                  {request.driverEmail}
-                </p>
-                <p>
-                  <span className="text-gray-500">Phone:</span>{" "}
-                  {request.driverPhone}
-                </p>
-                <p>
-                  <span className="text-gray-500">Car Registration:</span>{" "}
-                  {request.carRegistration}
-                </p>
-                {request.location && (
-                  <p>
-                    <span className="text-gray-500">Location:</span>{" "}
-                    {request.location}
-                  </p>
-                )}
+                <p><span className="text-gray-500">Name:</span> {request.driverName || request.driver}</p>
+                <p><span className="text-gray-500">Email:</span> {request.driverEmail}</p>
+                <p><span className="text-gray-500">Phone:</span> {request.driverPhone}</p>
+                <p><span className="text-gray-500">Car Registration:</span> {request.carRegistration}</p>
               </div>
             </div>
 
-            {/* Request Details */}
             <div className="bg-[#eafde7] rounded-xl p-4">
               <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
-                <ClipboardList className="w-4 h-4 text-[#3A7717]" />
-                Request Details
+                <ClipboardList className="w-4 h-4 text-[#3A7717]" /> Request Details
               </h3>
               <div className="space-y-2 text-sm">
-                <p>
-                  <span className="text-gray-500">Service Type:</span>{" "}
-                  {getTypeLabel(request.type)}
-                </p>
-                <p>
-                  <span className="text-gray-500">Amount:</span> R
-                  {request.amount?.toLocaleString()}
-                </p>
-                {request.fuelType && (
-                  <p>
-                    <span className="text-gray-500">Fuel Type:</span>{" "}
-                    {request.fuelType}
-                  </p>
-                )}
-                {request.phoneNumber && (
-                  <p>
-                    <span className="text-gray-500">Mobile Number:</span>{" "}
-                    {request.phoneNumber}
-                  </p>
-                )}
-                {request.type === "cash" && (
-                  <>
-                    <p>
-                      <span className="text-gray-500">Interest Rate:</span>{" "}
-                      {request.interestRate || 13}%
-                    </p>
-                    <p>
-                      <span className="text-gray-500">Interest Amount:</span> R
-                      {request.interest?.toLocaleString()}
-                    </p>
-                    <p>
-                      <span className="text-gray-500">Total Repayable:</span> R
-                      {request.totalRepayable?.toLocaleString()}
-                    </p>
-                    <p>
-                      <span className="text-gray-500">Repayment Period:</span>{" "}
-                      {request.repaymentDays} days
-                    </p>
-                  </>
-                )}
-                <p>
-                  <span className="text-gray-500">Request Date:</span>{" "}
-                  {new Date(request.date).toLocaleString()}
-                </p>
+                <p><span className="text-gray-500">Service Type:</span> {getTypeLabel(request.type)}</p>
+                <p><span className="text-gray-500">Amount:</span> ₹{request.amount?.toLocaleString()}</p>
+                <p><span className="text-gray-500">Status:</span> {getRequestStatusBadge(request.status)}</p>
+                <p><span className="text-gray-500">Request Date:</span> {new Date(request.date).toLocaleString()}</p>
                 {request.otp && (
-                  <div className="mt-3 pt-3 border-t border-[#bff202]/20">
+                  <div className="mt-3 pt-3 border-t">
                     <div className="flex items-center justify-between">
                       <span className="text-gray-500">OTP:</span>
                       <div className="flex items-center gap-2">
-                        <code className="bg-white px-3 py-1 rounded-lg font-mono text-lg font-bold text-[#01312D]">
-                          {request.otp}
-                        </code>
-                        <button
-                          onClick={() => handleCopyOtp(request.otp)}
-                          className="p-1.5 bg-[#eafde7] rounded-lg hover:bg-[#bff202]/30 transition-colors"
-                        >
-                          {copiedOtp === request.otp ? (
-                            <CheckCircle className="w-4 h-4 text-[#3A7717]" />
-                          ) : (
-                            <Copy className="w-4 h-4 text-[#3A7717]" />
-                          )}
+                        <code className="bg-white px-3 py-1 rounded-lg font-mono text-lg font-bold">{request.otp}</code>
+                        <button onClick={() => handleCopyOtp(request.otp)} className="p-1.5 bg-white rounded-lg">
+                          {copiedOtp === request.otp ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
                         </button>
                       </div>
                     </div>
@@ -624,32 +901,36 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
+          <div className="sticky bottom-0 bg-white border-t p-5 flex gap-3">
             {request.status === "pending" && (
               <>
-                <button
-                  onClick={() => handleApproveRequest(request)}
-                  className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  Approve Request
+                <button onClick={() => openApproveModal(request)} className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
+                  <CheckCircle className="w-4 h-4" /> Approve Request
                 </button>
-                <button
-                  onClick={() => handleRejectRequest(request)}
-                  className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
-                >
-                  <XCircle className="w-4 h-4" />
-                  Reject
+                <button onClick={() => handleRejectRequest(request)} className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
+                  <XCircle className="w-4 h-4" /> Reject
                 </button>
               </>
             )}
-            {request.otp && (
-              <button
-                onClick={() => handleSendWhatsApp(request)}
-                className="flex-1 bg-[#25D366] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
-              >
-                <Send className="w-4 h-4" />
-                Send WhatsApp
+            {request.status === "approved" && (
+              <>
+                <button onClick={() => {
+                  setApprovedRequest(request);
+                  setShowWhatsAppModal(true);
+                }} className="flex-1 bg-[#25D366] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
+                  <Send className="w-4 h-4" /> Send WhatsApp
+                </button>
+                <button onClick={() => handleComplete(request)} className="flex-1 bg-[#01312D] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
+                  <CheckCircle className="w-4 h-4" /> Mark Completed
+                </button>
+              </>
+            )}
+            {request.otp && request.status === "approved" && (
+              <button onClick={() => {
+                setApprovedRequest(request);
+                setShowWhatsAppModal(true);
+              }} className="flex-1 bg-[#25D366] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
+                <Send className="w-4 h-4" /> Send WhatsApp
               </button>
             )}
           </div>
@@ -658,40 +939,22 @@ export default function AdminDashboard() {
     );
   };
 
-  // Driver Details Modal
-  const DriverDetailsModal = ({
-    driver,
-    onClose,
-  }: {
-    driver: any;
-    onClose: () => void;
-  }) => (
+  // Verification Details Modal
+  const VerificationDetailsModal = ({ verification, onClose }: { verification: any; onClose: () => void }) => (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      ></div>
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}></div>
       <div className="relative bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-[#bff202]/20 p-5 flex justify-between items-center">
+        <div className="sticky top-0 bg-white border-b p-5 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-[#eafde7] rounded-full flex items-center justify-center">
-              <span className="text-xl font-bold text-[#01312D]">
-                {driver.name?.charAt(0) || "U"}
-              </span>
+              <span className="text-xl font-bold text-[#01312D]">{verification.name?.charAt(0) || "U"}</span>
             </div>
             <div>
-              <h2 className="text-xl font-bold text-[#01312D]">
-                {driver.name}
-              </h2>
-              <div className="flex items-center gap-2 mt-1">
-                {getStatusBadge(driver.verificationStatus)}
-              </div>
+              <h2 className="text-xl font-bold text-[#01312D]">Verification Details</h2>
+              <p className="text-sm text-gray-500">{verification.name}</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-[#eafde7] rounded-lg"
-          >
+          <button onClick={onClose} className="p-1 hover:bg-[#eafde7] rounded-lg">
             <X className="w-6 h-6 text-gray-500" />
           </button>
         </div>
@@ -699,39 +962,76 @@ export default function AdminDashboard() {
         <div className="p-5 space-y-5">
           <div className="bg-[#eafde7] rounded-xl p-4">
             <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
-              <Phone className="w-4 h-4 text-[#3A7717]" />
-              Contact Information
+              <User className="w-4 h-4 text-[#3A7717]" /> Personal Information
             </h3>
             <div className="space-y-2 text-sm">
-              <p className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-gray-400" /> {driver.email}
-              </p>
-              <p className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-gray-400" /> {driver.phone}
-              </p>
-              <p className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-gray-400" /> Joined:{" "}
-                {new Date(driver.joinedDate).toLocaleDateString()}
-              </p>
+              <p><span className="text-gray-500">Full Name:</span> {verification.name}</p>
+              <p><span className="text-gray-500">Email:</span> {verification.email}</p>
+              <p><span className="text-gray-500">Phone:</span> {verification.phone}</p>
             </div>
           </div>
 
           <div className="bg-[#eafde7] rounded-xl p-4">
             <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
-              <Car className="w-4 h-4 text-[#3A7717]" />
-              Vehicle Information
+              <Car className="w-4 h-4 text-[#3A7717]" /> Vehicle Information
             </h3>
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <p>
-                <span className="text-gray-500">Registration:</span>{" "}
-                {driver.carRegistration}
-              </p>
-              <p>
-                <span className="text-gray-500">Model:</span> {driver.carModel}
-              </p>
-              <p>
-                <span className="text-gray-500">Year:</span> {driver.carYear}
-              </p>
+              <p><span className="text-gray-500">Registration:</span> {verification.carRegistration || "Not provided"}</p>
+              <p><span className="text-gray-500">Model:</span> {verification.carModel || "Not provided"}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="sticky bottom-0 bg-white border-t p-5 flex gap-3">
+          <button onClick={() => handleApproveVerification(verification)} className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
+            <CheckCircle className="w-4 h-4" /> Approve Verification
+          </button>
+          <button onClick={() => handleRejectVerification(verification)} className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
+            <XCircle className="w-4 h-4" /> Reject
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Driver Details Modal
+  const DriverDetailsModal = ({ driver, onClose }: { driver: any; onClose: () => void }) => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="relative bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b p-5 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-[#eafde7] rounded-full flex items-center justify-center">
+              <span className="text-xl font-bold text-[#01312D]">{driver.name?.charAt(0) || "U"}</span>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-[#01312D]">{driver.name}</h2>
+              <div className="flex items-center gap-2 mt-1">{getStatusBadge(driver.verificationStatus)}</div>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-[#eafde7] rounded-lg">
+            <X className="w-6 h-6 text-gray-500" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-5">
+          <div className="bg-[#eafde7] rounded-xl p-4">
+            <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+              <Phone className="w-4 h-4 text-[#3A7717]" /> Contact Information
+            </h3>
+            <div className="space-y-2 text-sm">
+              <p><Mail className="w-4 h-4 inline mr-2 text-gray-400" /> {driver.email}</p>
+              <p><Phone className="w-4 h-4 inline mr-2 text-gray-400" /> {driver.phone}</p>
+            </div>
+          </div>
+
+          <div className="bg-[#eafde7] rounded-xl p-4">
+            <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+              <Car className="w-4 h-4 text-[#3A7717]" /> Vehicle Information
+            </h3>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <p><span className="text-gray-500">Registration:</span> {driver.carRegistration}</p>
+              <p><span className="text-gray-500">Model:</span> {driver.carModel}</p>
             </div>
           </div>
 
@@ -739,34 +1039,29 @@ export default function AdminDashboard() {
             <h3 className="font-semibold text-[#01312D] mb-3">Statistics</h3>
             <div className="grid grid-cols-3 gap-3">
               <div className="text-center">
-                <p className="text-2xl font-bold text-[#01312D]">
-                  {driver.totalRequests}
-                </p>
+                <p className="text-2xl font-bold text-[#01312D]">{driver.totalRequests || 0}</p>
                 <p className="text-xs text-gray-500">Total Requests</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-[#01312D]">
-                  R{driver.totalSpent?.toLocaleString() || 0}
-                </p>
+                <p className="text-2xl font-bold text-[#01312D]">₹{(driver.totalSpent || 0).toLocaleString()}</p>
                 <p className="text-xs text-gray-500">Total Spent</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-[#01312D]">
-                  {driver.rating || "N/A"}
-                </p>
-                <p className="text-xs text-gray-500">Rating</p>
               </div>
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
 
-        <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
-          <button className="flex-1 bg-[#eafde7] text-[#01312D] py-2 rounded-xl font-semibold">
-            View Full Details
-          </button>
-          <button className="flex-1 bg-[#72bf00] text-white py-2 rounded-xl font-semibold">
-            View Requests
-          </button>
+  const StatCard = ({ title, value, icon: Icon, color }: any) => (
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20 hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-start">
+        <div>
+          <p className="text-gray-500 text-sm">{title}</p>
+          <p className="text-2xl font-bold text-[#01312D] mt-1">{value}</p>
+        </div>
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
+          <Icon className="w-6 h-6 text-white" />
         </div>
       </div>
     </div>
@@ -776,7 +1071,7 @@ export default function AdminDashboard() {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3A7717] border-t-transparent mx-auto mb-4"></div>
+          <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
           <p className="text-[#01312D]">Loading dashboard...</p>
         </div>
       </div>
@@ -792,130 +1087,53 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-[#01312D]">
-            Dashboard Overview
-          </h1>
+          <h1 className="text-2xl font-bold text-[#01312D]">Dashboard Overview</h1>
           <p className="text-gray-500 text-sm mt-1">Welcome back, Admin</p>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all"
-        >
-          <RefreshCw
-            className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
-          />
-          Refresh
+        <button onClick={handleRefresh} disabled={refreshing} className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30">
+          <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
         </button>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-2 border-b border-[#bff202]/20">
-        <button
-          onClick={() => setActiveTab("overview")}
-          className={`px-4 py-2 font-semibold transition-all ${activeTab === "overview" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500 hover:text-[#01312D]"}`}
-        >
+        <button onClick={() => setActiveTab("overview")} className={`px-4 py-2 font-semibold transition-all ${activeTab === "overview" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}>
           Overview
         </button>
-        <button
-          onClick={() => setActiveTab("drivers")}
-          className={`px-4 py-2 font-semibold transition-all flex items-center gap-2 ${activeTab === "drivers" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500 hover:text-[#01312D]"}`}
-        >
-          <Users className="w-4 h-4" /> All Drivers{" "}
-          <span className="px-1.5 py-0.5 bg-gray-200 rounded-full text-xs">
-            {drivers.length}
-          </span>
+        <button onClick={() => setActiveTab("drivers")} className={`px-4 py-2 font-semibold transition-all flex items-center gap-2 ${activeTab === "drivers" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}>
+          <Users className="w-4 h-4" /> All Drivers <span className="px-1.5 py-0.5 bg-gray-200 rounded-full text-xs">{drivers.length}</span>
         </button>
       </div>
 
-      {/* Overview Tab */}
       {activeTab === "overview" && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard
-              title="Total Drivers"
-              value={stats.totalDrivers}
-              icon={Users}
-              color="bg-[#01312D]"
-            />
-            <StatCard
-              title="Pending Verifications"
-              value={stats.pendingVerifications}
-              icon={Clock}
-              color="bg-yellow-500"
-            />
-            <StatCard
-              title="Pending Requests"
-              value={stats.pendingRequests}
-              icon={ClipboardList}
-              color="bg-[#72bf00]"
-            />
-            <StatCard
-              title="Total Revenue"
-              value={`R${stats.totalRevenue.toLocaleString()}`}
-              icon={DollarSign}
-              color="bg-[#3A7717]"
-            />
+            <StatCard title="Total Drivers" value={stats.totalDrivers} icon={Users} color="bg-[#01312D]" />
+            <StatCard title="Pending Verifications" value={stats.pendingVerifications} icon={Clock} color="bg-yellow-500" />
+            <StatCard title="Pending Requests" value={stats.pendingRequests} icon={ClipboardList} color="bg-[#72bf00]" />
+            <StatCard title="Total Revenue" value={`₹${stats.totalRevenue.toLocaleString()}`} icon={DollarSign} color="bg-[#3A7717]" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Pending Verifications */}
             <div className="bg-white rounded-2xl shadow-sm border border-[#bff202]/20">
               <div className="p-5 border-b border-[#bff202]/20">
-                <h2 className="font-bold text-[#01312D]">
-                  Pending Verifications
-                </h2>
-                <p className="text-xs text-gray-500 mt-1">
-                  Drivers waiting for approval
-                </p>
+                <h2 className="font-bold text-[#01312D]">Pending Verifications</h2>
+                <p className="text-xs text-gray-500 mt-1">Drivers waiting for approval</p>
               </div>
               <div className="divide-y divide-[#bff202]/10">
                 {recentVerifications.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <p className="text-gray-500 text-sm">
-                      No pending verifications
-                    </p>
-                  </div>
+                  <div className="p-8 text-center"><p className="text-gray-500 text-sm">No pending verifications</p></div>
                 ) : (
                   recentVerifications.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-4 flex items-center justify-between hover:bg-[#eafde7] transition-colors cursor-pointer"
-                      onClick={() => {
-                        setSelectedVerification(item);
-                        setShowVerificationModal(true);
-                      }}
-                    >
+                    <div key={item.id} className="p-4 flex items-center justify-between hover:bg-[#eafde7] transition-colors cursor-pointer" onClick={() => { setSelectedVerification(item); setShowVerificationModal(true); }}>
                       <div>
-                        <p className="font-semibold text-[#01312D]">
-                          {item.name}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {item.carRegistration}
-                        </p>
+                        <p className="font-semibold text-[#01312D]">{item.name}</p>
+                        <p className="text-xs text-gray-500">{item.carRegistration}</p>
                       </div>
                       <div className="flex gap-2">
-                        <button
-                          className="px-3 py-1 bg-[#3A7717] text-white text-xs rounded-lg"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleApproveVerification(item);
-                          }}
-                        >
-                          Approve
-                        </button>
-                        <button
-                          className="px-3 py-1 bg-red-500 text-white text-xs rounded-lg"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRejectVerification(item);
-                          }}
-                        >
-                          Reject
-                        </button>
+                        <button className="px-3 py-1 bg-[#3A7717] text-white text-xs rounded-lg" onClick={(e) => { e.stopPropagation(); handleApproveVerification(item); }}>Approve</button>
+                        <button className="px-3 py-1 bg-red-500 text-white text-xs rounded-lg" onClick={(e) => { e.stopPropagation(); handleRejectVerification(item); }}>Reject</button>
                       </div>
                     </div>
                   ))
@@ -923,40 +1141,22 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Pending Service Requests */}
             <div className="bg-white rounded-2xl shadow-sm border border-[#bff202]/20">
               <div className="p-5 border-b border-[#bff202]/20">
-                <h2 className="font-bold text-[#01312D]">
-                  Pending Service Requests
-                </h2>
-                <p className="text-xs text-gray-500 mt-1">
-                  Requests awaiting approval
-                </p>
+                <h2 className="font-bold text-[#01312D]">Pending Service Requests</h2>
+                <p className="text-xs text-gray-500 mt-1">Requests awaiting approval</p>
               </div>
               <div className="divide-y divide-[#bff202]/10">
-                {recentRequests.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <p className="text-gray-500 text-sm">No pending requests</p>
-                  </div>
+                {recentRequests.filter(r => r.status === "pending").length === 0 ? (
+                  <div className="p-8 text-center"><p className="text-gray-500 text-sm">No pending requests</p></div>
                 ) : (
-                  recentRequests.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-4 flex items-center justify-between hover:bg-[#eafde7] transition-colors cursor-pointer"
-                      onClick={() => {
-                        setSelectedRequest(item);
-                        setShowRequestModal(true);
-                      }}
-                    >
+                  recentRequests.filter(r => r.status === "pending").map((item) => (
+                    <div key={item.id} className="p-4 flex items-center justify-between hover:bg-[#eafde7] transition-colors cursor-pointer" onClick={() => { setSelectedRequest(item); setShowRequestModal(true); }}>
                       <div>
-                        <p className="font-semibold text-[#01312D] capitalize">
-                          {getTypeLabel(item.type)}
-                        </p>
-                        <p className="text-xs text-gray-500">{item.driver}</p>
+                        <p className="font-semibold text-[#01312D] capitalize">{getTypeLabel(item.type)}</p>
+                        <p className="text-xs text-gray-500">{item.driverName || item.driver}</p>
                       </div>
-                      <button className="px-3 py-1 bg-[#72bf00] text-white text-xs rounded-lg">
-                        View Details
-                      </button>
+                      <button className="px-3 py-1 bg-[#72bf00] text-white text-xs rounded-lg">View Details</button>
                     </div>
                   ))
                 )}
@@ -966,19 +1166,12 @@ export default function AdminDashboard() {
         </>
       )}
 
-      {/* Drivers Tab */}
       {activeTab === "drivers" && (
         <>
           <div className="flex gap-3">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by name, email, or registration..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-              />
+              <input type="text" placeholder="Search by name, email, or registration..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]" />
             </div>
           </div>
 
@@ -987,67 +1180,30 @@ export default function AdminDashboard() {
               <table className="w-full">
                 <thead className="bg-[#eafde7] border-b border-[#bff202]/20">
                   <tr>
-                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
-                      Driver
-                    </th>
-                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
-                      Vehicle
-                    </th>
-                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
-                      Status
-                    </th>
-                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
-                      Requests
-                    </th>
-                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
-                      Spent
-                    </th>
-                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
-                      Actions
-                    </th>
+                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">Driver</th>
+                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">Vehicle</th>
+                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">Status</th>
+                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">Requests</th>
+                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">Spent</th>
+                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#bff202]/10">
                   {filteredDrivers.map((driver) => (
-                    <tr
-                      key={driver.id}
-                      className="hover:bg-[#eafde7] transition-colors cursor-pointer"
-                      onClick={() => {
-                        setSelectedDriver(driver);
-                        setShowDriverModal(true);
-                      }}
-                    >
+                    <tr key={driver.id} className="hover:bg-[#eafde7] transition-colors cursor-pointer" onClick={() => { setSelectedDriver(driver); setShowDriverModal(true); }}>
                       <td className="p-4">
-                        <p className="font-semibold text-[#01312D]">
-                          {driver.name}
-                        </p>
+                        <p className="font-semibold text-[#01312D]">{driver.name}</p>
                         <p className="text-xs text-gray-500">{driver.email}</p>
                       </td>
                       <td className="p-4">
-                        <p className="text-sm font-medium text-[#01312D]">
-                          {driver.carModel}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {driver.carRegistration}
-                        </p>
+                        <p className="text-sm font-medium text-[#01312D]">{driver.carModel}</p>
+                        <p className="text-xs text-gray-500">{driver.carRegistration}</p>
                       </td>
+                      <td className="p-4">{getStatusBadge(driver.verificationStatus)}</td>
+                      <td className="p-4"><span className="font-semibold text-[#01312D]">{driver.totalRequests || 0}</span></td>
+                      <td className="p-4"><span className="font-semibold text-[#3A7717]">₹{(driver.totalSpent || 0).toLocaleString()}</span></td>
                       <td className="p-4">
-                        {getStatusBadge(driver.verificationStatus)}
-                      </td>
-                      <td className="p-4">
-                        <span className="font-semibold text-[#01312D]">
-                          {driver.totalRequests}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <span className="font-semibold text-[#3A7717]">
-                          R{driver.totalSpent?.toLocaleString() || 0}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <button className="px-3 py-1.5 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center gap-1">
-                          <Eye className="w-4 h-4" /> View
-                        </button>
+                        <button className="px-3 py-1.5 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center gap-1"><Eye className="w-4 h-4" /> View</button>
                       </td>
                     </tr>
                   ))}
@@ -1058,25 +1214,13 @@ export default function AdminDashboard() {
         </>
       )}
 
-      {/* Modals */}
-      {showVerificationModal && selectedVerification && (
-        <VerificationDetailsModal
-          verification={selectedVerification}
-          onClose={() => setShowVerificationModal(false)}
-        />
-      )}
-      {showRequestModal && selectedRequest && (
-        <RequestDetailsModal
-          request={selectedRequest}
-          onClose={() => setShowRequestModal(false)}
-        />
-      )}
-      {showDriverModal && selectedDriver && (
-        <DriverDetailsModal
-          driver={selectedDriver}
-          onClose={() => setShowDriverModal(false)}
-        />
-      )}
+      {showVerificationModal && selectedVerification && <VerificationDetailsModal verification={selectedVerification} onClose={() => setShowVerificationModal(false)} />}
+      {showRequestModal && selectedRequest && <RequestDetailsModal request={selectedRequest} onClose={() => setShowRequestModal(false)} />}
+      {showDriverModal && selectedDriver && <DriverDetailsModal driver={selectedDriver} onClose={() => setShowDriverModal(false)} />}
+      {showApproveModal && <ApprovalModal />}
+      {showWhatsAppModal && approvedRequest && <WhatsAppModal />}
+      <SuccessModal />
+      <ErrorModal />
     </div>
   );
 }
