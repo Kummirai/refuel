@@ -209,7 +209,9 @@ export default function AdminDashboard() {
           }),
         });
         if (response.ok) {
-          setSuccessMessage(`✅ Request ${request.id.slice(-6).toUpperCase()} rejected successfully`);
+          setSuccessMessage(
+            `✅ Request ${request.id.slice(-6).toUpperCase()} rejected successfully`,
+          );
           setShowSuccessModal(true);
           fetchDashboardData();
           setShowRequestModal(false);
@@ -236,7 +238,9 @@ export default function AdminDashboard() {
         }),
       });
       if (response.ok) {
-        setSuccessMessage(`✅ Request ${request.id.slice(-6).toUpperCase()} marked as completed`);
+        setSuccessMessage(
+          `✅ Request ${request.id.slice(-6).toUpperCase()} marked as completed`,
+        );
         setShowSuccessModal(true);
         fetchDashboardData();
         setShowRequestModal(false);
@@ -489,9 +493,7 @@ export default function AdminDashboard() {
             <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertCircle className="w-10 h-10 text-red-600" />
             </div>
-            <p className="text-[#01312D] font-semibold mb-2">
-              {errorMessage}
-            </p>
+            <p className="text-[#01312D] font-semibold mb-2">{errorMessage}</p>
           </div>
 
           <div className="border-t border-gray-100 p-5">
@@ -507,19 +509,80 @@ export default function AdminDashboard() {
     );
   };
 
-  // WhatsApp Modal Component
+  // WhatsApp Modal Component - With Date/Time and Consistent Styling
   const WhatsAppModal = () => {
     if (!approvedRequest) return null;
 
     const receiptRef = useRef<HTMLDivElement>(null);
     const [imageGenerating, setImageGenerating] = useState(false);
-    const [showDownloadSuccessModal, setShowDownloadSuccessModal] = useState(false);
-    const [downloadedImageUrl, setDownloadedImageUrl] = useState<string | null>(null);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [downloadedImageUrl, setDownloadedImageUrl] = useState<string | null>(
+      null,
+    );
+    const [generatedImageBlob, setGeneratedImageBlob] = useState<Blob | null>(
+      null,
+    );
 
-    const handleGenerateImage = async () => {
-      if (!receiptRef.current) return;
+    // Helper function to get the appropriate label based on service type
+    const getTransactionLabel = () => {
+      if (
+        approvedRequest?.type === "cash" ||
+        approvedRequest?.type === "airtime"
+      ) {
+        return "Transaction Number";
+      }
+      return "OTP Code";
+    };
 
-      setImageGenerating(true);
+    const getInstructionText = () => {
+      if (approvedRequest?.type === "cash") {
+        return "This is your loan transaction number";
+      }
+      if (approvedRequest?.type === "airtime") {
+        return "This is your airtime transaction number";
+      }
+      return "Show this code at the service center";
+    };
+
+    // Get current date and time
+    const getCurrentDateTime = () => {
+      const now = new Date();
+      const options: Intl.DateTimeFormatOptions = {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      };
+      return now.toLocaleString("en-US", options);
+    };
+
+    const getCurrentDate = () => {
+      const now = new Date();
+      const options: Intl.DateTimeFormatOptions = {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      };
+      return now.toLocaleString("en-US", options);
+    };
+
+    const getCurrentTime = () => {
+      const now = new Date();
+      const options: Intl.DateTimeFormatOptions = {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      };
+      return now.toLocaleString("en-US", options);
+    };
+
+    const generateImageBlob = async (): Promise<Blob | null> => {
+      if (!receiptRef.current) return null;
+
       try {
         const receiptElement = receiptRef.current;
         receiptElement.style.position = "fixed";
@@ -541,114 +604,203 @@ export default function AdminDashboard() {
         receiptElement.style.top = "-9999px";
         receiptElement.style.zIndex = "";
 
-        const link = document.createElement("a");
-        link.download = `DriveHub_Receipt_${approvedRequest.id.slice(-6)}.png`;
-        link.href = dataUrl;
-
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        setDownloadedImageUrl(dataUrl);
-        setShowDownloadSuccessModal(true);
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        return blob;
       } catch (error) {
         console.error("Error generating image:", error);
-        setErrorMessage("Failed to generate receipt image");
-        setShowErrorModal(true);
-
         if (receiptRef.current) {
           receiptRef.current.style.position = "absolute";
           receiptRef.current.style.left = "-9999px";
           receiptRef.current.style.top = "-9999px";
         }
+        return null;
+      }
+    };
+
+    const handleGenerateImage = async () => {
+      setImageGenerating(true);
+      try {
+        const blob = await generateImageBlob();
+        if (blob) {
+          setGeneratedImageBlob(blob);
+          const imageUrl = URL.createObjectURL(blob);
+          setDownloadedImageUrl(imageUrl);
+          setShowSuccessModal(true);
+
+          const link = document.createElement("a");
+          link.download = `DriveHub_Receipt_${approvedRequest.id.slice(-6)}.png`;
+          link.href = imageUrl;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } else {
+          throw new Error("Failed to generate image");
+        }
+      } catch (error) {
+        console.error("Error generating image:", error);
+        alert(
+          "❌ Failed to generate receipt image: " + (error as Error).message,
+        );
       } finally {
         setImageGenerating(false);
       }
     };
 
-    const getWhatsAppUrl = (phoneNumber: string, message: string) => {
-      const cleanPhone = phoneNumber.replace(/[^0-9]/g, "");
-      let fullPhone = cleanPhone;
-      if (!cleanPhone.startsWith("27") && cleanPhone.length === 9) {
-        fullPhone = `27${cleanPhone}`;
-      }
-      return `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`;
-    };
-
-    const handleSendWhatsApp = async (request: any, otp?: string) => {
+    const handleSendImageViaWhatsApp = async () => {
       setWhatsappLoading(true);
-      const finalOtp = otp || request.otp || generatedOtp;
+      try {
+        let imageBlob = generatedImageBlob;
+        if (!imageBlob) {
+          imageBlob = await generateImageBlob();
+          if (imageBlob) {
+            setGeneratedImageBlob(imageBlob);
+          }
+        }
 
-      const message = `*DriveHub - Service Request Approved* 🎉
+        if (!imageBlob) {
+          throw new Error("Failed to generate image");
+        }
 
-Hello ${request.driverName || request.driver},
+        const transactionLabel = getTransactionLabel();
+        const finalOtp = approvedRequest.otp || generatedOtp;
+        const currentDateTime = getCurrentDateTime();
+        const currentDate = getCurrentDate();
+        const currentTime = getCurrentTime();
+
+        const caption = `*DriveHub - Service Request Approved* 🎉
+
+Hello ${approvedRequest.driverName},
 
 Your service request has been *APPROVED*! ✅
 
 📋 *Request Details:*
 ━━━━━━━━━━━━━━━━━━━
-🆔 *Request ID:* ${request.id.slice(-6).toUpperCase()}
-🚗 *Vehicle:* ${request.carRegistration}
-📱 *Service:* ${getTypeLabel(request.type)}
-💰 *Amount:* ₹${request.amount?.toLocaleString()}
-🔐 *OTP:* ${finalOtp}
+🆔 *Request ID:* ${approvedRequest.id.slice(-6).toUpperCase()}
+🚗 *Vehicle:* ${approvedRequest.carRegistration}
+📱 *Service:* ${getTypeLabel(approvedRequest.type)}
+💰 *Amount:* ₹${approvedRequest.amount?.toLocaleString()}
+🔐 *${transactionLabel}:* ${finalOtp}
+📅 *Date:* ${currentDate}
+⏰ *Time:* ${currentTime}
 ━━━━━━━━━━━━━━━━━━━
 
-📍 *Instructions:*
-1. Show this OTP to the cashier/attendant
+${
+  approvedRequest.type === "cash"
+    ? `📊 *Repayment Details:*
+• Interest Rate: ${approvedRequest.interestRate || 13}%
+• Interest Amount: ₹${approvedRequest.interest?.toLocaleString() || 0}
+• Total Repayable: ₹${approvedRequest.totalRepayable?.toLocaleString() || 0}
+• Period: ${approvedRequest.repaymentDays || 7} days
+• Daily Payment: ₹${Math.ceil((approvedRequest.totalRepayable || approvedRequest.amount) / (approvedRequest.repaymentDays || 7)).toLocaleString()}
+
+`
+    : ""
+}📍 *Instructions:*
+1. ${approvedRequest.type === "cash" ? "Use this transaction number for loan reference" : approvedRequest.type === "airtime" ? "Use this transaction number to track your airtime purchase" : "Show this OTP to the cashier/attendant"}
 2. The amount will be processed within 30 minutes
 3. Keep this message for reference
 
-Need help? Contact support.
+Please find your receipt attached below.
 
-Thank you for choosing DriveHub! 🚀`;
+Thank you for choosing DriveHub! 🚀
 
-      const whatsappUrl = getWhatsAppUrl(request.driverPhone, message);
-      window.open(whatsappUrl, "_blank");
+*This is a system generated message. Valid for 30 minutes.*`;
 
-      setTimeout(() => {
+        const imageUrl = URL.createObjectURL(imageBlob);
+        const cleanPhone = approvedRequest.driverPhone.replace(/[^0-9]/g, "");
+        let fullPhone = cleanPhone;
+        if (!cleanPhone.startsWith("27") && cleanPhone.length === 9) {
+          fullPhone = `27${cleanPhone}`;
+        }
+
+        const whatsappUrl = `https://wa.me/${fullPhone}?text=${encodeURIComponent(caption + "\n\n📸 Please check your downloads folder for the receipt image attached above.")}`;
+        window.open(whatsappUrl, "_blank");
+
+        const link = document.createElement("a");
+        link.download = `DriveHub_Receipt_${approvedRequest.id.slice(-6)}.png`;
+        link.href = imageUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        setTimeout(() => {
+          setWhatsappLoading(false);
+          setShowWhatsAppModal(false);
+          setApprovedRequest(null);
+          setApprovingRequest(null);
+        }, 1500);
+      } catch (error) {
+        console.error("Error sending image via WhatsApp:", error);
+        alert(
+          "❌ Failed to send image. The receipt has been downloaded. You can manually attach it to your WhatsApp message.",
+        );
         setWhatsappLoading(false);
-        setShowWhatsAppModal(false);
-        setApprovedRequest(null);
-        setApprovingRequest(null);
-      }, 1000);
+      }
+    };
+
+    const handleCopyOtp = (otp: string) => {
+      navigator.clipboard.writeText(otp);
+      setCopiedOtp(otp);
+      setTimeout(() => setCopiedOtp(null), 2000);
     };
 
     const DownloadSuccessModal = () => {
-      if (!showDownloadSuccessModal) return null;
+      if (!showSuccessModal) return null;
 
       return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setShowDownloadSuccessModal(false)}
+            onClick={() => setShowSuccessModal(false)}
           ></div>
-          <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl">
+          <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-t-2xl p-5">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
                   <CheckCircle className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-white">Download Successful!</h2>
-                  <p className="text-white/80 text-sm">Receipt image saved</p>
+                  <h2 className="text-xl font-bold text-white">
+                    Ready to Share!
+                  </h2>
+                  <p className="text-white/80 text-sm">Receipt image ready</p>
                 </div>
               </div>
             </div>
+
             <div className="p-5 text-center">
               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <ImageIcon className="w-10 h-10 text-green-600" />
               </div>
-              <p className="text-[#01312D] font-semibold mb-2">Receipt downloaded successfully!</p>
+              <p className="text-[#01312D] font-semibold mb-2">
+                Receipt image generated!
+              </p>
+              <p className="text-gray-500 text-sm mb-4">
+                The receipt image has been saved to your device. You can now
+                share it via WhatsApp.
+              </p>
+
               {downloadedImageUrl && (
                 <div className="bg-gray-50 rounded-xl p-3 mb-4">
                   <p className="text-xs text-gray-500 mb-2">Preview:</p>
-                  <img src={downloadedImageUrl} alt="Receipt Preview" className="max-w-full h-auto rounded-lg mx-auto" style={{ maxHeight: "150px" }} />
+                  <img
+                    src={downloadedImageUrl}
+                    alt="Receipt Preview"
+                    className="max-w-full h-auto rounded-lg border border-gray-200 mx-auto"
+                    style={{ maxHeight: "200px" }}
+                  />
                 </div>
               )}
             </div>
-            <div className="border-t border-gray-100 p-5">
-              <button onClick={() => setShowDownloadSuccessModal(false)} className="w-full bg-[#01312D] text-white py-2 rounded-xl font-semibold">
+
+            <div className="border-t border-gray-100 p-5 flex gap-3">
+              <button
+                onClick={() => {
+                  setShowSuccessModal(false);
+                }}
+                className="flex-1 bg-[#01312D] text-white py-2 rounded-xl font-semibold hover:bg-[#3A7717] transition-colors"
+              >
                 Close
               </button>
             </div>
@@ -657,11 +809,20 @@ Thank you for choosing DriveHub! 🚀`;
       );
     };
 
+    const transactionLabel = getTransactionLabel();
+    const instructionText = getInstructionText();
+    const currentDateTime = getCurrentDateTime();
+    const currentDate = getCurrentDate();
+    const currentTime = getCurrentTime();
+
     return (
       <>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !whatsappLoading && setShowWhatsAppModal(false)}></div>
-          <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => !whatsappLoading && setShowWhatsAppModal(false)}
+          ></div>
+          <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <div className="bg-gradient-to-r from-[#25D366] to-[#128C7E] rounded-t-2xl p-5 sticky top-0 z-10">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -669,12 +830,19 @@ Thank you for choosing DriveHub! 🚀`;
                     <MessageCircle className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white">Send WhatsApp</h2>
-                    <p className="text-white/80 text-sm">Share OTP with the driver</p>
+                    <h2 className="text-xl font-bold text-white">
+                      Share Receipt
+                    </h2>
+                    <p className="text-white/80 text-sm">
+                      Send image via WhatsApp
+                    </p>
                   </div>
                 </div>
                 {!whatsappLoading && (
-                  <button onClick={() => setShowWhatsAppModal(false)} className="p-1 hover:bg-white/10 rounded-lg">
+                  <button
+                    onClick={() => setShowWhatsAppModal(false)}
+                    className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+                  >
                     <X className="w-5 h-5 text-white" />
                   </button>
                 )}
@@ -682,76 +850,454 @@ Thank you for choosing DriveHub! 🚀`;
             </div>
 
             <div className="p-5 space-y-4">
-              <div ref={receiptRef} style={{ position: "fixed", left: "-9999px", top: "0", width: "400px", background: "white", borderRadius: "20px", padding: "20px" }}>
-                <div style={{ textAlign: "center", borderBottom: "2px solid #3A7717", paddingBottom: "15px", marginBottom: "15px" }}>
-                  <h2 style={{ color: "#01312D", fontSize: "24px" }}>DriveHub</h2>
-                  <p style={{ color: "#72bf00" }}>Service Receipt</p>
+              {/* Hidden receipt for image generation - WITH ORANGE/WHITE STYLING, DATE & TIME */}
+              <div
+                ref={receiptRef}
+                style={{
+                  position: "fixed",
+                  left: "-9999px",
+                  top: "0",
+                  width: "400px",
+                  background: "white",
+                  borderRadius: "20px",
+                  padding: "20px",
+                  fontFamily:
+                    "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+                  zIndex: -1,
+                }}
+              >
+                {/* Header with DriveHub Logo */}
+                <div
+                  style={{
+                    textAlign: "center",
+                    borderBottom: "2px solid #3A7717",
+                    paddingBottom: "15px",
+                    marginBottom: "15px",
+                  }}
+                >
+                  <h2
+                    style={{
+                      color: "#01312D",
+                      margin: 0,
+                      fontSize: "28px",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    🚗 DriveHub
+                  </h2>
+                  <p
+                    style={{
+                      color: "#72bf00",
+                      margin: "5px 0 0",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Service Receipt
+                  </p>
                 </div>
-                <div style={{ background: "#eafde7", borderRadius: "10px", padding: "15px", textAlign: "center", marginBottom: "15px" }}>
-                  <p style={{ color: "#666" }}>Your OTP Code</p>
-                  <div style={{ fontSize: "48px", fontWeight: "bold", letterSpacing: "5px", color: "#01312D", margin: "10px 0" }}>{approvedRequest.otp || generatedOtp}</div>
+
+                {/* Orange/Yellow Gradient OTP/Transaction Number Box */}
+                <div style={{ marginBottom: "15px" }}>
+                  <div
+                    style={{
+                      background:
+                        "linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)",
+                      borderRadius: "12px",
+                      padding: "20px",
+                      textAlign: "center",
+                    }}
+                  >
+                    <p
+                      style={{
+                        color: "white",
+                        margin: "0 0 8px 0",
+                        fontSize: "14px",
+                        fontWeight: "600",
+                        opacity: 0.9,
+                      }}
+                    >
+                      🔐 {transactionLabel}
+                    </p>
+                    <div
+                      style={{
+                        background: "white",
+                        borderRadius: "12px",
+                        padding: "16px",
+                        marginBottom: "12px",
+                      }}
+                    >
+                      <code
+                        style={{
+                          fontSize: "42px",
+                          fontWeight: "bold",
+                          letterSpacing: "6px",
+                          color: "#01312D",
+                          fontFamily: "'Courier New', 'Fira Code', monospace",
+                          display: "block",
+                        }}
+                      >
+                        {approvedRequest.otp || generatedOtp}
+                      </code>
+                    </div>
+                    <p
+                      style={{
+                        color: "white",
+                        fontSize: "12px",
+                        margin: "0",
+                        fontWeight: "500",
+                        opacity: 0.95,
+                      }}
+                    >
+                      {instructionText}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
-                    <span>Driver:</span> <strong>{approvedRequest.driverName || approvedRequest.driver}</strong>
+
+                {/* Request Details */}
+                <div style={{ marginBottom: "15px" }}>
+                  <div
+                    style={{
+                      background: "#eafde7",
+                      borderRadius: "12px",
+                      padding: "15px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginBottom: "10px",
+                        fontSize: "13px",
+                      }}
+                    >
+                      <span style={{ color: "#666" }}>Driver:</span>
+                      <strong style={{ color: "#01312D" }}>
+                        {approvedRequest.driverName}
+                      </strong>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginBottom: "10px",
+                        fontSize: "13px",
+                      }}
+                    >
+                      <span style={{ color: "#666" }}>Vehicle:</span>
+                      <strong style={{ color: "#01312D" }}>
+                        {approvedRequest.carRegistration}
+                      </strong>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginBottom: "10px",
+                        fontSize: "13px",
+                      }}
+                    >
+                      <span style={{ color: "#666" }}>Service:</span>
+                      <strong style={{ color: "#01312D" }}>
+                        {getTypeLabel(approvedRequest.type)}
+                      </strong>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginBottom: "10px",
+                        fontSize: "13px",
+                      }}
+                    >
+                      <span style={{ color: "#666" }}>Amount:</span>
+                      <strong style={{ color: "#3A7717", fontSize: "16px" }}>
+                        ₹{approvedRequest.amount?.toLocaleString()}
+                      </strong>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginBottom: "10px",
+                        fontSize: "13px",
+                      }}
+                    >
+                      <span style={{ color: "#666" }}>Request ID:</span>
+                      <strong
+                        style={{ color: "#01312D", fontFamily: "monospace" }}
+                      >
+                        {approvedRequest.id.slice(-6).toUpperCase()}
+                      </strong>
+                    </div>
+
+                    {/* Date and Time Section */}
+                    <div
+                      style={{
+                        marginTop: "12px",
+                        paddingTop: "12px",
+                        borderTop: "1px dashed #bff202",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginBottom: "8px",
+                          fontSize: "12px",
+                        }}
+                      >
+                        <span style={{ color: "#666" }}>📅 Date:</span>
+                        <strong style={{ color: "#01312D" }}>
+                          {getCurrentDate()}
+                        </strong>
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          fontSize: "12px",
+                        }}
+                      >
+                        <span style={{ color: "#666" }}>⏰ Time:</span>
+                        <strong style={{ color: "#01312D" }}>
+                          {getCurrentTime()}
+                        </strong>
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
-                    <span>Vehicle:</span> <strong>{approvedRequest.carRegistration}</strong>
+                </div>
+
+                {/* Cash Loan Additional Details */}
+                {approvedRequest.type === "cash" && (
+                  <div style={{ marginBottom: "15px" }}>
+                    <div
+                      style={{
+                        background: "#fef3c7",
+                        borderRadius: "12px",
+                        padding: "12px",
+                      }}
+                    >
+                      <p
+                        style={{
+                          margin: "0 0 8px 0",
+                          fontSize: "12px",
+                          fontWeight: "600",
+                          color: "#92400e",
+                        }}
+                      >
+                        📊 Repayment Details
+                      </p>
+                      <div style={{ fontSize: "11px", color: "#78350f" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginBottom: "5px",
+                          }}
+                        >
+                          <span>Interest Rate:</span>
+                          <strong>{approvedRequest.interestRate || 13}%</strong>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginBottom: "5px",
+                          }}
+                        >
+                          <span>Interest Amount:</span>
+                          <strong>
+                            ₹{approvedRequest.interest?.toLocaleString() || 0}
+                          </strong>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginBottom: "5px",
+                          }}
+                        >
+                          <span>Total Repayable:</span>
+                          <strong>
+                            ₹
+                            {approvedRequest.totalRepayable?.toLocaleString() ||
+                              0}
+                          </strong>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <span>Period:</span>
+                          <strong>
+                            {approvedRequest.repaymentDays || 7} days
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
-                    <span>Service:</span> <strong>{getTypeLabel(approvedRequest.type)}</strong>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span>Amount:</span> <strong>₹{approvedRequest.amount?.toLocaleString()}</strong>
-                  </div>
+                )}
+
+                {/* Footer */}
+                <div
+                  style={{
+                    background: "#bff20220",
+                    borderRadius: "10px",
+                    padding: "10px",
+                    textAlign: "center",
+                    fontSize: "11px",
+                    color: "#666",
+                    marginTop: "15px",
+                  }}
+                >
+                  <p style={{ margin: "0 0 4px 0", fontWeight: "500" }}>
+                    ✅ Valid for 30 minutes
+                  </p>
+                  <p style={{ margin: "0", fontSize: "10px", opacity: 0.7 }}>
+                    DriveHub Services • powered by DriveHub
+                  </p>
                 </div>
               </div>
 
+              {/* Driver Info - Modal Display */}
               <div className="bg-green-50 rounded-xl p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
                     <User className="w-5 h-5 text-green-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-[#01312D]">{approvedRequest.driverName || approvedRequest.driver}</h3>
-                    <p className="text-xs text-gray-500">{approvedRequest.carRegistration}</p>
+                    <h3 className="font-semibold text-[#01312D]">
+                      {approvedRequest.driverName}
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      {approvedRequest.carRegistration}
+                    </p>
                   </div>
                 </div>
                 <div className="space-y-2 text-sm">
                   <p className="flex items-center gap-2">
                     <Phone className="w-4 h-4 text-green-600" />
-                    <span className="font-semibold">{approvedRequest.driverPhone}</span>
+                    <span className="text-gray-600">Phone:</span>
+                    <span className="font-semibold">
+                      {approvedRequest.driverPhone}
+                    </span>
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-green-600" />
+                    <span className="text-gray-600">Date & Time:</span>
+                    <span className="font-semibold text-xs">
+                      {currentDateTime}
+                    </span>
                   </p>
                   <p className="flex items-center gap-2">
                     <DollarSign className="w-4 h-4 text-green-600" />
-                    <span className="font-bold text-green-600">₹{approvedRequest.amount?.toLocaleString()}</span>
+                    <span className="text-gray-600">Amount:</span>
+                    <span className="font-bold text-green-600">
+                      ₹{approvedRequest.amount?.toLocaleString()}
+                    </span>
                   </p>
                 </div>
               </div>
 
+              {/* Prominent Transaction Number / OTP Display - Modal */}
               <div className="bg-gradient-to-r from-yellow-400 to-orange-400 rounded-xl p-5 text-center">
-                <p className="text-white text-sm font-semibold mb-2">🔐 One-Time Password (OTP)</p>
+                <p className="text-white text-sm font-semibold mb-2">
+                  🔐 {transactionLabel}
+                </p>
                 <div className="bg-white rounded-xl p-4 mb-3">
-                  <code className="text-4xl font-bold tracking-wider text-[#01312D]">{approvedRequest.otp || generatedOtp}</code>
+                  <code className="text-4xl md:text-5xl font-bold tracking-wider text-[#01312D] font-mono">
+                    {approvedRequest.otp || generatedOtp}
+                  </code>
                 </div>
-                <button onClick={() => handleCopyOtp(approvedRequest.otp || generatedOtp)} className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-white font-semibold">
-                  <Copy className="w-4 h-4" /> Copy OTP
+                <button
+                  onClick={() =>
+                    handleCopyOtp(approvedRequest.otp || generatedOtp)
+                  }
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-white font-semibold hover:bg-white/30 transition-colors"
+                >
+                  <Copy className="w-4 h-4" />
+                  Copy {transactionLabel}
                 </button>
+              </div>
+
+              {/* Date & Time Display in Modal */}
+              <div className="bg-gray-50 rounded-xl p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-gray-500" />
+                    <span className="text-xs text-gray-600">Generated on:</span>
+                  </div>
+                  <span className="text-xs font-semibold text-[#01312D]">
+                    {currentDateTime}
+                  </span>
+                </div>
+              </div>
+
+              {/* Instructions */}
+              <div className="bg-blue-50 rounded-xl p-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5" />
+                  <div>
+                    <p className="text-xs text-blue-800">
+                      Clicking "Send via WhatsApp" will:
+                    </p>
+                    <ul className="text-xs text-blue-700 mt-1 space-y-0.5 list-disc list-inside">
+                      <li>Generate and download the receipt image</li>
+                      <li>Open WhatsApp with a caption</li>
+                      <li>
+                        You can manually attach the downloaded image to the
+                        message
+                      </li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="border-t p-5 flex gap-3 sticky bottom-0 bg-white">
-              <button onClick={handleGenerateImage} disabled={whatsappLoading || imageGenerating} className="flex-1 bg-[#01312D] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
-                {imageGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
-                Download as Image
+            <div className="border-t border-[#bff202]/20 p-5 flex gap-3 sticky bottom-0 bg-white">
+              <button
+                onClick={handleGenerateImage}
+                disabled={whatsappLoading || imageGenerating}
+                className="flex-1 bg-[#01312D] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-colors disabled:opacity-50"
+              >
+                {imageGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <ImageIcon className="w-4 h-4" />
+                    Generate Receipt
+                  </>
+                )}
               </button>
-              <button onClick={() => handleSendWhatsApp(approvedRequest, approvedRequest.otp || generatedOtp)} disabled={whatsappLoading} className="flex-1 bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
-                {whatsappLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
-                Send via WhatsApp
+              <button
+                onClick={handleSendImageViaWhatsApp}
+                disabled={whatsappLoading}
+                className="flex-1 bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                {whatsappLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Preparing...
+                  </>
+                ) : (
+                  <>
+                    <ImageIcon className="w-4 h-4" />
+                    Send Image via WhatsApp
+                  </>
+                )}
               </button>
             </div>
           </div>
         </div>
+
+        {/* Success Modal */}
         <DownloadSuccessModal />
       </>
     );
@@ -765,7 +1311,10 @@ Thank you for choosing DriveHub! 🚀`;
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !approvalLoading && setShowApproveModal(false)}></div>
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => !approvalLoading && setShowApproveModal(false)}
+        ></div>
         <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl">
           <div className="bg-gradient-to-r from-[#3A7717] to-[#72bf00] rounded-t-2xl p-5">
             <div className="flex items-center justify-between">
@@ -774,12 +1323,19 @@ Thank you for choosing DriveHub! 🚀`;
                   <CheckCircle className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-white">Confirm Approval</h2>
-                  <p className="text-white/80 text-sm">Review and confirm request approval</p>
+                  <h2 className="text-xl font-bold text-white">
+                    Confirm Approval
+                  </h2>
+                  <p className="text-white/80 text-sm">
+                    Review and confirm request approval
+                  </p>
                 </div>
               </div>
               {!approvalLoading && (
-                <button onClick={() => setShowApproveModal(false)} className="p-1 hover:bg-white/10 rounded-lg">
+                <button
+                  onClick={() => setShowApproveModal(false)}
+                  className="p-1 hover:bg-white/10 rounded-lg"
+                >
                   <X className="w-5 h-5 text-white" />
                 </button>
               )}
@@ -790,47 +1346,78 @@ Thank you for choosing DriveHub! 🚀`;
             <div className="bg-[#eafde7] rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <TypeIcon className="w-4 h-4 text-[#3A7717]" />
-                <h3 className="font-semibold text-[#01312D]">Request Summary</h3>
+                <h3 className="font-semibold text-[#01312D]">
+                  Request Summary
+                </h3>
               </div>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Driver:</span>
-                  <span className="font-semibold">{approvingRequest.driverName || approvingRequest.driver}</span>
+                  <span className="font-semibold">
+                    {approvingRequest.driverName || approvingRequest.driver}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Vehicle:</span>
-                  <span className="font-semibold">{approvingRequest.carRegistration}</span>
+                  <span className="font-semibold">
+                    {approvingRequest.carRegistration}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Service:</span>
-                  <span className="font-semibold">{getTypeLabel(approvingRequest.type)}</span>
+                  <span className="font-semibold">
+                    {getTypeLabel(approvingRequest.type)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Amount:</span>
-                  <span className="font-bold text-[#3A7717] text-lg">₹{approvingRequest.amount?.toLocaleString()}</span>
+                  <span className="font-bold text-[#3A7717] text-lg">
+                    ₹{approvingRequest.amount?.toLocaleString()}
+                  </span>
                 </div>
               </div>
             </div>
 
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-              <label className="block text-yellow-800 font-semibold mb-2 text-sm">🔐 One-Time Password (OTP)</label>
+              <label className="block text-yellow-800 font-semibold mb-2 text-sm">
+                🔐 One-Time Password (OTP)
+              </label>
               <div className="flex items-center gap-3">
                 <code className="flex-1 bg-white px-4 py-3 rounded-xl font-mono text-2xl font-bold text-center text-[#01312D] border border-yellow-300">
                   {generatedOtp}
                 </code>
-                <button onClick={() => handleCopyOtp(generatedOtp)} className="p-3 bg-white rounded-xl border border-yellow-300 hover:bg-yellow-100">
-                  {copiedOtp === generatedOtp ? <Check className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5 text-yellow-700" />}
+                <button
+                  onClick={() => handleCopyOtp(generatedOtp)}
+                  className="p-3 bg-white rounded-xl border border-yellow-300 hover:bg-yellow-100"
+                >
+                  {copiedOtp === generatedOtp ? (
+                    <Check className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <Copy className="w-5 h-5 text-yellow-700" />
+                  )}
                 </button>
               </div>
             </div>
           </div>
 
           <div className="border-t p-5 flex gap-3">
-            <button onClick={() => setShowApproveModal(false)} disabled={approvalLoading} className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700">
+            <button
+              onClick={() => setShowApproveModal(false)}
+              disabled={approvalLoading}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700"
+            >
               Cancel
             </button>
-            <button onClick={handleConfirmApprove} disabled={approvalLoading} className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72bf00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
-              {approvalLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+            <button
+              onClick={handleConfirmApprove}
+              disabled={approvalLoading}
+              className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72bf00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+            >
+              {approvalLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <CheckCircle className="w-4 h-4" />
+              )}
               Confirm Approval
             </button>
           </div>
@@ -840,24 +1427,42 @@ Thank you for choosing DriveHub! 🚀`;
   };
 
   // Request Details Modal (Updated with approve/complete buttons)
-  const RequestDetailsModal = ({ request, onClose }: { request: any; onClose: () => void }) => {
+  const RequestDetailsModal = ({
+    request,
+    onClose,
+  }: {
+    request: any;
+    onClose: () => void;
+  }) => {
     const TypeIcon = getTypeIcon(request.type);
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}></div>
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={onClose}
+        ></div>
         <div className="relative bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <div className="sticky top-0 bg-white border-b p-5 flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${getTypeColor(request.type)}`}>
+              <div
+                className={`w-12 h-12 rounded-xl flex items-center justify-center ${getTypeColor(request.type)}`}
+              >
                 <TypeIcon className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-[#01312D]">{getTypeLabel(request.type)} Request</h2>
-                <p className="text-sm text-gray-500">ID: {request.id.slice(-6).toUpperCase()}</p>
+                <h2 className="text-xl font-bold text-[#01312D]">
+                  {getTypeLabel(request.type)} Request
+                </h2>
+                <p className="text-sm text-gray-500">
+                  ID: {request.id.slice(-6).toUpperCase()}
+                </p>
               </div>
             </div>
-            <button onClick={onClose} className="p-1 hover:bg-[#eafde7] rounded-lg">
+            <button
+              onClick={onClose}
+              className="p-1 hover:bg-[#eafde7] rounded-lg"
+            >
               <X className="w-6 h-6 text-gray-500" />
             </button>
           </div>
@@ -868,30 +1473,64 @@ Thank you for choosing DriveHub! 🚀`;
                 <User className="w-4 h-4 text-[#3A7717]" /> Driver Information
               </h3>
               <div className="space-y-2 text-sm">
-                <p><span className="text-gray-500">Name:</span> {request.driverName || request.driver}</p>
-                <p><span className="text-gray-500">Email:</span> {request.driverEmail}</p>
-                <p><span className="text-gray-500">Phone:</span> {request.driverPhone}</p>
-                <p><span className="text-gray-500">Car Registration:</span> {request.carRegistration}</p>
+                <p>
+                  <span className="text-gray-500">Name:</span>{" "}
+                  {request.driverName || request.driver}
+                </p>
+                <p>
+                  <span className="text-gray-500">Email:</span>{" "}
+                  {request.driverEmail}
+                </p>
+                <p>
+                  <span className="text-gray-500">Phone:</span>{" "}
+                  {request.driverPhone}
+                </p>
+                <p>
+                  <span className="text-gray-500">Car Registration:</span>{" "}
+                  {request.carRegistration}
+                </p>
               </div>
             </div>
 
             <div className="bg-[#eafde7] rounded-xl p-4">
               <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
-                <ClipboardList className="w-4 h-4 text-[#3A7717]" /> Request Details
+                <ClipboardList className="w-4 h-4 text-[#3A7717]" /> Request
+                Details
               </h3>
               <div className="space-y-2 text-sm">
-                <p><span className="text-gray-500">Service Type:</span> {getTypeLabel(request.type)}</p>
-                <p><span className="text-gray-500">Amount:</span> ₹{request.amount?.toLocaleString()}</p>
-                <p><span className="text-gray-500">Status:</span> {getRequestStatusBadge(request.status)}</p>
-                <p><span className="text-gray-500">Request Date:</span> {new Date(request.date).toLocaleString()}</p>
+                <p>
+                  <span className="text-gray-500">Service Type:</span>{" "}
+                  {getTypeLabel(request.type)}
+                </p>
+                <p>
+                  <span className="text-gray-500">Amount:</span> ₹
+                  {request.amount?.toLocaleString()}
+                </p>
+                <p>
+                  <span className="text-gray-500">Status:</span>{" "}
+                  {getRequestStatusBadge(request.status)}
+                </p>
+                <p>
+                  <span className="text-gray-500">Request Date:</span>{" "}
+                  {new Date(request.date).toLocaleString()}
+                </p>
                 {request.otp && (
                   <div className="mt-3 pt-3 border-t">
                     <div className="flex items-center justify-between">
                       <span className="text-gray-500">OTP:</span>
                       <div className="flex items-center gap-2">
-                        <code className="bg-white px-3 py-1 rounded-lg font-mono text-lg font-bold">{request.otp}</code>
-                        <button onClick={() => handleCopyOtp(request.otp)} className="p-1.5 bg-white rounded-lg">
-                          {copiedOtp === request.otp ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                        <code className="bg-white px-3 py-1 rounded-lg font-mono text-lg font-bold">
+                          {request.otp}
+                        </code>
+                        <button
+                          onClick={() => handleCopyOtp(request.otp)}
+                          className="p-1.5 bg-white rounded-lg"
+                        >
+                          {copiedOtp === request.otp ? (
+                            <Check className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
                         </button>
                       </div>
                     </div>
@@ -904,32 +1543,47 @@ Thank you for choosing DriveHub! 🚀`;
           <div className="sticky bottom-0 bg-white border-t p-5 flex gap-3">
             {request.status === "pending" && (
               <>
-                <button onClick={() => openApproveModal(request)} className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
+                <button
+                  onClick={() => openApproveModal(request)}
+                  className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+                >
                   <CheckCircle className="w-4 h-4" /> Approve Request
                 </button>
-                <button onClick={() => handleRejectRequest(request)} className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
+                <button
+                  onClick={() => handleRejectRequest(request)}
+                  className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+                >
                   <XCircle className="w-4 h-4" /> Reject
                 </button>
               </>
             )}
             {request.status === "approved" && (
               <>
-                <button onClick={() => {
-                  setApprovedRequest(request);
-                  setShowWhatsAppModal(true);
-                }} className="flex-1 bg-[#25D366] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
+                <button
+                  onClick={() => {
+                    setApprovedRequest(request);
+                    setShowWhatsAppModal(true);
+                  }}
+                  className="flex-1 bg-[#25D366] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+                >
                   <Send className="w-4 h-4" /> Send WhatsApp
                 </button>
-                <button onClick={() => handleComplete(request)} className="flex-1 bg-[#01312D] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
+                <button
+                  onClick={() => handleComplete(request)}
+                  className="flex-1 bg-[#01312D] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+                >
                   <CheckCircle className="w-4 h-4" /> Mark Completed
                 </button>
               </>
             )}
             {request.otp && request.status === "approved" && (
-              <button onClick={() => {
-                setApprovedRequest(request);
-                setShowWhatsAppModal(true);
-              }} className="flex-1 bg-[#25D366] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
+              <button
+                onClick={() => {
+                  setApprovedRequest(request);
+                  setShowWhatsAppModal(true);
+                }}
+                className="flex-1 bg-[#25D366] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+              >
                 <Send className="w-4 h-4" /> Send WhatsApp
               </button>
             )}
@@ -940,21 +1594,37 @@ Thank you for choosing DriveHub! 🚀`;
   };
 
   // Verification Details Modal
-  const VerificationDetailsModal = ({ verification, onClose }: { verification: any; onClose: () => void }) => (
+  const VerificationDetailsModal = ({
+    verification,
+    onClose,
+  }: {
+    verification: any;
+    onClose: () => void;
+  }) => (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}></div>
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      ></div>
       <div className="relative bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b p-5 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-[#eafde7] rounded-full flex items-center justify-center">
-              <span className="text-xl font-bold text-[#01312D]">{verification.name?.charAt(0) || "U"}</span>
+              <span className="text-xl font-bold text-[#01312D]">
+                {verification.name?.charAt(0) || "U"}
+              </span>
             </div>
             <div>
-              <h2 className="text-xl font-bold text-[#01312D]">Verification Details</h2>
+              <h2 className="text-xl font-bold text-[#01312D]">
+                Verification Details
+              </h2>
               <p className="text-sm text-gray-500">{verification.name}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-[#eafde7] rounded-lg">
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-[#eafde7] rounded-lg"
+          >
             <X className="w-6 h-6 text-gray-500" />
           </button>
         </div>
@@ -965,9 +1635,18 @@ Thank you for choosing DriveHub! 🚀`;
               <User className="w-4 h-4 text-[#3A7717]" /> Personal Information
             </h3>
             <div className="space-y-2 text-sm">
-              <p><span className="text-gray-500">Full Name:</span> {verification.name}</p>
-              <p><span className="text-gray-500">Email:</span> {verification.email}</p>
-              <p><span className="text-gray-500">Phone:</span> {verification.phone}</p>
+              <p>
+                <span className="text-gray-500">Full Name:</span>{" "}
+                {verification.name}
+              </p>
+              <p>
+                <span className="text-gray-500">Email:</span>{" "}
+                {verification.email}
+              </p>
+              <p>
+                <span className="text-gray-500">Phone:</span>{" "}
+                {verification.phone}
+              </p>
             </div>
           </div>
 
@@ -976,17 +1655,29 @@ Thank you for choosing DriveHub! 🚀`;
               <Car className="w-4 h-4 text-[#3A7717]" /> Vehicle Information
             </h3>
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <p><span className="text-gray-500">Registration:</span> {verification.carRegistration || "Not provided"}</p>
-              <p><span className="text-gray-500">Model:</span> {verification.carModel || "Not provided"}</p>
+              <p>
+                <span className="text-gray-500">Registration:</span>{" "}
+                {verification.carRegistration || "Not provided"}
+              </p>
+              <p>
+                <span className="text-gray-500">Model:</span>{" "}
+                {verification.carModel || "Not provided"}
+              </p>
             </div>
           </div>
         </div>
 
         <div className="sticky bottom-0 bg-white border-t p-5 flex gap-3">
-          <button onClick={() => handleApproveVerification(verification)} className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
+          <button
+            onClick={() => handleApproveVerification(verification)}
+            className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+          >
             <CheckCircle className="w-4 h-4" /> Approve Verification
           </button>
-          <button onClick={() => handleRejectVerification(verification)} className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
+          <button
+            onClick={() => handleRejectVerification(verification)}
+            className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+          >
             <XCircle className="w-4 h-4" /> Reject
           </button>
         </div>
@@ -995,21 +1686,39 @@ Thank you for choosing DriveHub! 🚀`;
   );
 
   // Driver Details Modal
-  const DriverDetailsModal = ({ driver, onClose }: { driver: any; onClose: () => void }) => (
+  const DriverDetailsModal = ({
+    driver,
+    onClose,
+  }: {
+    driver: any;
+    onClose: () => void;
+  }) => (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}></div>
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      ></div>
       <div className="relative bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b p-5 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-[#eafde7] rounded-full flex items-center justify-center">
-              <span className="text-xl font-bold text-[#01312D]">{driver.name?.charAt(0) || "U"}</span>
+              <span className="text-xl font-bold text-[#01312D]">
+                {driver.name?.charAt(0) || "U"}
+              </span>
             </div>
             <div>
-              <h2 className="text-xl font-bold text-[#01312D]">{driver.name}</h2>
-              <div className="flex items-center gap-2 mt-1">{getStatusBadge(driver.verificationStatus)}</div>
+              <h2 className="text-xl font-bold text-[#01312D]">
+                {driver.name}
+              </h2>
+              <div className="flex items-center gap-2 mt-1">
+                {getStatusBadge(driver.verificationStatus)}
+              </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-[#eafde7] rounded-lg">
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-[#eafde7] rounded-lg"
+          >
             <X className="w-6 h-6 text-gray-500" />
           </button>
         </div>
@@ -1020,8 +1729,14 @@ Thank you for choosing DriveHub! 🚀`;
               <Phone className="w-4 h-4 text-[#3A7717]" /> Contact Information
             </h3>
             <div className="space-y-2 text-sm">
-              <p><Mail className="w-4 h-4 inline mr-2 text-gray-400" /> {driver.email}</p>
-              <p><Phone className="w-4 h-4 inline mr-2 text-gray-400" /> {driver.phone}</p>
+              <p>
+                <Mail className="w-4 h-4 inline mr-2 text-gray-400" />{" "}
+                {driver.email}
+              </p>
+              <p>
+                <Phone className="w-4 h-4 inline mr-2 text-gray-400" />{" "}
+                {driver.phone}
+              </p>
             </div>
           </div>
 
@@ -1030,8 +1745,13 @@ Thank you for choosing DriveHub! 🚀`;
               <Car className="w-4 h-4 text-[#3A7717]" /> Vehicle Information
             </h3>
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <p><span className="text-gray-500">Registration:</span> {driver.carRegistration}</p>
-              <p><span className="text-gray-500">Model:</span> {driver.carModel}</p>
+              <p>
+                <span className="text-gray-500">Registration:</span>{" "}
+                {driver.carRegistration}
+              </p>
+              <p>
+                <span className="text-gray-500">Model:</span> {driver.carModel}
+              </p>
             </div>
           </div>
 
@@ -1039,11 +1759,15 @@ Thank you for choosing DriveHub! 🚀`;
             <h3 className="font-semibold text-[#01312D] mb-3">Statistics</h3>
             <div className="grid grid-cols-3 gap-3">
               <div className="text-center">
-                <p className="text-2xl font-bold text-[#01312D]">{driver.totalRequests || 0}</p>
+                <p className="text-2xl font-bold text-[#01312D]">
+                  {driver.totalRequests || 0}
+                </p>
                 <p className="text-xs text-gray-500">Total Requests</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-[#01312D]">₹{(driver.totalSpent || 0).toLocaleString()}</p>
+                <p className="text-2xl font-bold text-[#01312D]">
+                  ₹{(driver.totalSpent || 0).toLocaleString()}
+                </p>
                 <p className="text-xs text-gray-500">Total Spent</p>
               </div>
             </div>
@@ -1060,7 +1784,9 @@ Thank you for choosing DriveHub! 🚀`;
           <p className="text-gray-500 text-sm">{title}</p>
           <p className="text-2xl font-bold text-[#01312D] mt-1">{value}</p>
         </div>
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
+        <div
+          className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}
+        >
           <Icon className="w-6 h-6 text-white" />
         </div>
       </div>
@@ -1089,51 +1815,124 @@ Thank you for choosing DriveHub! 🚀`;
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-[#01312D]">Dashboard Overview</h1>
+          <h1 className="text-2xl font-bold text-[#01312D]">
+            Dashboard Overview
+          </h1>
           <p className="text-gray-500 text-sm mt-1">Welcome back, Admin</p>
         </div>
-        <button onClick={handleRefresh} disabled={refreshing} className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30">
-          <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30"
+        >
+          <RefreshCw
+            className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+          />{" "}
+          Refresh
         </button>
       </div>
 
       <div className="flex gap-2 border-b border-[#bff202]/20">
-        <button onClick={() => setActiveTab("overview")} className={`px-4 py-2 font-semibold transition-all ${activeTab === "overview" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}>
+        <button
+          onClick={() => setActiveTab("overview")}
+          className={`px-4 py-2 font-semibold transition-all ${activeTab === "overview" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}
+        >
           Overview
         </button>
-        <button onClick={() => setActiveTab("drivers")} className={`px-4 py-2 font-semibold transition-all flex items-center gap-2 ${activeTab === "drivers" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}>
-          <Users className="w-4 h-4" /> All Drivers <span className="px-1.5 py-0.5 bg-gray-200 rounded-full text-xs">{drivers.length}</span>
+        <button
+          onClick={() => setActiveTab("drivers")}
+          className={`px-4 py-2 font-semibold transition-all flex items-center gap-2 ${activeTab === "drivers" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}
+        >
+          <Users className="w-4 h-4" /> All Drivers{" "}
+          <span className="px-1.5 py-0.5 bg-gray-200 rounded-full text-xs">
+            {drivers.length}
+          </span>
         </button>
       </div>
 
       {activeTab === "overview" && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard title="Total Drivers" value={stats.totalDrivers} icon={Users} color="bg-[#01312D]" />
-            <StatCard title="Pending Verifications" value={stats.pendingVerifications} icon={Clock} color="bg-yellow-500" />
-            <StatCard title="Pending Requests" value={stats.pendingRequests} icon={ClipboardList} color="bg-[#72bf00]" />
-            <StatCard title="Total Revenue" value={`₹${stats.totalRevenue.toLocaleString()}`} icon={DollarSign} color="bg-[#3A7717]" />
+            <StatCard
+              title="Total Drivers"
+              value={stats.totalDrivers}
+              icon={Users}
+              color="bg-[#01312D]"
+            />
+            <StatCard
+              title="Pending Verifications"
+              value={stats.pendingVerifications}
+              icon={Clock}
+              color="bg-yellow-500"
+            />
+            <StatCard
+              title="Pending Requests"
+              value={stats.pendingRequests}
+              icon={ClipboardList}
+              color="bg-[#72bf00]"
+            />
+            <StatCard
+              title="Total Revenue"
+              value={`₹${stats.totalRevenue.toLocaleString()}`}
+              icon={DollarSign}
+              color="bg-[#3A7717]"
+            />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-2xl shadow-sm border border-[#bff202]/20">
               <div className="p-5 border-b border-[#bff202]/20">
-                <h2 className="font-bold text-[#01312D]">Pending Verifications</h2>
-                <p className="text-xs text-gray-500 mt-1">Drivers waiting for approval</p>
+                <h2 className="font-bold text-[#01312D]">
+                  Pending Verifications
+                </h2>
+                <p className="text-xs text-gray-500 mt-1">
+                  Drivers waiting for approval
+                </p>
               </div>
               <div className="divide-y divide-[#bff202]/10">
                 {recentVerifications.length === 0 ? (
-                  <div className="p-8 text-center"><p className="text-gray-500 text-sm">No pending verifications</p></div>
+                  <div className="p-8 text-center">
+                    <p className="text-gray-500 text-sm">
+                      No pending verifications
+                    </p>
+                  </div>
                 ) : (
                   recentVerifications.map((item) => (
-                    <div key={item.id} className="p-4 flex items-center justify-between hover:bg-[#eafde7] transition-colors cursor-pointer" onClick={() => { setSelectedVerification(item); setShowVerificationModal(true); }}>
+                    <div
+                      key={item.id}
+                      className="p-4 flex items-center justify-between hover:bg-[#eafde7] transition-colors cursor-pointer"
+                      onClick={() => {
+                        setSelectedVerification(item);
+                        setShowVerificationModal(true);
+                      }}
+                    >
                       <div>
-                        <p className="font-semibold text-[#01312D]">{item.name}</p>
-                        <p className="text-xs text-gray-500">{item.carRegistration}</p>
+                        <p className="font-semibold text-[#01312D]">
+                          {item.name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {item.carRegistration}
+                        </p>
                       </div>
                       <div className="flex gap-2">
-                        <button className="px-3 py-1 bg-[#3A7717] text-white text-xs rounded-lg" onClick={(e) => { e.stopPropagation(); handleApproveVerification(item); }}>Approve</button>
-                        <button className="px-3 py-1 bg-red-500 text-white text-xs rounded-lg" onClick={(e) => { e.stopPropagation(); handleRejectVerification(item); }}>Reject</button>
+                        <button
+                          className="px-3 py-1 bg-[#3A7717] text-white text-xs rounded-lg"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleApproveVerification(item);
+                          }}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          className="px-3 py-1 bg-red-500 text-white text-xs rounded-lg"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRejectVerification(item);
+                          }}
+                        >
+                          Reject
+                        </button>
                       </div>
                     </div>
                   ))
@@ -1143,22 +1942,44 @@ Thank you for choosing DriveHub! 🚀`;
 
             <div className="bg-white rounded-2xl shadow-sm border border-[#bff202]/20">
               <div className="p-5 border-b border-[#bff202]/20">
-                <h2 className="font-bold text-[#01312D]">Pending Service Requests</h2>
-                <p className="text-xs text-gray-500 mt-1">Requests awaiting approval</p>
+                <h2 className="font-bold text-[#01312D]">
+                  Pending Service Requests
+                </h2>
+                <p className="text-xs text-gray-500 mt-1">
+                  Requests awaiting approval
+                </p>
               </div>
               <div className="divide-y divide-[#bff202]/10">
-                {recentRequests.filter(r => r.status === "pending").length === 0 ? (
-                  <div className="p-8 text-center"><p className="text-gray-500 text-sm">No pending requests</p></div>
+                {recentRequests.filter((r) => r.status === "pending").length ===
+                0 ? (
+                  <div className="p-8 text-center">
+                    <p className="text-gray-500 text-sm">No pending requests</p>
+                  </div>
                 ) : (
-                  recentRequests.filter(r => r.status === "pending").map((item) => (
-                    <div key={item.id} className="p-4 flex items-center justify-between hover:bg-[#eafde7] transition-colors cursor-pointer" onClick={() => { setSelectedRequest(item); setShowRequestModal(true); }}>
-                      <div>
-                        <p className="font-semibold text-[#01312D] capitalize">{getTypeLabel(item.type)}</p>
-                        <p className="text-xs text-gray-500">{item.driverName || item.driver}</p>
+                  recentRequests
+                    .filter((r) => r.status === "pending")
+                    .map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-4 flex items-center justify-between hover:bg-[#eafde7] transition-colors cursor-pointer"
+                        onClick={() => {
+                          setSelectedRequest(item);
+                          setShowRequestModal(true);
+                        }}
+                      >
+                        <div>
+                          <p className="font-semibold text-[#01312D] capitalize">
+                            {getTypeLabel(item.type)}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {item.driverName || item.driver}
+                          </p>
+                        </div>
+                        <button className="px-3 py-1 bg-[#72bf00] text-white text-xs rounded-lg">
+                          View Details
+                        </button>
                       </div>
-                      <button className="px-3 py-1 bg-[#72bf00] text-white text-xs rounded-lg">View Details</button>
-                    </div>
-                  ))
+                    ))
                 )}
               </div>
             </div>
@@ -1171,7 +1992,13 @@ Thank you for choosing DriveHub! 🚀`;
           <div className="flex gap-3">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input type="text" placeholder="Search by name, email, or registration..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]" />
+              <input
+                type="text"
+                placeholder="Search by name, email, or registration..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+              />
             </div>
           </div>
 
@@ -1180,30 +2007,67 @@ Thank you for choosing DriveHub! 🚀`;
               <table className="w-full">
                 <thead className="bg-[#eafde7] border-b border-[#bff202]/20">
                   <tr>
-                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">Driver</th>
-                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">Vehicle</th>
-                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">Status</th>
-                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">Requests</th>
-                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">Spent</th>
-                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">Actions</th>
+                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
+                      Driver
+                    </th>
+                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
+                      Vehicle
+                    </th>
+                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
+                      Status
+                    </th>
+                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
+                      Requests
+                    </th>
+                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
+                      Spent
+                    </th>
+                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#bff202]/10">
                   {filteredDrivers.map((driver) => (
-                    <tr key={driver.id} className="hover:bg-[#eafde7] transition-colors cursor-pointer" onClick={() => { setSelectedDriver(driver); setShowDriverModal(true); }}>
+                    <tr
+                      key={driver.id}
+                      className="hover:bg-[#eafde7] transition-colors cursor-pointer"
+                      onClick={() => {
+                        setSelectedDriver(driver);
+                        setShowDriverModal(true);
+                      }}
+                    >
                       <td className="p-4">
-                        <p className="font-semibold text-[#01312D]">{driver.name}</p>
+                        <p className="font-semibold text-[#01312D]">
+                          {driver.name}
+                        </p>
                         <p className="text-xs text-gray-500">{driver.email}</p>
                       </td>
                       <td className="p-4">
-                        <p className="text-sm font-medium text-[#01312D]">{driver.carModel}</p>
-                        <p className="text-xs text-gray-500">{driver.carRegistration}</p>
+                        <p className="text-sm font-medium text-[#01312D]">
+                          {driver.carModel}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {driver.carRegistration}
+                        </p>
                       </td>
-                      <td className="p-4">{getStatusBadge(driver.verificationStatus)}</td>
-                      <td className="p-4"><span className="font-semibold text-[#01312D]">{driver.totalRequests || 0}</span></td>
-                      <td className="p-4"><span className="font-semibold text-[#3A7717]">₹{(driver.totalSpent || 0).toLocaleString()}</span></td>
                       <td className="p-4">
-                        <button className="px-3 py-1.5 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center gap-1"><Eye className="w-4 h-4" /> View</button>
+                        {getStatusBadge(driver.verificationStatus)}
+                      </td>
+                      <td className="p-4">
+                        <span className="font-semibold text-[#01312D]">
+                          {driver.totalRequests || 0}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <span className="font-semibold text-[#3A7717]">
+                          ₹{(driver.totalSpent || 0).toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <button className="px-3 py-1.5 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center gap-1">
+                          <Eye className="w-4 h-4" /> View
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -1214,9 +2078,24 @@ Thank you for choosing DriveHub! 🚀`;
         </>
       )}
 
-      {showVerificationModal && selectedVerification && <VerificationDetailsModal verification={selectedVerification} onClose={() => setShowVerificationModal(false)} />}
-      {showRequestModal && selectedRequest && <RequestDetailsModal request={selectedRequest} onClose={() => setShowRequestModal(false)} />}
-      {showDriverModal && selectedDriver && <DriverDetailsModal driver={selectedDriver} onClose={() => setShowDriverModal(false)} />}
+      {showVerificationModal && selectedVerification && (
+        <VerificationDetailsModal
+          verification={selectedVerification}
+          onClose={() => setShowVerificationModal(false)}
+        />
+      )}
+      {showRequestModal && selectedRequest && (
+        <RequestDetailsModal
+          request={selectedRequest}
+          onClose={() => setShowRequestModal(false)}
+        />
+      )}
+      {showDriverModal && selectedDriver && (
+        <DriverDetailsModal
+          driver={selectedDriver}
+          onClose={() => setShowDriverModal(false)}
+        />
+      )}
       {showApproveModal && <ApprovalModal />}
       {showWhatsAppModal && approvedRequest && <WhatsAppModal />}
       <SuccessModal />

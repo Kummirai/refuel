@@ -334,7 +334,8 @@ export default function AdminServiceRequestsPage() {
         r.id?.toLowerCase().includes(searchTerm.toLowerCase()),
     );
 
-  // WhatsApp Modal Component - Updated with Success Modal
+  // WhatsApp Modal Component - Sends Image instead of Text
+  // WhatsApp Modal Component - With Date/Time and Consistent Styling
   const WhatsAppModal = () => {
     if (!approvedRequest) return null;
 
@@ -344,13 +345,71 @@ export default function AdminServiceRequestsPage() {
     const [downloadedImageUrl, setDownloadedImageUrl] = useState<string | null>(
       null,
     );
+    const [generatedImageBlob, setGeneratedImageBlob] = useState<Blob | null>(
+      null,
+    );
 
-    const handleGenerateImage = async () => {
-      if (!receiptRef.current) return;
+    // Helper function to get the appropriate label based on service type
+    const getTransactionLabel = () => {
+      if (
+        approvedRequest?.type === "cash" ||
+        approvedRequest?.type === "airtime"
+      ) {
+        return "Transaction Number";
+      }
+      return "OTP Code";
+    };
 
-      setImageGenerating(true);
+    const getInstructionText = () => {
+      if (approvedRequest?.type === "cash") {
+        return "This is your loan transaction number";
+      }
+      if (approvedRequest?.type === "airtime") {
+        return "This is your airtime transaction number";
+      }
+      return "Show this code at the service center";
+    };
+
+    // Get current date and time
+    const getCurrentDateTime = () => {
+      const now = new Date();
+      const options: Intl.DateTimeFormatOptions = {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      };
+      return now.toLocaleString("en-US", options);
+    };
+
+    const getCurrentDate = () => {
+      const now = new Date();
+      const options: Intl.DateTimeFormatOptions = {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      };
+      return now.toLocaleString("en-US", options);
+    };
+
+    const getCurrentTime = () => {
+      const now = new Date();
+      const options: Intl.DateTimeFormatOptions = {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      };
+      return now.toLocaleString("en-US", options);
+    };
+
+    const generateImageBlob = async (): Promise<Blob | null> => {
+      if (!receiptRef.current) return null;
+
       try {
-        // Temporarily make the element visible to capture it
         const receiptElement = receiptRef.current;
         receiptElement.style.position = "fixed";
         receiptElement.style.left = "0";
@@ -358,114 +417,152 @@ export default function AdminServiceRequestsPage() {
         receiptElement.style.zIndex = "-1";
         receiptElement.style.opacity = "1";
 
-        // Wait a bit for rendering
         await new Promise((resolve) => setTimeout(resolve, 100));
 
         const dataUrl = await toPng(receiptElement, {
           quality: 0.95,
           backgroundColor: "#ffffff",
-          pixelRatio: 2, // Better quality
+          pixelRatio: 2,
         });
 
-        // Hide it again
         receiptElement.style.position = "absolute";
         receiptElement.style.left = "-9999px";
         receiptElement.style.top = "-9999px";
         receiptElement.style.zIndex = "";
 
-        // Create download link
-        const link = document.createElement("a");
-        link.download = `DriveHub_Receipt_${approvedRequest.id.slice(-6)}.png`;
-        link.href = dataUrl;
-
-        // Trigger download
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        // Store the image URL for the success modal
-        setDownloadedImageUrl(dataUrl);
-        setShowSuccessModal(true);
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        return blob;
       } catch (error) {
         console.error("Error generating image:", error);
-        alert(
-          "❌ Failed to generate receipt image: " + (error as Error).message,
-        );
-
-        // Make sure to hide the element again if error occurs
         if (receiptRef.current) {
           receiptRef.current.style.position = "absolute";
           receiptRef.current.style.left = "-9999px";
           receiptRef.current.style.top = "-9999px";
         }
+        return null;
+      }
+    };
+
+    const handleGenerateImage = async () => {
+      setImageGenerating(true);
+      try {
+        const blob = await generateImageBlob();
+        if (blob) {
+          setGeneratedImageBlob(blob);
+          const imageUrl = URL.createObjectURL(blob);
+          setDownloadedImageUrl(imageUrl);
+          setShowSuccessModal(true);
+
+          const link = document.createElement("a");
+          link.download = `DriveHub_Receipt_${approvedRequest.id.slice(-6)}.png`;
+          link.href = imageUrl;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } else {
+          throw new Error("Failed to generate image");
+        }
+      } catch (error) {
+        console.error("Error generating image:", error);
+        alert(
+          "❌ Failed to generate receipt image: " + (error as Error).message,
+        );
       } finally {
         setImageGenerating(false);
       }
     };
 
-    // Fixed WhatsApp URL function
-    const getWhatsAppUrl = (phoneNumber: string, message: string) => {
-      // Clean phone number - remove any non-digit characters
-      const cleanPhone = phoneNumber.replace(/[^0-9]/g, "");
-
-      // Add country code if not present (assuming +27 for South Africa)
-      let fullPhone = cleanPhone;
-      if (!cleanPhone.startsWith("27") && cleanPhone.length === 9) {
-        fullPhone = `27${cleanPhone}`;
-      }
-
-      // Use international format without plus for better compatibility
-      const whatsappUrl = `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`;
-
-      return whatsappUrl;
-    };
-
-    const handleSendWhatsApp = async (
-      request: ServiceRequest,
-      otp?: string,
-    ) => {
+    const handleSendImageViaWhatsApp = async () => {
       setWhatsappLoading(true);
-      const finalOtp = otp || request.otp || generatedOtp;
+      try {
+        let imageBlob = generatedImageBlob;
+        if (!imageBlob) {
+          imageBlob = await generateImageBlob();
+          if (imageBlob) {
+            setGeneratedImageBlob(imageBlob);
+          }
+        }
 
-      const message = `*DriveHub - Service Request Approved* 🎉
+        if (!imageBlob) {
+          throw new Error("Failed to generate image");
+        }
 
-Hello ${request.driverName},
+        const transactionLabel = getTransactionLabel();
+        const finalOtp = approvedRequest.otp || generatedOtp;
+        const currentDateTime = getCurrentDateTime();
+        const currentDate = getCurrentDate();
+        const currentTime = getCurrentTime();
+
+        const caption = `*DriveHub - Service Request Approved* 🎉
+
+Hello ${approvedRequest.driverName},
 
 Your service request has been *APPROVED*! ✅
 
 📋 *Request Details:*
 ━━━━━━━━━━━━━━━━━━━
-🆔 *Request ID:* ${request.id.slice(-6).toUpperCase()}
-🚗 *Vehicle:* ${request.carRegistration}
-📱 *Service:* ${getTypeLabel(request.type)}
-💰 *Amount:* ₹${request.amount?.toLocaleString()}
-🔐 *OTP:* ${finalOtp}
+🆔 *Request ID:* ${approvedRequest.id.slice(-6).toUpperCase()}
+🚗 *Vehicle:* ${approvedRequest.carRegistration}
+📱 *Service:* ${getTypeLabel(approvedRequest.type)}
+💰 *Amount:* ₹${approvedRequest.amount?.toLocaleString()}
+🔐 *${transactionLabel}:* ${finalOtp}
+📅 *Date:* ${currentDate}
+⏰ *Time:* ${currentTime}
 ━━━━━━━━━━━━━━━━━━━
 
 ${
-  request.type === "cash"
-    ? `📊 *Repayment Details:*\n• Interest Rate: ${request.interestRate || 13}%\n• Interest Amount: ₹${request.interest?.toLocaleString() || 0}\n• Total Repayable: ₹${request.totalRepayable?.toLocaleString() || 0}\n• Period: ${request.repaymentDays || 7} days\n• Daily Payment: ₹${Math.ceil((request.totalRepayable || request.amount) / (request.repaymentDays || 7)).toLocaleString()}\n\n`
+  approvedRequest.type === "cash"
+    ? `📊 *Repayment Details:*
+• Interest Rate: ${approvedRequest.interestRate || 13}%
+• Interest Amount: ₹${approvedRequest.interest?.toLocaleString() || 0}
+• Total Repayable: ₹${approvedRequest.totalRepayable?.toLocaleString() || 0}
+• Period: ${approvedRequest.repaymentDays || 7} days
+• Daily Payment: ₹${Math.ceil((approvedRequest.totalRepayable || approvedRequest.amount) / (approvedRequest.repaymentDays || 7)).toLocaleString()}
+
+`
     : ""
 }📍 *Instructions:*
-1. Show this OTP to the cashier/attendant
+1. ${approvedRequest.type === "cash" ? "Use this transaction number for loan reference" : approvedRequest.type === "airtime" ? "Use this transaction number to track your airtime purchase" : "Show this OTP to the cashier/attendant"}
 2. The amount will be processed within 30 minutes
 3. Keep this message for reference
 
-Need help? Contact support.
+Please find your receipt attached below.
 
-Thank you for choosing DriveHub! 🚀`;
+Thank you for choosing DriveHub! 🚀
 
-      const whatsappUrl = getWhatsAppUrl(request.driverPhone, message);
+*This is a system generated message. Valid for 30 minutes.*`;
 
-      // Open WhatsApp in a new tab
-      window.open(whatsappUrl, "_blank");
+        const imageUrl = URL.createObjectURL(imageBlob);
+        const cleanPhone = approvedRequest.driverPhone.replace(/[^0-9]/g, "");
+        let fullPhone = cleanPhone;
+        if (!cleanPhone.startsWith("27") && cleanPhone.length === 9) {
+          fullPhone = `27${cleanPhone}`;
+        }
 
-      setTimeout(() => {
+        const whatsappUrl = `https://wa.me/${fullPhone}?text=${encodeURIComponent(caption + "\n\n📸 Please check your downloads folder for the receipt image attached above.")}`;
+        window.open(whatsappUrl, "_blank");
+
+        const link = document.createElement("a");
+        link.download = `DriveHub_Receipt_${approvedRequest.id.slice(-6)}.png`;
+        link.href = imageUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        setTimeout(() => {
+          setWhatsappLoading(false);
+          setShowWhatsAppModal(false);
+          setApprovedRequest(null);
+          setApprovingRequest(null);
+        }, 1500);
+      } catch (error) {
+        console.error("Error sending image via WhatsApp:", error);
+        alert(
+          "❌ Failed to send image. The receipt has been downloaded. You can manually attach it to your WhatsApp message.",
+        );
         setWhatsappLoading(false);
-        setShowWhatsAppModal(false);
-        setApprovedRequest(null);
-        setApprovingRequest(null);
-      }, 1000);
+      }
     };
 
     const handleCopyOtp = (otp: string) => {
@@ -474,7 +571,6 @@ Thank you for choosing DriveHub! 🚀`;
       setTimeout(() => setCopiedOtp(null), 2000);
     };
 
-    // Success Modal Component
     const DownloadSuccessModal = () => {
       if (!showSuccessModal) return null;
 
@@ -492,9 +588,9 @@ Thank you for choosing DriveHub! 🚀`;
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-white">
-                    Download Successful!
+                    Ready to Share!
                   </h2>
-                  <p className="text-white/80 text-sm">Receipt image saved</p>
+                  <p className="text-white/80 text-sm">Receipt image ready</p>
                 </div>
               </div>
             </div>
@@ -504,11 +600,11 @@ Thank you for choosing DriveHub! 🚀`;
                 <ImageIcon className="w-10 h-10 text-green-600" />
               </div>
               <p className="text-[#01312D] font-semibold mb-2">
-                Receipt downloaded successfully!
+                Receipt image generated!
               </p>
               <p className="text-gray-500 text-sm mb-4">
                 The receipt image has been saved to your device. You can now
-                share it via WhatsApp or email.
+                share it via WhatsApp.
               </p>
 
               {downloadedImageUrl && (
@@ -528,7 +624,6 @@ Thank you for choosing DriveHub! 🚀`;
               <button
                 onClick={() => {
                   setShowSuccessModal(false);
-                  setDownloadedImageUrl(null);
                 }}
                 className="flex-1 bg-[#01312D] text-white py-2 rounded-xl font-semibold hover:bg-[#3A7717] transition-colors"
               >
@@ -539,6 +634,12 @@ Thank you for choosing DriveHub! 🚀`;
         </div>
       );
     };
+
+    const transactionLabel = getTransactionLabel();
+    const instructionText = getInstructionText();
+    const currentDateTime = getCurrentDateTime();
+    const currentDate = getCurrentDate();
+    const currentTime = getCurrentTime();
 
     return (
       <>
@@ -556,10 +657,10 @@ Thank you for choosing DriveHub! 🚀`;
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-white">
-                      Send WhatsApp
+                      Share Receipt
                     </h2>
                     <p className="text-white/80 text-sm">
-                      Share OTP with the driver
+                      Send image via WhatsApp
                     </p>
                   </div>
                 </div>
@@ -575,7 +676,7 @@ Thank you for choosing DriveHub! 🚀`;
             </div>
 
             <div className="p-5 space-y-4">
-              {/* Hidden receipt for image generation */}
+              {/* Hidden receipt for image generation - WITH ORANGE/WHITE STYLING, DATE & TIME */}
               <div
                 ref={receiptRef}
                 style={{
@@ -586,11 +687,13 @@ Thank you for choosing DriveHub! 🚀`;
                   background: "white",
                   borderRadius: "20px",
                   padding: "20px",
-                  fontFamily: "Arial, sans-serif",
+                  fontFamily:
+                    "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
                   boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
                   zIndex: -1,
                 }}
               >
+                {/* Header with DriveHub Logo */}
                 <div
                   style={{
                     textAlign: "center",
@@ -599,124 +702,294 @@ Thank you for choosing DriveHub! 🚀`;
                     marginBottom: "15px",
                   }}
                 >
-                  <h2 style={{ color: "#01312D", margin: 0, fontSize: "24px" }}>
-                    DriveHub
+                  <h2
+                    style={{
+                      color: "#01312D",
+                      margin: 0,
+                      fontSize: "28px",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    🚗 DriveHub
                   </h2>
-                  <p style={{ color: "#72bf00", margin: "5px 0 0" }}>
+                  <p
+                    style={{
+                      color: "#72bf00",
+                      margin: "5px 0 0",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                  >
                     Service Receipt
                   </p>
                 </div>
 
+                {/* Orange/Yellow Gradient OTP/Transaction Number Box */}
+                <div style={{ marginBottom: "15px" }}>
+                  <div
+                    style={{
+                      background:
+                        "linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)",
+                      borderRadius: "12px",
+                      padding: "20px",
+                      textAlign: "center",
+                    }}
+                  >
+                    <p
+                      style={{
+                        color: "white",
+                        margin: "0 0 8px 0",
+                        fontSize: "14px",
+                        fontWeight: "600",
+                        opacity: 0.9,
+                      }}
+                    >
+                      🔐 {transactionLabel}
+                    </p>
+                    <div
+                      style={{
+                        background: "white",
+                        borderRadius: "12px",
+                        padding: "16px",
+                        marginBottom: "12px",
+                      }}
+                    >
+                      <code
+                        style={{
+                          fontSize: "42px",
+                          fontWeight: "bold",
+                          letterSpacing: "6px",
+                          color: "#01312D",
+                          fontFamily: "'Courier New', 'Fira Code', monospace",
+                          display: "block",
+                        }}
+                      >
+                        {approvedRequest.otp || generatedOtp}
+                      </code>
+                    </div>
+                    <p
+                      style={{
+                        color: "white",
+                        fontSize: "12px",
+                        margin: "0",
+                        fontWeight: "500",
+                        opacity: 0.95,
+                      }}
+                    >
+                      {instructionText}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Request Details */}
                 <div style={{ marginBottom: "15px" }}>
                   <div
                     style={{
                       background: "#eafde7",
-                      borderRadius: "10px",
+                      borderRadius: "12px",
                       padding: "15px",
-                      textAlign: "center",
                     }}
                   >
-                    <p style={{ color: "#666", margin: "0 0 5px" }}>
-                      Your OTP Code
-                    </p>
                     <div
                       style={{
-                        fontSize: "48px",
-                        fontWeight: "bold",
-                        letterSpacing: "5px",
-                        color: "#01312D",
-                        margin: "10px 0",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginBottom: "10px",
+                        fontSize: "13px",
                       }}
                     >
-                      {approvedRequest.otp || generatedOtp}
+                      <span style={{ color: "#666" }}>Driver:</span>
+                      <strong style={{ color: "#01312D" }}>
+                        {approvedRequest.driverName}
+                      </strong>
                     </div>
-                    <p
+                    <div
                       style={{
-                        color: "#666",
-                        fontSize: "12px",
-                        margin: "5px 0 0",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginBottom: "10px",
+                        fontSize: "13px",
                       }}
                     >
-                      Show this code at the service center
-                    </p>
+                      <span style={{ color: "#666" }}>Vehicle:</span>
+                      <strong style={{ color: "#01312D" }}>
+                        {approvedRequest.carRegistration}
+                      </strong>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginBottom: "10px",
+                        fontSize: "13px",
+                      }}
+                    >
+                      <span style={{ color: "#666" }}>Service:</span>
+                      <strong style={{ color: "#01312D" }}>
+                        {getTypeLabel(approvedRequest.type)}
+                      </strong>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginBottom: "10px",
+                        fontSize: "13px",
+                      }}
+                    >
+                      <span style={{ color: "#666" }}>Amount:</span>
+                      <strong style={{ color: "#3A7717", fontSize: "16px" }}>
+                        ₹{approvedRequest.amount?.toLocaleString()}
+                      </strong>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginBottom: "10px",
+                        fontSize: "13px",
+                      }}
+                    >
+                      <span style={{ color: "#666" }}>Request ID:</span>
+                      <strong
+                        style={{ color: "#01312D", fontFamily: "monospace" }}
+                      >
+                        {approvedRequest.id.slice(-6).toUpperCase()}
+                      </strong>
+                    </div>
+
+                    {/* Date and Time Section */}
+                    <div
+                      style={{
+                        marginTop: "12px",
+                        paddingTop: "12px",
+                        borderTop: "1px dashed #bff202",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginBottom: "8px",
+                          fontSize: "12px",
+                        }}
+                      >
+                        <span style={{ color: "#666" }}>📅 Date:</span>
+                        <strong style={{ color: "#01312D" }}>
+                          {getCurrentDate()}
+                        </strong>
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          fontSize: "12px",
+                        }}
+                      >
+                        <span style={{ color: "#666" }}>⏰ Time:</span>
+                        <strong style={{ color: "#01312D" }}>
+                          {getCurrentTime()}
+                        </strong>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div style={{ marginBottom: "15px" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: "10px",
-                    }}
-                  >
-                    <span style={{ color: "#666" }}>Driver:</span>
-                    <strong style={{ color: "#01312D" }}>
-                      {approvedRequest.driverName}
-                    </strong>
+                {/* Cash Loan Additional Details */}
+                {approvedRequest.type === "cash" && (
+                  <div style={{ marginBottom: "15px" }}>
+                    <div
+                      style={{
+                        background: "#fef3c7",
+                        borderRadius: "12px",
+                        padding: "12px",
+                      }}
+                    >
+                      <p
+                        style={{
+                          margin: "0 0 8px 0",
+                          fontSize: "12px",
+                          fontWeight: "600",
+                          color: "#92400e",
+                        }}
+                      >
+                        📊 Repayment Details
+                      </p>
+                      <div style={{ fontSize: "11px", color: "#78350f" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginBottom: "5px",
+                          }}
+                        >
+                          <span>Interest Rate:</span>
+                          <strong>{approvedRequest.interestRate || 13}%</strong>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginBottom: "5px",
+                          }}
+                        >
+                          <span>Interest Amount:</span>
+                          <strong>
+                            ₹{approvedRequest.interest?.toLocaleString() || 0}
+                          </strong>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginBottom: "5px",
+                          }}
+                        >
+                          <span>Total Repayable:</span>
+                          <strong>
+                            ₹
+                            {approvedRequest.totalRepayable?.toLocaleString() ||
+                              0}
+                          </strong>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <span>Period:</span>
+                          <strong>
+                            {approvedRequest.repaymentDays || 7} days
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: "10px",
-                    }}
-                  >
-                    <span style={{ color: "#666" }}>Vehicle:</span>
-                    <strong style={{ color: "#01312D" }}>
-                      {approvedRequest.carRegistration}
-                    </strong>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: "10px",
-                    }}
-                  >
-                    <span style={{ color: "#666" }}>Service:</span>
-                    <strong style={{ color: "#01312D" }}>
-                      {getTypeLabel(approvedRequest.type)}
-                    </strong>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: "10px",
-                    }}
-                  >
-                    <span style={{ color: "#666" }}>Amount:</span>
-                    <strong style={{ color: "#3A7717" }}>
-                      ₹{approvedRequest.amount?.toLocaleString()}
-                    </strong>
-                  </div>
-                  <div
-                    style={{ display: "flex", justifyContent: "space-between" }}
-                  >
-                    <span style={{ color: "#666" }}>Request ID:</span>
-                    <strong style={{ color: "#01312D" }}>
-                      {approvedRequest.id.slice(-6).toUpperCase()}
-                    </strong>
-                  </div>
-                </div>
+                )}
 
+                {/* Footer */}
                 <div
                   style={{
                     background: "#bff20220",
                     borderRadius: "10px",
                     padding: "10px",
                     textAlign: "center",
-                    fontSize: "12px",
+                    fontSize: "11px",
                     color: "#666",
                     marginTop: "15px",
                   }}
                 >
-                  Valid for 30 minutes • DriveHub Services
+                  <p style={{ margin: "0 0 4px 0", fontWeight: "500" }}>
+                    ✅ Valid for 30 minutes
+                  </p>
+                  <p style={{ margin: "0", fontSize: "10px", opacity: 0.7 }}>
+                    DriveHub Services • powered by DriveHub
+                  </p>
                 </div>
               </div>
 
-              {/* Driver Info */}
+              {/* Driver Info - Modal Display */}
               <div className="bg-green-50 rounded-xl p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
@@ -741,9 +1014,9 @@ Thank you for choosing DriveHub! 🚀`;
                   </p>
                   <p className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-green-600" />
-                    <span className="text-gray-600">Service:</span>
-                    <span className="font-semibold">
-                      {getTypeLabel(approvedRequest.type)}
+                    <span className="text-gray-600">Date & Time:</span>
+                    <span className="font-semibold text-xs">
+                      {currentDateTime}
                     </span>
                   </p>
                   <p className="flex items-center gap-2">
@@ -756,10 +1029,10 @@ Thank you for choosing DriveHub! 🚀`;
                 </div>
               </div>
 
-              {/* Prominent OTP Display */}
+              {/* Prominent Transaction Number / OTP Display - Modal */}
               <div className="bg-gradient-to-r from-yellow-400 to-orange-400 rounded-xl p-5 text-center">
                 <p className="text-white text-sm font-semibold mb-2">
-                  🔐 One-Time Password (OTP)
+                  🔐 {transactionLabel}
                 </p>
                 <div className="bg-white rounded-xl p-4 mb-3">
                   <code className="text-4xl md:text-5xl font-bold tracking-wider text-[#01312D] font-mono">
@@ -773,31 +1046,20 @@ Thank you for choosing DriveHub! 🚀`;
                   className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-white font-semibold hover:bg-white/30 transition-colors"
                 >
                   <Copy className="w-4 h-4" />
-                  Copy OTP
+                  Copy {transactionLabel}
                 </button>
               </div>
 
-              {/* Message Preview */}
-              <div className="bg-gray-50 rounded-xl p-4">
-                <p className="text-xs text-gray-500 mb-2">Message Preview:</p>
-                <div className="bg-white rounded-lg p-3 text-sm">
-                  <p className="font-semibold text-green-600">
-                    DriveHub - Service Request Approved 🎉
-                  </p>
-                  <p className="text-gray-600 mt-1">
-                    Hello {approvedRequest.driverName},
-                  </p>
-                  <p className="text-gray-600">
-                    Your service request has been APPROVED! ✅
-                  </p>
-                  <div className="bg-gray-100 rounded p-2 mt-2 font-mono text-xs">
-                    <p>
-                      OTP:{" "}
-                      <span className="font-bold text-lg">
-                        {approvedRequest.otp || generatedOtp}
-                      </span>
-                    </p>
+              {/* Date & Time Display in Modal */}
+              <div className="bg-gray-50 rounded-xl p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-gray-500" />
+                    <span className="text-xs text-gray-600">Generated on:</span>
                   </div>
+                  <span className="text-xs font-semibold text-[#01312D]">
+                    {currentDateTime}
+                  </span>
                 </div>
               </div>
 
@@ -810,9 +1072,12 @@ Thank you for choosing DriveHub! 🚀`;
                       Clicking "Send via WhatsApp" will:
                     </p>
                     <ul className="text-xs text-blue-700 mt-1 space-y-0.5 list-disc list-inside">
-                      <li>Open WhatsApp on your device/browser</li>
-                      <li>Pre-fill the message with OTP and request details</li>
-                      <li>You can review and send the message manually</li>
+                      <li>Generate and download the receipt image</li>
+                      <li>Open WhatsApp with a caption</li>
+                      <li>
+                        You can manually attach the downloaded image to the
+                        message
+                      </li>
                     </ul>
                   </div>
                 </div>
@@ -833,29 +1098,24 @@ Thank you for choosing DriveHub! 🚀`;
                 ) : (
                   <>
                     <ImageIcon className="w-4 h-4" />
-                    Download as Image
+                    Generate Receipt
                   </>
                 )}
               </button>
               <button
-                onClick={() =>
-                  handleSendWhatsApp(
-                    approvedRequest,
-                    approvedRequest.otp || generatedOtp,
-                  )
-                }
+                onClick={handleSendImageViaWhatsApp}
                 disabled={whatsappLoading}
                 className="flex-1 bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
               >
                 {whatsappLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Opening...
+                    Preparing...
                   </>
                 ) : (
                   <>
-                    <MessageCircle className="w-4 h-4" />
-                    Send via WhatsApp
+                    <ImageIcon className="w-4 h-4" />
+                    Send Image via WhatsApp
                   </>
                 )}
               </button>
@@ -868,6 +1128,7 @@ Thank you for choosing DriveHub! 🚀`;
       </>
     );
   };
+
   // Approval Modal Component (First Step)
   const ApprovalModal = () => {
     if (!approvingRequest) return null;
