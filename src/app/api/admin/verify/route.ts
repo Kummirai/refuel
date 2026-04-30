@@ -9,6 +9,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { verification, action, verificationId, reason } = body;
 
+    console.log(verificationId);
+
     const { db } = await connectToDatabase();
     const driverProfilesCollection = db.collection("driverProfiles");
     const usersCollection = db.collection("users");
@@ -18,9 +20,11 @@ export async function POST(request: NextRequest) {
 
     // Find the profile
     if (verificationId) {
+      console.log(verificationId);
       try {
-        const objectId = new ObjectId(verificationId);
-        profile = await driverProfilesCollection.findOne({ _id: objectId });
+        profile = await driverProfilesCollection.findOne({
+          userId: verificationId,
+        });
         if (profile) {
           userId = profile.userId;
         }

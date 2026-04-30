@@ -20,6 +20,11 @@ import {
   Loader2,
   RefreshCw,
   X,
+  MapPin,
+  Phone,
+  Mail,
+  Calendar,
+  AlertCircle,
 } from "lucide-react";
 
 export default function VerificationsPage() {
@@ -39,6 +44,11 @@ export default function VerificationsPage() {
     rejected: 0,
     total: 0,
   });
+  const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectingDriver, setRejectingDriver] = useState<any>(null);
 
   useEffect(() => {
     fetchVerifications();
@@ -83,54 +93,76 @@ export default function VerificationsPage() {
   };
 
   const handleApprove = async (driver: any) => {
+    setApproving(true);
     try {
       const response = await fetch("/api/admin/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          verificationId: driver.id,
+          verificationId: driver.id, // Send the full MongoDB ID
           action: "approve",
         }),
       });
+
+      const data = await response.json();
+
       if (response.ok) {
         alert(`✅ Approved ${driver.name}'s verification`);
         fetchVerifications();
         setShowModal(false);
+        setSelectedDriver(null);
       } else {
-        const error = await response.json();
-        alert(error.error || "Failed to approve verification");
+        alert(data.error || "Failed to approve verification");
       }
     } catch (error) {
       console.error("Error approving verification:", error);
       alert("Failed to approve verification");
+    } finally {
+      setApproving(false);
     }
   };
 
-  const handleReject = async (driver: any) => {
-    const reason = prompt("Please enter rejection reason:");
-    if (reason) {
-      try {
-        const response = await fetch("/api/admin/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            verificationId: driver.id,
-            action: "reject",
-            reason,
-          }),
-        });
-        if (response.ok) {
-          alert(`❌ Rejected ${driver.name}'s verification`);
-          fetchVerifications();
-          setShowModal(false);
-        } else {
-          const error = await response.json();
-          alert(error.error || "Failed to reject verification");
-        }
-      } catch (error) {
-        console.error("Error rejecting verification:", error);
-        alert("Failed to reject verification");
+  const openRejectModal = (driver: any) => {
+    setRejectingDriver(driver);
+    setRejectReason("");
+    setShowRejectModal(true);
+    setShowModal(false);
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectReason.trim()) {
+      alert("Please enter a reason for rejection");
+      return;
+    }
+
+    setRejecting(true);
+    try {
+      const response = await fetch("/api/admin/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          verificationId: rejectingDriver.id, // Send the full MongoDB ID
+          action: "reject",
+          reason: rejectReason,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`❌ Rejected ${rejectingDriver.name}'s verification`);
+        fetchVerifications();
+        setShowRejectModal(false);
+        setRejectingDriver(null);
+        setRejectReason("");
+      } else {
+        alert(data.error || "Failed to reject verification");
       }
+    } catch (error) {
+      console.error("Error rejecting verification:", error);
+      alert("Failed to reject verification");
+    } finally {
+      setRejecting(false);
     }
   };
 
@@ -161,6 +193,129 @@ export default function VerificationsPage() {
           </span>
         );
     }
+  };
+
+  // Rejection Modal Component
+  const RejectionModal = () => {
+    if (!showRejectModal || !rejectingDriver) return null;
+
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => !rejecting && setShowRejectModal(false)}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-t-2xl p-5">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                <XCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">
+                  Confirm Rejection
+                </h2>
+                <p className="text-white/80 text-sm">
+                  Provide rejection reason
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 space-y-4">
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <User className="w-4 h-4 text-[#3A7717]" />
+                <h3 className="font-semibold text-[#01312D]">Driver Summary</h3>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Driver:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {rejectingDriver.name}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Email:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {rejectingDriver.email}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Car Registration:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {rejectingDriver.carRegistration || "Not provided"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                Rejection Reason <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Please explain why this verification is being rejected..."
+                className="w-full px-4 py-3 bg-white border border-red-200 rounded-xl focus:outline-none focus:border-red-500 resize-none"
+                rows={4}
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                This reason will be sent to the driver via email
+              </p>
+            </div>
+
+            <div className="bg-red-50 rounded-xl p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-red-600 mt-0.5" />
+                <div>
+                  <p className="text-xs text-red-800">
+                    Are you sure you want to reject this verification?
+                  </p>
+                  <ul className="text-xs text-red-700 mt-1 space-y-0.5 list-disc list-inside">
+                    <li>This action cannot be undone</li>
+                    <li>The driver will be notified via email</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-100 p-5 flex gap-3">
+            <button
+              onClick={() => {
+                setShowRejectModal(false);
+                setRejectingDriver(null);
+                setRejectReason("");
+              }}
+              disabled={rejecting}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmReject}
+              disabled={rejecting}
+              className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+            >
+              {rejecting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Rejecting...
+                </>
+              ) : (
+                <>
+                  <XCircle className="w-4 h-4" />
+                  Confirm Rejection
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const ViewDetailsModal = ({
@@ -207,23 +362,44 @@ export default function VerificationsPage() {
             </h3>
             <div className="space-y-2 text-sm">
               <p>
-                <span className="text-gray-500">Full Name:</span> {driver.name}
+                <span className="text-gray-500">Full Name:</span>{" "}
+                <span className="font-semibold text-[#01312D]">
+                  {driver.name || "Not provided"}
+                </span>
               </p>
-              <p>
-                <span className="text-gray-500">Email:</span> {driver.email}
+              <p className="flex items-center gap-2">
+                <Mail className="w-3 h-3 text-gray-400" />
+                <span className="text-gray-500">Email:</span>
+                <span className="font-semibold text-[#01312D]">
+                  {driver.email || "Not provided"}
+                </span>
               </p>
-              <p>
-                <span className="text-gray-500">Phone:</span> {driver.phone}
+              <p className="flex items-center gap-2">
+                <Phone className="w-3 h-3 text-gray-400" />
+                <span className="text-gray-500">Phone:</span>
+                <span className="font-semibold text-[#01312D]">
+                  {driver.phone || "Not provided"}
+                </span>
               </p>
-              <p>
-                <span className="text-gray-500">Address:</span>{" "}
-                {driver.address || "Not provided"}
+              <p className="flex items-start gap-2">
+                <MapPin className="w-3 h-3 text-gray-400 mt-0.5" />
+                <span className="text-gray-500">Address:</span>
+                <span className="font-semibold text-[#01312D]">
+                  {driver.address && driver.address !== "Not provided"
+                    ? driver.address
+                    : driver.fullAddress
+                      ? `${driver.fullAddress}, ${driver.city || ""}, ${driver.pincode || ""}`
+                      : "Not provided"}
+                </span>
               </p>
-              <p>
-                <span className="text-gray-500">Submitted:</span>{" "}
-                {new Date(
-                  driver.submittedDate || driver.joinedDate,
-                ).toLocaleDateString()}
+              <p className="flex items-center gap-2">
+                <Calendar className="w-3 h-3 text-gray-400" />
+                <span className="text-gray-500">Submitted:</span>
+                <span className="font-semibold text-[#01312D]">
+                  {new Date(
+                    driver.submittedDate || driver.joinedDate,
+                  ).toLocaleDateString()}
+                </span>
               </p>
             </div>
           </div>
@@ -237,15 +413,29 @@ export default function VerificationsPage() {
             <div className="grid grid-cols-2 gap-2 text-sm">
               <p>
                 <span className="text-gray-500">Registration:</span>{" "}
-                {driver.carRegistration || "Not provided"}
+                <span className="font-semibold text-[#01312D]">
+                  {driver.carRegistration ||
+                    driver.carRegistrationNumber ||
+                    "Not provided"}
+                </span>
               </p>
               <p>
                 <span className="text-gray-500">Model:</span>{" "}
-                {driver.carModel || "Not provided"}
+                <span className="font-semibold text-[#01312D]">
+                  {driver.carModel || "Not provided"}
+                </span>
               </p>
               <p>
                 <span className="text-gray-500">Year:</span>{" "}
-                {driver.carYear || "Not provided"}
+                <span className="font-semibold text-[#01312D]">
+                  {driver.carYear || "Not provided"}
+                </span>
+              </p>
+              <p>
+                <span className="text-gray-500">Color:</span>{" "}
+                <span className="font-semibold text-[#01312D]">
+                  {driver.carColor || "Not provided"}
+                </span>
               </p>
             </div>
           </div>
@@ -259,21 +449,51 @@ export default function VerificationsPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between p-2 bg-white rounded-lg">
                 <span className="text-sm">Driver's License</span>
-                <a href="#" className="text-[#72bf00] text-sm font-semibold">
-                  View
-                </a>
+                {driver.drivingLicenseUrl &&
+                driver.drivingLicenseUrl !== "pending" ? (
+                  <a
+                    href={driver.drivingLicenseUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#72bf00] text-sm font-semibold hover:underline"
+                  >
+                    View Document →
+                  </a>
+                ) : (
+                  <span className="text-xs text-gray-400">Not uploaded</span>
+                )}
               </div>
               <div className="flex items-center justify-between p-2 bg-white rounded-lg">
-                <span className="text-sm">RC Document</span>
-                <a href="#" className="text-[#72bf00] text-sm font-semibold">
-                  View
-                </a>
+                <span className="text-sm">RC Document (Car Registration)</span>
+                {driver.carRegistrationUrl &&
+                driver.carRegistrationUrl !== "pending" ? (
+                  <a
+                    href={driver.carRegistrationUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#72bf00] text-sm font-semibold hover:underline"
+                  >
+                    View Document →
+                  </a>
+                ) : (
+                  <span className="text-xs text-gray-400">Not uploaded</span>
+                )}
               </div>
               <div className="flex items-center justify-between p-2 bg-white rounded-lg">
                 <span className="text-sm">Profile Photo</span>
-                <a href="#" className="text-[#72bf00] text-sm font-semibold">
-                  View
-                </a>
+                {driver.profilePhotoUrl &&
+                driver.profilePhotoUrl !== "pending" ? (
+                  <a
+                    href={driver.profilePhotoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#72bf00] text-sm font-semibold hover:underline"
+                  >
+                    View Photo →
+                  </a>
+                ) : (
+                  <span className="text-xs text-gray-400">Not uploaded</span>
+                )}
               </div>
             </div>
           </div>
@@ -282,15 +502,15 @@ export default function VerificationsPage() {
           <div className="bg-[#eafde7] rounded-xl p-4">
             <h3 className="font-semibold text-[#01312D] mb-3">Statistics</h3>
             <div className="grid grid-cols-2 gap-3">
-              <div className="text-center">
+              <div className="text-center bg-white rounded-lg p-2">
                 <p className="text-2xl font-bold text-[#01312D]">
                   {driver.totalRequests || 0}
                 </p>
                 <p className="text-xs text-gray-500">Total Requests</p>
               </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-[#01312D]">
-                  R{driver.totalSpent?.toLocaleString() || 0}
+              <div className="text-center bg-white rounded-lg p-2">
+                <p className="text-2xl font-bold text-[#3A7717]">
+                  ₹{(driver.totalSpent || 0).toLocaleString()}
                 </p>
                 <p className="text-xs text-gray-500">Total Spent</p>
               </div>
@@ -303,14 +523,19 @@ export default function VerificationsPage() {
             <>
               <button
                 onClick={() => handleApprove(driver)}
-                className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+                disabled={approving}
+                className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#72bf00] transition-colors disabled:opacity-50"
               >
-                <CheckCircle className="w-4 h-4" />
+                {approving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CheckCircle className="w-4 h-4" />
+                )}
                 Approve
               </button>
               <button
-                onClick={() => handleReject(driver)}
-                className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+                onClick={() => openRejectModal(driver)}
+                className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors"
               >
                 <XCircle className="w-4 h-4" />
                 Reject
@@ -320,7 +545,7 @@ export default function VerificationsPage() {
           {driver.verificationStatus !== "pending" && (
             <button
               onClick={onClose}
-              className="w-full bg-gray-500 text-white py-2 rounded-xl font-semibold"
+              className="w-full bg-gray-500 text-white py-2 rounded-xl font-semibold hover:bg-gray-600 transition-colors"
             >
               Close
             </button>
@@ -422,7 +647,7 @@ export default function VerificationsPage() {
           >
             {tab}
             {tab === "pending" && stats.pending > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">
+              <span className="ml-1 px-1.5 py-0.5 bg-yellow-500 text-white text-xs rounded-full">
                 {stats.pending}
               </span>
             )}
@@ -468,39 +693,24 @@ export default function VerificationsPage() {
                     </p>
                     <p className="text-xs text-gray-500">{driver.email}</p>
                     <p className="text-xs text-gray-500">
-                      {driver.carRegistration}
+                      {driver.carRegistration ||
+                        driver.carRegistrationNumber ||
+                        "No car registered"}
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
+                  {getStatusBadge(driver.verificationStatus)}
                   <button
                     onClick={() => {
                       setSelectedDriver(driver);
                       setShowModal(true);
                     }}
-                    className="px-3 py-1.5 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center gap-1"
+                    className="px-3 py-1.5 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center gap-1 hover:bg-[#bff202]/30 transition-colors"
                   >
                     <Eye className="w-4 h-4" />
                     View Details
                   </button>
-                  {selectedTab === "pending" && (
-                    <>
-                      <button
-                        onClick={() => handleApprove(driver)}
-                        className="px-3 py-1.5 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center gap-1"
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => handleReject(driver)}
-                        className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-sm font-semibold flex items-center gap-1"
-                      >
-                        <XCircle className="w-4 h-4" />
-                        Reject
-                      </button>
-                    </>
-                  )}
                 </div>
               </div>
             </div>
@@ -508,13 +718,14 @@ export default function VerificationsPage() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modals */}
       {showModal && selectedDriver && (
         <ViewDetailsModal
           driver={selectedDriver}
           onClose={() => setShowModal(false)}
         />
       )}
+      <RejectionModal />
     </div>
   );
 }
