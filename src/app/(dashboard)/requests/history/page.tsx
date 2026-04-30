@@ -408,7 +408,7 @@ export default function RequestHistoryPage() {
             </p>
             <button
               onClick={() => router.push("/requests")}
-              className="mt-4 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white px-6 py-2 rounded-lg font-semibold text-sm"
+              className="mt-4 bg-linear-to-r from-[#01312D] to-[#3A7717] text-white px-6 py-2 rounded-lg font-semibold text-sm"
             >
               Make a Request
             </button>
