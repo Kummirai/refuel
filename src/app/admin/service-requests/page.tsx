@@ -1,7 +1,7 @@
 // src/app/admin/service-requests/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -31,7 +31,6 @@ import {
   AlertCircle,
   MessageCircle,
 } from "lucide-react";
-import { useRef } from "react";
 import { toPng } from "html-to-image";
 import { ImageIcon } from "lucide-react";
 
@@ -95,6 +94,17 @@ export default function AdminServiceRequestsPage() {
     totalAmount: 0,
   });
 
+  // Modal states
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [showCompleteConfirmModal, setShowCompleteConfirmModal] =
+    useState(false);
+  const [completingRequest, setCompletingRequest] =
+    useState<ServiceRequest | null>(null);
+  const [completeLoading, setCompleteLoading] = useState(false);
+
   useEffect(() => {
     fetchRequests();
   }, []);
@@ -149,7 +159,6 @@ export default function AdminServiceRequestsPage() {
       });
 
       if (response.ok) {
-        // Update the request with OTP
         const updatedRequest = {
           ...approvingRequest,
           otp: generatedOtp,
@@ -161,44 +170,60 @@ export default function AdminServiceRequestsPage() {
         await fetchRequests();
       } else {
         const error = await response.json();
-        alert(error.error || "Failed to approve request");
+        setErrorMessage(error.error || "Failed to approve request");
+        setShowErrorModal(true);
       }
     } catch (error) {
       console.error("Error approving request:", error);
-      alert("Failed to approve request");
+      setErrorMessage("Failed to approve request");
+      setShowErrorModal(true);
     } finally {
       setApprovalLoading(false);
     }
   };
 
-  const handleSendWhatsApp = async (request: ServiceRequest, otp?: string) => {
-    setWhatsappLoading(true);
-    const finalOtp = otp || request.otp || generatedOtp;
-
-    const message = `*DriveHub - Service Request Approved* 🎉\n\nHello ${request.driverName},\n\nYour service request has been *APPROVED*! ✅\n\n📋 *Request Details:*\n━━━━━━━━━━━━━━━━━━━\n🆔 *Request ID:* ${request.id.slice(-6).toUpperCase()}\n🚗 *Vehicle:* ${request.carRegistration}\n📱 *Service:* ${getTypeLabel(request.type)}\n💰 *Amount:* ₹${request.amount?.toLocaleString()}\n🔐 *OTP:* ${finalOtp}\n━━━━━━━━━━━━━━━━━━━\n\n${
-      request.type === "cash"
-        ? `📊 *Repayment Details:*\n• Interest Rate: ${request.interestRate || 13}%\n• Interest Amount: ₹${request.interest?.toLocaleString() || 0}\n• Total Repayable: ₹${request.totalRepayable?.toLocaleString() || 0}\n• Period: ${request.repaymentDays || 7} days\n• Daily Payment: ₹${Math.ceil((request.totalRepayable || request.amount) / (request.repaymentDays || 7)).toLocaleString()}\n\n`
-        : ""
-    }📍 *Instructions:*\n1. Show this OTP to the cashier/attendant\n2. The amount will be processed within 30 minutes\n3. Keep this message for reference\n\nNeed help? Contact support.\n\nThank you for choosing DriveHub! 🚀`;
-
-    const whatsappUrl = `https://wa.me/${request.driverPhone?.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(message)}`;
-
-    // Open WhatsApp in a new tab
-    window.open(whatsappUrl, "_blank");
-
-    // Small delay to show loading state
-    setTimeout(() => {
-      setWhatsappLoading(false);
-      setShowWhatsAppModal(false);
-      setApprovedRequest(null);
-      setApprovingRequest(null);
-    }, 1000);
+  const handleComplete = (request: ServiceRequest) => {
+    setCompletingRequest(request);
+    setShowCompleteConfirmModal(true);
+    setShowModal(false);
   };
 
-  const handleCopyOtp = (otp: string) => {
-    navigator.clipboard.writeText(otp);
-    setCopiedOtp(otp);
-    setTimeout(() => setCopiedOtp(null), 2000);
+  const handleConfirmComplete = async () => {
+    if (!completingRequest) return;
+
+    setCompleteLoading(true);
+    try {
+      const response = await fetch("/api/admin/requests/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: completingRequest.id,
+        }),
+      });
+      if (response.ok) {
+        setSuccessMessage(
+          `✅ Request ${completingRequest.id.slice(-6).toUpperCase()} marked as completed`,
+        );
+        setShowSuccessModal(true);
+        fetchRequests();
+        setShowCompleteConfirmModal(false);
+        setCompletingRequest(null);
+      } else {
+        const error = await response.json();
+        setErrorMessage(error.error || "Failed to complete request");
+        setShowErrorModal(true);
+        setShowCompleteConfirmModal(false);
+        setCompletingRequest(null);
+      }
+    } catch (error) {
+      console.error("Error completing request:", error);
+      setErrorMessage("Failed to complete request");
+      setShowErrorModal(true);
+      setShowCompleteConfirmModal(false);
+      setCompletingRequest(null);
+    } finally {
+      setCompleteLoading(false);
+    }
   };
 
   const handleReject = async (request: ServiceRequest) => {
@@ -214,41 +239,29 @@ export default function AdminServiceRequestsPage() {
           }),
         });
         if (response.ok) {
-          alert(`❌ Rejected ${request.id}`);
+          setSuccessMessage(
+            `❌ Request ${request.id.slice(-6).toUpperCase()} rejected successfully`,
+          );
+          setShowSuccessModal(true);
           fetchRequests();
           setShowModal(false);
         } else {
           const error = await response.json();
-          alert(error.error || "Failed to reject request");
+          setErrorMessage(error.error || "Failed to reject request");
+          setShowErrorModal(true);
         }
       } catch (error) {
         console.error("Error rejecting request:", error);
-        alert("Failed to reject request");
+        setErrorMessage("Failed to reject request");
+        setShowErrorModal(true);
       }
     }
   };
 
-  const handleComplete = async (request: ServiceRequest) => {
-    try {
-      const response = await fetch("/api/admin/requests/complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          requestId: request.id,
-        }),
-      });
-      if (response.ok) {
-        alert(`✅ Marked ${request.id} as completed`);
-        fetchRequests();
-        setShowModal(false);
-      } else {
-        const error = await response.json();
-        alert(error.error || "Failed to complete request");
-      }
-    } catch (error) {
-      console.error("Error completing request:", error);
-      alert("Failed to complete request");
-    }
+  const handleCopyOtp = (otp: string) => {
+    navigator.clipboard.writeText(otp);
+    setCopiedOtp(otp);
+    setTimeout(() => setCopiedOtp(null), 2000);
   };
 
   const getStatusBadge = (status: RequestStatus) => {
@@ -334,77 +347,290 @@ export default function AdminServiceRequestsPage() {
         r.id?.toLowerCase().includes(searchTerm.toLowerCase()),
     );
 
-  // WhatsApp Modal Component - Sends Image instead of Text
-  // WhatsApp Modal Component - With Date/Time and Consistent Styling
+  // Get current date and time
+  const getCurrentDateTime = () => {
+    const now = new Date();
+    const options: Intl.DateTimeFormatOptions = {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    };
+    return now.toLocaleString("en-US", options);
+  };
+
+  const getCurrentDate = () => {
+    const now = new Date();
+    const options: Intl.DateTimeFormatOptions = {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    };
+    return now.toLocaleString("en-US", options);
+  };
+
+  const getCurrentTime = () => {
+    const now = new Date();
+    const options: Intl.DateTimeFormatOptions = {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    };
+    return now.toLocaleString("en-US", options);
+  };
+
+  // Get transaction label based on service type
+  const getTransactionLabel = (type: RequestType) => {
+    if (type === "cash" || type === "airtime") {
+      return "Transaction Number";
+    }
+    return "OTP Code";
+  };
+
+  const getInstructionText = (type: RequestType) => {
+    if (type === "cash") {
+      return "This is your loan transaction number";
+    }
+    if (type === "airtime") {
+      return "This is your airtime transaction number";
+    }
+    return "Show this code at the service center";
+  };
+
+  // Success Modal Component
+  const SuccessModal = () => {
+    if (!showSuccessModal) return null;
+
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowSuccessModal(false)}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-t-2xl p-5">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">Success!</h2>
+                <p className="text-white/80 text-sm">Operation completed</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 text-center">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-10 h-10 text-green-600" />
+            </div>
+            <p className="text-[#01312D] font-semibold mb-2">
+              {successMessage}
+            </p>
+          </div>
+
+          <div className="border-t border-gray-100 p-5">
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              className="w-full bg-[#01312D] text-white py-2 rounded-xl font-semibold hover:bg-[#3A7717] transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Error Modal Component
+  const ErrorModal = () => {
+    if (!showErrorModal) return null;
+
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowErrorModal(false)}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-t-2xl p-5">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                <XCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">Error!</h2>
+                <p className="text-white/80 text-sm">Operation failed</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 text-center">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-10 h-10 text-red-600" />
+            </div>
+            <p className="text-[#01312D] font-semibold mb-2">{errorMessage}</p>
+          </div>
+
+          <div className="border-t border-gray-100 p-5">
+            <button
+              onClick={() => setShowErrorModal(false)}
+              className="w-full bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Complete Confirmation Modal
+  const CompleteConfirmModal = () => {
+    if (!showCompleteConfirmModal || !completingRequest) return null;
+
+    const TypeIcon = getTypeIcon(completingRequest.type);
+
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => !completeLoading && setShowCompleteConfirmModal(false)}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-t-2xl p-5">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">
+                  Confirm Completion
+                </h2>
+                <p className="text-white/80 text-sm">
+                  Mark request as completed
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 space-y-4">
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <TypeIcon className="w-4 h-4 text-[#3A7717]" />
+                <h3 className="font-semibold text-[#01312D]">
+                  Request Summary
+                </h3>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Driver:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {completingRequest.driverName}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Vehicle:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {completingRequest.carRegistration}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Service:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {getTypeLabel(completingRequest.type)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Amount:</span>
+                  <span className="font-bold text-[#3A7717] text-lg">
+                    ₹{completingRequest.amount?.toLocaleString()}
+                  </span>
+                </div>
+                {completingRequest.otp && (
+                  <div className="flex justify-between pt-2 border-t border-[#bff202]/20">
+                    <span className="text-gray-600">
+                      {getTransactionLabel(completingRequest.type)}:
+                    </span>
+                    <code className="font-mono font-bold text-[#01312D]">
+                      {completingRequest.otp}
+                    </code>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-blue-50 rounded-xl p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5" />
+                <div>
+                  <p className="text-xs text-blue-800">
+                    Are you sure you want to mark this request as completed?
+                  </p>
+                  <ul className="text-xs text-blue-700 mt-1 space-y-0.5 list-disc list-inside">
+                    <li>This action cannot be undone</li>
+                    <li>The request will be moved to completed tab</li>
+                    <li>Driver will be notified of completion</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-100 p-5 flex gap-3">
+            <button
+              onClick={() => {
+                setShowCompleteConfirmModal(false);
+                setCompletingRequest(null);
+              }}
+              disabled={completeLoading}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmComplete}
+              disabled={completeLoading}
+              className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72bf00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+            >
+              {completeLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Completing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  Confirm Complete
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // WhatsApp Modal Component
   const WhatsAppModal = () => {
     if (!approvedRequest) return null;
 
     const receiptRef = useRef<HTMLDivElement>(null);
     const [imageGenerating, setImageGenerating] = useState(false);
-    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [showDownloadSuccessModal, setShowDownloadSuccessModal] =
+      useState(false);
     const [downloadedImageUrl, setDownloadedImageUrl] = useState<string | null>(
       null,
     );
-    const [generatedImageBlob, setGeneratedImageBlob] = useState<Blob | null>(
-      null,
-    );
 
-    // Helper function to get the appropriate label based on service type
-    const getTransactionLabel = () => {
-      if (
-        approvedRequest?.type === "cash" ||
-        approvedRequest?.type === "airtime"
-      ) {
-        return "Transaction Number";
-      }
-      return "OTP Code";
-    };
-
-    const getInstructionText = () => {
-      if (approvedRequest?.type === "cash") {
-        return "This is your loan transaction number";
-      }
-      if (approvedRequest?.type === "airtime") {
-        return "This is your airtime transaction number";
-      }
-      return "Show this code at the service center";
-    };
-
-    // Get current date and time
-    const getCurrentDateTime = () => {
-      const now = new Date();
-      const options: Intl.DateTimeFormatOptions = {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true,
-      };
-      return now.toLocaleString("en-US", options);
-    };
-
-    const getCurrentDate = () => {
-      const now = new Date();
-      const options: Intl.DateTimeFormatOptions = {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      };
-      return now.toLocaleString("en-US", options);
-    };
-
-    const getCurrentTime = () => {
-      const now = new Date();
-      const options: Intl.DateTimeFormatOptions = {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true,
-      };
-      return now.toLocaleString("en-US", options);
-    };
+    const transactionLabel = getTransactionLabel(approvedRequest.type);
+    const instructionText = getInstructionText(approvedRequest.type);
+    const currentDate = getCurrentDate();
+    const currentTime = getCurrentTime();
 
     const generateImageBlob = async (): Promise<Blob | null> => {
       if (!receiptRef.current) return null;
@@ -449,10 +675,9 @@ export default function AdminServiceRequestsPage() {
       try {
         const blob = await generateImageBlob();
         if (blob) {
-          setGeneratedImageBlob(blob);
           const imageUrl = URL.createObjectURL(blob);
           setDownloadedImageUrl(imageUrl);
-          setShowSuccessModal(true);
+          setShowDownloadSuccessModal(true);
 
           const link = document.createElement("a");
           link.download = `DriveHub_Receipt_${approvedRequest.id.slice(-6)}.png`;
@@ -465,9 +690,10 @@ export default function AdminServiceRequestsPage() {
         }
       } catch (error) {
         console.error("Error generating image:", error);
-        alert(
-          "❌ Failed to generate receipt image: " + (error as Error).message,
+        setErrorMessage(
+          "Failed to generate receipt image: " + (error as Error).message,
         );
+        setShowErrorModal(true);
       } finally {
         setImageGenerating(false);
       }
@@ -476,23 +702,11 @@ export default function AdminServiceRequestsPage() {
     const handleSendImageViaWhatsApp = async () => {
       setWhatsappLoading(true);
       try {
-        let imageBlob = generatedImageBlob;
-        if (!imageBlob) {
-          imageBlob = await generateImageBlob();
-          if (imageBlob) {
-            setGeneratedImageBlob(imageBlob);
-          }
-        }
+        const blob = await generateImageBlob();
+        if (!blob) throw new Error("Failed to generate image");
 
-        if (!imageBlob) {
-          throw new Error("Failed to generate image");
-        }
-
-        const transactionLabel = getTransactionLabel();
         const finalOtp = approvedRequest.otp || generatedOtp;
         const currentDateTime = getCurrentDateTime();
-        const currentDate = getCurrentDate();
-        const currentTime = getCurrentTime();
 
         const caption = `*DriveHub - Service Request Approved* 🎉
 
@@ -518,7 +732,6 @@ ${
 • Interest Amount: ₹${approvedRequest.interest?.toLocaleString() || 0}
 • Total Repayable: ₹${approvedRequest.totalRepayable?.toLocaleString() || 0}
 • Period: ${approvedRequest.repaymentDays || 7} days
-• Daily Payment: ₹${Math.ceil((approvedRequest.totalRepayable || approvedRequest.amount) / (approvedRequest.repaymentDays || 7)).toLocaleString()}
 
 `
     : ""
@@ -533,7 +746,7 @@ Thank you for choosing DriveHub! 🚀
 
 *This is a system generated message. Valid for 30 minutes.*`;
 
-        const imageUrl = URL.createObjectURL(imageBlob);
+        const imageUrl = URL.createObjectURL(blob);
         const cleanPhone = approvedRequest.driverPhone.replace(/[^0-9]/g, "");
         let fullPhone = cleanPhone;
         if (!cleanPhone.startsWith("27") && cleanPhone.length === 9) {
@@ -558,27 +771,22 @@ Thank you for choosing DriveHub! 🚀
         }, 1500);
       } catch (error) {
         console.error("Error sending image via WhatsApp:", error);
-        alert(
-          "❌ Failed to send image. The receipt has been downloaded. You can manually attach it to your WhatsApp message.",
+        setErrorMessage(
+          "Failed to send image. The receipt has been downloaded. You can manually attach it to your WhatsApp message.",
         );
+        setShowErrorModal(true);
         setWhatsappLoading(false);
       }
     };
 
-    const handleCopyOtp = (otp: string) => {
-      navigator.clipboard.writeText(otp);
-      setCopiedOtp(otp);
-      setTimeout(() => setCopiedOtp(null), 2000);
-    };
-
     const DownloadSuccessModal = () => {
-      if (!showSuccessModal) return null;
+      if (!showDownloadSuccessModal) return null;
 
       return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setShowSuccessModal(false)}
+            onClick={() => setShowDownloadSuccessModal(false)}
           ></div>
           <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-t-2xl p-5">
@@ -603,8 +811,7 @@ Thank you for choosing DriveHub! 🚀
                 Receipt image generated!
               </p>
               <p className="text-gray-500 text-sm mb-4">
-                The receipt image has been saved to your device. You can now
-                share it via WhatsApp.
+                The receipt image has been saved to your device.
               </p>
 
               {downloadedImageUrl && (
@@ -620,12 +827,10 @@ Thank you for choosing DriveHub! 🚀
               )}
             </div>
 
-            <div className="border-t border-gray-100 p-5 flex gap-3">
+            <div className="border-t border-gray-100 p-5">
               <button
-                onClick={() => {
-                  setShowSuccessModal(false);
-                }}
-                className="flex-1 bg-[#01312D] text-white py-2 rounded-xl font-semibold hover:bg-[#3A7717] transition-colors"
+                onClick={() => setShowDownloadSuccessModal(false)}
+                className="w-full bg-[#01312D] text-white py-2 rounded-xl font-semibold hover:bg-[#3A7717] transition-colors"
               >
                 Close
               </button>
@@ -634,12 +839,6 @@ Thank you for choosing DriveHub! 🚀
         </div>
       );
     };
-
-    const transactionLabel = getTransactionLabel();
-    const instructionText = getInstructionText();
-    const currentDateTime = getCurrentDateTime();
-    const currentDate = getCurrentDate();
-    const currentTime = getCurrentTime();
 
     return (
       <>
@@ -667,7 +866,7 @@ Thank you for choosing DriveHub! 🚀
                 {!whatsappLoading && (
                   <button
                     onClick={() => setShowWhatsAppModal(false)}
-                    className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+                    className="p-1 hover:bg-white/10 rounded-lg"
                   >
                     <X className="w-5 h-5 text-white" />
                   </button>
@@ -676,7 +875,7 @@ Thank you for choosing DriveHub! 🚀
             </div>
 
             <div className="p-5 space-y-4">
-              {/* Hidden receipt for image generation - WITH ORANGE/WHITE STYLING, DATE & TIME */}
+              {/* Hidden receipt for image generation */}
               <div
                 ref={receiptRef}
                 style={{
@@ -693,7 +892,6 @@ Thank you for choosing DriveHub! 🚀
                   zIndex: -1,
                 }}
               >
-                {/* Header with DriveHub Logo */}
                 <div
                   style={{
                     textAlign: "center",
@@ -724,7 +922,6 @@ Thank you for choosing DriveHub! 🚀
                   </p>
                 </div>
 
-                {/* Orange/Yellow Gradient OTP/Transaction Number Box */}
                 <div style={{ marginBottom: "15px" }}>
                   <div
                     style={{
@@ -781,7 +978,6 @@ Thank you for choosing DriveHub! 🚀
                   </div>
                 </div>
 
-                {/* Request Details */}
                 <div style={{ marginBottom: "15px" }}>
                   <div
                     style={{
@@ -858,7 +1054,6 @@ Thank you for choosing DriveHub! 🚀
                       </strong>
                     </div>
 
-                    {/* Date and Time Section */}
                     <div
                       style={{
                         marginTop: "12px",
@@ -876,7 +1071,7 @@ Thank you for choosing DriveHub! 🚀
                       >
                         <span style={{ color: "#666" }}>📅 Date:</span>
                         <strong style={{ color: "#01312D" }}>
-                          {getCurrentDate()}
+                          {currentDate}
                         </strong>
                       </div>
                       <div
@@ -888,14 +1083,13 @@ Thank you for choosing DriveHub! 🚀
                       >
                         <span style={{ color: "#666" }}>⏰ Time:</span>
                         <strong style={{ color: "#01312D" }}>
-                          {getCurrentTime()}
+                          {currentTime}
                         </strong>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Cash Loan Additional Details */}
                 {approvedRequest.type === "cash" && (
                   <div style={{ marginBottom: "15px" }}>
                     <div
@@ -968,7 +1162,6 @@ Thank you for choosing DriveHub! 🚀
                   </div>
                 )}
 
-                {/* Footer */}
                 <div
                   style={{
                     background: "#bff20220",
@@ -989,7 +1182,7 @@ Thank you for choosing DriveHub! 🚀
                 </div>
               </div>
 
-              {/* Driver Info - Modal Display */}
+              {/* Driver Info */}
               <div className="bg-green-50 rounded-xl p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
@@ -1013,13 +1206,6 @@ Thank you for choosing DriveHub! 🚀
                     </span>
                   </p>
                   <p className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-green-600" />
-                    <span className="text-gray-600">Date & Time:</span>
-                    <span className="font-semibold text-xs">
-                      {currentDateTime}
-                    </span>
-                  </p>
-                  <p className="flex items-center gap-2">
                     <DollarSign className="w-4 h-4 text-green-600" />
                     <span className="text-gray-600">Amount:</span>
                     <span className="font-bold text-green-600">
@@ -1029,7 +1215,7 @@ Thank you for choosing DriveHub! 🚀
                 </div>
               </div>
 
-              {/* Prominent Transaction Number / OTP Display - Modal */}
+              {/* Prominent Display */}
               <div className="bg-gradient-to-r from-yellow-400 to-orange-400 rounded-xl p-5 text-center">
                 <p className="text-white text-sm font-semibold mb-2">
                   🔐 {transactionLabel}
@@ -1043,14 +1229,13 @@ Thank you for choosing DriveHub! 🚀
                   onClick={() =>
                     handleCopyOtp(approvedRequest.otp || generatedOtp)
                   }
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-white font-semibold hover:bg-white/30 transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-white font-semibold hover:bg-white/30"
                 >
-                  <Copy className="w-4 h-4" />
-                  Copy {transactionLabel}
+                  <Copy className="w-4 h-4" /> Copy {transactionLabel}
                 </button>
               </div>
 
-              {/* Date & Time Display in Modal */}
+              {/* Date & Time */}
               <div className="bg-gray-50 rounded-xl p-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1058,7 +1243,7 @@ Thank you for choosing DriveHub! 🚀
                     <span className="text-xs text-gray-600">Generated on:</span>
                   </div>
                   <span className="text-xs font-semibold text-[#01312D]">
-                    {currentDateTime}
+                    {getCurrentDateTime()}
                   </span>
                 </div>
               </div>
@@ -1092,13 +1277,11 @@ Thank you for choosing DriveHub! 🚀
               >
                 {imageGenerating ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Generating...
+                    <Loader2 className="w-4 h-4 animate-spin" /> Generating...
                   </>
                 ) : (
                   <>
-                    <ImageIcon className="w-4 h-4" />
-                    Generate Receipt
+                    <ImageIcon className="w-4 h-4" /> Generate Receipt
                   </>
                 )}
               </button>
@@ -1109,31 +1292,29 @@ Thank you for choosing DriveHub! 🚀
               >
                 {whatsappLoading ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Preparing...
+                    <Loader2 className="w-4 h-4 animate-spin" /> Preparing...
                   </>
                 ) : (
                   <>
-                    <ImageIcon className="w-4 h-4" />
-                    Send Image via WhatsApp
+                    <MessageCircle className="w-4 h-4" /> Send Image via
+                    WhatsApp
                   </>
                 )}
               </button>
             </div>
           </div>
         </div>
-
-        {/* Success Modal */}
         <DownloadSuccessModal />
       </>
     );
   };
 
-  // Approval Modal Component (First Step)
+  // Approval Modal Component
   const ApprovalModal = () => {
     if (!approvingRequest) return null;
 
     const TypeIcon = getTypeIcon(approvingRequest.type);
+    const transactionLabel = getTransactionLabel(approvingRequest.type);
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1160,7 +1341,7 @@ Thank you for choosing DriveHub! 🚀
               {!approvalLoading && (
                 <button
                   onClick={() => setShowApproveModal(false)}
-                  className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+                  className="p-1 hover:bg-white/10 rounded-lg"
                 >
                   <X className="w-5 h-5 text-white" />
                 </button>
@@ -1169,7 +1350,6 @@ Thank you for choosing DriveHub! 🚀
           </div>
 
           <div className="p-5 space-y-4">
-            {/* Request Summary */}
             <div className="bg-[#eafde7] rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <TypeIcon className="w-4 h-4 text-[#3A7717]" />
@@ -1180,19 +1360,19 @@ Thank you for choosing DriveHub! 🚀
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Driver:</span>
-                  <span className="font-semibold text-[#01312D]">
+                  <span className="font-semibold">
                     {approvingRequest.driverName}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Vehicle:</span>
-                  <span className="font-semibold text-[#01312D]">
+                  <span className="font-semibold">
                     {approvingRequest.carRegistration}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Service:</span>
-                  <span className="font-semibold text-[#01312D]">
+                  <span className="font-semibold">
                     {getTypeLabel(approvingRequest.type)}
                   </span>
                 </div>
@@ -1202,50 +1382,20 @@ Thank you for choosing DriveHub! 🚀
                     ₹{approvingRequest.amount?.toLocaleString()}
                   </span>
                 </div>
-                {approvingRequest.type === "cash" && (
-                  <>
-                    <div className="flex justify-between pt-2 border-t border-[#bff202]/20">
-                      <span className="text-gray-600">Interest Rate:</span>
-                      <span className="font-semibold text-[#01312D]">
-                        {approvingRequest.interestRate || 13}%
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Interest Amount:</span>
-                      <span className="font-semibold text-[#01312D]">
-                        ₹{approvingRequest.interest?.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Total Repayable:</span>
-                      <span className="font-bold text-[#01312D]">
-                        ₹{approvingRequest.totalRepayable?.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Repayment Period:</span>
-                      <span className="font-semibold text-[#01312D]">
-                        {approvingRequest.repaymentDays} days
-                      </span>
-                    </div>
-                  </>
-                )}
               </div>
             </div>
 
-            {/* OTP Section */}
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
               <label className="block text-yellow-800 font-semibold mb-2 text-sm">
-                🔐 One-Time Password (OTP)
+                🔐 {transactionLabel}
               </label>
               <div className="flex items-center gap-3">
-                <code className="flex-1 bg-white px-4 py-3 rounded-xl font-mono text-2xl font-bold text-center tracking-wider text-[#01312D] border border-yellow-300">
+                <code className="flex-1 bg-white px-4 py-3 rounded-xl font-mono text-2xl font-bold text-center text-[#01312D] border border-yellow-300">
                   {generatedOtp}
                 </code>
                 <button
                   onClick={() => handleCopyOtp(generatedOtp)}
-                  className="p-3 bg-white rounded-xl border border-yellow-300 hover:bg-yellow-100 transition-colors"
-                  title="Copy OTP"
+                  className="p-3 bg-white rounded-xl border border-yellow-300 hover:bg-yellow-100"
                 >
                   {copiedOtp === generatedOtp ? (
                     <Check className="w-5 h-5 text-green-600" />
@@ -1254,52 +1404,29 @@ Thank you for choosing DriveHub! 🚀
                   )}
                 </button>
               </div>
-              <p className="text-xs text-yellow-700 mt-2">
-                This OTP will be required for service fulfillment
-              </p>
-            </div>
-
-            {/* Confirmation Note */}
-            <div className="bg-blue-50 rounded-xl p-3">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5" />
-                <div>
-                  <p className="text-xs text-blue-800">
-                    Approving this request will:
-                  </p>
-                  <ul className="text-xs text-blue-700 mt-1 space-y-0.5 list-disc list-inside">
-                    <li>Generate the OTP shown above</li>
-                    <li>Mark the request as "Approved"</li>
-                    <li>Allow driver to use the OTP for service</li>
-                    <li>You can send the OTP via WhatsApp after approval</li>
-                  </ul>
-                </div>
-              </div>
             </div>
           </div>
 
-          <div className="border-t border-[#bff202]/20 p-5 flex gap-3">
+          <div className="border-t p-5 flex gap-3">
             <button
               onClick={() => setShowApproveModal(false)}
               disabled={approvalLoading}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700"
             >
               Cancel
             </button>
             <button
               onClick={handleConfirmApprove}
               disabled={approvalLoading}
-              className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72bf00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+              className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72bf00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
             >
               {approvalLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Approving...
+                  <Loader2 className="w-4 h-4 animate-spin" /> Approving...
                 </>
               ) : (
                 <>
-                  <CheckCircle className="w-4 h-4" />
-                  Confirm Approval
+                  <CheckCircle className="w-4 h-4" /> Confirm Approval
                 </>
               )}
             </button>
@@ -1317,6 +1444,7 @@ Thank you for choosing DriveHub! 🚀
     onClose: () => void;
   }) => {
     const TypeIcon = getTypeIcon(request.type);
+    const transactionLabel = getTransactionLabel(request.type);
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1350,60 +1478,41 @@ Thank you for choosing DriveHub! 🚀
           </div>
 
           <div className="p-5 space-y-5">
-            {/* Driver Info */}
             <div className="bg-[#eafde7] rounded-xl p-4">
               <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
-                <User className="w-4 h-4 text-[#3A7717]" />
-                Driver Information
+                <User className="w-4 h-4 text-[#3A7717]" /> Driver Information
               </h3>
               <div className="space-y-2 text-sm">
                 <p>
                   <span className="text-gray-500">Name:</span>{" "}
-                  <span className="font-semibold text-[#01312D]">
+                  <span className="font-semibold">
                     {request.driverName || "N/A"}
                   </span>
                 </p>
                 <p>
                   <span className="text-gray-500">Email:</span>{" "}
-                  <span className="font-semibold text-[#01312D]">
+                  <span className="font-semibold">
                     {request.driverEmail || "N/A"}
                   </span>
                 </p>
                 <p>
                   <span className="text-gray-500">Phone:</span>{" "}
-                  <span className="font-semibold text-[#01312D]">
+                  <span className="font-semibold">
                     {request.driverPhone || "N/A"}
                   </span>
                 </p>
                 <p>
                   <span className="text-gray-500">Car Registration:</span>{" "}
-                  <span className="font-semibold text-[#01312D]">
+                  <span className="font-semibold">
                     {request.carRegistration || "N/A"}
                   </span>
                 </p>
-                {request.carModel && (
-                  <p>
-                    <span className="text-gray-500">Car Model:</span>{" "}
-                    <span className="font-semibold text-[#01312D]">
-                      {request.carModel}
-                    </span>
-                  </p>
-                )}
-                {request.location && request.location !== "Not provided" && (
-                  <p>
-                    <span className="text-gray-500">Location:</span>{" "}
-                    <span className="font-semibold text-[#01312D]">
-                      {request.location}
-                    </span>
-                  </p>
-                )}
               </div>
             </div>
-            {/* Request Details */}
+
             <div className="bg-[#eafde7] rounded-xl p-4">
               <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#3A7717]" />
-                Request Details
+                <Calendar className="w-4 h-4 text-[#3A7717]" /> Request Details
               </h3>
               <div className="space-y-2 text-sm">
                 <p>
@@ -1414,59 +1523,21 @@ Thank you for choosing DriveHub! 🚀
                   <span className="text-gray-500">Amount:</span> ₹
                   {request.amount?.toLocaleString()}
                 </p>
-                {request.fuelType && (
-                  <p>
-                    <span className="text-gray-500">Fuel Type:</span>{" "}
-                    {request.fuelType}
-                  </p>
-                )}
-                {request.phoneNumber && (
-                  <p>
-                    <span className="text-gray-500">Mobile Number:</span>{" "}
-                    {request.phoneNumber}
-                  </p>
-                )}
-                {request.type === "cash" && (
-                  <>
-                    <p>
-                      <span className="text-gray-500">Interest Rate:</span>{" "}
-                      {request.interestRate || 13}%
-                    </p>
-                    <p>
-                      <span className="text-gray-500">Interest Amount:</span> ₹
-                      {request.interest?.toLocaleString()}
-                    </p>
-                    <p>
-                      <span className="text-gray-500">Total Repayable:</span> ₹
-                      {request.totalRepayable?.toLocaleString()}
-                    </p>
-                    <p>
-                      <span className="text-gray-500">Repayment Period:</span>{" "}
-                      {request.repaymentDays} days
-                    </p>
-                  </>
-                )}
                 <p>
                   <span className="text-gray-500">Request Date:</span>{" "}
                   {new Date(request.requestDate).toLocaleString()}
                 </p>
-                {request.approvedDate && (
-                  <p>
-                    <span className="text-gray-500">Approved Date:</span>{" "}
-                    {new Date(request.approvedDate).toLocaleString()}
-                  </p>
-                )}
                 {request.otp && (
                   <div className="mt-2 pt-2 border-t border-[#bff202]/20">
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-500">OTP:</span>
+                      <span className="text-gray-500">{transactionLabel}:</span>
                       <div className="flex items-center gap-2">
-                        <code className="bg-white px-3 py-1 rounded-lg font-mono text-lg font-bold text-[#01312D]">
+                        <code className="bg-white px-3 py-1 rounded-lg font-mono text-lg font-bold">
                           {request.otp}
                         </code>
                         <button
                           onClick={() => handleCopyOtp(request.otp!)}
-                          className="p-1.5 bg-[#eafde7] rounded-lg hover:bg-[#bff202]/30 transition-colors"
+                          className="p-1.5 bg-[#eafde7] rounded-lg hover:bg-[#bff202]/30"
                         >
                           {copiedOtp === request.otp ? (
                             <Check className="w-4 h-4 text-[#3A7717]" />
@@ -1489,15 +1560,13 @@ Thank you for choosing DriveHub! 🚀
                   onClick={() => openApproveModal(request)}
                   className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
                 >
-                  <CheckCircle className="w-4 h-4" />
-                  Approve Request
+                  <CheckCircle className="w-4 h-4" /> Approve Request
                 </button>
                 <button
                   onClick={() => handleReject(request)}
                   className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
                 >
-                  <XCircle className="w-4 h-4" />
-                  Reject
+                  <XCircle className="w-4 h-4" /> Reject
                 </button>
               </>
             )}
@@ -1510,15 +1579,13 @@ Thank you for choosing DriveHub! 🚀
                   }}
                   className="flex-1 bg-[#25D366] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
                 >
-                  <Send className="w-4 h-4" />
-                  Send WhatsApp
+                  <Send className="w-4 h-4" /> Send WhatsApp
                 </button>
                 <button
                   onClick={() => handleComplete(request)}
                   className="flex-1 bg-[#01312D] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
                 >
-                  <CheckCircle className="w-4 h-4" />
-                  Mark Completed
+                  <CheckCircle className="w-4 h-4" /> Mark Completed
                 </button>
               </>
             )}
@@ -1549,7 +1616,6 @@ Thank you for choosing DriveHub! 🚀
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-[#01312D]">
@@ -1562,16 +1628,15 @@ Thank you for choosing DriveHub! 🚀
         <button
           onClick={handleRefresh}
           disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all"
+          className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30"
         >
           <RefreshCw
             className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
-          />
+          />{" "}
           Refresh
         </button>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <div className="bg-white rounded-xl p-3 shadow-sm border border-[#bff202]/20">
           <p className="text-xs text-gray-500">Total</p>
@@ -1597,7 +1662,6 @@ Thank you for choosing DriveHub! 🚀
         </div>
       </div>
 
-      {/* Search and Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -1622,7 +1686,6 @@ Thank you for choosing DriveHub! 🚀
         </select>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-2 border-b border-[#bff202]/20 overflow-x-auto pb-0">
         {["all", "pending", "approved", "completed", "rejected"].map((tab) => (
           <button
@@ -1650,7 +1713,6 @@ Thank you for choosing DriveHub! 🚀
         ))}
       </div>
 
-      {/* Requests List */}
       <div className="space-y-3">
         {filteredRequests.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-2xl border border-[#bff202]/20">
@@ -1707,8 +1769,7 @@ Thank you for choosing DriveHub! 🚀
                     }}
                     className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-sm font-semibold flex items-center justify-center gap-2"
                   >
-                    <Eye className="w-4 h-4" />
-                    View Details
+                    <Eye className="w-4 h-4" /> View Details
                   </button>
                   {request.status === "pending" && (
                     <>
@@ -1716,15 +1777,13 @@ Thank you for choosing DriveHub! 🚀
                         onClick={() => openApproveModal(request)}
                         className="flex-1 py-2 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2"
                       >
-                        <CheckCircle className="w-4 h-4" />
-                        Approve
+                        <CheckCircle className="w-4 h-4" /> Approve
                       </button>
                       <button
                         onClick={() => handleReject(request)}
                         className="flex-1 py-2 bg-red-500 text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2"
                       >
-                        <XCircle className="w-4 h-4" />
-                        Reject
+                        <XCircle className="w-4 h-4" /> Reject
                       </button>
                     </>
                   )}
@@ -1737,15 +1796,13 @@ Thank you for choosing DriveHub! 🚀
                         }}
                         className="flex-1 py-2 bg-[#25D366] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2"
                       >
-                        <Send className="w-4 h-4" />
-                        WhatsApp
+                        <Send className="w-4 h-4" /> WhatsApp
                       </button>
                       <button
                         onClick={() => handleComplete(request)}
                         className="flex-1 py-2 bg-[#01312D] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2"
                       >
-                        <CheckCircle className="w-4 h-4" />
-                        Complete
+                        <CheckCircle className="w-4 h-4" /> Complete
                       </button>
                     </>
                   )}
@@ -1765,6 +1822,9 @@ Thank you for choosing DriveHub! 🚀
       )}
       {showApproveModal && <ApprovalModal />}
       {showWhatsAppModal && approvedRequest && <WhatsAppModal />}
+      {showCompleteConfirmModal && <CompleteConfirmModal />}
+      <SuccessModal />
+      <ErrorModal />
     </div>
   );
 }
