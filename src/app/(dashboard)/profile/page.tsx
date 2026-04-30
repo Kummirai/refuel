@@ -257,7 +257,7 @@ export default function ProfilePage() {
                 <img
                   src={profilePhotoUrl}
                   alt="Profile"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover object-top"
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-[#01312D] to-[#3A7717] rounded-full flex items-center justify-center">

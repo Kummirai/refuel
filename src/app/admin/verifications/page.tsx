@@ -106,7 +106,9 @@ export default function VerificationsPage() {
 
     setFetchingProfile(true);
     try {
-      const response = await fetch(`/api/admin/drivers/profile?userId=${userId}`);
+      const response = await fetch(
+        `/api/admin/drivers/profile?userId=${userId}`,
+      );
       if (response.ok) {
         const data = await response.json();
         return data.profile;
@@ -157,13 +159,15 @@ export default function VerificationsPage() {
   const handleConfirmApprove = async () => {
     if (!selectedForAction) return;
 
+    console.log(selectedForAction);
+
     setApproving(true);
     try {
       const response = await fetch("/api/admin/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          verificationId: selectedForAction.userId,
+          verificationId: selectedForAction.id,
           action: "approve",
         }),
       });
@@ -171,7 +175,7 @@ export default function VerificationsPage() {
       const data = await response.json();
 
       if (response.ok) {
-        alert(`✅ Approved ${selectedForAction.name}'s verification`);
+        // alert(`✅ Approved ${selectedForAction.name}'s verification`);
         fetchVerifications();
         setShowApproveModal(false);
         setSelectedForAction(null);
@@ -519,7 +523,7 @@ export default function VerificationsPage() {
                 <img
                   src={driver.profilePhotoUrl}
                   alt={driver.name}
-                  className="w-12 h-12 rounded-full object-cover border-2 border-[#72bf00]"
+                  className="w-12 h-12 rounded-full object-cover object-top border-2 border-[#72bf00]"
                 />
               ) : (
                 <div className="w-12 h-12 bg-[#eafde7] rounded-full flex items-center justify-center">
