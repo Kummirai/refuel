@@ -979,17 +979,7 @@ export default function AdminServiceRequestsPage() {
             </div>
           </div>
 
-          <div className="border-t border-gray-100 p-5 flex gap-3">
-            <button
-              onClick={() => {
-                setShowCompleteConfirmModal(false);
-                setCompletingRequest(null);
-              }}
-              disabled={completeLoading}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              Cancel
-            </button>
+          <div className="border-t border-gray-100 p-5 grid gap-3">
             <button
               onClick={handleConfirmComplete}
               disabled={completeLoading}
@@ -1006,6 +996,16 @@ export default function AdminServiceRequestsPage() {
                   Confirm Complete
                 </>
               )}
+            </button>
+            <button
+              onClick={() => {
+                setShowCompleteConfirmModal(false);
+                setCompletingRequest(null);
+              }}
+              disabled={completeLoading}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              Cancel
             </button>
           </div>
         </div>
