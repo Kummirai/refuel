@@ -125,86 +125,32 @@ export default function AdminLayout({
   ];
 
   return (
-    <div className="min-h-screen bg-[#eafde7]">
-      {/* Mobile Menu Button */}
-      <button
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-[#01312D] rounded-lg text-white"
-      >
-        {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-      </button>
-
-      {/* Sidebar */}
-      <aside
-        className={`fixed top-0 left-0 h-full w-64 bg-[#01312D] z-40 transform transition-transform duration-300 ease-in-out ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        }`}
-      >
-        <div className="p-5">
-          {/* Logo */}
-          <div className="flex items-center gap-2 mb-8 pt-10 lg:pt-5">
-            <div className="w-10 h-10 bg-[#bff202] rounded-xl flex items-center justify-center">
-              <Shield className="w-5 h-5 text-[#01312D]" />
-            </div>
-            <div>
-              <h1 className="text-white font-bold text-xl">
-                Fuel<span className="text-[#bff202]">eX</span>
-              </h1>
-              <p className="text-[#72bf00] text-xs">Admin Panel</p>
-            </div>
-          </div>
-
-          {/* Navigation */}
-          <nav className="space-y-2">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.path}
-                  onClick={() => {
-                    router.push(item.path);
-                    setSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                    item.active
-                      ? "bg-[#bff202] text-[#01312D]"
-                      : "text-white/70 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* Logout Button */}
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-red-500/20 hover:text-red-500 transition-all mt-8"
-          >
-            <LogOut className="w-5 h-5" />
-            <span className="font-medium">Logout</span>
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <div className="lg:ml-64">
+    <div className="min-h-screen bg-[#eafde7] flex items-center justify-center relative overflow-hidden">
+      {/* Mobile Container - Max width 430px */}
+      <div className="relative w-full max-w-[430px] min-h-screen bg-[#eafde7] shadow-2xl">
         {/* Top Bar */}
-        <header className="bg-white border-b border-[#bff202]/20 sticky top-0 z-30">
-          <div className="px-6 py-4 flex justify-between items-center">
-            <h2 className="text-xl font-bold text-[#01312D] hidden lg:block">
+        <header className="bg-white border-b border-[#bff202]/20 sticky top-0 z-20">
+          <div className="px-5 py-4 flex justify-between items-center">
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 bg-[#01312D] rounded-lg text-white"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            <h2 className="text-xl font-bold text-[#01312D]">
               {navItems.find((i) => i.active)?.label || "Dashboard"}
             </h2>
-            <div className="flex items-center gap-4 ml-auto">
+
+            <div className="flex items-center gap-3">
               <button className="relative">
                 <Bell className="w-5 h-5 text-[#3A7717]" />
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
                   3
                 </span>
               </button>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-[#eafde7] rounded-full flex items-center justify-center">
                   <span className="text-[#01312D] font-bold">
                     {user?.name?.charAt(0) || "A"}
@@ -221,8 +167,92 @@ export default function AdminLayout({
           </div>
         </header>
 
+        {/* Sidebar Overlay */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* Sidebar Panel - Positioned relative to mobile container */}
+        <div
+          className={`fixed top-0 left-1/2 transform -translate-x-1/2 h-full w-full max-w-[430px] bg-[#01312D] z-50 transition-transform duration-300 ease-in-out shadow-xl ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+          style={{
+            left: sidebarOpen ? "50%" : "calc(50% - 215px)",
+            transform: "translateX(-50%)",
+          }}
+        >
+          <div className="h-full flex flex-col">
+            {/* Header with Close Button */}
+            <div className="p-5 border-b border-white/10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 bg-[#bff202] rounded-xl flex items-center justify-center">
+                    <Shield className="w-5 h-5 text-[#01312D]" />
+                  </div>
+                  <div>
+                    <h1 className="text-white font-bold text-xl">
+                      Fuel<span className="text-[#bff202]">eX</span>
+                    </h1>
+                    <p className="text-[#72bf00] text-xs">Admin Panel</p>
+                  </div>
+                </div>
+
+                {/* Close button */}
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="p-2 text-white/70 hover:text-white rounded-lg hover:bg-white/10"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Navigation */}
+            <nav className="flex-1 p-5 space-y-2 overflow-y-auto">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.path}
+                    onClick={() => {
+                      router.push(item.path);
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                      item.active
+                        ? "bg-[#bff202] text-[#01312D]"
+                        : "text-white/70 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="font-medium">{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* Logout Button */}
+            <div className="p-5 border-t border-white/10">
+              <button
+                onClick={() => {
+                  handleLogout();
+                  setSidebarOpen(false);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-red-500/20 hover:text-red-500 transition-all"
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="font-medium">Logout</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Page Content */}
-        <main className="p-6">{children}</main>
+        <main className="p-5 pb-24">{children}</main>
       </div>
     </div>
   );

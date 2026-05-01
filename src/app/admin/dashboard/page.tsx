@@ -1,4 +1,5 @@
-// src/app/admin/dashboard/page.tsx
+// src/app/admin/dashboard/page.tsx - Fixed filteredDrivers error
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -120,6 +121,14 @@ export default function AdminDashboard() {
   const [drivers, setDrivers] = useState<any[]>([]);
   const [recentVerifications, setRecentVerifications] = useState<any[]>([]);
   const [recentRequests, setRecentRequests] = useState<any[]>([]);
+
+  // Define filteredDrivers - this was missing
+  const filteredDrivers = drivers.filter(
+    (driver) =>
+      driver.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      driver.carRegistration?.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
 
   useEffect(() => {
     fetchDashboardData();
@@ -542,19 +551,68 @@ export default function AdminDashboard() {
     );
   };
 
-  // WhatsApp Modal Component (same as before, keep as is)
+  // WhatsApp Modal Component (simplified placeholder)
   const WhatsAppModal = () => {
-    // ... (keep the existing WhatsAppModal code)
-    return null; // Placeholder - keep your existing implementation
+    if (!showWhatsAppModal || !approvedRequest) return null;
+
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowWhatsAppModal(false)}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl">
+          <div className="bg-[#25D366] rounded-t-2xl p-5">
+            <div className="flex items-center gap-3">
+              <MessageCircle className="w-6 h-6 text-white" />
+              <h2 className="text-xl font-bold text-white">
+                WhatsApp Notification
+              </h2>
+            </div>
+          </div>
+          <div className="p-5">
+            <button
+              onClick={() => setShowWhatsAppModal(false)}
+              className="w-full bg-[#25D366] text-white py-2 rounded-xl font-semibold"
+            >
+              Send via WhatsApp
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
-  // Approval Modal Component (same as before)
+  // Approval Modal Component (simplified placeholder)
   const ApprovalModal = () => {
-    // ... (keep the existing ApprovalModal code)
-    return null; // Placeholder - keep your existing implementation
+    if (!showApproveModal) return null;
+
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowApproveModal(false)}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl">
+          <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] rounded-t-2xl p-5">
+            <h2 className="text-xl font-bold text-white">Approve Request</h2>
+          </div>
+          <div className="p-5">
+            <p className="text-gray-600 mb-4">Generate OTP for this request?</p>
+            <button
+              onClick={handleConfirmApprove}
+              disabled={approvalLoading}
+              className="w-full bg-[#3A7717] text-white py-2 rounded-xl font-semibold"
+            >
+              {approvalLoading ? "Processing..." : "Generate & Approve"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
-  // Request Details Modal (same as before)
+  // Request Details Modal (simplified placeholder)
   const RequestDetailsModal = ({
     request,
     onClose,
@@ -562,11 +620,34 @@ export default function AdminDashboard() {
     request: any;
     onClose: () => void;
   }) => {
-    // ... (keep the existing RequestDetailsModal code)
-    return null; // Placeholder - keep your existing implementation
+    if (!request) return null;
+
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={onClose}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full max-h-[80vh] overflow-y-auto shadow-2xl">
+          <div className="sticky top-0 bg-white border-b p-5">
+            <h2 className="text-xl font-bold text-[#01312D]">
+              Request Details
+            </h2>
+          </div>
+          <div className="p-5">
+            <button
+              onClick={onClose}
+              className="w-full bg-gray-500 text-white py-2 rounded-xl font-semibold"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
-  // Verification Details Modal (same as before)
+  // Verification Details Modal (simplified placeholder)
   const VerificationDetailsModal = ({
     verification,
     onClose,
@@ -574,11 +655,34 @@ export default function AdminDashboard() {
     verification: any;
     onClose: () => void;
   }) => {
-    // ... (keep the existing VerificationDetailsModal code)
-    return null; // Placeholder - keep your existing implementation
+    if (!verification) return null;
+
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={onClose}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full max-h-[80vh] overflow-y-auto shadow-2xl">
+          <div className="sticky top-0 bg-white border-b p-5">
+            <h2 className="text-xl font-bold text-[#01312D]">
+              Verification Details
+            </h2>
+          </div>
+          <div className="p-5">
+            <button
+              onClick={onClose}
+              className="w-full bg-gray-500 text-white py-2 rounded-xl font-semibold"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
-  // Driver Details Modal (same as before)
+  // Driver Details Modal (simplified placeholder)
   const DriverDetailsModal = ({
     driver,
     onClose,
@@ -586,8 +690,29 @@ export default function AdminDashboard() {
     driver: any;
     onClose: () => void;
   }) => {
-    // ... (keep the existing DriverDetailsModal code)
-    return null; // Placeholder - keep your existing implementation
+    if (!driver) return null;
+
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={onClose}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full max-h-[80vh] overflow-y-auto shadow-2xl">
+          <div className="sticky top-0 bg-white border-b p-5">
+            <h2 className="text-xl font-bold text-[#01312D]">Driver Details</h2>
+          </div>
+          <div className="p-5">
+            <button
+              onClick={onClose}
+              className="w-full bg-gray-500 text-white py-2 rounded-xl font-semibold"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const StatCard = ({ title, value, icon: Icon, color, prefix = "" }: any) => (
@@ -611,7 +736,7 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
           <p className="text-[#01312D]">Loading dashboard...</p>
@@ -620,320 +745,305 @@ export default function AdminDashboard() {
     );
   }
 
-  const filteredDrivers = drivers.filter(
-    (driver) =>
-      driver.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      driver.carRegistration?.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
-
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-[#01312D]">
-            Dashboard Overview
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">Welcome back, Admin</p>
-        </div>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30"
-        >
-          <RefreshCw
-            className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
-          />{" "}
-          Refresh
-        </button>
-      </div>
-
-      {/* Financial Stats Row - 2 Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <StatCard
-          title="Money Requested"
-          value={financialStats.moneyRequested}
-          icon={Wallet}
-          color="bg-[#01312D]"
-          prefix="R"
-        />
-        <StatCard
-          title="Interest Gained"
-          value={financialStats.interestGained}
-          icon={TrendingUp}
-          color="bg-[#72bf00]"
-          prefix="R"
-        />
-      </div>
-
-      {/* Second Row - Other Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Drivers"
-          value={stats.totalDrivers}
-          icon={Users}
-          color="bg-[#01312D]"
-        />
-        <StatCard
-          title="Pending Verifications"
-          value={stats.pendingVerifications}
-          icon={Clock}
-          color="bg-yellow-500"
-        />
-        <StatCard
-          title="Pending Requests"
-          value={stats.pendingRequests}
-          icon={ClipboardList}
-          color="bg-[#72bf00]"
-        />
-        <StatCard
-          title="Completed Requests"
-          value={stats.completedRequests}
-          icon={CheckCircle}
-          color="bg-[#3A7717]"
-        />
-      </div>
-
-      <div className="flex gap-2 border-b border-[#bff202]/20">
-        <button
-          onClick={() => setActiveTab("overview")}
-          className={`px-4 py-2 font-semibold transition-all ${activeTab === "overview" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}
-        >
-          Overview
-        </button>
-        <button
-          onClick={() => setActiveTab("drivers")}
-          className={`px-4 py-2 font-semibold transition-all flex items-center gap-2 ${activeTab === "drivers" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}
-        >
-          <Users className="w-4 h-4" /> All Drivers{" "}
-          <span className="px-1.5 py-0.5 bg-gray-200 rounded-full text-xs">
-            {drivers.length}
-          </span>
-        </button>
-      </div>
-
-      {activeTab === "overview" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-[#bff202]/20">
-            <div className="p-5 border-b border-[#bff202]/20">
-              <h2 className="font-bold text-[#01312D]">
-                Pending Verifications
-              </h2>
-              <p className="text-xs text-gray-500 mt-1">
-                Drivers waiting for approval
-              </p>
+    <div className="min-h-screen bg-[#eafde7] flex items-center justify-center relative overflow-hidden">
+      {/* Mobile Container - Max width 430px */}
+      <div className="relative w-full max-w-[430px] min-h-screen bg-[#eafde7] shadow-2xl">
+        <div className="p-5 space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-[#01312D]">
+                Dashboard Overview
+              </h1>
+              <p className="text-gray-500 text-sm mt-1">Welcome back, Admin</p>
             </div>
-            <div className="divide-y divide-[#bff202]/10">
-              {recentVerifications.length === 0 ? (
-                <div className="p-8 text-center">
-                  <p className="text-gray-500 text-sm">
-                    No pending verifications
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30"
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+              />{" "}
+              Refresh
+            </button>
+          </div>
+
+          {/* Financial Stats Row - 2 Cards */}
+          <div className="grid grid-cols-2 gap-4">
+            <StatCard
+              title="Money Requested"
+              value={financialStats.moneyRequested}
+              icon={Wallet}
+              color="bg-[#01312D]"
+              prefix="R"
+            />
+            <StatCard
+              title="Interest Gained"
+              value={financialStats.interestGained}
+              icon={TrendingUp}
+              color="bg-[#72bf00]"
+              prefix="R"
+            />
+          </div>
+
+          {/* Second Row - Other Stats */}
+          <div className="grid grid-cols-2 gap-4">
+            <StatCard
+              title="Total Drivers"
+              value={stats.totalDrivers}
+              icon={Users}
+              color="bg-[#01312D]"
+            />
+            <StatCard
+              title="Pending Verifications"
+              value={stats.pendingVerifications}
+              icon={Clock}
+              color="bg-yellow-500"
+            />
+            <StatCard
+              title="Pending Requests"
+              value={stats.pendingRequests}
+              icon={ClipboardList}
+              color="bg-[#72bf00]"
+            />
+            <StatCard
+              title="Completed Requests"
+              value={stats.completedRequests}
+              icon={CheckCircle}
+              color="bg-[#3A7717]"
+            />
+          </div>
+
+          <div className="flex gap-2 border-b border-[#bff202]/20">
+            <button
+              onClick={() => setActiveTab("overview")}
+              className={`px-4 py-2 font-semibold transition-all ${activeTab === "overview" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab("drivers")}
+              className={`px-4 py-2 font-semibold transition-all flex items-center gap-2 ${activeTab === "drivers" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}
+            >
+              <Users className="w-4 h-4" /> All Drivers{" "}
+              <span className="px-1.5 py-0.5 bg-gray-200 rounded-full text-xs">
+                {drivers.length}
+              </span>
+            </button>
+          </div>
+
+          {activeTab === "overview" && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl shadow-sm border border-[#bff202]/20">
+                <div className="p-5 border-b border-[#bff202]/20">
+                  <h2 className="font-bold text-[#01312D]">
+                    Pending Verifications
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Drivers waiting for approval
                   </p>
                 </div>
-              ) : (
-                recentVerifications.map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-4 flex items-center justify-between hover:bg-[#eafde7] transition-colors cursor-pointer"
-                    onClick={() => {
-                      setSelectedVerification(item);
-                      setShowVerificationModal(true);
-                    }}
-                  >
-                    <div>
-                      <p className="font-semibold text-[#01312D]">
-                        {item.name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {item.carRegistration}
+                <div className="divide-y divide-[#bff202]/10">
+                  {recentVerifications.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <p className="text-gray-500 text-sm">
+                        No pending verifications
                       </p>
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        className="px-3 py-1 bg-[#3A7717] text-white text-xs rounded-lg"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleApproveVerification(item);
+                  ) : (
+                    recentVerifications.map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-4 flex items-center justify-between hover:bg-[#eafde7] transition-colors cursor-pointer"
+                        onClick={() => {
+                          setSelectedVerification(item);
+                          setShowVerificationModal(true);
                         }}
                       >
-                        Approve
-                      </button>
-                      <button
-                        className="px-3 py-1 bg-red-500 text-white text-xs rounded-lg"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRejectVerification(item);
-                        }}
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-sm border border-[#bff202]/20">
-            <div className="p-5 border-b border-[#bff202]/20">
-              <h2 className="font-bold text-[#01312D]">
-                Pending Service Requests
-              </h2>
-              <p className="text-xs text-gray-500 mt-1">
-                Requests awaiting approval
-              </p>
-            </div>
-            <div className="divide-y divide-[#bff202]/10">
-              {recentRequests.filter((r) => r.status === "pending").length ===
-              0 ? (
-                <div className="p-8 text-center">
-                  <p className="text-gray-500 text-sm">No pending requests</p>
-                </div>
-              ) : (
-                recentRequests
-                  .filter((r) => r.status === "pending")
-                  .map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-4 flex items-center justify-between hover:bg-[#eafde7] transition-colors cursor-pointer"
-                      onClick={() => {
-                        setSelectedRequest(item);
-                        setShowRequestModal(true);
-                      }}
-                    >
-                      <div>
-                        <p className="font-semibold text-[#01312D] capitalize">
-                          {getTypeLabel(item.type)}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {item.driverName || item.driver}
-                        </p>
+                        <div>
+                          <p className="font-semibold text-[#01312D]">
+                            {item.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {item.carRegistration}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            className="px-3 py-1 bg-[#3A7717] text-white text-xs rounded-lg"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleApproveVerification(item);
+                            }}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            className="px-3 py-1 bg-red-500 text-white text-xs rounded-lg"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRejectVerification(item);
+                            }}
+                          >
+                            Reject
+                          </button>
+                        </div>
                       </div>
-                      <button className="px-3 py-1 bg-[#72bf00] text-white text-xs rounded-lg">
-                        View Details
-                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-sm border border-[#bff202]/20">
+                <div className="p-5 border-b border-[#bff202]/20">
+                  <h2 className="font-bold text-[#01312D]">
+                    Pending Service Requests
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Requests awaiting approval
+                  </p>
+                </div>
+                <div className="divide-y divide-[#bff202]/10">
+                  {recentRequests.filter((r) => r.status === "pending")
+                    .length === 0 ? (
+                    <div className="p-8 text-center">
+                      <p className="text-gray-500 text-sm">
+                        No pending requests
+                      </p>
                     </div>
-                  ))
-              )}
+                  ) : (
+                    recentRequests
+                      .filter((r) => r.status === "pending")
+                      .map((item) => (
+                        <div
+                          key={item.id}
+                          className="p-4 flex items-center justify-between hover:bg-[#eafde7] transition-colors cursor-pointer"
+                          onClick={() => {
+                            setSelectedRequest(item);
+                            setShowRequestModal(true);
+                          }}
+                        >
+                          <div>
+                            <p className="font-semibold text-[#01312D] capitalize">
+                              {getTypeLabel(item.type)}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {item.driverName || item.driver}
+                            </p>
+                          </div>
+                          <button className="px-3 py-1 bg-[#72bf00] text-white text-xs rounded-lg">
+                            View Details
+                          </button>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {activeTab === "drivers" && (
-        <>
-          <div className="flex gap-3">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by name, email, or registration..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-              />
-            </div>
-          </div>
+          {activeTab === "drivers" && (
+            <>
+              <div className="flex gap-3">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by name, email, or registration..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                  />
+                </div>
+              </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-[#bff202]/20 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-[#eafde7] border-b border-[#bff202]/20">
-                  <tr>
-                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
-                      Driver
-                    </th>
-                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
-                      Vehicle
-                    </th>
-                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
-                      Status
-                    </th>
-                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
-                      Requests
-                    </th>
-                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
-                      Spent
-                    </th>
-                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#bff202]/10">
-                  {filteredDrivers.map((driver) => (
-                    <tr
-                      key={driver.id}
-                      className="hover:bg-[#eafde7] transition-colors cursor-pointer"
-                      onClick={() => {
-                        setSelectedDriver(driver);
-                        setShowDriverModal(true);
-                      }}
-                    >
-                      <td className="p-4">
-                        <p className="font-semibold text-[#01312D]">
-                          {driver.name}
-                        </p>
-                        <p className="text-xs text-gray-500">{driver.email}</p>
-                      </td>
-                      <td className="p-4">
-                        <p className="text-sm font-medium text-[#01312D]">
-                          {driver.carModel}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {driver.carRegistration}
-                        </p>
-                      </td>
-                      <td className="p-4">
-                        {getStatusBadge(driver.verificationStatus)}
-                      </td>
-                      <td className="p-4">
-                        <span className="font-semibold text-[#01312D]">
-                          {driver.totalRequests || 0}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <span className="font-semibold text-[#3A7717]">
-                          R{(driver.totalSpent || 0).toLocaleString()}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <button className="px-3 py-1.5 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center gap-1">
-                          <Eye className="w-4 h-4" /> View
+              <div className="bg-white rounded-2xl shadow-sm border border-[#bff202]/20 overflow-hidden">
+                <div className="divide-y divide-[#bff202]/10">
+                  {filteredDrivers.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <p className="text-gray-500">No drivers found</p>
+                    </div>
+                  ) : (
+                    filteredDrivers.map((driver) => (
+                      <div
+                        key={driver.id}
+                        className="p-4 hover:bg-[#eafde7] transition-colors cursor-pointer"
+                        onClick={() => {
+                          setSelectedDriver(driver);
+                          setShowDriverModal(true);
+                        }}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <p className="font-semibold text-[#01312D]">
+                              {driver.name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {driver.email}
+                            </p>
+                          </div>
+                          {getStatusBadge(driver.verificationStatus)}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm mt-2">
+                          <div>
+                            <p className="text-xs text-gray-500">Vehicle</p>
+                            <p className="font-medium text-[#01312D]">
+                              {driver.carModel || "N/A"}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {driver.carRegistration}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Requests</p>
+                            <p className="font-semibold text-[#01312D]">
+                              {driver.totalRequests || 0}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Spent</p>
+                            <p className="font-semibold text-[#3A7717]">
+                              R{(driver.totalSpent || 0).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                        <button className="mt-3 w-full px-3 py-1.5 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center justify-center gap-1">
+                          <Eye className="w-4 h-4" /> View Details
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </>
+          )}
 
-      {/* Modals - Placeholder comments for your existing modals */}
-      {showVerificationModal && selectedVerification && (
-        <VerificationDetailsModal
-          verification={selectedVerification}
-          onClose={() => setShowVerificationModal(false)}
-        />
-      )}
-      {showRequestModal && selectedRequest && (
-        <RequestDetailsModal
-          request={selectedRequest}
-          onClose={() => setShowRequestModal(false)}
-        />
-      )}
-      {showDriverModal && selectedDriver && (
-        <DriverDetailsModal
-          driver={selectedDriver}
-          onClose={() => setShowDriverModal(false)}
-        />
-      )}
-      {showApproveModal && <ApprovalModal />}
-      {showWhatsAppModal && approvedRequest && <WhatsAppModal />}
-      <SuccessModal />
-      <ErrorModal />
+          {/* Modals */}
+          {showVerificationModal && selectedVerification && (
+            <VerificationDetailsModal
+              verification={selectedVerification}
+              onClose={() => setShowVerificationModal(false)}
+            />
+          )}
+          {showRequestModal && selectedRequest && (
+            <RequestDetailsModal
+              request={selectedRequest}
+              onClose={() => setShowRequestModal(false)}
+            />
+          )}
+          {showDriverModal && selectedDriver && (
+            <DriverDetailsModal
+              driver={selectedDriver}
+              onClose={() => setShowDriverModal(false)}
+            />
+          )}
+          {showApproveModal && <ApprovalModal />}
+          {showWhatsAppModal && approvedRequest && <WhatsAppModal />}
+          <SuccessModal />
+          <ErrorModal />
+        </div>
+      </div>
     </div>
   );
 }
