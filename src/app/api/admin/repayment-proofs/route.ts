@@ -1,7 +1,75 @@
-// src/app/api/admin/repayment-proofs/route.ts (New admin endpoint)
+// src/app/api/admin/repayment-proofs/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
+
+export async function GET(request: NextRequest) {
+  try {
+    const { db } = await connectToDatabase();
+    const repaymentProofsCollection = db.collection("repaymentProofs");
+    const serviceRequestsCollection = db.collection("serviceRequests");
+    const usersCollection = db.collection("user");
+
+    const proofs = await repaymentProofsCollection
+      .find({})
+      .sort({ submittedAt: -1 })
+      .toArray();
+
+    // Enrich proofs with driver and request details
+    const enrichedProofs = await Promise.all(
+      proofs.map(async (proof: any) => {
+        const serviceRequest = await serviceRequestsCollection.findOne({
+          _id: new ObjectId(proof.requestId),
+        });
+
+        let driver = null;
+        if (serviceRequest?.userId) {
+          try {
+            driver = await usersCollection.findOne({
+              _id: new ObjectId(serviceRequest.userId),
+            });
+          } catch {
+            driver = await usersCollection.findOne({
+              _id: serviceRequest.userId,
+            });
+          }
+        }
+
+        return {
+          id: proof._id.toString(),
+          requestId: proof.requestId,
+          userId: proof.userId,
+          amount: proof.amount,
+          remainingBalance: proof.remainingBalance,
+          isFullyPaid: proof.isFullyPaid,
+          proofUrl: proof.proofUrl,
+          proofPublicId: proof.proofPublicId,
+          status: proof.status,
+          submittedAt: proof.submittedAt,
+          approvedAt: proof.approvedAt,
+          rejectionReason: proof.rejectionReason,
+          driverName: serviceRequest?.driverName || driver?.name || "Unknown",
+          driverEmail:
+            serviceRequest?.driverEmail || driver?.email || "Unknown",
+          driverPhone:
+            serviceRequest?.driverPhone || driver?.phone || "Unknown",
+          carNumber: serviceRequest?.carNumber || "Not provided",
+          serviceType: serviceRequest?.type || "Unknown",
+          requestedAmount: serviceRequest?.amount || 0,
+          totalRepayable: serviceRequest?.totalRepayable || 0,
+        };
+      }),
+    );
+
+    return NextResponse.json(enrichedProofs);
+  } catch (error) {
+    console.error("Error fetching repayment proofs:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch repayment proofs" },
+      { status: 500 },
+    );
+  }
+}
 
 export async function PUT(request: NextRequest) {
   try {
@@ -67,10 +135,10 @@ export async function PUT(request: NextRequest) {
               lastPaymentDate: new Date(),
               ...(isFullyPaid && { paidDate: new Date() }),
             },
-            $setOnInsert: {
-              hasPendingRepayment: false,
-              pendingRepaymentAmount: 0,
-              pendingRepaymentStatus: null,
+            $unset: {
+              hasPendingRepayment: "",
+              pendingRepaymentAmount: "",
+              pendingRepaymentStatus: "",
             },
           },
         );
@@ -81,10 +149,10 @@ export async function PUT(request: NextRequest) {
     await serviceRequestsCollection.updateOne(
       { _id: new ObjectId(proof.requestId) },
       {
-        $set: {
-          hasPendingRepayment: false,
-          pendingRepaymentAmount: 0,
-          pendingRepaymentStatus: null,
+        $unset: {
+          hasPendingRepayment: "",
+          pendingRepaymentAmount: "",
+          pendingRepaymentStatus: "",
         },
       },
     );

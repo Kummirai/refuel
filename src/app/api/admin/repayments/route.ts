@@ -8,9 +8,9 @@ export async function GET() {
     const { db } = await connectToDatabase();
     const serviceRequestsCollection = db.collection("serviceRequests");
     const usersCollection = db.collection("user");
+    const repaymentProofsCollection = db.collection("repaymentProofs");
 
     // Get ALL completed and approved requests (all service types)
-    // Show both: approved (pending service) and completed (service done, payment pending)
     const loans = await serviceRequestsCollection
       .find({
         status: { $in: ["approved", "completed"] },
@@ -34,6 +34,24 @@ export async function GET() {
           }
         }
 
+        // Fetch repayment proofs for this request
+        const proofs = await repaymentProofsCollection
+          .find({ requestId: loan._id.toString() })
+          .sort({ submittedAt: -1 })
+          .toArray();
+
+        const pendingProofs = proofs
+          .filter((p: any) => p.status === "pending")
+          .map((p: any) => ({
+            id: p._id.toString(),
+            amount: p.amount,
+            status: p.status,
+            submittedAt: p.submittedAt,
+            proofUrl: p.proofUrl,
+            remainingBalance: p.remainingBalance,
+            isFullyPaid: p.isFullyPaid,
+          }));
+
         // Calculate financial status
         const totalRepayable = loan.totalRepayable || loan.amount * 1.13;
         const repaidAmount = loan.repaidAmount || 0;
@@ -50,7 +68,6 @@ export async function GET() {
           : new Date();
 
         // Determine financial status
-        // isPaid flag indicates if full financial settlement has been made
         const isPaid = loan.isPaid === true || remainingAmount <= 0;
 
         let financialStatus = "pending";
@@ -125,6 +142,8 @@ export async function GET() {
           popUrl: loan.popUrl,
           popUploadedAt: loan.popUploadedAt,
           payments: loan.payments || [],
+          pendingRepaymentProofs: pendingProofs,
+          hasPendingProofs: pendingProofs.length > 0,
         };
       }),
     );
