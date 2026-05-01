@@ -101,7 +101,7 @@ export default function SignUpPage() {
           <h1 className="text-3xl font-bold text-[#01312D] mb-2">
             Create Account
           </h1>
-          <p className="text-gray-500 text-sm">Join FueleX as a driver</p>
+          <p className="text-gray-500 text-sm">Join Kapuka as a driver</p>
         </div>
 
         {/* Error Message */}

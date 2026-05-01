@@ -12,9 +12,9 @@ export async function getSettings() {
       // Return default settings if not found
       return {
         general: {
-          siteName: "FueleX",
+          siteName: "Kapuka",
           siteDescription: "Driver Services Platform",
-          contactEmail: "support@FueleX.com",
+          contactEmail: "support@Kapuka.com",
           contactPhone: "+91 98765 43210",
           address: "123, Tech Park, Bangalore - 560001",
           timezone: "Asia/Kolkata",
@@ -42,7 +42,7 @@ export async function getSettings() {
           emailNotifications: true,
           whatsappNotifications: true,
           smsNotifications: false,
-          adminEmail: "admin@FueleX.com",
+          adminEmail: "admin@Kapuka.com",
           adminPhone: "+91 98765 43210",
           whatsappBusinessNumber: "+91 98765 43210",
           notifyOnNewVerification: true,
@@ -61,17 +61,17 @@ export async function getSettings() {
           ipWhitelist: "",
         },
         business: {
-          businessName: "FueleX Services Pvt Ltd",
-          businessEmail: "business@FueleX.com",
+          businessName: "Kapuka Services Pvt Ltd",
+          businessEmail: "business@Kapuka.com",
           businessPhone: "+91 98765 43210",
           gstNumber: "29ABCDE1234F1Z5",
           panNumber: "ABCDE1234F",
           bankName: "HDFC Bank",
           accountNumber: "XXXX1234",
           ifscCode: "HDFC0001234",
-          upiId: "FueleX@hdfcbank",
-          termsAndConditions: "https://FueleX.com/terms",
-          privacyPolicy: "https://FueleX.com/privacy",
+          upiId: "Kapuka@hdfcbank",
+          termsAndConditions: "https://Kapuka.com/terms",
+          privacyPolicy: "https://Kapuka.com/privacy",
         },
       };
     }

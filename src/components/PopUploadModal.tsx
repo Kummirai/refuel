@@ -280,7 +280,7 @@ export function PopUploadModal({
               options={{
                 maxFileSize: 5242880,
                 clientAllowedFormats: ["jpg", "jpeg", "png", "pdf"],
-                folder: `fuelex/pop/${requestId}`,
+                folder: `Kapuka/pop/${requestId}`,
                 resourceType: "auto",
               }}
             >

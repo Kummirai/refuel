@@ -133,7 +133,7 @@ export default function SignInPage() {
           <h1 className="text-3xl font-bold text-[#01312D] mb-2">
             Welcome Back!
           </h1>
-          <p className="text-gray-500 text-sm">Sign in to continue to FueleX</p>
+          <p className="text-gray-500 text-sm">Sign in to continue to Kapuka</p>
         </div>
 
         {/* Error Message */}

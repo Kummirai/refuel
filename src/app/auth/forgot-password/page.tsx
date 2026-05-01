@@ -162,7 +162,7 @@ export default function ForgotPasswordPage() {
             Didn't receive the email? Check your spam folder or contact support
             at{" "}
             <span className="text-[#3A7717] font-semibold">
-              support@FueleX.com
+              support@Kapuka.com
             </span>
           </p>
         </div>

@@ -1221,7 +1221,7 @@ export default function AdminServiceRequestsPage() {
           setShowDownloadSuccessModal(true);
 
           const link = document.createElement("a");
-          link.download = `FueleX_Receipt_${approvedRequest.id.slice(-6)}.png`;
+          link.download = `Kapuka_Receipt_${approvedRequest.id.slice(-6)}.png`;
           link.href = imageUrl;
           document.body.appendChild(link);
           link.click();
@@ -1252,7 +1252,7 @@ export default function AdminServiceRequestsPage() {
           approvedRequest.dailyPayment ||
           Math.ceil(totalRepayable / (approvedRequest.repaymentDays || 7));
 
-        const caption = `*FueleX - Service Request Approved* 🎉
+        const caption = `*Kapuka - Service Request Approved* 🎉
 
 Hello ${approvedRequest.driverName},
 
@@ -1283,7 +1283,7 @@ ${hasActualAmount ? `💰 *Requested Amount:* R${approvedRequest.amount?.toLocal
 
 Please find your receipt attached below.
 
-Thank you for choosing FueleX! 🚀
+Thank you for choosing Kapuka! 🚀
 
 *This is a system generated message. Valid for 30 minutes.*`;
 
@@ -1299,7 +1299,7 @@ Thank you for choosing FueleX! 🚀
         window.open(whatsappUrl, "_blank");
 
         const link = document.createElement("a");
-        link.download = `FueleX_Receipt_${approvedRequest.id.slice(-6)}.png`;
+        link.download = `Kapuka_Receipt_${approvedRequest.id.slice(-6)}.png`;
         link.href = imageUrl;
         document.body.appendChild(link);
         link.click();
@@ -1454,7 +1454,7 @@ Thank you for choosing FueleX! 🚀
                       fontWeight: "bold",
                     }}
                   >
-                    🚗 FueleX
+                    🚗 Kapuka
                   </h2>
                   <p
                     style={{
@@ -1765,7 +1765,7 @@ Thank you for choosing FueleX! 🚀
                     ✅ Valid for 30 minutes
                   </p>
                   <p style={{ margin: "0", fontSize: "10px", opacity: 0.7 }}>
-                    FueleX Services • powered by FueleX
+                    Kapuka Services • powered by Kapuka
                   </p>
                 </div>
               </div>

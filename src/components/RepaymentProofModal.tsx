@@ -246,7 +246,7 @@ export function RepaymentProofModal({
               options={{
                 maxFileSize: 5242880,
                 clientAllowedFormats: ["jpg", "jpeg", "png", "pdf"],
-                folder: `fuelex/repayments/${requestId}`,
+                folder: `Kapuka/repayments/${requestId}`,
                 resourceType: "auto",
               }}
             >

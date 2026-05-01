@@ -1274,7 +1274,7 @@ export default function AdminDashboard() {
 
     const displayAmount =
       approvedRequest.actualAmount || approvedRequest.amount;
-    const message = `Hello ${approvedRequest.driverName},\n\nYour request for ${getTypeLabel(approvedRequest.type)} has been APPROVED! ✅\n\n🔐 OTP: ${approvedRequest.otp || generatedOtp}\n💰 Amount: R${displayAmount.toLocaleString()}\n🚗 Vehicle: ${approvedRequest.carRegistration}\n\nThank you for using FueleX! 🚀`;
+    const message = `Hello ${approvedRequest.driverName},\n\nYour request for ${getTypeLabel(approvedRequest.type)} has been APPROVED! ✅\n\n🔐 OTP: ${approvedRequest.otp || generatedOtp}\n💰 Amount: R${displayAmount.toLocaleString()}\n🚗 Vehicle: ${approvedRequest.carRegistration}\n\nThank you for using Kapuka! 🚀`;
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
