@@ -157,7 +157,7 @@ export default function AdminLayout({
             </div>
             <div>
               <h1 className="text-white font-bold text-xl">
-                Fuel<span className="text-[#bff202]">eX</span>
+                Kapuka
               </h1>
               <p className="text-[#72bf00] text-xs">Admin Panel</p>
             </div>
