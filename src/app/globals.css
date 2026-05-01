@@ -31,3 +31,61 @@
     min-width: 44px;
   }
 }
+
+/* src/app/globals.css - Add these styles */
+
+/* Better touch feedback for mobile */
+.touch-manipulation {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-manipulation:active {
+  transform: scale(0.95);
+}
+
+/* Safe area for notches on mobile devices */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0.5rem);
+}
+
+/* Active state for bottom nav buttons */
+.bottom-nav-btn {
+  transition: all 0.2s ease;
+}
+
+.bottom-nav-btn:active {
+  transform: scale(0.92);
+  background-color: rgba(191, 242, 2, 0.2);
+}
+
+/* Ripple effect for mobile */
+.ripple-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple-effect:after {
+  content: "";
+  display: block;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle, #bff202 10%, transparent 10.01%);
+  background-repeat: no-repeat;
+  background-position: 50%;
+  transform: scale(10, 10);
+  opacity: 0;
+  transition:
+    transform 0.3s,
+    opacity 0.5s;
+}
+
+.ripple-effect:active:after {
+  transform: scale(0, 0);
+  opacity: 0.3;
+  transition: 0s;
+}

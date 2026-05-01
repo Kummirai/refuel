@@ -603,20 +603,22 @@ export default function HomePage() {
         )}
       </main>
 
-      {/* Bottom Navigation Bar */}
+      {/* Bottom Navigation Bar - Enhanced for mobile touch */}
       {!isAdmin && (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 z-50 shadow-lg">
-          <div className="flex justify-around items-center">
+        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-4 py-2 z-50 shadow-lg safe-bottom">
+          <div className="flex justify-around items-center max-w-md mx-auto">
+            {/* Home Button */}
             <button
               onClick={() => router.push("/")}
-              className="flex flex-col items-center gap-0.5 py-1 group"
+              className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all duration-200 active:scale-95 active:bg-[#bff202]/20 touch-manipulation"
             >
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#bff202] scale-110 shadow-md">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#bff202] shadow-md transition-all duration-200 active:shadow-inner">
                 <Home className="w-5 h-5 text-[#01312D]" />
               </div>
-              <span className="text-xs text-[#01312D] font-bold">Home</span>
+              <span className="text-xs text-[#01312D] font-semibold">Home</span>
             </button>
 
+            {/* Requests Button */}
             <button
               onClick={() => {
                 if (!isLoggedIn) {
@@ -625,16 +627,17 @@ export default function HomePage() {
                   router.push("/requests");
                 }
               }}
-              className="flex flex-col items-center gap-0.5 py-1 group"
+              className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all duration-200 active:scale-95 active:bg-[#bff202]/20 touch-manipulation"
             >
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-                <ClipboardList className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] transition-all duration-200 group-hover:bg-[#bff202]/50 active:bg-[#bff202]/50">
+                <ClipboardList className="w-5 h-5 text-[#3A7717]" />
               </div>
-              <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+              <span className="text-xs text-[#3A7717] font-medium">
                 Requests
               </span>
             </button>
 
+            {/* History Button */}
             <button
               onClick={() => {
                 if (!isLoggedIn) {
@@ -643,16 +646,17 @@ export default function HomePage() {
                   router.push("/requests/history");
                 }
               }}
-              className="flex flex-col items-center gap-0.5 py-1 group"
+              className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all duration-200 active:scale-95 active:bg-[#bff202]/20 touch-manipulation"
             >
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-                <History className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] transition-all duration-200 active:bg-[#bff202]/50">
+                <History className="w-5 h-5 text-[#3A7717]" />
               </div>
-              <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+              <span className="text-xs text-[#3A7717] font-medium">
                 History
               </span>
             </button>
 
+            {/* Profile Button */}
             <button
               onClick={() => {
                 if (!isLoggedIn) {
@@ -661,12 +665,12 @@ export default function HomePage() {
                   router.push("/profile");
                 }
               }}
-              className="flex flex-col items-center gap-0.5 py-1 group"
+              className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all duration-200 active:scale-95 active:bg-[#bff202]/20 touch-manipulation"
             >
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-                <UserCircle className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] transition-all duration-200 active:bg-[#bff202]/50">
+                <UserCircle className="w-5 h-5 text-[#3A7717]" />
               </div>
-              <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+              <span className="text-xs text-[#3A7717] font-medium">
                 Profile
               </span>
             </button>
