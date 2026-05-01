@@ -301,7 +301,7 @@ export default function HomePage() {
             <div className="flex items-center gap-2 flex-wrap justify-end">
               {isLoggedIn && (
                 <div
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap ${
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-150 ${
                     isAdmin
                       ? "bg-[#bff202] text-[#01312D]"
                       : "bg-[#bff202] text-[#01312D]"
@@ -319,7 +319,8 @@ export default function HomePage() {
               {isLoggedIn && (
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-1 px-3 py-px rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-all whitespace-nowrap"
+                  className="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 active:scale-95 active:bg-red-700 transition-all duration-150 whitespace-nowrap touch-manipulation"
+                  style={{ WebkitTapHighlightColor: "transparent" }}
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   Logout
