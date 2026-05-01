@@ -1,5 +1,4 @@
-// src/app/page.tsx - Fixed admin redirect
-
+// src/app/page.tsx - Airtime removed
 "use client";
 
 import { useState, useEffect } from "react";
@@ -8,7 +7,6 @@ import { authClient } from "@/lib/auth-client";
 import {
   ArrowRight,
   Fuel,
-  Smartphone,
   DollarSign,
   Car,
   Star,
@@ -31,6 +29,8 @@ import {
   ClipboardList,
   History,
   UserCircle,
+  Calendar,
+  CreditCard,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -45,12 +45,11 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!isPending) {
-      console.log("Session data:", session); // Debug log
+      console.log("Session data:", session);
 
       if (session) {
-        // Get role from session - Better Auth stores role in user object
         const role = (session.user as any)?.role;
-        console.log("User role from session:", role); // Debug log
+        console.log("User role from session:", role);
 
         setUserRole(role || null);
 
@@ -88,9 +87,8 @@ export default function HomePage() {
   };
 
   const handleGetStarted = () => {
-    console.log("Get Started clicked. User role:", userRole); // Debug log
+    console.log("Get Started clicked. User role:", userRole);
 
-    // Check if user is admin via role
     if (userRole === "admin") {
       console.log("Redirecting to admin dashboard");
       router.push("/admin/dashboard");
@@ -186,7 +184,7 @@ export default function HomePage() {
             icon: AlertCircle,
             title: "Verification Required",
             message:
-              "Complete verification to access fuel, cash, airtime & car wash services.",
+              "Complete verification to access fuel & car wash services.",
             color: "text-[#01312D]",
             bgColor: "bg-[#eafde7]",
             borderColor: "border-[#bff202]",
@@ -294,12 +292,8 @@ export default function HomePage() {
                 <Sparkles className="w-5 h-5 text-[#bff202]" />
               </div>
               <div>
-                <h1 className="text-[#01312D] font-bold text-xl">
-                  Drive<span className="text-[#3A7717]">Hub</span>
-                </h1>
-                <p className="text-[#72bf00] text-xs font-semibold">
-                  Driver Services
-                </p>
+                <h1 className="text-[#01312D] font-bold text-xl">Kapuka</h1>
+                <p className="text-[#72bf00] text-xs font-semibold">Tradings</p>
               </div>
             </div>
 
@@ -307,7 +301,7 @@ export default function HomePage() {
             <div className="flex items-center gap-2 flex-wrap justify-end">
               {isLoggedIn && (
                 <div
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-semibold whitespace-nowrap ${
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap ${
                     isAdmin
                       ? "bg-[#bff202] text-[#01312D]"
                       : "bg-[#bff202] text-[#01312D]"
@@ -325,7 +319,7 @@ export default function HomePage() {
               {isLoggedIn && (
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-all whitespace-nowrap"
+                  className="flex items-center gap-1 px-3 py-px rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-all whitespace-nowrap"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   Logout
@@ -376,8 +370,7 @@ export default function HomePage() {
           </div>
 
           <h1 className="text-4xl font-black text-[#01312D] leading-tight mb-3">
-            Get <span className="text-[#3A7717]">Fuel</span>,{" "}
-            <span className="text-[#3A7717]">Cash</span>
+            Get <span className="text-[#3A7717]">Fuel</span>
             <br />&{" "}
             <span className="text-[#3A7717] underline decoration-[#bff202] decoration-4 underline-offset-8">
               Car Wash
@@ -422,104 +415,109 @@ export default function HomePage() {
         {/* VERIFICATION STATUS BADGE */}
         {isLoggedIn && !isAdmin && <VerificationStatusBadge />}
 
-        {/* Services Grid - Show for non-admin users */}
+        {/* Available Services Section */}
         {(!isLoggedIn || (isLoggedIn && !isAdmin)) && (
-          <div className="mb-10">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h2 className="text-xl font-bold text-[#01312D]">
-                  Our Services
-                </h2>
-                <p className="text-xs text-[#3A7717]">
-                  {isLoggedIn && verificationStatus !== "approved"
-                    ? "Complete verification to access services"
-                    : "Quick & reliable delivery"}
-                </p>
+          <>
+            <div className="mb-10">
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h2 className="text-xl font-bold text-[#01312D]">
+                    Available Services
+                  </h2>
+                  <p className="text-xs text-[#3A7717]">
+                    {isLoggedIn && verificationStatus !== "approved"
+                      ? "Complete verification to access services"
+                      : "Quick & reliable delivery"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Fuel Service */}
+                <button
+                  onClick={() => handleServiceRequest("fuel")}
+                  disabled={isLoggedIn && verificationStatus !== "approved"}
+                  className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
+                    isLoggedIn && verificationStatus !== "approved"
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
+                >
+                  <div className="bg-linear-to-r from-[#3A7717] to-[#72bf00] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
+                    <Fuel className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="font-bold text-[#01312D] text-lg">Fuel</h3>
+                  <p className="text-gray-500 text-xs mt-1">Petrol • Diesel</p>
+                  <div className="flex items-center gap-1 mt-2 text-[#72bf00] text-xs font-semibold">
+                    <span>Request now</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </div>
+                </button>
+
+                {/* Car Wash Service */}
+                <button
+                  onClick={() => handleServiceRequest("carwash")}
+                  disabled={isLoggedIn && verificationStatus !== "approved"}
+                  className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
+                    isLoggedIn && verificationStatus !== "approved"
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
+                >
+                  <div className="bg-linear-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
+                    <Car className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="font-bold text-[#01312D] text-lg">Car Wash</h3>
+                  <p className="text-gray-500 text-xs mt-1">Premium cleaning</p>
+                  <div className="flex items-center gap-1 mt-2 text-[#72bf00] text-xs font-semibold">
+                    <span>Request now</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </div>
+                </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={() => handleServiceRequest("fuel")}
-                disabled={isLoggedIn && verificationStatus !== "approved"}
-                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
-                  isLoggedIn && verificationStatus !== "approved"
-                    ? "opacity-50 cursor-not-allowed"
-                    : ""
-                }`}
-              >
-                <div className="bg-linear-to-r from-[#3A7717] to-[#72bf00] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
-                  <Fuel className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="font-bold text-[#01312D] text-lg">Fuel</h3>
-                <p className="text-gray-500 text-xs mt-1">Petrol • Diesel</p>
-                <div className="flex items-center gap-1 mt-2 text-[#72bf00] text-xs font-semibold">
-                  <span>Request now</span>
-                  <ChevronRight className="w-3 h-3" />
-                </div>
-              </button>
+            {/* Upcoming Services Section */}
+            <div className="mb-10">
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <Calendar className="w-5 h-5 text-[#3A7717]" />
+                <h2 className="text-xl font-bold text-[#01312D]">
+                  Upcoming Services
+                </h2>
+              </div>
+              <p className="text-xs text-center text-[#3A7717] mb-4">
+                Coming soon to Kapuka Tradings
+              </p>
 
-              <button
-                onClick={() => handleServiceRequest("airtime")}
-                disabled={isLoggedIn && verificationStatus !== "approved"}
-                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
-                  isLoggedIn && verificationStatus !== "approved"
-                    ? "opacity-50 cursor-not-allowed"
-                    : ""
-                }`}
-              >
-                <div className="bg-linear-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
-                  <Smartphone className="w-6 h-6 text-white" />
+              <div className="grid">
+                {/* Cash Loan - Upcoming */}
+                <div className="bg-white/50 rounded-2xl w-2/3 mx-auto p-4 border border-dashed border-[#bff202]/30">
+                  <div className="bg-linear-to-r from-[#72bf00] to-[#bff202] w-12 h-12 rounded-xl flex items-center justify-center mb-3 opacity-50">
+                    <DollarSign className="w-6 h-6 text-[#01312D]" />
+                  </div>
+                  <h3 className="font-bold text-gray-500 text-lg">Cash Loan</h3>
+                  <p className="text-gray-400 text-xs mt-1">
+                    Coming soon • Instant transfer
+                  </p>
+                  <div className="flex items-center gap-1 mt-2 text-gray-400 text-xs font-semibold">
+                    <span>Notify me</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </div>
                 </div>
-                <h3 className="font-bold text-[#01312D] text-lg">Airtime</h3>
-                <p className="text-gray-500 text-xs mt-1">All networks</p>
-                <div className="flex items-center gap-1 mt-2 text-[#72bf00] text-xs font-semibold">
-                  <span>Request now</span>
-                  <ChevronRight className="w-3 h-3" />
-                </div>
-              </button>
 
-              <button
-                onClick={() => handleServiceRequest("cash")}
-                disabled={isLoggedIn && verificationStatus !== "approved"}
-                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
-                  isLoggedIn && verificationStatus !== "approved"
-                    ? "opacity-50 cursor-not-allowed"
-                    : ""
-                }`}
-              >
-                <div className="bg-linear-to-r from-[#72bf00] to-[#bff202] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
-                  <DollarSign className="w-6 h-6 text-[#01312D]" />
-                </div>
-                <h3 className="font-bold text-[#01312D] text-lg">Cash</h3>
-                <p className="text-gray-500 text-xs mt-1">Instant transfer</p>
-                <div className="flex items-center gap-1 mt-2 text-[#72bf00] text-xs font-semibold">
-                  <span>Request now</span>
-                  <ChevronRight className="w-3 h-3" />
-                </div>
-              </button>
-
-              <button
-                onClick={() => handleServiceRequest("carwash")}
-                disabled={isLoggedIn && verificationStatus !== "approved"}
-                className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
-                  isLoggedIn && verificationStatus !== "approved"
-                    ? "opacity-50 cursor-not-allowed"
-                    : ""
-                }`}
-              >
-                <div className="bg-linear-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
-                  <Car className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="font-bold text-[#01312D] text-lg">Car Wash</h3>
-                <p className="text-gray-500 text-xs mt-1">Premium cleaning</p>
-                <div className="flex items-center gap-1 mt-2 text-[#72bf00] text-xs font-semibold">
-                  <span>Request now</span>
-                  <ChevronRight className="w-3 h-3" />
-                </div>
-              </button>
+                {/* More Services Placeholder */}
+                {/* <div className="bg-white/50 rounded-2xl p-4 border border-dashed border-[#bff202]/30">
+                  <div className="bg-gray-100 w-12 h-12 rounded-xl flex items-center justify-center mb-3">
+                    <CreditCard className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <h3 className="font-bold text-gray-400 text-lg">
+                    More Benefits
+                  </h3>
+                  <p className="text-gray-400 text-xs mt-1">Coming soon</p>
+                </div> */}
+              </div>
             </div>
-          </div>
+          </>
         )}
 
         {/* Features Section - Hide for admin */}
@@ -569,7 +567,7 @@ export default function HomePage() {
                   </div>
                   <div className="flex-1">
                     <p className="text-[#01312D] font-bold text-sm">
-                      New to DriveHub?
+                      New to Kapuka?
                     </p>
                     <p className="text-[#01312D]/80 text-xs">
                       Sign up now & get 10% off on first request!
@@ -603,11 +601,10 @@ export default function HomePage() {
         )}
       </main>
 
-      {/* Bottom Navigation Bar - Enhanced for mobile touch */}
+      {/* Bottom Navigation Bar */}
       {!isAdmin && (
         <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-4 py-2 z-50 shadow-lg safe-bottom">
           <div className="flex justify-around items-center max-w-md mx-auto">
-            {/* Home Button */}
             <button
               onClick={() => router.push("/")}
               className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all duration-200 active:scale-95 active:bg-[#bff202]/20 touch-manipulation"
@@ -618,7 +615,6 @@ export default function HomePage() {
               <span className="text-xs text-[#01312D] font-semibold">Home</span>
             </button>
 
-            {/* Requests Button */}
             <button
               onClick={() => {
                 if (!isLoggedIn) {
@@ -637,7 +633,6 @@ export default function HomePage() {
               </span>
             </button>
 
-            {/* History Button */}
             <button
               onClick={() => {
                 if (!isLoggedIn) {
@@ -656,7 +651,6 @@ export default function HomePage() {
               </span>
             </button>
 
-            {/* Profile Button */}
             <button
               onClick={() => {
                 if (!isLoggedIn) {
