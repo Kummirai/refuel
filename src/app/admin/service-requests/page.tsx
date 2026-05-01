@@ -684,7 +684,7 @@ export default function AdminServiceRequestsPage() {
                     className="inline-flex items-center gap-2 text-[#3A7717] font-semibold hover:underline"
                   >
                     <ImageIcon className="w-4 h-4" />
-                    View POP Document
+                    View Receipt
                   </a>
                   {request.popUrl && (
                     <div className="mt-2 border border-[#BFF202]/20 rounded-lg overflow-hidden bg-white p-2">

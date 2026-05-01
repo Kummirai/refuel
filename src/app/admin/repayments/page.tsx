@@ -1178,7 +1178,7 @@ export default function LoanRepaymentsPage() {
                     className="inline-flex items-center gap-2 text-[#3A7717] font-semibold hover:underline"
                   >
                     <ImageIcon className="w-4 h-4" />
-                    View POP Document
+                    View Receipt
                   </a>
                 </div>
               </div>
