@@ -739,7 +739,7 @@ export default function AdminServiceRequestsPage() {
             )}
           </div>
 
-          <div className="sticky bottom-0 bg-white border-t border-[#BFF202]/20 p-5 flex gap-3">
+          <div className="sticky bottom-0 bg-white border-t border-[#BFF202]/20 p-5 flex flex-col gap-3">
             {request.status === "pending" && (
               <>
                 <button

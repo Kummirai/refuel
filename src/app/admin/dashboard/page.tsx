@@ -41,6 +41,9 @@ import {
   Wallet,
   TrendingDown,
   PiggyBank,
+  Upload,
+  Download,
+  Shield,
 } from "lucide-react";
 
 type RequestType = "fuel" | "airtime" | "cash" | "carwash";
@@ -56,6 +59,7 @@ interface ServiceRequest {
   location: string;
   type: RequestType;
   amount: number;
+  actualAmount?: number;
   fuelType?: "petrol" | "diesel";
   phoneNumber?: string;
   interest?: number;
@@ -67,6 +71,24 @@ interface ServiceRequest {
   requestDate: string;
   approvedDate?: string;
   completedDate?: string;
+  popUrl?: string;
+  dailyPayment?: number;
+}
+
+interface VerificationRequest {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  carRegistration: string;
+  carModel: string;
+  carYear: string;
+  carColor: string;
+  drivingLicenseUrl?: string;
+  carRegistrationUrl?: string;
+  profilePhotoUrl?: string;
+  verificationStatus: string;
+  submittedAt: string;
 }
 
 export default function AdminDashboard() {
@@ -95,6 +117,10 @@ export default function AdminDashboard() {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectingRequest, setRejectingRequest] = useState<any>(null);
+  const [rejectLoading, setRejectLoading] = useState(false);
 
   // Financial stats
   const [financialStats, setFinancialStats] = useState({
@@ -151,17 +177,15 @@ export default function AdminDashboard() {
         let totalInterestGained = 0;
 
         allRequests.forEach((request: any) => {
-          totalMoneyRequested += request.amount || 0;
-          // For cash loans, interest is stored in the request
-          if (request.type === "cash" && request.interest) {
-            totalInterestGained += request.interest || 0;
-          }
-          // For other services, calculate 13% interest on completed/completed requests
-          else if (
-            request.type !== "cash" &&
-            (request.status === "completed" || request.status === "approved")
+          const amount = request.actualAmount || request.amount || 0;
+          totalMoneyRequested += amount;
+          if (request.interest) {
+            totalInterestGained += request.interest;
+          } else if (
+            request.status === "completed" ||
+            request.status === "approved"
           ) {
-            totalInterestGained += (request.amount || 0) * 0.13;
+            totalInterestGained += amount * 0.13;
           }
         });
 
@@ -229,39 +253,51 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleRejectRequest = async (request: any) => {
-    const reason = prompt("Please enter rejection reason:");
-    if (reason) {
-      try {
-        const response = await fetch("/api/admin/requests/reject", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            requestId: request.id,
-            reason,
-          }),
-        });
-        if (response.ok) {
-          setSuccessMessage(
-            `✅ Request ${request.id.slice(-6).toUpperCase()} rejected successfully`,
-          );
-          setShowSuccessModal(true);
-          fetchDashboardData();
-          setShowRequestModal(false);
-        } else {
-          const error = await response.json();
-          setErrorMessage(error.error || "Failed to reject request");
-          setShowErrorModal(true);
-        }
-      } catch (error) {
-        console.error("Error rejecting request:", error);
-        setErrorMessage("Failed to reject request");
+  const handleRejectRequest = async () => {
+    if (!rejectingRequest) return;
+
+    if (!rejectionReason.trim()) {
+      setErrorMessage("Please enter a reason for rejection");
+      setShowErrorModal(true);
+      return;
+    }
+
+    setRejectLoading(true);
+    try {
+      const response = await fetch("/api/admin/requests/reject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: rejectingRequest.id,
+          reason: rejectionReason,
+        }),
+      });
+
+      if (response.ok) {
+        setSuccessMessage(
+          `✅ Request ${rejectingRequest.id.slice(-6).toUpperCase()} rejected successfully`,
+        );
+        setShowSuccessModal(true);
+        fetchDashboardData();
+        setShowRejectModal(false);
+        setShowRequestModal(false);
+        setRejectionReason("");
+        setRejectingRequest(null);
+      } else {
+        const error = await response.json();
+        setErrorMessage(error.error || "Failed to reject request");
         setShowErrorModal(true);
       }
+    } catch (error) {
+      console.error("Error rejecting request:", error);
+      setErrorMessage("Failed to reject request");
+      setShowErrorModal(true);
+    } finally {
+      setRejectLoading(false);
     }
   };
 
-  const handleComplete = async (request: any) => {
+  const handleCompleteRequest = async (request: any) => {
     try {
       const response = await fetch("/api/admin/requests/complete", {
         method: "POST",
@@ -295,7 +331,7 @@ export default function AdminDashboard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          verification: verification,
+          verificationId: verification.id,
           action: "approve",
         }),
       });
@@ -316,34 +352,46 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleRejectVerification = async (verification: any) => {
-    const reason = prompt("Please enter rejection reason:");
-    if (reason) {
-      try {
-        const response = await fetch("/api/admin/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            verificationId: verification.id,
-            action: "reject",
-            reason,
-          }),
-        });
-        if (response.ok) {
-          setSuccessMessage(`❌ Rejected ${verification.name}'s verification`);
-          setShowSuccessModal(true);
-          fetchDashboardData();
-          setShowVerificationModal(false);
-        } else {
-          const error = await response.json();
-          setErrorMessage(error.error || "Failed to reject verification");
-          setShowErrorModal(true);
-        }
-      } catch (error) {
-        console.error("Error rejecting verification:", error);
-        setErrorMessage("Failed to reject verification");
+  const handleRejectVerification = async () => {
+    if (!selectedVerification) return;
+
+    if (!rejectionReason.trim()) {
+      setErrorMessage("Please enter a reason for rejection");
+      setShowErrorModal(true);
+      return;
+    }
+
+    setRejectLoading(true);
+    try {
+      const response = await fetch("/api/admin/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          verificationId: selectedVerification.id,
+          action: "reject",
+          reason: rejectionReason,
+        }),
+      });
+      if (response.ok) {
+        setSuccessMessage(
+          `❌ Rejected ${selectedVerification.name}'s verification`,
+        );
+        setShowSuccessModal(true);
+        fetchDashboardData();
+        setShowVerificationModal(false);
+        setShowRejectModal(false);
+        setRejectionReason("");
+      } else {
+        const error = await response.json();
+        setErrorMessage(error.error || "Failed to reject verification");
         setShowErrorModal(true);
       }
+    } catch (error) {
+      console.error("Error rejecting verification:", error);
+      setErrorMessage("Failed to reject verification");
+      setShowErrorModal(true);
+    } finally {
+      setRejectLoading(false);
     }
   };
 
@@ -542,19 +590,85 @@ export default function AdminDashboard() {
     );
   };
 
-  // WhatsApp Modal Component (same as before, keep as is)
-  const WhatsAppModal = () => {
-    // ... (keep the existing WhatsAppModal code)
-    return null; // Placeholder - keep your existing implementation
+  // Rejection Modal
+  const RejectionModal = () => {
+    if (!showRejectModal) return null;
+
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowRejectModal(false)}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl">
+          <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-t-2xl p-5">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                <XCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">
+                  Confirm Rejection
+                </h2>
+                <p className="text-white/80 text-sm">
+                  Provide rejection reason
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 space-y-4">
+            <div>
+              <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                Rejection Reason <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Please explain why this is being rejected..."
+                className="w-full px-4 py-3 bg-white border border-red-200 rounded-xl focus:outline-none focus:border-red-500 resize-none"
+                rows={4}
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                This reason will be visible to the user
+              </p>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-100 p-5 flex gap-3">
+            <button
+              onClick={() => {
+                setShowRejectModal(false);
+                setRejectionReason("");
+              }}
+              className="flex-1 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={
+                selectedVerification
+                  ? handleRejectVerification
+                  : handleRejectRequest
+              }
+              disabled={rejectLoading}
+              className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+            >
+              {rejectLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <XCircle className="w-4 h-4" />
+              )}
+              Confirm Rejection
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
-  // Approval Modal Component (same as before)
-  const ApprovalModal = () => {
-    // ... (keep the existing ApprovalModal code)
-    return null; // Placeholder - keep your existing implementation
-  };
-
-  // Request Details Modal (same as before)
+  // Request Details Modal
   const RequestDetailsModal = ({
     request,
     onClose,
@@ -562,11 +676,237 @@ export default function AdminDashboard() {
     request: any;
     onClose: () => void;
   }) => {
-    // ... (keep the existing RequestDetailsModal code)
-    return null; // Placeholder - keep your existing implementation
+    const TypeIcon = getTypeIcon(request.type);
+    const date = new Date(request.requestDate);
+    const hasActualAmount =
+      request.actualAmount && request.actualAmount !== request.amount;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={onClose}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="sticky top-0 bg-white border-b border-[#bff202]/20 p-5 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center ${getTypeColor(request.type)}`}
+              >
+                <TypeIcon className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-[#01312D]">
+                  {getTypeLabel(request.type)} Request
+                </h2>
+                <p className="text-xs text-gray-500">
+                  ID: {request.id?.slice(-6).toUpperCase()}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1 hover:bg-[#eafde7] rounded-lg"
+            >
+              <X className="w-6 h-6 text-gray-500" />
+            </button>
+          </div>
+
+          <div className="p-5 space-y-5">
+            {/* Driver Info */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <User className="w-4 h-4 text-[#3A7717]" /> Driver Information
+              </h3>
+              <div className="grid gap-3 text-sm">
+                <div>
+                  <p className="text-gray-500">Name</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {request.driverName || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Email</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {request.driverEmail || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Phone</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {request.driverPhone || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Car Registration</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {request.carRegistration || "N/A"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Request Details */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#3A7717]" /> Request Details
+              </h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Service Type:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {getTypeLabel(request.type)}
+                  </span>
+                </div>
+                {request.fuelType && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Fuel Type:</span>
+                    <span className="font-semibold capitalize text-[#01312D]">
+                      {request.fuelType}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between pt-2 border-t border-[#bff202]/20">
+                  <span className="text-gray-500">Requested Amount:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    R{request.amount?.toLocaleString()}
+                  </span>
+                </div>
+                {hasActualAmount && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Actual Amount Paid:</span>
+                    <span className="font-semibold text-[#3A7717]">
+                      R{request.actualAmount?.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {request.totalRepayable && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Total Repayable:</span>
+                    <span className="font-semibold text-[#3A7717]">
+                      R{request.totalRepayable?.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {request.dailyPayment && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Daily Payment:</span>
+                    <span className="font-semibold text-[#01312D]">
+                      R{request.dailyPayment?.toLocaleString()}/day
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Request Date:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {date.toLocaleString()}
+                  </span>
+                </div>
+                {request.approvedDate && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Approved Date:</span>
+                    <span className="font-semibold text-[#01312D]">
+                      {new Date(request.approvedDate).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Status:</span>
+                  {getRequestStatusBadge(request.status)}
+                </div>
+                {request.otp && (
+                  <div className="flex justify-between pt-2 border-t border-[#bff202]/20">
+                    <span className="text-gray-500">OTP:</span>
+                    <div className="flex items-center gap-2">
+                      <code className="font-mono font-bold text-[#01312D]">
+                        {request.otp}
+                      </code>
+                      <button
+                        onClick={() => handleCopyOtp(request.otp)}
+                        className="p-1 hover:bg-[#eafde7] rounded"
+                      >
+                        {copiedOtp === request.otp ? (
+                          <Check className="w-3 h-3 text-green-600" />
+                        ) : (
+                          <Copy className="w-3 h-3 text-gray-500" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {request.popUrl && (
+                  <div className="pt-2 border-t border-[#bff202]/20">
+                    <p className="text-gray-500 mb-2">Proof of Payment:</p>
+                    <a
+                      href={request.popUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-[#3A7717] font-semibold hover:underline"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      View POP
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
+            {request.status === "pending" && (
+              <>
+                <button
+                  onClick={() => openApproveModal(request)}
+                  className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors"
+                >
+                  <CheckCircle className="w-4 h-4" /> Approve
+                </button>
+                <button
+                  onClick={() => {
+                    setRejectingRequest(request);
+                    setShowRejectModal(true);
+                    setShowRequestModal(false);
+                  }}
+                  className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors"
+                >
+                  <XCircle className="w-4 h-4" /> Reject
+                </button>
+              </>
+            )}
+            {request.status === "approved" && (
+              <>
+                <button
+                  onClick={() => {
+                    setApprovedRequest(request);
+                    setShowWhatsAppModal(true);
+                    setShowRequestModal(false);
+                  }}
+                  className="flex-1 bg-[#25D366] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+                >
+                  <Send className="w-4 h-4" /> Send WhatsApp
+                </button>
+                <button
+                  onClick={() => handleCompleteRequest(request)}
+                  className="flex-1 bg-[#01312D] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+                >
+                  <CheckCircle className="w-4 h-4" /> Mark Completed
+                </button>
+              </>
+            )}
+            <button
+              onClick={onClose}
+              className={`${request.status === "pending" || request.status === "approved" ? "flex-1" : "w-full"} bg-gray-500 text-white py-2 rounded-xl font-semibold`}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
-  // Verification Details Modal (same as before)
+  // Verification Details Modal
   const VerificationDetailsModal = ({
     verification,
     onClose,
@@ -574,11 +914,206 @@ export default function AdminDashboard() {
     verification: any;
     onClose: () => void;
   }) => {
-    // ... (keep the existing VerificationDetailsModal code)
-    return null; // Placeholder - keep your existing implementation
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={onClose}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="sticky top-0 bg-white border-b border-[#bff202]/20 p-5 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-[#eafde7] rounded-xl flex items-center justify-center">
+                <Shield className="w-5 h-5 text-[#3A7717]" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-[#01312D]">
+                  Verification Request
+                </h2>
+                <p className="text-xs text-gray-500">{verification.name}</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1 hover:bg-[#eafde7] rounded-lg"
+            >
+              <X className="w-6 h-6 text-gray-500" />
+            </button>
+          </div>
+
+          <div className="p-5 space-y-5">
+            {/* Driver Info */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <User className="w-4 h-4 text-[#3A7717]" /> Personal Information
+              </h3>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-gray-500">Full Name</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {verification.name || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Email</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {verification.email || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Phone</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {verification.phone || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Submitted</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {new Date(verification.submittedAt).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Vehicle Info */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <Car className="w-4 h-4 text-[#3A7717]" /> Vehicle Information
+              </h3>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-gray-500">Registration Number</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {verification.carRegistration || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Car Model</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {verification.carModel || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Year</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {verification.carYear || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Color</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {verification.carColor || "N/A"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Documents */}
+            {(verification.drivingLicenseUrl ||
+              verification.carRegistrationUrl ||
+              verification.profilePhotoUrl) && (
+              <div className="bg-[#eafde7] rounded-xl p-4">
+                <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-[#3A7717]" /> Uploaded
+                  Documents
+                </h3>
+                <div className="grid grid-cols-3 gap-3">
+                  {verification.drivingLicenseUrl && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">
+                        Driver's License
+                      </p>
+                      <a
+                        href={verification.drivingLicenseUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#3A7717] text-sm hover:underline"
+                      >
+                        View Document →
+                      </a>
+                    </div>
+                  )}
+                  {verification.carRegistrationUrl && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">
+                        Car Registration
+                      </p>
+                      <a
+                        href={verification.carRegistrationUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#3A7717] text-sm hover:underline"
+                      >
+                        View Document →
+                      </a>
+                    </div>
+                  )}
+                  {verification.profilePhotoUrl && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">
+                        Profile Photo
+                      </p>
+                      <a
+                        href={verification.profilePhotoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#3A7717] text-sm hover:underline"
+                      >
+                        View Photo →
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-[#3A7717]" /> Verification
+                Status
+              </h3>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500">Current Status:</span>
+                {getStatusBadge(verification.verificationStatus)}
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
+            {verification.verificationStatus === "pending" && (
+              <>
+                <button
+                  onClick={() => handleApproveVerification(verification)}
+                  className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors"
+                >
+                  <CheckCircle className="w-4 h-4" /> Approve Verification
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedVerification(verification);
+                    setShowRejectModal(true);
+                    setShowVerificationModal(false);
+                  }}
+                  className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors"
+                >
+                  <XCircle className="w-4 h-4" /> Reject
+                </button>
+              </>
+            )}
+            <button
+              onClick={onClose}
+              className={`${verification.verificationStatus === "pending" ? "flex-1" : "w-full"} bg-gray-500 text-white py-2 rounded-xl font-semibold`}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
-  // Driver Details Modal (same as before)
+  // Driver Details Modal
   const DriverDetailsModal = ({
     driver,
     onClose,
@@ -586,8 +1121,253 @@ export default function AdminDashboard() {
     driver: any;
     onClose: () => void;
   }) => {
-    // ... (keep the existing DriverDetailsModal code)
-    return null; // Placeholder - keep your existing implementation
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={onClose}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="sticky top-0 bg-white border-b border-[#bff202]/20 p-5 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center">
+                <User className="w-5 h-5 text-[#3A7717]" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-[#01312D]">
+                  Driver Details
+                </h2>
+                <p className="text-xs text-gray-500">{driver.name}</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1 hover:bg-[#eafde7] rounded-lg"
+            >
+              <X className="w-6 h-6 text-gray-500" />
+            </button>
+          </div>
+
+          <div className="p-5 space-y-5">
+            {/* Personal Info */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <User className="w-4 h-4 text-[#3A7717]" /> Personal Information
+              </h3>
+              <div className="grid gap-3 text-sm">
+                <div>
+                  <p className="text-gray-500">Name</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {driver.name || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Email</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {driver.email || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Phone</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {driver.phone || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Member Since</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {new Date(driver.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Vehicle Info */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <Car className="w-4 h-4 text-[#3A7717]" /> Vehicle Information
+              </h3>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-gray-500">Registration Number</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {driver.carRegistration || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Car Model</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {driver.carModel || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Year</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {driver.carYear || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Color</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {driver.carColor || "N/A"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-[#3A7717]" /> Driver
+                Statistics
+              </h3>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <p className="text-2xl font-bold text-[#3A7717]">
+                    {driver.totalRequests || 0}
+                  </p>
+                  <p className="text-xs text-gray-500">Total Requests</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-[#3A7717]">
+                    R{(driver.totalSpent || 0).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-500">Total Spent</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-[#3A7717]">
+                    {driver.rating || "N/A"}
+                  </p>
+                  <p className="text-xs text-gray-500">Rating</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-[#3A7717]" /> Verification
+                Status
+              </h3>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500">Current Status:</span>
+                {getStatusBadge(driver.verificationStatus)}
+              </div>
+            </div>
+          </div>
+
+          <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5">
+            <button
+              onClick={onClose}
+              className="w-full bg-gray-500 text-white py-2 rounded-xl font-semibold"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // WhatsApp Modal Component (simplified)
+  const WhatsAppModal = () => {
+    if (!approvedRequest) return null;
+
+    const displayAmount =
+      approvedRequest.actualAmount || approvedRequest.amount;
+    const message = `Hello ${approvedRequest.driverName},\n\nYour request for ${getTypeLabel(approvedRequest.type)} has been APPROVED! ✅\n\n🔐 OTP: ${approvedRequest.otp || generatedOtp}\n💰 Amount: R${displayAmount.toLocaleString()}\n🚗 Vehicle: ${approvedRequest.carRegistration}\n\nThank you for using FueleX! 🚀`;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowWhatsAppModal(false)}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl p-5">
+          <div className="text-center">
+            <MessageCircle className="w-16 h-16 text-[#25D366] mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-[#01312D] mb-2">
+              Send WhatsApp
+            </h2>
+            <p className="text-gray-500 text-sm mb-4">
+              Send approval notification to {approvedRequest.driverName}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowWhatsAppModal(false)}
+                className="flex-1 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const phone = approvedRequest.driverPhone?.replace(/\D/g, "");
+                  window.open(
+                    `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
+                    "_blank",
+                  );
+                  setShowWhatsAppModal(false);
+                }}
+                className="flex-1 bg-[#25D366] text-white py-2 rounded-xl font-semibold"
+              >
+                Send via WhatsApp
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Approval Modal Component
+  const ApprovalModal = () => {
+    if (!approvingRequest) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowApproveModal(false)}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl p-5">
+          <div className="text-center">
+            <CheckCircle className="w-16 h-16 text-[#3A7717] mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-[#01312D] mb-2">
+              Confirm Approval
+            </h2>
+            <p className="text-gray-500 text-sm mb-4">
+              Approve {getTypeLabel(approvingRequest.type)} request for{" "}
+              {approvingRequest.driverName}?
+            </p>
+            <div className="bg-yellow-50 rounded-xl p-3 mb-4">
+              <p className="text-sm font-semibold text-yellow-800">OTP Code:</p>
+              <code className="text-2xl font-bold tracking-wider text-[#01312D]">
+                {generatedOtp}
+              </code>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowApproveModal(false)}
+                className="flex-1 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmApprove}
+                disabled={approvalLoading}
+                className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+              >
+                {approvalLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CheckCircle className="w-4 h-4" />
+                )}
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const StatCard = ({ title, value, icon: Icon, color, prefix = "" }: any) => (
@@ -748,26 +1528,9 @@ export default function AdminDashboard() {
                         {item.carRegistration}
                       </p>
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        className="px-3 py-1 bg-[#3A7717] text-white text-xs rounded-lg"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleApproveVerification(item);
-                        }}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        className="px-3 py-1 bg-red-500 text-white text-xs rounded-lg"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRejectVerification(item);
-                        }}
-                      >
-                        Reject
-                      </button>
-                    </div>
+                    <button className="px-3 py-1 bg-[#72bf00] text-white text-xs rounded-lg">
+                      View Details
+                    </button>
                   </div>
                 ))
               )}
@@ -911,7 +1674,7 @@ export default function AdminDashboard() {
         </>
       )}
 
-      {/* Modals - Placeholder comments for your existing modals */}
+      {/* Modals */}
       {showVerificationModal && selectedVerification && (
         <VerificationDetailsModal
           verification={selectedVerification}
@@ -932,6 +1695,7 @@ export default function AdminDashboard() {
       )}
       {showApproveModal && <ApprovalModal />}
       {showWhatsAppModal && approvedRequest && <WhatsAppModal />}
+      {showRejectModal && <RejectionModal />}
       <SuccessModal />
       <ErrorModal />
     </div>
