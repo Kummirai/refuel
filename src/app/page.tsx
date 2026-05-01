@@ -571,7 +571,7 @@ export default function HomePage() {
                       New to Kapuka?
                     </p>
                     <p className="text-[#01312D]/80 text-xs">
-                      Sign up now & get 10% off on first request!
+                      Sign up now & continue with your requests!
                     </p>
                   </div>
                 </div>
