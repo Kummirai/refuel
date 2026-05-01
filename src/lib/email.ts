@@ -145,7 +145,7 @@ const generateAdminEmailHtml = (data: ServiceRequestEmailData): string => {
 export async function sendAdminNotificationEmail(
   data: ServiceRequestEmailData,
 ) {
-  const adminEmail = process.env.ADMIN_EMAIL || "admin@Kapuka.netlify.app";
+  const adminEmail = process.env.ADMIN_EMAIL || "mieltonkumirai@gmail.com";
 
   try {
     const info = await transporter.sendMail({
@@ -337,7 +337,7 @@ export async function sendVerificationNotificationEmail(data: {
   verificationId: string;
   submissionDate: string;
 }) {
-  const adminEmail = process.env.ADMIN_EMAIL || "admin@Kapuka.netlify.app";
+  const adminEmail = process.env.ADMIN_EMAIL || "mieltonkumirai@gmail.com";
 
   const html = `
     <!DOCTYPE html>
