@@ -293,7 +293,7 @@ export default function DriverDashboard() {
         </div>
 
         {/* Upcoming Services Banner */}
-        <div className="bg-gradient-to-r from-[#bff202]/20 to-[#72bf00]/20 rounded-2xl p-4 mb-6 border border-[#bff202]/30">
+        <div className="bg-linear-to-r from-[#bff202]/20 to-[#72bf00]/20 rounded-2xl p-4 mb-6 border border-[#bff202]/30">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-[#bff202] rounded-full flex items-center justify-center">
