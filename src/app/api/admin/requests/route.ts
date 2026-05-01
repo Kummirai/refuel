@@ -25,17 +25,13 @@ export async function GET() {
         // Convert userId to ObjectId if it's a string, otherwise use as is
         let userIdQuery;
         try {
-          // Try to convert string to ObjectId
           userIdQuery = new ObjectId(request.userId);
         } catch {
-          // If it's already an ObjectId or invalid, use as string
           userIdQuery = request.userId;
         }
 
         // Get user from users collection (try both ObjectId and string)
         let user = await usersCollection.findOne({ _id: userIdQuery });
-
-        // If not found, try as string
         if (!user && typeof request.userId === "string") {
           user = await usersCollection.findOne({ _id: request.userId });
         }
@@ -50,51 +46,62 @@ export async function GET() {
           });
         }
 
-        console.log(
-          `Request ${request._id}: User found = ${!!user}, Profile found = ${!!driverProfile}`,
-        );
-
+        // Return ALL fields from the request document
         return {
-          id: request._id,
+          id: request._id.toString(),
+          _id: request._id.toString(),
+          userId: request.userId,
           type: request.type,
           amount: request.amount,
+          actualAmount: request.actualAmount || null,
+          carNumber: request.carNumber,
+          carModel: request.carModel,
+          fuelType: request.fuelType,
+          contactPhone: request.contactPhone,
           driverName:
             request.driverName ||
             user?.name ||
             driverProfile?.fullName ||
             driverProfile?.name ||
             "Unknown",
-          driverId: request.userId,
-          driverEmail: request.driverEmail || user?.email || "Unknown",
           driverPhone:
-            request.contactPhone ||
             request.driverPhone ||
             user?.phone ||
             driverProfile?.phone ||
             "Unknown",
-          carRegistration:
-            request.carNumber ||
-            driverProfile?.carRegistrationNumber ||
-            "Not provided",
-          carModel:
-            request.carModel || driverProfile?.carModel || "Not provided",
-          location:
-            request.location || driverProfile?.address || "Not provided",
-          fuelType: request.fuelType,
-          phoneNumber: request.recipientPhoneNumber || request.phoneNumber,
+          driverEmail: request.driverEmail || user?.email || "Unknown",
           interest: request.interest,
           totalRepayable: request.totalRepayable,
-          repaymentDays: request.repaymentDays,
           interestRate: request.interestRate,
-          date: request.requestDate,
+          repaymentDays: request.repaymentDays,
+          dailyPayment: request.dailyPayment,
+          package: request.package,
+          packageDescription: request.packageDescription,
           status: request.status,
           otp: request.otp,
+          requestDate: request.requestDate,
+          createdAt: request.createdAt,
+          approvedDate: request.approvedDate,
+          completedDate: request.completedDate,
+          popUrl: request.popUrl,
+          popPublicId: request.popPublicId,
+          popUploadedAt: request.popUploadedAt,
+          updatedAt: request.updatedAt,
+          // Additional fields for display
+          location:
+            request.location || driverProfile?.address || "Not provided",
+          phoneNumber: request.recipientPhoneNumber || request.contactPhone,
         };
       }),
     );
 
     console.log("Requests with details:", requestsWithDetails.length);
-    console.log("First request details:", requestsWithDetails[0]);
+    if (requestsWithDetails.length > 0) {
+      console.log(
+        "First request details:",
+        JSON.stringify(requestsWithDetails[0], null, 2),
+      );
+    }
 
     // Calculate stats
     const total = requestsWithDetails.length;
@@ -110,9 +117,16 @@ export async function GET() {
     const rejected = requestsWithDetails.filter(
       (r) => r.status === "rejected",
     ).length;
+
+    // Calculate total revenue based on actualAmount if available, otherwise amount
     const totalRevenue = requestsWithDetails
       .filter((r) => r.status === "completed")
-      .reduce((sum, r) => sum + (r.amount || 0), 0);
+      .reduce((sum, r) => sum + (r.actualAmount || r.amount || 0), 0);
+
+    // Calculate total repayable amount
+    const totalRepayable = requestsWithDetails
+      .filter((r) => r.status === "completed")
+      .reduce((sum, r) => sum + (r.totalRepayable || r.amount || 0), 0);
 
     return NextResponse.json({
       requests: requestsWithDetails,
@@ -125,6 +139,7 @@ export async function GET() {
       completed,
       rejected,
       totalRevenue,
+      totalRepayable,
     });
   } catch (error) {
     console.error("Error fetching requests:", error);
