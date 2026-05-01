@@ -1,6 +1,7 @@
-// src/app/layout.tsx - Clean version with only Montserrat
+// src/app/layout.tsx
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import { SessionProvider } from "@/components/providers/SessionProvider";
 import "./globals.css";
 
 const jarkata = Plus_Jakarta_Sans({
@@ -22,7 +23,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={jarkata.variable}>
-      <body className={jarkata.className}>{children}</body>
+      <body className={jarkata.className}>
+        <SessionProvider>{children}</SessionProvider>
+      </body>
     </html>
   );
 }

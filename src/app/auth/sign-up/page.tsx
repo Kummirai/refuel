@@ -4,7 +4,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { authClient } from "@/lib/auth-client";
 import {
   Mail,
   Lock,
@@ -51,22 +50,28 @@ export default function SignUpPage() {
     }
 
     try {
-      // Include phone in signup since backend requires it
-      const { data, error: signUpError } = await authClient.signUp.email({
-        email: formData.email,
-        password: formData.password,
-        name: formData.name,
-        phone: formData.phone,
-      } as any);
+      // Call your API endpoint to create user
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          name: formData.name,
+          phone: formData.phone,
+        }),
+      });
 
-      if (signUpError) {
-        throw new Error(signUpError.message);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create account");
       }
 
-      if (data) {
-        // Additional profile data can be updated here if needed
-        router.push("/verify");
-      }
+      // After successful signup, redirect to sign in
+      router.push("/auth/sign-in?registered=true");
     } catch (err: any) {
       console.error("Signup error:", err);
       setError(err.message || "Failed to create account. Please try again.");

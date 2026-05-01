@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { authClient } from "@/lib/auth-client";
+import { signIn, useSession } from "next-auth/react";
 import {
   Mail,
   Lock,
@@ -17,7 +17,7 @@ import {
 
 export default function SignInPage() {
   const router = useRouter();
-  const { data: session, isPending } = authClient.useSession();
+  const { data: session, status } = useSession();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -28,8 +28,7 @@ export default function SignInPage() {
 
   // Redirect if already logged in
   useEffect(() => {
-    if (!isPending && session) {
-      // Use type assertion to access role property
+    if (status === "authenticated" && session) {
       const userRole = (session.user as any)?.role;
       if (userRole === "admin") {
         router.push("/admin/dashboard");
@@ -37,7 +36,7 @@ export default function SignInPage() {
         router.push("/");
       }
     }
-  }, [session, isPending, router]);
+  }, [session, status, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,55 +44,21 @@ export default function SignInPage() {
     setError("");
 
     try {
-      const { data, error: signInError } = await authClient.signIn.email({
+      const result = await signIn("credentials", {
         email: formData.email,
         password: formData.password,
+        redirect: false,
       });
 
-      if (signInError) {
-        throw new Error(signInError.message);
+      if (result?.error) {
+        throw new Error("Invalid email or password");
       }
 
-      if (data) {
-        // Get the session to check user role and details
-        const { data: sessionData } = await authClient.getSession();
-
-        const userRole = (sessionData?.user as any)?.role;
-        if (userRole === "admin") {
-          // Admin goes to admin dashboard
-          router.push("/admin/dashboard");
-          return;
-        }
-
-        // For drivers, fetch their verification status from database
-        const response = await fetch(
-          `/api/driver/profile?userId=${sessionData?.user?.id}`,
-        );
-
-        if (response.ok) {
-          const profile = await response.json();
-          const verificationStatus =
-            profile?.verificationStatus || "not_submitted";
-          const isVerified = profile?.isVerified || false;
-
-          // Redirect based on verification status
-          if (isVerified && verificationStatus === "approved") {
-            // Fully verified driver
-            router.push("/");
-          } else if (verificationStatus === "pending") {
-            // Documents submitted, waiting for admin approval
-            router.push("/verify/status");
-          } else if (verificationStatus === "rejected") {
-            // Verification rejected, need to re-submit
-            router.push("/verify");
-          } else {
-            // Not submitted or no profile yet
-            router.push("/verify");
-          }
-        } else {
-          // No profile found, need to verify
-          router.push("/verify");
-        }
+      if (result?.ok) {
+        // Wait for session to be updated
+        setTimeout(() => {
+          router.refresh();
+        }, 100);
       }
     } catch (err: any) {
       console.error("Login error:", err);
@@ -103,7 +68,15 @@ export default function SignInPage() {
     }
   };
 
-  if (!isPending && session) {
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3A7717] border-t-transparent"></div>
+      </div>
+    );
+  }
+
+  if (status === "authenticated") {
     return null; // Will redirect in useEffect
   }
 
