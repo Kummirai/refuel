@@ -324,251 +324,258 @@ export default function RequestHistoryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#eafde7]">
-      {/* Header */}
-      <div className="bg-white border-b border-[#bff202]/20 sticky top-0 z-20">
-        <div className="px-5 py-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => router.back()}
-                className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center active:scale-95 transition-transform"
-              >
-                <ArrowLeft className="w-5 h-5 text-[#01312D]" />
-              </button>
-              <h1 className="text-xl font-bold text-[#01312D]">
-                Request History
-              </h1>
-            </div>
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="p-2 bg-[#eafde7] rounded-full active:scale-95 transition-transform"
-            >
-              <RefreshCw
-                className={`w-5 h-5 text-[#3A7717] ${refreshing ? "animate-spin" : ""}`}
-              />
-            </button>
-          </div>
-
-          {/* Stats Cards */}
-          <div className="grid grid-cols-4 gap-2 mt-4">
-            <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
-              <p className="text-xs text-gray-500">Total</p>
-              <p className="text-lg font-bold text-[#01312D]">{stats.total}</p>
-            </div>
-            <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
-              <p className="text-xs text-gray-500">Pending</p>
-              <p className="text-lg font-bold text-yellow-600">
-                {stats.pending}
-              </p>
-            </div>
-            <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
-              <p className="text-xs text-gray-500">Completed</p>
-              <p className="text-lg font-bold text-[#3A7717]">
-                {stats.completed}
-              </p>
-            </div>
-            <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
-              <p className="text-xs text-gray-500">Spent</p>
-              <p className="text-lg font-bold text-[#72bf00]">
-                R{stats.totalSpent.toLocaleString()}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Filter Tabs */}
-      <div className="px-5 pt-4 pb-2 overflow-x-auto no-scrollbar">
-        <div className="flex gap-2">
-          {["all", "pending", "approved", "completed", "rejected"].map(
-            (filter) => (
-              <button
-                key={filter}
-                onClick={() => setSelectedFilter(filter as any)}
-                className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${
-                  selectedFilter === filter
-                    ? "bg-[#01312D] text-white shadow-md"
-                    : "bg-white text-[#01312D] border border-[#bff202]/20"
-                }`}
-              >
-                {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                {filter !== "all" &&
-                  filter === "pending" &&
-                  stats.pending > 0 && (
-                    <span className="ml-1 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">
-                      {stats.pending}
-                    </span>
-                  )}
-              </button>
-            ),
-          )}
-        </div>
-      </div>
-
-      {/* Requests List */}
-      <div className="px-5 pt-4 pb-24">
-        {filteredRequests.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-md">
-              <Clock className="w-10 h-10 text-[#72bf00]" />
-            </div>
-            <p className="text-[#01312D] font-semibold">No requests found</p>
-            <p className="text-xs text-gray-500 mt-1">
-              {selectedFilter !== "all"
-                ? `No ${selectedFilter} requests in your history`
-                : "Your request history will appear here"}
-            </p>
-            <button
-              onClick={() => router.push("/requests")}
-              className="mt-4 bg-linear-to-r from-[#01312D] to-[#3A7717] text-white px-6 py-2 rounded-lg font-semibold text-sm"
-            >
-              Make a Request
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filteredRequests.map((request) => {
-              const IconComponent = getTypeIcon(request.type);
-              const typeColor = getTypeColor(request.type);
-              const statusColor = getStatusColor(request.status);
-              const date = new Date(request.date);
-
-              return (
-                <div
-                  key={request.id}
-                  className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => {
-                    setSelectedRequest(request);
-                    setShowDetailModal(true);
-                  }}
+    <div className="min-h-screen bg-[#eafde7] flex items-center justify-center relative overflow-hidden">
+      {/* Mobile Container - Max width 430px */}
+      <div className="relative w-full max-w-[430px] min-h-screen bg-[#eafde7] shadow-2xl">
+        {/* Header */}
+        <div className="bg-white border-b border-[#bff202]/20 sticky top-0 z-20">
+          <div className="px-5 py-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => router.back()}
+                  className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center active:scale-95 transition-transform"
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center ${typeColor}`}
-                      >
-                        {IconComponent && <IconComponent className="w-5 h-5" />}
-                      </div>
-                      <div>
-                        <p className="font-bold text-[#01312D] capitalize">
-                          {getTypeLabel(request.type)}
-                        </p>
-                        <p className="text-xs text-gray-500">{request.id}</p>
-                      </div>
-                    </div>
-                    <div
-                      className={`px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${statusColor}`}
-                    >
-                      {getStatusIcon(request.status)}
-                      <span>{getStatusText(request.status)}</span>
-                    </div>
-                  </div>
+                  <ArrowLeft className="w-5 h-5 text-[#01312D]" />
+                </button>
+                <h1 className="text-xl font-bold text-[#01312D]">
+                  Request History
+                </h1>
+              </div>
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="p-2 bg-[#eafde7] rounded-full active:scale-95 transition-transform"
+              >
+                <RefreshCw
+                  className={`w-5 h-5 text-[#3A7717] ${refreshing ? "animate-spin" : ""}`}
+                />
+              </button>
+            </div>
 
-                  <div className="flex justify-between items-between mb-3">
-                    <div>
-                      <p className="text-2xl font-bold text-[#01312D]">
-                        R{request.amount.toLocaleString()}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {date.toLocaleDateString()} at{" "}
-                        {date.toLocaleTimeString()}
-                      </p>
-                    </div>
-                    {request.otp && request.status === "approved" && (
-                      <div className="bg-[#bff202]/20 rounded-lg px-3 py-1">
-                        <p className="text-xs text-[#01312D] font-semibold">
-                          OTP: {request.otp}
-                        </p>
-                      </div>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-4 gap-2 mt-4">
+              <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
+                <p className="text-xs text-gray-500">Total</p>
+                <p className="text-lg font-bold text-[#01312D]">
+                  {stats.total}
+                </p>
+              </div>
+              <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
+                <p className="text-xs text-gray-500">Pending</p>
+                <p className="text-lg font-bold text-yellow-600">
+                  {stats.pending}
+                </p>
+              </div>
+              <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
+                <p className="text-xs text-gray-500">Completed</p>
+                <p className="text-lg font-bold text-[#3A7717]">
+                  {stats.completed}
+                </p>
+              </div>
+              <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
+                <p className="text-xs text-gray-500">Spent</p>
+                <p className="text-lg font-bold text-[#72bf00]">
+                  R{stats.totalSpent.toLocaleString()}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="px-5 pt-4 pb-2 overflow-x-auto no-scrollbar">
+          <div className="flex gap-2">
+            {["all", "pending", "approved", "completed", "rejected"].map(
+              (filter) => (
+                <button
+                  key={filter}
+                  onClick={() => setSelectedFilter(filter as any)}
+                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${
+                    selectedFilter === filter
+                      ? "bg-[#01312D] text-white shadow-md"
+                      : "bg-white text-[#01312D] border border-[#bff202]/20"
+                  }`}
+                >
+                  {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                  {filter !== "all" &&
+                    filter === "pending" &&
+                    stats.pending > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">
+                        {stats.pending}
+                      </span>
                     )}
-                  </div>
+                </button>
+              ),
+            )}
+          </div>
+        </div>
 
-                  <div className="flex gap-2 pt-3 border-t border-gray-100">
-                    <button
-                      className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-sm font-semibold flex items-center justify-center gap-2"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedRequest(request);
-                        setShowDetailModal(true);
-                      }}
-                    >
-                      <Eye className="w-4 h-4" />
-                      Details
-                    </button>
-                    {request.status === "completed" && (
+        {/* Requests List */}
+        <div className="px-5 pt-4 pb-24">
+          {filteredRequests.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-md">
+                <Clock className="w-10 h-10 text-[#72bf00]" />
+              </div>
+              <p className="text-[#01312D] font-semibold">No requests found</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {selectedFilter !== "all"
+                  ? `No ${selectedFilter} requests in your history`
+                  : "Your request history will appear here"}
+              </p>
+              <button
+                onClick={() => router.push("/requests")}
+                className="mt-4 bg-linear-to-r from-[#01312D] to-[#3A7717] text-white px-6 py-2 rounded-lg font-semibold text-sm"
+              >
+                Make a Request
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredRequests.map((request) => {
+                const IconComponent = getTypeIcon(request.type);
+                const typeColor = getTypeColor(request.type);
+                const statusColor = getStatusColor(request.status);
+                const date = new Date(request.date);
+
+                return (
+                  <div
+                    key={request.id}
+                    className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => {
+                      setSelectedRequest(request);
+                      setShowDetailModal(true);
+                    }}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center ${typeColor}`}
+                        >
+                          {IconComponent && (
+                            <IconComponent className="w-5 h-5" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-bold text-[#01312D] capitalize">
+                            {getTypeLabel(request.type)}
+                          </p>
+                          <p className="text-xs text-gray-500">{request.id}</p>
+                        </div>
+                      </div>
+                      <div
+                        className={`px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${statusColor}`}
+                      >
+                        {getStatusIcon(request.status)}
+                        <span>{getStatusText(request.status)}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-between mb-3">
+                      <div>
+                        <p className="text-2xl font-bold text-[#01312D]">
+                          R{request.amount.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {date.toLocaleDateString()} at{" "}
+                          {date.toLocaleTimeString()}
+                        </p>
+                      </div>
+                      {request.otp && request.status === "approved" && (
+                        <div className="bg-[#bff202]/20 rounded-lg px-3 py-1">
+                          <p className="text-xs text-[#01312D] font-semibold">
+                            OTP: {request.otp}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 pt-3 border-t border-gray-100">
                       <button
                         className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-sm font-semibold flex items-center justify-center gap-2"
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedRequest(request);
+                          setShowDetailModal(true);
+                        }}
                       >
-                        <Download className="w-4 h-4" />
-                        Receipt
+                        <Eye className="w-4 h-4" />
+                        Details
                       </button>
-                    )}
+                      {request.status === "completed" && (
+                        <button
+                          className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-sm font-semibold flex items-center justify-center gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Download className="w-4 h-4" />
+                          Receipt
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Detail Modal */}
-      {showDetailModal && selectedRequest && (
-        <RequestDetailModal
-          request={selectedRequest}
-          onClose={() => setShowDetailModal(false)}
-        />
-      )}
-
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 z-50 shadow-lg">
-        <div className="flex justify-around items-center">
-          <button
-            onClick={() => router.push("/")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-              <Home className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+                );
+              })}
             </div>
-            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-              Home
-            </span>
-          </button>
-          <button
-            onClick={() => router.push("/requests")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-              <ClipboardList className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-              Requests
-            </span>
-          </button>
-          <button
-            onClick={() => router.push("/requests/history")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#bff202] scale-110 shadow-md">
-              <History className="w-5 h-5 text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#01312D] font-bold">History</span>
-          </button>
-          <button
-            onClick={() => router.push("/profile")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-              <User className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-              Profile
-            </span>
-          </button>
+          )}
         </div>
-      </nav>
+
+        {/* Detail Modal */}
+        {showDetailModal && selectedRequest && (
+          <RequestDetailModal
+            request={selectedRequest}
+            onClose={() => setShowDetailModal(false)}
+          />
+        )}
+
+        {/* Bottom Navigation */}
+        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 z-50 shadow-lg max-w-[430px] mx-auto">
+          <div className="flex justify-around items-center">
+            <button
+              onClick={() => router.push("/")}
+              className="flex flex-col items-center gap-0.5 py-1 group"
+            >
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
+                <Home className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+              </div>
+              <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+                Home
+              </span>
+            </button>
+            <button
+              onClick={() => router.push("/requests")}
+              className="flex flex-col items-center gap-0.5 py-1 group"
+            >
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
+                <ClipboardList className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+              </div>
+              <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+                Requests
+              </span>
+            </button>
+            <button
+              onClick={() => router.push("/requests/history")}
+              className="flex flex-col items-center gap-0.5 py-1 group"
+            >
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#bff202] scale-110 shadow-md">
+                <History className="w-5 h-5 text-[#01312D]" />
+              </div>
+              <span className="text-xs text-[#01312D] font-bold">History</span>
+            </button>
+            <button
+              onClick={() => router.push("/profile")}
+              className="flex flex-col items-center gap-0.5 py-1 group"
+            >
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
+                <User className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+              </div>
+              <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+                Profile
+              </span>
+            </button>
+          </div>
+        </nav>
+      </div>
     </div>
   );
 }

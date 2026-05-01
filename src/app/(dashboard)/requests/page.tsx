@@ -547,7 +547,7 @@ function RequestsPageContent() {
   if (driverDetails.verificationStatus !== "approved") {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center px-5">
-        <div className="text-center max-w-md">
+        <div className="text-center max-w-md w-full">
           <div
             className={`w-20 h-20 ${statusDisplay.bgColor} rounded-full flex items-center justify-center mx-auto mb-4`}
           >
@@ -608,377 +608,380 @@ function RequestsPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#eafde7] relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-80 h-80 bg-[#bff202]/10 rounded-full blur-3xl"></div>
-      <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#3A7717]/5 rounded-full blur-3xl"></div>
+    <div className="min-h-screen bg-[#eafde7] flex items-center justify-center relative overflow-hidden">
+      {/* Mobile Container - Max width 430px */}
+      <div className="relative w-full max-w-[430px] min-h-screen bg-[#eafde7] shadow-2xl">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-[#bff202]/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#3A7717]/5 rounded-full blur-3xl"></div>
 
-      {showSuccess && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
-          <div className="relative bg-white rounded-2xl p-6 max-w-sm w-full animate-slideUp shadow-2xl">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-[#3A7717]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-8 h-8 text-[#3A7717]" />
-              </div>
-              <h3 className="text-xl font-bold text-[#01312D] mb-2">
-                Request Sent!
-              </h3>
-              <p className="text-gray-600 text-sm mb-4">
-                Your request has been sent to admin for approval
-              </p>
-              <div className="bg-[#eafde7] rounded-xl p-3 mb-4">
-                <p className="text-xs text-[#3A7717] font-semibold">
-                  Request ID: {requestId}
+        {showSuccess && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+            <div className="relative bg-white rounded-2xl p-6 max-w-sm w-full animate-slideUp shadow-2xl">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-[#3A7717]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-8 h-8 text-[#3A7717]" />
+                </div>
+                <h3 className="text-xl font-bold text-[#01312D] mb-2">
+                  Request Sent!
+                </h3>
+                <p className="text-gray-600 text-sm mb-4">
+                  Your request has been sent to admin for approval
                 </p>
+                <div className="bg-[#eafde7] rounded-xl p-3 mb-4">
+                  <p className="text-xs text-[#3A7717] font-semibold">
+                    Request ID: {requestId}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowSuccess(false)}
+                  className="bg-[#01312D] text-white px-6 py-2 rounded-lg font-semibold"
+                >
+                  OK
+                </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        <main className="relative z-10 pb-24">
+          <div className="bg-white border-b border-[#bff202]/20 sticky top-0 z-20">
+            <div className="px-5 py-4 flex items-center gap-3">
               <button
-                onClick={() => setShowSuccess(false)}
-                className="bg-[#01312D] text-white px-6 py-2 rounded-lg font-semibold"
+                onClick={() => router.back()}
+                className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center active:scale-95 transition-transform"
               >
-                OK
+                <ArrowLeft className="w-5 h-5 text-[#01312D]" />
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <main className="relative z-10 pb-24">
-        <div className="bg-white border-b border-[#bff202]/20 sticky top-0 z-20">
-          <div className="px-5 py-4 flex items-center gap-3">
-            <button
-              onClick={() => router.back()}
-              className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center active:scale-95 transition-transform"
-            >
-              <ArrowLeft className="w-5 h-5 text-[#01312D]" />
-            </button>
-            <h1 className="text-xl font-bold text-[#01312D]">
-              Request Service
-            </h1>
-          </div>
-        </div>
-
-        <div className="px-5 pt-6">
-          {/* Driver Info Card */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 mb-6">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center">
-                <User className="w-5 h-5 text-[#3A7717]" />
-              </div>
-              <div>
-                <p className="font-semibold text-[#01312D]">
-                  {driverDetails.fullName}
-                </p>
-                <p className="text-xs text-gray-500">{driverDetails.email}</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-xs text-gray-500">Car Registration</p>
-                <p className="font-semibold text-[#01312D]">
-                  {driverDetails.carRegistrationNumber || "Not set"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Car Model</p>
-                <p className="font-semibold text-[#01312D]">
-                  {driverDetails.carModel || "Not set"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Registered Phone</p>
-                <p className="font-semibold text-[#01312D]">
-                  {driverDetails.phone || "Not set"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Status</p>
-                <p className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full inline-block">
-                  ✓ Verified
-                </p>
-              </div>
+              <h1 className="text-xl font-bold text-[#01312D]">
+                Request Service
+              </h1>
             </div>
           </div>
 
-          {/* Service Selection Tabs */}
-          <div className="mb-8">
-            <div className="grid grid-cols-2 gap-4">
-              {services.map((service) => {
-                const Icon = service.icon;
-                const isActive = selectedService === service.id;
-                return (
-                  <button
-                    key={service.id}
-                    onClick={() => {
-                      setSelectedService(service.id);
-                      setAmount("");
-                      setError("");
-                      setSelectedRepaymentDays(
-                        serviceConfig[service.id].defaultRepaymentDays,
-                      );
-                    }}
-                    className={`flex flex-col items-center gap-1 p-3 rounded-2xl transition-all duration-300 ${
-                      isActive
-                        ? `bg-linear-to-r ${service.color} text-white shadow-lg scale-105`
-                        : "bg-white text-[#01312D] border border-[#bff202]/20"
-                    }`}
-                  >
-                    <Icon
-                      className={`w-5 h-5 ${isActive ? "text-white" : service.textColor}`}
-                    />
-                    <span
-                      className={`text-xs font-semibold ${isActive ? "text-white" : "text-[#01312D]"}`}
-                    >
-                      {service.name}
-                    </span>
-                    <span
-                      className={`text-[10px] ${isActive ? "text-white/80" : "text-[#72bf00]"}`}
-                    >
-                      {service.interestRate}% interest
-                    </span>
-                  </button>
-                );
-              })}
+          <div className="px-5 pt-6">
+            {/* Driver Info Card */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 mb-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center">
+                  <User className="w-5 h-5 text-[#3A7717]" />
+                </div>
+                <div>
+                  <p className="font-semibold text-[#01312D]">
+                    {driverDetails.fullName}
+                  </p>
+                  <p className="text-xs text-gray-500">{driverDetails.email}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-gray-500">Car Registration</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {driverDetails.carRegistrationNumber || "Not set"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Car Model</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {driverDetails.carModel || "Not set"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Registered Phone</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {driverDetails.phone || "Not set"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Status</p>
+                  <p className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full inline-block">
+                    ✓ Verified
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
 
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-red-500" />
-              <p className="text-sm text-red-600">{error}</p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Amount Field */}
-            <div>
-              <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                {selectedService === "carwash" ? "Select Package" : "Amount"}
-              </label>
-
-              {selectedService === "carwash" ? (
-                <div className="space-y-2">
-                  {carWashPackages.map((pkg) => (
+            {/* Service Selection Tabs */}
+            <div className="mb-8">
+              <div className="grid grid-cols-2 gap-4">
+                {services.map((service) => {
+                  const Icon = service.icon;
+                  const isActive = selectedService === service.id;
+                  return (
                     <button
-                      key={pkg.id}
-                      type="button"
-                      onClick={() => setAmount(pkg.price.toString())}
-                      className={`w-full p-4 rounded-2xl text-left transition-all ${
-                        amount === pkg.price.toString()
-                          ? "bg-linear-to-r from-[#01312D] to-[#3A7717] text-white shadow-lg"
-                          : "bg-white border border-[#bff202]/20 text-[#01312D]"
+                      key={service.id}
+                      onClick={() => {
+                        setSelectedService(service.id);
+                        setAmount("");
+                        setError("");
+                        setSelectedRepaymentDays(
+                          serviceConfig[service.id].defaultRepaymentDays,
+                        );
+                      }}
+                      className={`flex flex-col items-center gap-1 p-3 rounded-2xl transition-all duration-300 ${
+                        isActive
+                          ? `bg-linear-to-r ${service.color} text-white shadow-lg scale-105`
+                          : "bg-white text-[#01312D] border border-[#bff202]/20"
                       }`}
                     >
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <h3 className="font-bold">{pkg.name}</h3>
-                          <p
-                            className={`text-xs mt-1 ${amount === pkg.price.toString() ? "text-white/80" : "text-gray-500"}`}
-                          >
-                            {pkg.description}
-                          </p>
-                        </div>
-                        <p className="text-xl font-bold">R{pkg.price}</p>
-                      </div>
+                      <Icon
+                        className={`w-5 h-5 ${isActive ? "text-white" : service.textColor}`}
+                      />
+                      <span
+                        className={`text-xs font-semibold ${isActive ? "text-white" : "text-[#01312D]"}`}
+                      >
+                        {service.name}
+                      </span>
+                      <span
+                        className={`text-[10px] ${isActive ? "text-white/80" : "text-[#72bf00]"}`}
+                      >
+                        {service.interestRate}% interest
+                      </span>
                     </button>
-                  ))}
-                </div>
-              ) : (
-                <>
-                  <div className="relative">
-                    <CircleDollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#72bf00]" />
-                    <input
-                      type="number"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      placeholder={getPlaceholder()}
-                      className="w-full pl-10 pr-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] text-[#01312D]"
-                      required
-                    />
-                  </div>
-
-                  {selectedService === "fuel" && (
-                    <div className="flex gap-2 mt-2 flex-wrap">
-                      {[500, 1000, 2000, 3000, 5000].map((amt) => (
-                        <button
-                          key={amt}
-                          type="button"
-                          onClick={() => setAmount(amt.toString())}
-                          className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
-                        >
-                          R{amt}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {selectedService === "cash" && (
-                    <div className="flex gap-2 mt-2 flex-wrap">
-                      {[5000, 10000, 20000, 50000].map((amt) => (
-                        <button
-                          key={amt}
-                          type="button"
-                          onClick={() => setAmount(amt.toString())}
-                          className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
-                        >
-                          R{amt}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Contact Phone Number - Required for all services */}
-            <div>
-              <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                Contact Phone Number <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#72bf00]" />
-                <input
-                  type="tel"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="Enter 10-digit mobile number"
-                  className="w-full pl-10 pr-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                  required
-                />
+                  );
+                })}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                We'll use this number to contact you about your request
-              </p>
             </div>
 
-            {selectedService === "fuel" && (
-              <div>
-                <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                  Fuel Type
-                </label>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setFuelType("petrol")}
-                    className={`flex-1 py-3 rounded-xl font-semibold transition-all ${fuelType === "petrol" ? "bg-linear-to-r from-[#3A7717] to-[#72bf00] text-white shadow-md" : "bg-white border border-[#bff202]/20 text-[#01312D]"}`}
-                  >
-                    ⛽ Petrol
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFuelType("diesel")}
-                    className={`flex-1 py-3 rounded-xl font-semibold transition-all ${fuelType === "diesel" ? "bg-linear-to-r from-[#3A7717] to-[#72bf00] text-white shadow-md" : "bg-white border border-[#bff202]/20 text-[#01312D]"}`}
-                  >
-                    🛢️ Diesel
-                  </button>
-                </div>
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-500" />
+                <p className="text-sm text-red-600">{error}</p>
               </div>
             )}
 
-            {amount && parseFloat(amount) > 0 && getRepaymentPeriodSelector()}
-            {amount && parseFloat(amount) > 0 && getServiceSummary()}
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Amount Field */}
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                  {selectedService === "carwash" ? "Select Package" : "Amount"}
+                </label>
 
-            <div>
-              <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                Car Registration Number
-              </label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#72bf00]">
-                  🚗
-                </div>
-                <input
-                  type="text"
-                  value={driverDetails.carRegistrationNumber}
-                  disabled
-                  className="w-full pl-10 pr-4 py-3 bg-gray-100 border border-[#bff202]/20 rounded-xl text-[#01312D] cursor-not-allowed"
-                />
+                {selectedService === "carwash" ? (
+                  <div className="space-y-2">
+                    {carWashPackages.map((pkg) => (
+                      <button
+                        key={pkg.id}
+                        type="button"
+                        onClick={() => setAmount(pkg.price.toString())}
+                        className={`w-full p-4 rounded-2xl text-left transition-all ${
+                          amount === pkg.price.toString()
+                            ? "bg-linear-to-r from-[#01312D] to-[#3A7717] text-white shadow-lg"
+                            : "bg-white border border-[#bff202]/20 text-[#01312D]"
+                        }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h3 className="font-bold">{pkg.name}</h3>
+                            <p
+                              className={`text-xs mt-1 ${amount === pkg.price.toString() ? "text-white/80" : "text-gray-500"}`}
+                            >
+                              {pkg.description}
+                            </p>
+                          </div>
+                          <p className="text-xl font-bold">R{pkg.price}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <CircleDollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#72bf00]" />
+                      <input
+                        type="number"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        placeholder={getPlaceholder()}
+                        className="w-full pl-10 pr-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] text-[#01312D]"
+                        required
+                      />
+                    </div>
+
+                    {selectedService === "fuel" && (
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        {[500, 1000, 2000, 3000, 5000].map((amt) => (
+                          <button
+                            key={amt}
+                            type="button"
+                            onClick={() => setAmount(amt.toString())}
+                            className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
+                          >
+                            R{amt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {selectedService === "cash" && (
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        {[5000, 10000, 20000, 50000].map((amt) => (
+                          <button
+                            key={amt}
+                            type="button"
+                            onClick={() => setAmount(amt.toString())}
+                            className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
+                          >
+                            R{amt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                To update, go to Profile → Settings → Update Vehicle Details
-              </p>
-            </div>
 
-            <button
-              type="submit"
-              disabled={loading || !amount || !phoneNumber}
-              className="w-full bg-linear-to-r from-[#01312D] to-[#3A7717] text-white py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" /> Processing...
-                </>
-              ) : (
-                <>
-                  <Send className="w-5 h-5" /> Submit Request
-                </>
-              )}
-            </button>
+              {/* Contact Phone Number - Required for all services */}
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                  Contact Phone Number <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#72bf00]" />
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="Enter 10-digit mobile number"
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    required
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  We'll use this number to contact you about your request
+                </p>
+              </div>
 
-            <div className="bg-[#eafde7] rounded-xl p-3 border border-[#bff202]/20">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-[#72bf00] mt-0.5" />
+              {selectedService === "fuel" && (
                 <div>
-                  <p className="text-xs text-gray-600">
-                    Your request will be sent to admin for approval. Once
-                    approved, you'll receive an OTP and confirmation details.
-                  </p>
-                  <p className="text-xs text-[#3A7717] font-semibold mt-1">
-                    💰 Amount will be processed within 30 minutes after
-                    approval. Repayment of {currentConfig.interestRate}%
-                    interest over {selectedRepaymentDays} days.
-                  </p>
+                  <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                    Fuel Type
+                  </label>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setFuelType("petrol")}
+                      className={`flex-1 py-3 rounded-xl font-semibold transition-all ${fuelType === "petrol" ? "bg-linear-to-r from-[#3A7717] to-[#72bf00] text-white shadow-md" : "bg-white border border-[#bff202]/20 text-[#01312D]"}`}
+                    >
+                      ⛽ Petrol
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFuelType("diesel")}
+                      className={`flex-1 py-3 rounded-xl font-semibold transition-all ${fuelType === "diesel" ? "bg-linear-to-r from-[#3A7717] to-[#72bf00] text-white shadow-md" : "bg-white border border-[#bff202]/20 text-[#01312D]"}`}
+                    >
+                      🛢️ Diesel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {amount && parseFloat(amount) > 0 && getRepaymentPeriodSelector()}
+              {amount && parseFloat(amount) > 0 && getServiceSummary()}
+
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                  Car Registration Number
+                </label>
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#72bf00]">
+                    🚗
+                  </div>
+                  <input
+                    type="text"
+                    value={driverDetails.carRegistrationNumber}
+                    disabled
+                    className="w-full pl-10 pr-4 py-3 bg-gray-100 border border-[#bff202]/20 rounded-xl text-[#01312D] cursor-not-allowed"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  To update, go to Profile → Settings → Update Vehicle Details
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !amount || !phoneNumber}
+                className="w-full bg-linear-to-r from-[#01312D] to-[#3A7717] text-white py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" /> Processing...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-5 h-5" /> Submit Request
+                  </>
+                )}
+              </button>
+
+              <div className="bg-[#eafde7] rounded-xl p-3 border border-[#bff202]/20">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-[#72bf00] mt-0.5" />
+                  <div>
+                    <p className="text-xs text-gray-600">
+                      Your request will be sent to admin for approval. Once
+                      approved, you'll receive an OTP and confirmation details.
+                    </p>
+                    <p className="text-xs text-[#3A7717] font-semibold mt-1">
+                      💰 Amount will be processed within 30 minutes after
+                      approval. Repayment of {currentConfig.interestRate}%
+                      interest over {selectedRepaymentDays} days.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          </form>
-        </div>
-      </main>
+            </form>
+          </div>
+        </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 z-50 shadow-lg">
-        <div className="flex justify-around items-center">
-          <button
-            onClick={() => router.push("/")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-              <Home className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-              Home
-            </span>
-          </button>
-          <button
-            onClick={() => router.push("/requests")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#bff202] scale-110 shadow-md">
-              <ClipboardList className="w-5 h-5 text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#01312D] font-bold">Requests</span>
-          </button>
-          <button
-            onClick={() => router.push("/requests/history")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-              <History className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-              History
-            </span>
-          </button>
-          <button
-            onClick={() => router.push("/profile")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-              <UserCircle className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-              Profile
-            </span>
-          </button>
-        </div>
-      </nav>
+        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 z-50 shadow-lg max-w-[430px] mx-auto">
+          <div className="flex justify-around items-center">
+            <button
+              onClick={() => router.push("/")}
+              className="flex flex-col items-center gap-0.5 py-1 group"
+            >
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
+                <Home className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+              </div>
+              <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+                Home
+              </span>
+            </button>
+            <button
+              onClick={() => router.push("/requests")}
+              className="flex flex-col items-center gap-0.5 py-1 group"
+            >
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#bff202] scale-110 shadow-md">
+                <ClipboardList className="w-5 h-5 text-[#01312D]" />
+              </div>
+              <span className="text-xs text-[#01312D] font-bold">Requests</span>
+            </button>
+            <button
+              onClick={() => router.push("/requests/history")}
+              className="flex flex-col items-center gap-0.5 py-1 group"
+            >
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
+                <History className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+              </div>
+              <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+                History
+              </span>
+            </button>
+            <button
+              onClick={() => router.push("/profile")}
+              className="flex flex-col items-center gap-0.5 py-1 group"
+            >
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
+                <UserCircle className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+              </div>
+              <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
+                Profile
+              </span>
+            </button>
+          </div>
+        </nav>
+      </div>
     </div>
   );
 }
