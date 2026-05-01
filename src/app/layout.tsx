@@ -1,21 +1,18 @@
-// src/app/layout.tsx
+// src/app/layout.tsx - Clean version with only Montserrat
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const jarkata = Plus_Jakarta_Sans({
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["200", "300", "400", "500", "600", "700", "800"],
+  display: "swap",
+  variable: "--font-montserrat",
 });
 
 export const metadata: Metadata = {
-  title: "FueleX - Driver Services",
-  description: "Get fuel, cash, airtime & car wash instantly",
+  title: "Kapuka - Driver Services",
+  description: "Get fuel, cash & car wash instantly",
 };
 
 export default function RootLayout({
@@ -24,8 +21,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body>{children}</body>
+    <html lang="en" className={jarkata.variable}>
+      <body className={jarkata.className}>{children}</body>
     </html>
   );
 }

@@ -365,21 +365,43 @@ export default function HomePage() {
 
         {/* Hero Tagline */}
         <div className="text-center mb-6">
-          <div className="inline-block bg-[#bff202]/20 rounded-full px-4 py-1 mb-3">
+          <div className="inline-flex items-center gap-2 bg-[#bff202]/20 rounded-full px-4 py-1.5 mb-4">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#3A7717] opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#3A7717]"></span>
+            </span>
             <p className="text-xs font-semibold text-[#01312D]">
               Everything for Drivers
             </p>
           </div>
-          <h1 className="text-3xl font-extrabold text-[#01312D] leading-tight mb-2">
-            Get Fuel, Cash,
+
+          <h1 className="text-4xl font-black text-[#01312D] leading-tight mb-3">
+            Get <span className="text-[#3A7717]">Fuel</span>,{" "}
+            <span className="text-[#3A7717]">Cash</span>
+            <br />&{" "}
+            <span className="text-[#3A7717] underline decoration-[#bff202] decoration-4 underline-offset-8">
+              Car Wash
+            </span>
             <br />
-            Airtime & Car Wash
-            <br />
-            Instantly!
+            <span className="inline-flex items-center gap-2 mt-1">
+              Services Instantly!
+            </span>
           </h1>
-          <p className="text-[#3A7717] text-sm">
-            Quick, reliable service at your fingertips
-          </p>
+
+          <div className="flex items-center justify-center gap-3 text-xs text-[#3A7717]">
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-[#3A7717] rounded-full"></span>
+              24/7 Support
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-[#3A7717] rounded-full"></span>
+              No Hidden Fees
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-[#3A7717] rounded-full"></span>
+              Instant Processing
+            </span>
+          </div>
         </div>
 
         {/* Get Started Button */}
