@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
       message: "POP uploaded successfully",
       data: { actualAmount, totalRepayable, dailyPayment },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("POP upload error:", error);
     return NextResponse.json(
       { error: "Failed to process POP: " + error.message },

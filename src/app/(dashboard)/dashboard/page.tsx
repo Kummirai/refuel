@@ -160,6 +160,8 @@ export default function DriverDashboard() {
         return <Smartphone className="w-4 h-4" />;
       case "cash":
         return <DollarSign className="w-4 h-4" />;
+      case "carwash":
+        return <Car className="w-4 h-4" />;
       default:
         return <Car className="w-4 h-4" />;
     }
@@ -173,6 +175,8 @@ export default function DriverDashboard() {
         return "bg-blue-100 text-blue-700";
       case "cash":
         return "bg-yellow-100 text-yellow-700";
+      case "carwash":
+        return "bg-purple-100 text-purple-700";
       default:
         return "bg-purple-100 text-purple-700";
     }
@@ -186,8 +190,10 @@ export default function DriverDashboard() {
         return "Airtime";
       case "cash":
         return "Cash Loan";
-      default:
+      case "carwash":
         return "Car Wash";
+      default:
+        return "Service";
     }
   };
 
@@ -286,6 +292,28 @@ export default function DriverDashboard() {
           </div>
         </div>
 
+        {/* Upcoming Services Banner */}
+        <div className="bg-gradient-to-r from-[#bff202]/20 to-[#72bf00]/20 rounded-2xl p-4 mb-6 border border-[#bff202]/30">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-[#bff202] rounded-full flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-[#01312D]" />
+              </div>
+              <div>
+                <p className="font-semibold text-[#01312D]">Coming Soon!</p>
+                <p className="text-xs text-gray-600">
+                  Cash Loans will be available soon
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-xs bg-white/50 px-2 py-1 rounded-full text-[#01312D]">
+                💰 Cash Loan
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Active Loan Banner */}
         {activeLoan && (
           <div className="bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-2xl p-4 shadow-lg mb-6">
@@ -331,66 +359,40 @@ export default function DriverDashboard() {
           </div>
         )}
 
-        {/* Quick Actions */}
+        {/* Quick Actions - Only Fuel and Car Wash */}
         <div className="mb-6">
           <h2 className="text-lg font-bold text-[#01312D] mb-3">
             Quick Actions
           </h2>
           <div className="grid grid-cols-2 gap-3">
+            {/* Fuel Request */}
             <button
               onClick={() => router.push("/requests?type=fuel")}
-              className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 flex items-center gap-3 hover:shadow-md transition-shadow"
+              className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 flex items-center gap-3 hover:shadow-md transition-shadow active:scale-95"
             >
               <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
                 <Fuel className="w-5 h-5 text-green-600" />
               </div>
-              <div className="text-left">
+              <div className="text-left flex-1">
                 <p className="font-semibold text-[#01312D]">Request Fuel</p>
                 <p className="text-xs text-gray-500">Petrol / Diesel</p>
               </div>
-              <ArrowRight className="w-4 h-4 text-gray-400 ml-auto" />
+              <ArrowRight className="w-4 h-4 text-gray-400" />
             </button>
 
-            <button
-              onClick={() => router.push("/requests?type=cash")}
-              className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 flex items-center gap-3 hover:shadow-md transition-shadow"
-            >
-              <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-yellow-600" />
-              </div>
-              <div className="text-left">
-                <p className="font-semibold text-[#01312D]">Cash Loan</p>
-                <p className="text-xs text-gray-500">13% Interest</p>
-              </div>
-              <ArrowRight className="w-4 h-4 text-gray-400 ml-auto" />
-            </button>
-
-            <button
-              onClick={() => router.push("/requests?type=airtime")}
-              className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 flex items-center gap-3 hover:shadow-md transition-shadow"
-            >
-              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                <Smartphone className="w-5 h-5 text-blue-600" />
-              </div>
-              <div className="text-left">
-                <p className="font-semibold text-[#01312D]">Buy Airtime</p>
-                <p className="text-xs text-gray-500">All networks</p>
-              </div>
-              <ArrowRight className="w-4 h-4 text-gray-400 ml-auto" />
-            </button>
-
+            {/* Car Wash Request */}
             <button
               onClick={() => router.push("/requests?type=carwash")}
-              className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 flex items-center gap-3 hover:shadow-md transition-shadow"
+              className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 flex items-center gap-3 hover:shadow-md transition-shadow active:scale-95"
             >
               <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
                 <Car className="w-5 h-5 text-purple-600" />
               </div>
-              <div className="text-left">
+              <div className="text-left flex-1">
                 <p className="font-semibold text-[#01312D]">Car Wash</p>
                 <p className="text-xs text-gray-500">Premium cleaning</p>
               </div>
-              <ArrowRight className="w-4 h-4 text-gray-400 ml-auto" />
+              <ArrowRight className="w-4 h-4 text-gray-400" />
             </button>
           </div>
         </div>
@@ -428,7 +430,7 @@ export default function DriverDashboard() {
                 return (
                   <div
                     key={request.id}
-                    className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 hover:shadow-md transition-shadow cursor-pointer"
+                    className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 hover:shadow-md transition-shadow cursor-pointer active:scale-[0.99]"
                     onClick={() => router.push(`/requests/history`)}
                   >
                     <div className="flex items-center justify-between mb-2">
@@ -488,7 +490,7 @@ export default function DriverDashboard() {
             </div>
             <button
               onClick={() => router.push("/profile")}
-              className="bg-white text-[#01312D] px-4 py-2 rounded-lg text-sm font-semibold"
+              className="bg-white text-[#01312D] px-4 py-2 rounded-lg text-sm font-semibold active:scale-95 transition-transform"
             >
               Update Profile
             </button>
@@ -501,7 +503,7 @@ export default function DriverDashboard() {
         <div className="flex justify-around items-center">
           <button
             onClick={() => router.push("/")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
+            className="flex flex-col items-center gap-0.5 py-1 group active:scale-95 transition-transform"
           >
             <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
               <Home className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
@@ -513,7 +515,7 @@ export default function DriverDashboard() {
 
           <button
             onClick={() => router.push("/requests")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
+            className="flex flex-col items-center gap-0.5 py-1 group active:scale-95 transition-transform"
           >
             <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
               <ClipboardList className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
@@ -525,7 +527,7 @@ export default function DriverDashboard() {
 
           <button
             onClick={() => router.push("/requests/history")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
+            className="flex flex-col items-center gap-0.5 py-1 group active:scale-95 transition-transform"
           >
             <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
               <History className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
@@ -537,7 +539,7 @@ export default function DriverDashboard() {
 
           <button
             onClick={() => router.push("/profile")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
+            className="flex flex-col items-center gap-0.5 py-1 group active:scale-95 transition-transform"
           >
             <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
               <UserCircle className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
