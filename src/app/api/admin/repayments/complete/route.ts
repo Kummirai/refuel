@@ -26,60 +26,71 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Loan not found" }, { status: 404 });
     }
 
-    // Use the stored values
     const totalRepayable = loan.totalRepayable || loan.amount * 1.13;
     const remainingAmount = totalRepayable - (loan.repaidAmount || 0);
 
-    // Create a final payment record for the remaining amount
+    // Record a final payment for the remaining amount
     const paymentsCollection = db.collection("loanPayments");
     const paymentId = new ObjectId();
 
-    await paymentsCollection.insertOne({
-      _id: paymentId,
-      loanId: repaymentId,
-      amount: remainingAmount,
-      paymentDate: new Date(),
-      method: "bulk_completion",
-      reference: "Marked as fully paid by admin",
-      remainingBalance: 0,
-      createdAt: new Date(),
-    });
+    if (remainingAmount > 0) {
+      await paymentsCollection.insertOne({
+        _id: paymentId,
+        loanId: repaymentId,
+        amount: remainingAmount,
+        paymentDate: new Date(),
+        method: "bulk_completion",
+        reference: "Marked as fully paid by admin",
+        remainingBalance: 0,
+        createdAt: new Date(),
+      });
 
-    // Get existing payments
-    const existingPayments = loan.payments || [];
-
-    // Update loan as fully paid
-    await serviceRequestsCollection.updateOne(
-      { _id: new ObjectId(repaymentId) },
-      {
-        $set: {
-          repaidAmount: totalRepayable,
-          lastPaymentDate: new Date(),
-          status: "completed",
-          completedDate: new Date(),
-        },
-        $push: {
-          payments: {
-            id: paymentId.toString(),
-            amount: remainingAmount,
-            date: new Date(),
-            method: "bulk_completion",
-            reference: "Marked as fully paid by admin",
+      // Update loan as fully paid (financial settlement complete)
+      await serviceRequestsCollection.updateOne(
+        { _id: new ObjectId(repaymentId) },
+        {
+          $set: {
+            repaidAmount: totalRepayable,
+            lastPaymentDate: new Date(),
+            isPaid: true, // Mark as financially paid
+            paidDate: new Date(),
+            // Status remains "completed" (service was already delivered)
+            // We don't change the service status here
+          },
+          $push: {
+            payments: {
+              id: paymentId.toString(),
+              amount: remainingAmount,
+              date: new Date(),
+              method: "bulk_completion",
+              reference: "Marked as fully paid by admin",
+            },
           },
         },
-      },
-    );
+      );
+    } else {
+      // Already fully paid, just mark as paid if not already
+      await serviceRequestsCollection.updateOne(
+        { _id: new ObjectId(repaymentId) },
+        {
+          $set: {
+            isPaid: true,
+            paidDate: new Date(),
+          },
+        },
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      message: "Loan marked as fully paid",
-      repaidAmount: totalRepayable,
-      completedDate: new Date(),
+      message: "Request marked as fully paid",
+      remainingBalance: 0,
+      isFullyPaid: true,
     });
   } catch (error) {
-    console.error("Error completing loan:", error);
+    console.error("Error marking as paid:", error);
     return NextResponse.json(
-      { error: "Failed to mark loan as paid" },
+      { error: "Failed to mark as paid" },
       { status: 500 },
     );
   }

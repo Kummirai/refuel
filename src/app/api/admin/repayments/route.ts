@@ -10,6 +10,7 @@ export async function GET() {
     const usersCollection = db.collection("user");
 
     // Get ALL completed and approved requests (all service types)
+    // Show both: approved (pending service) and completed (service done, payment pending)
     const loans = await serviceRequestsCollection
       .find({
         status: { $in: ["approved", "completed"] },
@@ -17,7 +18,7 @@ export async function GET() {
       .sort({ requestDate: -1 })
       .toArray();
 
-    console.log(`Found ${loans.length} requests with repayments`);
+    console.log(`Found ${loans.length} requests`);
 
     const repayments = await Promise.all(
       loans.map(async (loan: any) => {
@@ -33,7 +34,7 @@ export async function GET() {
           }
         }
 
-        // Use stored values (already calculated based on actualAmount if POP was uploaded)
+        // Calculate financial status
         const totalRepayable = loan.totalRepayable || loan.amount * 1.13;
         const repaidAmount = loan.repaidAmount || 0;
         const remainingAmount = totalRepayable - repaidAmount;
@@ -48,13 +49,19 @@ export async function GET() {
             )
           : new Date();
 
-        // Determine status
-        let status = "pending";
-        if (loan.status === "completed" || repaidAmount >= totalRepayable) {
-          status = "paid";
+        // Determine financial status
+        // isPaid flag indicates if full financial settlement has been made
+        const isPaid = loan.isPaid === true || remainingAmount <= 0;
+
+        let financialStatus = "pending";
+        if (isPaid) {
+          financialStatus = "paid";
         } else if (today > dueDate) {
-          status = "overdue";
+          financialStatus = "overdue";
         }
+
+        // Service status (completed means service was delivered)
+        const isServiceCompleted = loan.status === "completed";
 
         // Get service type display name
         const getServiceTypeLabel = (type: string) => {
@@ -89,8 +96,8 @@ export async function GET() {
           serviceType: loan.type,
           serviceTypeLabel: getServiceTypeLabel(loan.type),
           requestedAmount: loan.amount,
-          actualAmount: loan.actualAmount || null, // Add actual amount from POP
-          amount: loan.actualAmount || loan.amount, // Use actualAmount if available
+          actualAmount: loan.actualAmount || null,
+          amount: loan.actualAmount || loan.amount,
           interestRate: loan.interestRate || 13,
           interest:
             loan.interest ||
@@ -99,7 +106,9 @@ export async function GET() {
           repaidAmount: repaidAmount,
           remainingAmount: remainingAmount,
           dueDate: dueDate.toISOString(),
-          status: status,
+          status: financialStatus,
+          isPaid: isPaid,
+          isServiceCompleted: isServiceCompleted,
           dailyPayment:
             loan.dailyPayment ||
             Math.ceil(totalRepayable / (loan.repaymentDays || 7)),
@@ -113,7 +122,7 @@ export async function GET() {
           fuelType: loan.fuelType,
           contactPhone: loan.contactPhone,
           otp: loan.otp,
-          popUrl: loan.popUrl, // Add POP URL
+          popUrl: loan.popUrl,
           popUploadedAt: loan.popUploadedAt,
           payments: loan.payments || [],
         };

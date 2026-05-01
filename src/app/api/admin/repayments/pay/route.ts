@@ -27,7 +27,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Loan not found" }, { status: 404 });
     }
 
-    // Use the stored values (already calculated based on actualAmount)
     const totalRepayable = loan.totalRepayable || loan.amount * 1.13;
     const currentRepaid = loan.repaidAmount || 0;
     const newRepaid = currentRepaid + amount;
@@ -48,21 +47,24 @@ export async function POST(request: Request) {
       createdAt: new Date(),
     });
 
-    // Get existing payments
-    const existingPayments = loan.payments || [];
+    // Update loan with new repaid amount
+    const updateFields: any = {
+      repaidAmount: newRepaid,
+      lastPaymentDate: new Date(),
+    };
 
-    // Update loan with new repaid amount and status
+    // If fully paid, mark as paid (financial settlement complete)
+    if (isFullyPaid) {
+      updateFields.isPaid = true;
+      updateFields.paidDate = new Date();
+      // Note: status remains as is (completed means service was delivered)
+      // We don't change service status here - only financial status
+    }
+
     await serviceRequestsCollection.updateOne(
       { _id: new ObjectId(repaymentId) },
       {
-        $set: {
-          repaidAmount: newRepaid,
-          lastPaymentDate: new Date(),
-          ...(isFullyPaid && {
-            status: "completed",
-            completedDate: new Date(),
-          }),
-        },
+        $set: updateFields,
         $push: {
           payments: {
             id: paymentId.toString(),
