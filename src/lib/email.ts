@@ -18,7 +18,7 @@ for (const envVar of requiredEnvVars) {
 
 // Configure email transporter for Brevo
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || "smtp-relay.brevo.com",
+  host: process.env.EMAIL_HOST || "smtp-relay.brevo.netlify.app",
   port: parseInt(process.env.EMAIL_PORT || "587"),
   secure: process.env.EMAIL_SECURE === "true",
   auth: {
@@ -41,7 +41,7 @@ const transporter = nodemailer.createTransport({
 if (process.env.NODE_ENV === "development") {
   transporter.verify((error, success) => {
     if (error) {
-      console.error("❌ Email transporter error:", error);
+      console.error("Email transporter error:", error);
       console.error("Please check your Brevo credentials in .env.local");
     } else {
       console.log("Email server is ready to send messages");
@@ -134,7 +134,7 @@ const generateAdminEmailHtml = (data: ServiceRequestEmailData): string => {
           </div>
         </div>
         <div class="footer">
-          <p>FueleX Services • This is an automated notification</p>
+          <p>Kapuka Services • This is an automated notification</p>
         </div>
       </div>
     </body>
@@ -145,21 +145,21 @@ const generateAdminEmailHtml = (data: ServiceRequestEmailData): string => {
 export async function sendAdminNotificationEmail(
   data: ServiceRequestEmailData,
 ) {
-  const adminEmail = process.env.ADMIN_EMAIL || "admin@FueleX.com";
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@Kapuka.netlify.app";
 
   try {
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || '"FueleX" <noreply@FueleX.com>',
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@Kapuka.netlify.app>',
       to: adminEmail,
-      subject: `🔔 New Service Request: ${data.requestId.slice(-6).toUpperCase()}`,
+      subject: `New Service Request: ${data.requestId.slice(-6).toUpperCase()}`,
       html: generateAdminEmailHtml(data),
       text: `New service request from ${data.driverName} for R${data.amount}`,
     });
 
-    console.log("✅ Admin notification email sent:", info.messageId);
+    console.log("Admin notification email sent:", info.messageId);
     return info;
   } catch (error) {
-    console.error("❌ Error sending admin notification email:", error);
+    console.error("Error sending admin notification email:", error);
     // Don't throw - email failure shouldn't block the request
     return null;
   }
@@ -195,7 +195,7 @@ const generateDriverApprovalHtml = (data: {
         <div class="header"><h1>Request Approved!</h1></div>
         <div class="content">
           <p>Hello ${data.driverName},</p>
-          <p>Your service request has been <strong>APPROVED</strong>! ✅</p>
+          <p>Your service request has been <strong>APPROVED</strong>!</p>
           <div class="otp">
             <p style="color: white;">Your OTP Code</p>
             <div class="otp-code">${data.otp}</div>
@@ -224,17 +224,17 @@ export async function sendDriverApprovalEmail(data: {
 }) {
   try {
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || '"FueleX" <noreply@FueleX.com>',
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@Kapuka.netlify.app>',
       to: data.driverEmail,
-      subject: `✅ Service Request Approved - ${data.requestId.slice(-6).toUpperCase()}`,
+      subject: `Service Request Approved - ${data.requestId.slice(-6).toUpperCase()}`,
       html: generateDriverApprovalHtml(data),
       text: `Your request for R${data.amount} has been approved. OTP: ${data.otp}`,
     });
 
-    console.log("✅ Driver approval email sent:", info.messageId);
+    console.log("Driver approval email sent:", info.messageId);
     return info;
   } catch (error) {
-    console.error("❌ Error sending driver approval email:", error);
+    console.error("Error sending driver approval email:", error);
     return null;
   }
 }
@@ -251,17 +251,17 @@ export async function sendDriverRejectionEmail(data: {
 }) {
   try {
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || '"FueleX" <noreply@FueleX.com>',
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@Kapuka.netlify.app>',
       to: data.driverEmail,
-      subject: `❌ Service Request Rejected - ${data.requestId.slice(-6).toUpperCase()}`,
+      subject: `Service Request Rejected - ${data.requestId.slice(-6).toUpperCase()}`,
       html: generateDriverRejectionHtml(data),
       text: `Your request for R${data.amount} has been rejected. Reason: ${data.reason}`,
     });
 
-    console.log("✅ Driver rejection email sent:", info.messageId);
+    console.log("Driver rejection email sent:", info.messageId);
     return info;
   } catch (error) {
-    console.error("❌ Error sending driver rejection email:", error);
+    console.error("Error sending driver rejection email:", error);
     return null;
   }
 }
@@ -294,7 +294,7 @@ const generateDriverRejectionHtml = (data: {
     <body>
       <div class="container">
         <div class="header">
-          <h1>❌ Request Rejected</h1>
+          <h1>Request Rejected</h1>
         </div>
         <div class="content">
           <p>Hello ${data.driverName},</p>
@@ -306,9 +306,9 @@ const generateDriverRejectionHtml = (data: {
           </div>
           
           <p><strong>Request Details:</strong></p>
-          <p>📋 Request ID: ${data.requestId.slice(-6).toUpperCase()}<br>
-          🚗 Service: ${data.serviceType}<br>
-          💰 Amount: R${data.amount.toLocaleString()}</p>
+          <p>Request ID: ${data.requestId.slice(-6).toUpperCase()}<br>
+          Service: ${data.serviceType}<br>
+          Amount: R${data.amount.toLocaleString()}</p>
           
           <p>If you have any questions, please contact our support team.</p>
           
@@ -318,7 +318,7 @@ const generateDriverRejectionHtml = (data: {
           </div>
           
           <hr style="margin: 30px 0 20px; border: none; border-top: 1px solid #e5e7eb;">
-          <p style="font-size: 12px; color: #6b7280; text-align: center;">FueleX Services • This is an automated notification</p>
+          <p style="font-size: 12px; color: #6b7280; text-align: center;">Kapuka Services • This is an automated notification</p>
         </div>
       </div>
     </body>
@@ -337,7 +337,7 @@ export async function sendVerificationNotificationEmail(data: {
   verificationId: string;
   submissionDate: string;
 }) {
-  const adminEmail = process.env.ADMIN_EMAIL || "admin@FueleX.com";
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@Kapuka.netlify.app";
 
   const html = `
     <!DOCTYPE html>
@@ -366,12 +366,12 @@ export async function sendVerificationNotificationEmail(data: {
     <body>
       <div class="container">
         <div class="header">
-          <h1>🚗 FueleX</h1>
+          <h1>Kapuka</h1>
           <p style="color: #bff202; margin-top: 10px;">New Driver Verification Request</p>
         </div>
         <div class="content">
           <div style="text-align: center; margin-bottom: 20px;">
-            <span class="badge">⏳ PENDING REVIEW</span>
+            <span class="badge">PENDING REVIEW</span>
           </div>
           
           <div class="section">
@@ -385,19 +385,19 @@ export async function sendVerificationNotificationEmail(data: {
           </div>
           
           <div class="section">
-            <h3>📋 Verification Status</h3>
+            <h3>Verification Status</h3>
             <div class="row"><span class="label">Status:</span><span class="value">Pending Review</span></div>
             <div class="row"><span class="label">Verification ID:</span><span class="value">${data.verificationId.slice(-8).toUpperCase()}</span></div>
           </div>
           
           <div style="text-align: center;">
             <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/verifications" class="button">
-              📋 Review Verification
+              Review Verification
             </a>
           </div>
         </div>
         <div class="footer">
-          <p>FueleX Services • This is an automated notification</p>
+          <p>Kapuka Services • This is an automated notification</p>
           <p>Please review the driver's documents to approve or reject.</p>
         </div>
       </div>
@@ -407,15 +407,15 @@ export async function sendVerificationNotificationEmail(data: {
 
   try {
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || '"FueleX" <noreply@FueleX.com>',
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@Kapuka.netlify.app>',
       to: adminEmail,
-      subject: `🔔 New Driver Verification Request - ${data.driverName}`,
+      subject: `New Driver Verification Request - ${data.driverName}`,
       html: html,
       text: `New verification request from ${data.driverName} (${data.carRegistration})`,
     });
-    console.log("✅ Verification notification email sent:", info.messageId);
+    console.log("Verification notification email sent:", info.messageId);
   } catch (error) {
-    console.error("❌ Error sending verification notification email:", error);
+    console.error("Error sending verification notification email:", error);
   }
 }
 
@@ -449,7 +449,7 @@ export async function sendDriverVerificationResultEmail(data: {
     <body>
       <div class="container">
         <div class="header">
-          <h1>${isApproved ? "✅ Verification Approved!" : "❌ Verification Rejected"}</h1>
+          <h1>${isApproved ? "Verification Approved!" : "Verification Rejected"}</h1>
         </div>
         <div class="content">
           <p>Hello ${data.driverName},</p>
@@ -478,17 +478,17 @@ export async function sendDriverVerificationResultEmail(data: {
           <ul>
             <li>Request fuel, airtime, cash loans, and car wash services</li>
             <li>Track your request history</li>
-            <li>Access all FueleX features</li>
+            <li>Access all Kapuka features</li>
           </ul>
           `
               : `
-          <p>Please re-submit your verification with correct information to continue using FueleX services.</p>
+          <p>Please re-submit your verification with correct information to continue using Kapuka services.</p>
           `
           }
           
           <div style="text-align: center; margin-top: 30px;">
             <a href="${process.env.NEXT_PUBLIC_APP_URL}${isApproved ? "/requests" : "/verify"}" class="button">
-              ${isApproved ? "🚗 Start Requesting" : "📝 Re-submit Verification"}
+              ${isApproved ? "Start Requesting" : "Re-submit Verification"}
             </a>
           </div>
         </div>
@@ -509,15 +509,15 @@ export async function sendDriverVerificationResultEmail(data: {
     });
 
     await transporter.sendMail({
-      from: process.env.EMAIL_FROM || '"FueleX" <noreply@FueleX.com>',
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@Kapuka.netlify.app>',
       to: data.driverEmail,
       subject: isApproved
-        ? `✅ Driver Verification Approved - FueleX`
-        : `❌ Driver Verification Rejected - FueleX`,
+        ? `Driver Verification Approved - Kapuka`
+        : ` Driver Verification Rejected - Kapuka`,
       html: html,
     });
-    console.log(`✅ Driver verification ${data.status} email sent`);
+    console.log(`Driver verification ${data.status} email sent`);
   } catch (error) {
-    console.error(`❌ Error sending verification ${data.status} email:`, error);
+    console.error(`Error sending verification ${data.status} email:`, error);
   }
 }
