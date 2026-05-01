@@ -27,9 +27,10 @@ import {
   XCircle,
   TrendingUp,
   Calendar,
+  Ban,
 } from "lucide-react";
 
-type ServiceType = "fuel" | "airtime" | "cash" | "carwash";
+type ServiceType = "fuel" | "carwash";
 
 // Default config (will be overridden by API)
 const DEFAULT_CONFIG: Record<
@@ -48,34 +49,16 @@ const DEFAULT_CONFIG: Record<
     name: "Fuel",
     interestRate: 13,
     defaultRepaymentDays: 7,
-    repaymentOptions: [7, 14, 21, 30],
+    repaymentOptions: [1, 3, 5, 7],
     icon: Fuel,
     color: "from-[#3A7717] to-[#72bf00]",
     textColor: "text-[#3A7717]",
-  },
-  airtime: {
-    name: "Airtime",
-    interestRate: 13,
-    defaultRepaymentDays: 7,
-    repaymentOptions: [7, 14, 21, 30],
-    icon: Smartphone,
-    color: "from-[#01312D] to-[#3A7717]",
-    textColor: "text-[#01312D]",
-  },
-  cash: {
-    name: "Cash Loan",
-    interestRate: 13,
-    defaultRepaymentDays: 7,
-    repaymentOptions: [7, 14, 21, 30],
-    icon: DollarSign,
-    color: "from-[#72bf00] to-[#bff202]",
-    textColor: "text-[#72bf00]",
   },
   carwash: {
     name: "Car Wash",
     interestRate: 13,
     defaultRepaymentDays: 7,
-    repaymentOptions: [7, 14, 21, 30],
+    repaymentOptions: [1, 3, 5, 7],
     icon: Car,
     color: "from-[#01312D] to-[#3A7717]",
     textColor: "text-[#01312D]",
@@ -93,7 +76,7 @@ function RequestsPageContent() {
     useState<ServiceType>(initialType);
   const [amount, setAmount] = useState<string>("");
   const [fuelType, setFuelType] = useState<"petrol" | "diesel">("petrol");
-  const [phoneNumber, setPhoneNumber] = useState<string>(""); // Phone number for all services
+  const [phoneNumber, setPhoneNumber] = useState<string>("");
   const [showSuccess, setShowSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -118,33 +101,13 @@ function RequestsPageContent() {
               ...DEFAULT_CONFIG.fuel,
               interestRate: data.services.fuelInterestRate || 13,
               defaultRepaymentDays: data.services.defaultRepaymentPeriod || 7,
-              repaymentOptions: data.services.repaymentPeriods || [
-                7, 14, 21, 30,
-              ],
-            },
-            airtime: {
-              ...DEFAULT_CONFIG.airtime,
-              interestRate: data.services.airtimeInterestRate || 13,
-              defaultRepaymentDays: data.services.defaultRepaymentPeriod || 7,
-              repaymentOptions: data.services.repaymentPeriods || [
-                7, 14, 21, 30,
-              ],
-            },
-            cash: {
-              ...DEFAULT_CONFIG.cash,
-              interestRate: data.services.cashInterestRate || 13,
-              defaultRepaymentDays: data.services.defaultRepaymentPeriod || 7,
-              repaymentOptions: data.services.repaymentPeriods || [
-                7, 14, 21, 30,
-              ],
+              repaymentOptions: data.services.repaymentPeriods || [1, 3, 5, 7],
             },
             carwash: {
               ...DEFAULT_CONFIG.carwash,
               interestRate: data.services.carwashInterestRate || 13,
               defaultRepaymentDays: data.services.defaultRepaymentPeriod || 7,
-              repaymentOptions: data.services.repaymentPeriods || [
-                7, 14, 21, 30,
-              ],
+              repaymentOptions: data.services.repaymentPeriods || [1, 3, 5, 7],
             },
           });
         }
@@ -371,19 +334,19 @@ function RequestsPageContent() {
     {
       id: "basic",
       name: "Basic Wash",
-      price: 499,
+      price: 60,
       description: "Exterior wash & drying",
     },
     {
       id: "premium",
       name: "Premium Wash",
-      price: 999,
+      price: 100,
       description: "Exterior + Interior cleaning",
     },
     {
       id: "deluxe",
       name: "Deluxe Wash",
-      price: 1499,
+      price: 150,
       description: "Complete detailing + wax",
     },
   ];
@@ -433,7 +396,7 @@ function RequestsPageContent() {
         carNumber: driverDetails.carRegistrationNumber,
         carModel: driverDetails.carModel,
         fuelType: selectedService === "fuel" ? fuelType : null,
-        contactPhone: phoneNumber, // This will be saved as contactPhone
+        contactPhone: phoneNumber,
         driverName: driverDetails.fullName,
         driverPhone: driverDetails.phone,
         driverEmail: driverDetails.email,
@@ -481,14 +444,11 @@ function RequestsPageContent() {
       setLoading(false);
     }
   };
+
   const getPlaceholder = () => {
     switch (selectedService) {
       case "fuel":
         return "Enter amount in R (e.g., 2000)";
-      case "airtime":
-        return "Enter amount in R (e.g., 500)";
-      case "cash":
-        return "Enter loan amount in R (e.g., 5000)";
       case "carwash":
         return "Select package";
     }
@@ -608,7 +568,7 @@ function RequestsPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#eafde7] relative overflow-hidden">
+    <div className="min-h-screen bg-[#eafde7] relative overflow-hidden pb-32">
       <div className="absolute top-0 right-0 w-80 h-80 bg-[#bff202]/10 rounded-full blur-3xl"></div>
       <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#3A7717]/5 rounded-full blur-3xl"></div>
 
@@ -642,7 +602,7 @@ function RequestsPageContent() {
         </div>
       )}
 
-      <main className="relative z-10 pb-24">
+      <main className="relative z-10">
         <div className="bg-white border-b border-[#bff202]/20 sticky top-0 z-20">
           <div className="px-5 py-4 flex items-center gap-3">
             <button
@@ -699,8 +659,11 @@ function RequestsPageContent() {
             </div>
           </div>
 
-          {/* Service Selection Tabs */}
-          <div className="mb-8">
+          {/* Available Services Section */}
+          <div className="mb-6">
+            <h2 className="text-lg font-bold text-[#01312D] mb-3">
+              Available Services
+            </h2>
             <div className="grid grid-cols-2 gap-4">
               {services.map((service) => {
                 const Icon = service.icon;
@@ -740,6 +703,46 @@ function RequestsPageContent() {
               })}
             </div>
           </div>
+
+          {/* Upcoming Services Section */}
+          {/* <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Calendar className="w-4 h-4 text-[#3A7717]" />
+              <h2 className="text-lg font-bold text-[#01312D]">
+                Upcoming Services
+              </h2>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+             
+              <div className="bg-white/50 rounded-2xl p-4 border border-dashed border-[#bff202]/30 opacity-70">
+                <div className="flex flex-col items-center text-center">
+                  <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mb-2">
+                    <DollarSign className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <h3 className="font-bold text-gray-500 text-sm">Cash Loan</h3>
+                  <p className="text-gray-400 text-xs mt-1">Coming soon</p>
+                  <div className="flex items-center gap-1 mt-2 text-gray-400 text-xs">
+                    <Ban className="w-3 h-3" />
+                    <span>Not yet available</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white/50 rounded-2xl p-4 border border-dashed border-[#bff202]/30 opacity-70">
+                <div className="flex flex-col items-center text-center">
+                  <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mb-2">
+                    <Smartphone className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <h3 className="font-bold text-gray-500 text-sm">Airtime</h3>
+                  <p className="text-gray-400 text-xs mt-1">Coming soon</p>
+                  <div className="flex items-center gap-1 mt-2 text-gray-400 text-xs">
+                    <Ban className="w-3 h-3" />
+                    <span>Not yet available</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div> */}
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
@@ -810,26 +813,11 @@ function RequestsPageContent() {
                       ))}
                     </div>
                   )}
-
-                  {selectedService === "cash" && (
-                    <div className="flex gap-2 mt-2 flex-wrap">
-                      {[5000, 10000, 20000, 50000].map((amt) => (
-                        <button
-                          key={amt}
-                          type="button"
-                          onClick={() => setAmount(amt.toString())}
-                          className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
-                        >
-                          R{amt}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </>
               )}
             </div>
 
-            {/* Contact Phone Number - Required for all services */}
+            {/* Contact Phone Number */}
             <div>
               <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                 Contact Phone Number <span className="text-red-500">*</span>
@@ -932,53 +920,6 @@ function RequestsPageContent() {
           </form>
         </div>
       </main>
-
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 z-50 shadow-lg">
-        <div className="flex justify-around items-center">
-          <button
-            onClick={() => router.push("/")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-              <Home className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-              Home
-            </span>
-          </button>
-          <button
-            onClick={() => router.push("/requests")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#bff202] scale-110 shadow-md">
-              <ClipboardList className="w-5 h-5 text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#01312D] font-bold">Requests</span>
-          </button>
-          <button
-            onClick={() => router.push("/requests/history")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-              <History className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-              History
-            </span>
-          </button>
-          <button
-            onClick={() => router.push("/profile")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-              <UserCircle className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-              Profile
-            </span>
-          </button>
-        </div>
-      </nav>
     </div>
   );
 }

@@ -21,7 +21,11 @@ import {
   ClipboardList,
   History,
   User,
+  Upload,
+  FileText,
+  AlertCircle,
 } from "lucide-react";
+import { PopUploadModal } from "@/components/PopUploadModal";
 
 type RequestStatus = "pending" | "approved" | "completed" | "rejected";
 
@@ -39,6 +43,11 @@ interface Request {
   phoneNumber?: string;
   interest?: number;
   totalRepayable?: number;
+  actualAmount?: number;
+  popUrl?: string;
+  popUploadedAt?: string;
+  dailyPayment?: number;
+  repaymentDays?: number;
 }
 
 export default function RequestHistoryPage() {
@@ -52,6 +61,9 @@ export default function RequestHistoryPage() {
   const [requests, setRequests] = useState<Request[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showPopModal, setShowPopModal] = useState(false);
+  const [selectedRequestForPop, setSelectedRequestForPop] =
+    useState<Request | null>(null);
 
   useEffect(() => {
     if (!isPending) {
@@ -70,7 +82,14 @@ export default function RequestHistoryPage() {
       );
       if (response.ok) {
         const data = await response.json();
-        setRequests(data);
+        console.log("Fetched requests:", data);
+        // Convert MongoDB _id to id for each request
+        const requestsWithId = data.map((req: any) => ({
+          ...req,
+          id: req.id || (req._id?.toString ? req._id.toString() : req._id),
+        }));
+        setRequests(requestsWithId);
+        console.log("First request ID:", requestsWithId[0]?.id); // Debug log
       }
     } catch (error) {
       console.error("Error fetching requests:", error);
@@ -90,7 +109,7 @@ export default function RequestHistoryPage() {
       case "completed":
         return <CheckCircle className="w-4 h-4 text-[#3A7717]" />;
       case "approved":
-        return <CheckCircle className="w-4 h-4 text-[#72bf00]" />;
+        return <CheckCircle className="w-4 h-4 text-blue-500" />;
       case "pending":
         return <Clock className="w-4 h-4 text-yellow-500" />;
       case "rejected":
@@ -103,7 +122,7 @@ export default function RequestHistoryPage() {
       case "completed":
         return "Completed";
       case "approved":
-        return "Approved";
+        return "Approved - Upload POP";
       case "pending":
         return "Pending";
       case "rejected":
@@ -116,7 +135,7 @@ export default function RequestHistoryPage() {
       case "completed":
         return "text-[#3A7717] bg-[#3A7717]/10";
       case "approved":
-        return "text-[#72bf00] bg-[#72bf00]/10";
+        return "text-blue-600 bg-blue-50";
       case "pending":
         return "text-yellow-600 bg-yellow-50";
       case "rejected":
@@ -135,7 +154,7 @@ export default function RequestHistoryPage() {
       case "carwash":
         return Car;
       default:
-        return Car; // Return a default icon
+        return Car;
     }
   };
 
@@ -180,7 +199,10 @@ export default function RequestHistoryPage() {
     approved: requests.filter((r) => r.status === "approved").length,
     completed: requests.filter((r) => r.status === "completed").length,
     rejected: requests.filter((r) => r.status === "rejected").length,
-    totalSpent: requests.reduce((sum, r) => sum + r.amount, 0),
+    totalSpent: requests.reduce(
+      (sum, r) => sum + (r.actualAmount || r.amount),
+      0,
+    ),
   };
 
   const RequestDetailModal = ({
@@ -196,6 +218,9 @@ export default function RequestHistoryPage() {
     if (!IconComponent) {
       return null;
     }
+
+    const needsPopUpload =
+      request.status === "approved" && request.type === "fuel";
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -229,11 +254,21 @@ export default function RequestHistoryPage() {
           <div className="p-5 space-y-4">
             <div className="bg-[#eafde7] rounded-xl p-4">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-500 text-sm">Amount</span>
+                <span className="text-gray-500 text-sm">Requested Amount</span>
                 <span className="text-2xl font-bold text-[#01312D]">
                   R{request.amount.toLocaleString()}
                 </span>
               </div>
+              {request.actualAmount && (
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-gray-500 text-sm">
+                    Actual Amount Paid
+                  </span>
+                  <span className="text-xl font-bold text-[#3A7717]">
+                    R{request.actualAmount.toLocaleString()}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between items-center">
                 <span className="text-gray-500 text-sm">Status</span>
                 <div
@@ -244,6 +279,43 @@ export default function RequestHistoryPage() {
                 </div>
               </div>
             </div>
+
+            {request.actualAmount && request.totalRepayable && (
+              <div className="bg-blue-50 rounded-xl p-4">
+                <p className="font-semibold text-[#01312D] mb-2 flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Repayment Details
+                </p>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Actual Amount:</span>
+                    <span className="font-semibold">
+                      R{request.actualAmount.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Interest (13%):</span>
+                    <span className="font-semibold text-[#3A7717]">
+                      + R{request.interest?.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t border-blue-200">
+                    <span className="font-semibold">Total Repayable:</span>
+                    <span className="font-bold text-[#01312D]">
+                      R{request.totalRepayable?.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">
+                      Daily Payment ({request.repaymentDays || 7} days):
+                    </span>
+                    <span className="font-semibold text-[#3A7717]">
+                      R{request.dailyPayment?.toLocaleString()}/day
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2 text-sm">
               <p>
@@ -272,19 +344,21 @@ export default function RequestHistoryPage() {
                   {request.phoneNumber}
                 </p>
               )}
-              {request.type === "cash" && request.interest && (
-                <>
-                  <p>
-                    <span className="text-gray-500">Interest (13%):</span> R
-                    {request.interest}
-                  </p>
-                  <p>
-                    <span className="text-gray-500">Total Repayable:</span> R
-                    {request.totalRepayable?.toLocaleString()}
-                  </p>
-                </>
+              {request.popUrl && (
+                <div className="mt-3 pt-3 border-t border-[#bff202]/20">
+                  <p className="text-gray-500 mb-2">Proof of Payment:</p>
+                  <a
+                    href={request.popUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#3A7717] font-semibold text-sm flex items-center gap-2 underline"
+                  >
+                    <FileText className="w-4 h-4" />
+                    View POP
+                  </a>
+                </div>
               )}
-              {request.otp && (
+              {request.otp && request.status === "approved" && (
                 <div className="mt-3 pt-3 border-t border-[#bff202]/20">
                   <div className="flex items-center justify-between">
                     <span className="text-gray-500">OTP:</span>
@@ -297,11 +371,34 @@ export default function RequestHistoryPage() {
             </div>
           </div>
 
-          <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5">
-            <button className="w-full bg-[#eafde7] text-[#01312D] py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
-              <Download className="w-4 h-4" />
-              Download Receipt
-            </button>
+          <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 space-y-2">
+            {needsPopUpload && (
+              <button
+                onClick={() => {
+                  onClose();
+                  console.log("Opening POP modal for request:", request);
+                  setSelectedRequestForPop(request);
+                  setShowPopModal(true);
+                }}
+                className="w-full bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all"
+              >
+                <Upload className="w-4 h-4" />
+                Upload Proof of Payment
+              </button>
+            )}
+            {(request.popUrl || request.status === "completed") && (
+              <button
+                onClick={() => {
+                  if (request.popUrl) {
+                    window.open(request.popUrl, "_blank");
+                  }
+                }}
+                className="w-full bg-[#eafde7] text-[#01312D] py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#bff202]/30 transition-all"
+              >
+                <Download className="w-4 h-4" />
+                Download Receipt
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -434,6 +531,8 @@ export default function RequestHistoryPage() {
               const typeColor = getTypeColor(request.type);
               const statusColor = getStatusColor(request.status);
               const date = new Date(request.date);
+              const needsPopUpload =
+                request.status === "approved" && request.type === "fuel";
 
               return (
                 <div
@@ -497,6 +596,23 @@ export default function RequestHistoryPage() {
                       <Eye className="w-4 h-4" />
                       Details
                     </button>
+                    {needsPopUpload && (
+                      <button
+                        className="flex-1 py-2 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          console.log(
+                            "Opening POP modal for request:",
+                            request,
+                          );
+                          setSelectedRequestForPop(request);
+                          setShowPopModal(true);
+                        }}
+                      >
+                        <Upload className="w-4 h-4" />
+                        Upload POP
+                      </button>
+                    )}
                     {request.status === "completed" && (
                       <button
                         className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-sm font-semibold flex items-center justify-center gap-2"
@@ -519,6 +635,24 @@ export default function RequestHistoryPage() {
         <RequestDetailModal
           request={selectedRequest}
           onClose={() => setShowDetailModal(false)}
+        />
+      )}
+
+      {/* POP Upload Modal */}
+      {showPopModal && selectedRequestForPop && (
+        <PopUploadModal
+          isOpen={showPopModal}
+          onClose={() => {
+            setShowPopModal(false);
+            setSelectedRequestForPop(null);
+          }}
+          requestId={selectedRequestForPop.id}
+          requestedAmount={selectedRequestForPop.amount}
+          onSuccess={() => {
+            fetchRequests();
+            setShowPopModal(false);
+            setSelectedRequestForPop(null);
+          }}
         />
       )}
 
