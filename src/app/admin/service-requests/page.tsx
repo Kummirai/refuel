@@ -1846,7 +1846,7 @@ Thank you for choosing FueleX! 🚀
         </select>
       </div>
 
-      <div className="flex gap-2 border-b border-[#bff202]/20 overflow-x-auto pb-0">
+      <div className="flex flex-wrap items-center justify-center gap-2 border-b border-[#bff202]/20 overflow-x-auto pb-0">
         {["all", "pending", "approved", "completed", "rejected"].map((tab) => (
           <button
             key={tab}
