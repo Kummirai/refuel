@@ -11,7 +11,7 @@ const requiredEnvVars = [
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
     console.warn(
-      `⚠️ Warning: ${envVar} environment variable is not set. Email sending will fail.`,
+      `Warning: ${envVar} environment variable is not set. Email sending will fail.`,
     );
   }
 }
@@ -44,8 +44,8 @@ if (process.env.NODE_ENV === "development") {
       console.error("❌ Email transporter error:", error);
       console.error("Please check your Brevo credentials in .env.local");
     } else {
-      console.log("✅ Email server is ready to send messages");
-      console.log(`📧 Using Brevo SMTP: ${process.env.EMAIL_HOST}`);
+      console.log("Email server is ready to send messages");
+      console.log(`Using Brevo SMTP: ${process.env.EMAIL_HOST}`);
     }
   });
 }
@@ -106,15 +106,15 @@ const generateAdminEmailHtml = (data: ServiceRequestEmailData): string => {
     <body>
       <div class="container">
         <div class="header">
-          <h1>🚗 FueleX</h1>
+          <h1> Kapuka</h1>
           <p>New Service Request Received</p>
         </div>
         <div class="content">
           <div style="text-align: center;">
-            <span class="badge">🆕 PENDING APPROVAL</span>
+            <span class="badge">PENDING APPROVAL</span>
           </div>
           <div class="section">
-            <h3>👤 Driver Information</h3>
+            <h3>Driver Information</h3>
             <div class="row"><span class="label">Driver Name:</span><span class="value">${data.driverName}</span></div>
             <div class="row"><span class="label">Email:</span><span class="value">${data.driverEmail}</span></div>
             <div class="row"><span class="label">Phone:</span><span class="value">${data.driverPhone}</span></div>
@@ -122,7 +122,7 @@ const generateAdminEmailHtml = (data: ServiceRequestEmailData): string => {
             ${data.carModel ? `<div class="row"><span class="label">Car Model:</span><span class="value">${data.carModel}</span></div>` : ""}
           </div>
           <div class="section">
-            <h3>📋 Request Details</h3>
+            <h3> Request Details</h3>
             <div class="row"><span class="label">Service Type:</span><span class="value">${serviceTypeMap[data.serviceType] || data.serviceType}</span></div>
             <div class="row"><span class="label">Request ID:</span><span class="value">${data.requestId.slice(-6).toUpperCase()}</span></div>
             <div class="row"><span class="label">Amount:</span><span class="value amount">R${data.amount.toLocaleString()}</span></div>
@@ -192,7 +192,7 @@ const generateDriverApprovalHtml = (data: {
     </head>
     <body>
       <div class="container">
-        <div class="header"><h1>🎉 Request Approved!</h1></div>
+        <div class="header"><h1>Request Approved!</h1></div>
         <div class="content">
           <p>Hello ${data.driverName},</p>
           <p>Your service request has been <strong>APPROVED</strong>! ✅</p>
