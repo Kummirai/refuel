@@ -330,21 +330,11 @@ export default function VerificationsPage() {
             </div>
           </div>
 
-          <div className="border-t border-gray-100 p-5 flex gap-3">
-            <button
-              onClick={() => {
-                setShowApproveModal(false);
-                setSelectedForAction(null);
-              }}
-              disabled={approving}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              Cancel
-            </button>
+          <div className="border-t grid border-gray-100 p-5 gap-5">
             <button
               onClick={handleConfirmApprove}
               disabled={approving}
-              className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+              className="flex-1 bg-linear-to-r from-green-500 to-green-600 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
             >
               {approving ? (
                 <>
@@ -357,6 +347,16 @@ export default function VerificationsPage() {
                   Confirm Approval
                 </>
               )}
+            </button>
+            <button
+              onClick={() => {
+                setShowApproveModal(false);
+                setSelectedForAction(null);
+              }}
+              disabled={approving}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              Cancel
             </button>
           </div>
         </div>
