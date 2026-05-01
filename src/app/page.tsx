@@ -5,6 +5,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+
 import {
   ArrowRight,
   Fuel,
@@ -279,7 +280,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-[#eafde7] flex items-center justify-center relative overflow-hidden">
       {/* Mobile Container - Max width 430px */}
-      <div className="relative w-full max-w-[430px] min-h-screen bg-[#eafde7] shadow-2xl">
+      <div className="relative w-full max-w-107.5 min-h-screen bg-[#eafde7] shadow-2xl">
         {/* Background Decorative Elements */}
         <div className="absolute top-0 right-0 w-80 h-80 bg-[#bff202]/10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#3A7717]/5 rounded-full blur-3xl"></div>
@@ -374,8 +375,7 @@ export default function HomePage() {
                 Everything For Drivers
               </p>
             </div>
-
-            <h1 className="text-4xl font-black text-[#01312D] leading-tight mb-3">
+            <h1 className="text-4xl md:text-5xl font-extrabold text-[#01312D] leading-[1.2] mb-3">
               Get{" "}
               <span className="bg-gradient-to-r from-[#3A7717] to-[#72bf00] bg-clip-text text-transparent">
                 Fuel, Cash

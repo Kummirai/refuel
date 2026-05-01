@@ -902,7 +902,7 @@ ${
 
 Please find your receipt attached below.
 
-Thank you for choosing FueleX! 🚀
+Thank you for choosingKapuka! 🚀
 
 *This is a system generated message. Valid for 30 minutes.*`;
 
@@ -1068,7 +1068,7 @@ Thank you for choosing FueleX! 🚀
                       fontWeight: "bold",
                     }}
                   >
-                    🚗 FueleX
+                    🚗Kapuka
                   </h2>
                   <p
                     style={{
@@ -1337,7 +1337,7 @@ Thank you for choosing FueleX! 🚀
                     ✅ Valid for 30 minutes
                   </p>
                   <p style={{ margin: "0", fontSize: "10px", opacity: 0.7 }}>
-                    FueleX Services • powered by FueleX
+                    Kapuka Services • powered byKapuka
                   </p>
                 </div>
               </div>

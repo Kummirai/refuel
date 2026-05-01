@@ -106,7 +106,7 @@ const generateAdminEmailHtml = (data: ServiceRequestEmailData): string => {
     <body>
       <div class="container">
         <div class="header">
-          <h1>🚗 FueleX</h1>
+          <h1>🚗Kapuka</h1>
           <p>New Service Request Received</p>
         </div>
         <div class="content">
@@ -366,7 +366,7 @@ export async function sendVerificationNotificationEmail(data: {
     <body>
       <div class="container">
         <div class="header">
-          <h1>🚗 FueleX</h1>
+          <h1>🚗Kapuka</h1>
           <p style="color: #bff202; margin-top: 10px;">New Driver Verification Request</p>
         </div>
         <div class="content">
@@ -478,11 +478,11 @@ export async function sendDriverVerificationResultEmail(data: {
           <ul>
             <li>Request fuel, airtime, cash loans, and car wash services</li>
             <li>Track your request history</li>
-            <li>Access all FueleX features</li>
+            <li>Access allKapuka features</li>
           </ul>
           `
               : `
-          <p>Please re-submit your verification with correct information to continue using FueleX services.</p>
+          <p>Please re-submit your verification with correct information to continue usingKapuka services.</p>
           `
           }
           
@@ -512,8 +512,8 @@ export async function sendDriverVerificationResultEmail(data: {
       from: process.env.EMAIL_FROM || '"FueleX" <noreply@FueleX.com>',
       to: data.driverEmail,
       subject: isApproved
-        ? `✅ Driver Verification Approved - FueleX`
-        : `❌ Driver Verification Rejected - FueleX`,
+        ? `✅ Driver Verification Approved -Kapuka`
+        : `❌ Driver Verification Rejected -Kapuka`,
       html: html,
     });
     console.log(`✅ Driver verification ${data.status} email sent`);
