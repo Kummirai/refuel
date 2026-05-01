@@ -674,7 +674,7 @@ export default function RequestHistoryPage() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-5 gap-2 mt-4">
+          <div className="grid grid-cols-3 gap-2 mt-4">
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
               <p className="text-xs text-gray-500">Total</p>
               <p className="text-lg font-bold text-[#01312D]">{stats.total}</p>
