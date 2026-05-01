@@ -296,11 +296,9 @@ export default function HomePage() {
                   <Sparkles className="w-5 h-5 text-[#bff202]" />
                 </div>
                 <div>
-                  <h1 className="text-[#01312D] font-bold text-xl">
-                    Drive<span className="text-[#3A7717]">Hub</span>
-                  </h1>
+                  <h1 className="text-[#01312D] font-bold text-xl">Kapuka</h1>
                   <p className="text-[#72bf00] text-xs font-semibold">
-                    Driver Services
+                    Tradings
                   </p>
                 </div>
               </div>
@@ -367,21 +365,38 @@ export default function HomePage() {
 
           {/* Hero Tagline */}
           <div className="text-center mb-6">
-            <div className="inline-block bg-[#bff202]/20 rounded-full px-4 py-1 mb-3">
+            <div className="inline-flex items-center gap-2 bg-[#bff202]/20 rounded-full px-4 py-1.5 mb-4">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#3A7717] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#3A7717]"></span>
+              </span>
               <p className="text-xs font-semibold text-[#01312D]">
-                Everything for Drivers
+                Everything For Drivers
               </p>
             </div>
-            <h1 className="text-3xl font-extrabold text-[#01312D] leading-tight mb-2">
-              Get Fuel, Cash,
+
+            <h1 className="text-4xl font-black text-[#01312D] leading-tight mb-3">
+              Get{" "}
+              <span className="bg-gradient-to-r from-[#3A7717] to-[#72bf00] bg-clip-text text-transparent">
+                Fuel, Cash
+              </span>
               <br />
-              Airtime & Car Wash
+              <span className="inline-flex items-center gap-2">
+                & <span className="text-[#3A7717]">Car Wash</span>
+              </span>
               <br />
-              Instantly!
+              <span className="inline-flex items-center gap-2 mt-1">
+                Services Instantly!
+              </span>
             </h1>
-            <p className="text-[#3A7717] text-sm">
-              Quick, reliable service at your fingertips
-            </p>
+
+            <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-3 inline-block mx-auto mt-2">
+              <p className="text-[#01312D] text-sm font-semibold flex items-center gap-2">
+                <span className="text-[#72bf00]">✨</span>
+                Quick, reliable service at your fingertips
+                <span className="text-[#72bf00]">✨</span>
+              </p>
+            </div>
           </div>
 
           {/* Get Started Button */}
@@ -551,7 +566,7 @@ export default function HomePage() {
                     </div>
                     <div className="flex-1">
                       <p className="text-[#01312D] font-bold text-sm">
-                        New to DriveHub?
+                        New to Kapuka?
                       </p>
                       <p className="text-[#01312D]/80 text-xs">
                         Sign up now & get 10% off on first request!
