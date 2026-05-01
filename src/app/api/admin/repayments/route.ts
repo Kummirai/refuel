@@ -23,21 +23,23 @@ export async function GET() {
       loans.map(async (loan: any) => {
         // Get driver details
         let driver = await usersCollection.findOne({ _id: loan.userId });
-
-        // If not found by ObjectId, try as string
         if (!driver && typeof loan.userId === "string") {
-          driver = await usersCollection.findOne({ _id: loan.userId });
+          try {
+            driver = await usersCollection.findOne({
+              _id: new ObjectId(loan.userId),
+            });
+          } catch {
+            driver = await usersCollection.findOne({ _id: loan.userId });
+          }
         }
 
-        // Calculate repayment amounts
-        const totalRepayable =
-          loan.totalRepayable ||
-          loan.amount * (1 + (loan.interestRate || 13) / 100);
+        // Use stored values (already calculated based on actualAmount if POP was uploaded)
+        const totalRepayable = loan.totalRepayable || loan.amount * 1.13;
         const repaidAmount = loan.repaidAmount || 0;
         const remainingAmount = totalRepayable - repaidAmount;
         const today = new Date();
 
-        // Calculate due date based on approval date
+        // Calculate due date based on approved date or request date
         const approvedDate = loan.approvedDate || loan.requestDate;
         const dueDate = approvedDate
           ? new Date(
@@ -86,10 +88,13 @@ export async function GET() {
           carRegistration: loan.carNumber || "Not provided",
           serviceType: loan.type,
           serviceTypeLabel: getServiceTypeLabel(loan.type),
-          amount: loan.amount,
+          requestedAmount: loan.amount,
+          actualAmount: loan.actualAmount || null, // Add actual amount from POP
+          amount: loan.actualAmount || loan.amount, // Use actualAmount if available
           interestRate: loan.interestRate || 13,
           interest:
-            loan.interest || (loan.amount * (loan.interestRate || 13)) / 100,
+            loan.interest ||
+            Math.round((loan.actualAmount || loan.amount) * 0.13),
           totalRepayable: totalRepayable,
           repaidAmount: repaidAmount,
           remainingAmount: remainingAmount,
@@ -108,6 +113,8 @@ export async function GET() {
           fuelType: loan.fuelType,
           contactPhone: loan.contactPhone,
           otp: loan.otp,
+          popUrl: loan.popUrl, // Add POP URL
+          popUploadedAt: loan.popUploadedAt,
           payments: loan.payments || [],
         };
       }),

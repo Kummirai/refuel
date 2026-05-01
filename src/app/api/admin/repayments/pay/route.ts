@@ -1,10 +1,11 @@
 // src/app/api/admin/repayments/pay/route.ts
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
+import { ObjectId } from "mongodb";
 
 export async function POST(request: Request) {
   try {
-    const { repaymentId, amount } = await request.json();
+    const { repaymentId, amount, method, reference } = await request.json();
 
     if (!repaymentId || !amount || amount <= 0) {
       return NextResponse.json(
@@ -17,32 +18,42 @@ export async function POST(request: Request) {
     const serviceRequestsCollection = db.collection("serviceRequests");
     const paymentsCollection = db.collection("loanPayments");
 
-    // Get the loan
-    const loan = await serviceRequestsCollection.findOne({ _id: repaymentId });
+    // Get the loan/service request
+    const loan = await serviceRequestsCollection.findOne({
+      _id: new ObjectId(repaymentId),
+    });
 
     if (!loan) {
       return NextResponse.json({ error: "Loan not found" }, { status: 404 });
     }
 
-    const totalRepayable =
-      loan.totalRepayable ||
-      loan.amount * (1 + (loan.interestRate || 13) / 100);
+    // Use the stored values (already calculated based on actualAmount)
+    const totalRepayable = loan.totalRepayable || loan.amount * 1.13;
     const currentRepaid = loan.repaidAmount || 0;
     const newRepaid = currentRepaid + amount;
     const isFullyPaid = newRepaid >= totalRepayable;
 
+    // Generate payment ID
+    const paymentId = new ObjectId();
+
     // Record the payment
     await paymentsCollection.insertOne({
+      _id: paymentId,
       loanId: repaymentId,
-      amount,
+      amount: amount,
       paymentDate: new Date(),
+      method: method || "cash",
+      reference: reference || null,
       remainingBalance: totalRepayable - newRepaid,
       createdAt: new Date(),
     });
 
+    // Get existing payments
+    const existingPayments = loan.payments || [];
+
     // Update loan with new repaid amount and status
     await serviceRequestsCollection.updateOne(
-      { _id: repaymentId },
+      { _id: new ObjectId(repaymentId) },
       {
         $set: {
           repaidAmount: newRepaid,
@@ -52,6 +63,15 @@ export async function POST(request: Request) {
             completedDate: new Date(),
           }),
         },
+        $push: {
+          payments: {
+            id: paymentId.toString(),
+            amount: amount,
+            date: new Date(),
+            method: method || "cash",
+            reference: reference || null,
+          },
+        },
       },
     );
 
@@ -60,6 +80,8 @@ export async function POST(request: Request) {
       message: "Payment recorded successfully",
       remainingBalance: totalRepayable - newRepaid,
       isFullyPaid,
+      repaidAmount: newRepaid,
+      totalRepayable: totalRepayable,
     });
   } catch (error) {
     console.error("Error recording payment:", error);

@@ -29,6 +29,8 @@ import {
   Fuel,
   Smartphone,
   SprayCan,
+  FileText,
+  ImageIcon,
 } from "lucide-react";
 
 interface Repayment {
@@ -42,6 +44,8 @@ interface Repayment {
   serviceType: string;
   serviceTypeLabel: string;
   amount: number;
+  requestedAmount?: number;
+  actualAmount?: number;
   interestRate: number;
   interest: number;
   totalRepayable: number;
@@ -60,6 +64,8 @@ interface Repayment {
   fuelType?: string;
   contactPhone?: string;
   otp?: string;
+  popUrl?: string;
+  popUploadedAt?: string;
   payments?: PaymentHistory[];
 }
 
@@ -145,7 +151,7 @@ export default function LoanRepaymentsPage() {
       if (response.ok) {
         const result = await response.json();
         setSuccessMessage(
-          `✅ Payment of R${amount.toLocaleString()} recorded successfully! Remaining: R${result.remainingAmount.toLocaleString()}`,
+          `✅ Payment of R${amount.toLocaleString()} recorded successfully! Remaining: R${result.remainingBalance.toLocaleString()}`,
         );
         setShowSuccessModal(true);
         fetchRepayments();
@@ -169,7 +175,11 @@ export default function LoanRepaymentsPage() {
   };
 
   const handleMarkLoanAsFullyPaid = async (repayment: Repayment) => {
-    if (!confirm(`Are you sure you want to mark this loan as fully paid?`))
+    if (
+      !confirm(
+        `Are you sure you want to mark this ${repayment.serviceTypeLabel} as fully paid?\n\nThis will close the repayment and mark it as completed.`,
+      )
+    )
       return;
 
     setProcessing(true);
@@ -183,17 +193,22 @@ export default function LoanRepaymentsPage() {
       });
 
       if (response.ok) {
-        setSuccessMessage(`✅ Loan fully paid and closed!`);
+        const result = await response.json();
+        setSuccessMessage(
+          `✅ ${repayment.serviceTypeLabel} marked as fully paid and closed!`,
+        );
         setShowSuccessModal(true);
         fetchRepayments();
+        setShowDetailsModal(false);
+        setSelectedRepayment(null);
       } else {
         const error = await response.json();
-        setErrorMessage(error.error || "Failed to mark loan as paid");
+        setErrorMessage(error.error || "Failed to mark as paid");
         setShowErrorModal(true);
       }
     } catch (error) {
-      console.error("Error completing loan:", error);
-      setErrorMessage("Failed to mark loan as paid");
+      console.error("Error marking as paid:", error);
+      setErrorMessage("Failed to mark as paid");
       setShowErrorModal(true);
     } finally {
       setProcessing(false);
@@ -449,6 +464,23 @@ export default function LoanRepaymentsPage() {
                 {repayment.packageInfo?.package &&
                   ` - ${repayment.packageInfo.package}`}
               </p>
+              {repayment.actualAmount &&
+                repayment.actualAmount !== repayment.amount && (
+                  <>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Requested Amount
+                    </p>
+                    <p className="text-gray-500 line-through">
+                      R{repayment.requestedAmount?.toLocaleString()}
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Actual Amount (POP)
+                    </p>
+                    <p className="font-semibold text-[#3A7717]">
+                      R{repayment.actualAmount.toLocaleString()}
+                    </p>
+                  </>
+                )}
               <p className="text-sm text-gray-500 mt-2">Car Registration</p>
               <p className="font-semibold text-[#01312D]">
                 {repayment.carRegistration}
@@ -586,6 +618,8 @@ export default function LoanRepaymentsPage() {
     onClose: () => void;
   }) => {
     const payments = repayment.payments || [];
+    const hasActualAmount =
+      repayment.actualAmount && repayment.actualAmount !== repayment.amount;
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -704,10 +738,20 @@ export default function LoanRepaymentsPage() {
                 )}
                 <div className="flex justify-between pt-2 border-t border-[#bff202]/20">
                   <span className="text-gray-500">Amount:</span>
-                  <span className="font-semibold">
+                  <span
+                    className={`font-semibold ${hasActualAmount ? "line-through text-gray-500" : "text-[#01312D]"}`}
+                  >
                     R{repayment.amount.toLocaleString()}
                   </span>
                 </div>
+                {hasActualAmount && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Actual Amount (POP):</span>
+                    <span className="font-semibold text-[#3A7717]">
+                      R{repayment.actualAmount?.toLocaleString()}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-500">Interest Rate:</span>
                   <span className="font-semibold">
@@ -728,6 +772,48 @@ export default function LoanRepaymentsPage() {
                 </div>
               </div>
             </div>
+
+            {/* POP Document Section */}
+            {repayment.popUrl && (
+              <div className="bg-[#eafde7] rounded-xl p-4">
+                <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-[#3A7717]" /> Proof of
+                  Payment (POP)
+                </h3>
+                <div className="space-y-3">
+                  <a
+                    href={repayment.popUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-[#3A7717] font-semibold hover:underline"
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                    View POP Document
+                  </a>
+                  {repayment.popUrl && (
+                    <div className="mt-2 border border-[#BFF202]/20 rounded-lg overflow-hidden bg-white p-2">
+                      <img
+                        src={repayment.popUrl}
+                        alt="Proof of Payment"
+                        className="max-w-full h-auto max-h-48 object-contain mx-auto"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          const parent = e.currentTarget.parentElement;
+                          if (parent) {
+                            parent.insertAdjacentHTML(
+                              "beforeend",
+                              '<p class="text-xs text-red-500 text-center p-2">Failed to load image. <a href="' +
+                                repayment.popUrl +
+                                '" target="_blank" class="underline">Click here to view</a></p>',
+                            );
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Loan Details */}
             <div className="bg-[#eafde7] rounded-xl p-4">
@@ -843,7 +929,7 @@ export default function LoanRepaymentsPage() {
                     setShowPaymentModal(true);
                     setShowDetailsModal(false);
                   }}
-                  className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+                  className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors"
                 >
                   <Banknote className="w-4 h-4" />
                   Record Payment
@@ -851,7 +937,7 @@ export default function LoanRepaymentsPage() {
                 <button
                   onClick={() => handleMarkLoanAsFullyPaid(repayment)}
                   disabled={processing}
-                  className="flex-1 bg-green-600 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+                  className="flex-1 bg-green-600 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-green-700 transition-colors"
                 >
                   <CheckCircle className="w-4 h-4" />
                   Mark as Fully Paid
@@ -860,7 +946,7 @@ export default function LoanRepaymentsPage() {
             )}
             <button
               onClick={onClose}
-              className="w-full bg-gray-500 text-white py-2 rounded-xl font-semibold"
+              className={`${repayment.status !== "paid" ? "flex-1" : "w-full"} bg-gray-500 text-white py-2 rounded-xl font-semibold hover:bg-gray-600 transition-colors`}
             >
               Close
             </button>
@@ -1023,124 +1109,149 @@ export default function LoanRepaymentsPage() {
             <p className="text-gray-500">No {activeTab} repayments found</p>
           </div>
         ) : (
-          filteredRepayments.map((repayment) => (
-            <div
-              key={repayment.id}
-              className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-[#eafde7] rounded-full flex items-center justify-center">
-                    {repayment.serviceType === "fuel" && (
-                      <Fuel className="w-6 h-6 text-green-600" />
-                    )}
-                    {repayment.serviceType === "airtime" && (
-                      <Smartphone className="w-6 h-6 text-blue-600" />
-                    )}
-                    {repayment.serviceType === "cash" && (
-                      <DollarSign className="w-6 h-6 text-yellow-600" />
-                    )}
-                    {repayment.serviceType === "carwash" && (
-                      <SprayCan className="w-6 h-6 text-purple-600" />
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      {getServiceTypeBadge(repayment.serviceType, repayment)}
-                      {getStatusBadge(repayment.status)}
+          filteredRepayments.map((repayment) => {
+            const hasActualAmount =
+              repayment.actualAmount &&
+              repayment.actualAmount !== repayment.amount;
+
+            return (
+              <div
+                key={repayment.id}
+                className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-start justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-[#eafde7] rounded-full flex items-center justify-center">
+                      {repayment.serviceType === "fuel" && (
+                        <Fuel className="w-6 h-6 text-green-600" />
+                      )}
+                      {repayment.serviceType === "airtime" && (
+                        <Smartphone className="w-6 h-6 text-blue-600" />
+                      )}
+                      {repayment.serviceType === "cash" && (
+                        <DollarSign className="w-6 h-6 text-yellow-600" />
+                      )}
+                      {repayment.serviceType === "carwash" && (
+                        <SprayCan className="w-6 h-6 text-purple-600" />
+                      )}
                     </div>
-                    <p className="font-semibold text-[#01312D]">
-                      {repayment.driverName}
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        {getServiceTypeBadge(repayment.serviceType, repayment)}
+                        {getStatusBadge(repayment.status)}
+                        {hasActualAmount && (
+                          <span className="text-xs bg-[#BFF202]/20 text-[#01312D] px-2 py-0.5 rounded-full">
+                            Amount Adjusted
+                          </span>
+                        )}
+                      </div>
+                      <p className="font-semibold text-[#01312D]">
+                        {repayment.driverName}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {repayment.carRegistration}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-[#3A7717]">
+                      R{repayment.remainingAmount.toLocaleString()}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {repayment.carRegistration}
+                      Due: {new Date(repayment.dueDate).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xl font-bold text-[#01312D]">
-                    R{repayment.remainingAmount.toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Due: {new Date(repayment.dueDate).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-3 border-t border-gray-100">
-                <div>
-                  <p className="text-xs text-gray-500">Total Amount</p>
-                  <p className="font-semibold text-[#01312D]">
-                    R{repayment.totalRepayable.toLocaleString()}
-                  </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-3 border-t border-gray-100">
+                  <div>
+                    <p className="text-xs text-gray-500">Total Amount</p>
+                    <p className="font-semibold text-[#01312D]">
+                      R{repayment.totalRepayable.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Repaid</p>
+                    <p className="font-semibold text-[#3A7717]">
+                      R{repayment.repaidAmount.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Daily Payment</p>
+                    <p className="font-semibold text-[#01312D]">
+                      R{repayment.dailyPayment.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Period</p>
+                    <p className="font-semibold text-[#01312D]">
+                      {repayment.repaymentDays} days
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500">Repaid</p>
-                  <p className="font-semibold text-[#3A7717]">
-                    R{repayment.repaidAmount.toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Daily Payment</p>
-                  <p className="font-semibold text-[#01312D]">
-                    R{repayment.dailyPayment.toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Period</p>
-                  <p className="font-semibold text-[#01312D]">
-                    {repayment.repaymentDays} days
-                  </p>
-                </div>
-              </div>
 
-              {/* Progress Bar */}
-              <div className="mt-3">
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-gray-500">Repayment Progress</span>
-                  <span className="font-semibold text-[#01312D]">
-                    {Math.round(
-                      (repayment.repaidAmount / repayment.totalRepayable) * 100,
-                    )}
-                    %
-                  </span>
-                </div>
-                <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-[#3A7717] h-2 rounded-full transition-all"
-                    style={{
-                      width: `${(repayment.repaidAmount / repayment.totalRepayable) * 100}%`,
-                    }}
-                  ></div>
-                </div>
-              </div>
+                {/* Show actual amount if different */}
+                {hasActualAmount && (
+                  <div className="mt-2 text-xs text-gray-500 flex items-center gap-2">
+                    <span className="text-gray-400">
+                      Requested: R{repayment.amount.toLocaleString()}
+                    </span>
+                    <span>→</span>
+                    <span className="text-[#3A7717] font-medium">
+                      Actual: R{repayment.actualAmount?.toLocaleString()}
+                    </span>
+                  </div>
+                )}
 
-              <div className="flex gap-2 mt-4">
-                {repayment.status !== "paid" && (
+                {/* Progress Bar */}
+                <div className="mt-3">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-gray-500">Repayment Progress</span>
+                    <span className="font-semibold text-[#01312D]">
+                      {Math.round(
+                        (repayment.repaidAmount / repayment.totalRepayable) *
+                          100,
+                      )}
+                      %
+                    </span>
+                  </div>
+                  <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-[#3A7717] h-2 rounded-full transition-all"
+                      style={{
+                        width: `${(repayment.repaidAmount / repayment.totalRepayable) * 100}%`,
+                      }}
+                    ></div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mt-4">
+                  {repayment.status !== "paid" && (
+                    <button
+                      onClick={() => {
+                        setSelectedRepayment(repayment);
+                        setShowPaymentModal(true);
+                      }}
+                      className="flex-1 py-2 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors"
+                    >
+                      <Banknote className="w-4 h-4" />
+                      Record Payment
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       setSelectedRepayment(repayment);
-                      setShowPaymentModal(true);
+                      setShowDetailsModal(true);
                     }}
-                    className="flex-1 py-2 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2"
+                    className="flex-1 py-2 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#bff202]/30 transition-colors"
                   >
-                    <Banknote className="w-4 h-4" />
-                    Record Payment
+                    <Eye className="w-4 h-4" />
+                    View Details
                   </button>
-                )}
-                <button
-                  onClick={() => {
-                    setSelectedRepayment(repayment);
-                    setShowDetailsModal(true);
-                  }}
-                  className="flex-1 py-2 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center justify-center gap-2"
-                >
-                  <Eye className="w-4 h-4" />
-                  View Details
-                </button>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
