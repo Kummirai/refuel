@@ -263,16 +263,16 @@ export default function HomePage() {
     );
   };
 
-  if (loading || isPending) {
-    return (
-      <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3A7717] border-t-transparent mx-auto mb-4"></div>
-          <p className="text-[#01312D]">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  // if (loading || isPending) {
+  //   return (
+  //     <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
+  //       <div className="text-center">
+  //         <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3A7717] border-t-transparent mx-auto mb-4"></div>
+  //         <p className="text-[#01312D]">Loading...</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   const isLoggedIn = !!session;
   const isAdmin = userRole === "admin";
