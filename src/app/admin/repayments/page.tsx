@@ -930,13 +930,7 @@ export default function LoanRepaymentsPage() {
             </div>
           </div>
 
-          <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold"
-            >
-              Cancel
-            </button>
+          <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 grid gap-3">
             <button
               onClick={() => handleMarkAsPaid(repayment, parseFloat(amount))}
               disabled={processing || !amount || parseFloat(amount) <= 0}
@@ -948,6 +942,12 @@ export default function LoanRepaymentsPage() {
                 <CheckCircle className="w-4 h-4" />
               )}
               Record Payment
+            </button>
+            <button
+              onClick={onClose}
+              className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold"
+            >
+              Cancel
             </button>
           </div>
         </div>
@@ -1289,7 +1289,7 @@ export default function LoanRepaymentsPage() {
             )}
           </div>
 
-          <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
+          <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 grid gap-4">
             {repayment.status !== "paid" && (
               <>
                 <button
