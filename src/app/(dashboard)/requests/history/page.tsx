@@ -24,8 +24,10 @@ import {
   Upload,
   FileText,
   AlertCircle,
+  Wallet,
 } from "lucide-react";
 import { PopUploadModal } from "@/components/PopUploadModal";
+import { RepaymentProofModal } from "@/components/RepaymentProofModal";
 
 type RequestStatus = "pending" | "approved" | "completed" | "rejected";
 
@@ -48,6 +50,12 @@ interface Request {
   popUploadedAt?: string;
   dailyPayment?: number;
   repaymentDays?: number;
+  // New fields for repayments
+  repaidAmount?: number;
+  remainingBalance?: number;
+  isPaid?: boolean;
+  hasPendingRepayment?: boolean;
+  pendingRepaymentAmount?: number;
 }
 
 export default function RequestHistoryPage() {
@@ -63,6 +71,9 @@ export default function RequestHistoryPage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showPopModal, setShowPopModal] = useState(false);
   const [selectedRequestForPop, setSelectedRequestForPop] =
+    useState<Request | null>(null);
+  const [showRepaymentModal, setShowRepaymentModal] = useState(false);
+  const [selectedRequestForRepayment, setSelectedRequestForRepayment] =
     useState<Request | null>(null);
 
   useEffect(() => {
@@ -87,9 +98,16 @@ export default function RequestHistoryPage() {
         const requestsWithId = data.map((req: any) => ({
           ...req,
           id: req.id || (req._id?.toString ? req._id.toString() : req._id),
+          // Ensure these fields exist
+          repaidAmount: req.repaidAmount || 0,
+          remainingBalance:
+            req.remainingBalance || req.totalRepayable || req.amount,
+          isPaid: req.isPaid || false,
+          hasPendingRepayment: req.hasPendingRepayment || false,
+          pendingRepaymentAmount: req.pendingRepaymentAmount || 0,
         }));
         setRequests(requestsWithId);
-        console.log("First request ID:", requestsWithId[0]?.id); // Debug log
+        console.log("First request ID:", requestsWithId[0]?.id);
       }
     } catch (error) {
       console.error("Error fetching requests:", error);
@@ -203,6 +221,10 @@ export default function RequestHistoryPage() {
       (sum, r) => sum + (r.actualAmount || r.amount),
       0,
     ),
+    totalOutstanding: requests.reduce(
+      (sum, r) => sum + (r.remainingBalance || 0),
+      0,
+    ),
   };
 
   const RequestDetailModal = ({
@@ -214,13 +236,22 @@ export default function RequestHistoryPage() {
   }) => {
     const IconComponent = getTypeIcon(request.type);
     const date = new Date(request.date);
+    const needsPopUpload =
+      request.status === "approved" && request.type === "fuel";
+    const needsRepayment =
+      request.status === "completed" &&
+      !request.isPaid &&
+      request.remainingBalance &&
+      request.remainingBalance > 0;
+    const repaidAmount =
+      (request.totalRepayable || 0) - (request.remainingBalance || 0);
+    const progressPercent = request.totalRepayable
+      ? Math.round((repaidAmount / request.totalRepayable) * 100)
+      : 0;
 
     if (!IconComponent) {
       return null;
     }
-
-    const needsPopUpload =
-      request.status === "approved" && request.type === "fuel";
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -252,6 +283,7 @@ export default function RequestHistoryPage() {
           </div>
 
           <div className="p-5 space-y-4">
+            {/* Amount Section */}
             <div className="bg-[#eafde7] rounded-xl p-4">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-gray-500 text-sm">Requested Amount</span>
@@ -280,42 +312,59 @@ export default function RequestHistoryPage() {
               </div>
             </div>
 
-            {request.actualAmount && request.totalRepayable && (
-              <div className="bg-blue-50 rounded-xl p-4">
-                <p className="font-semibold text-[#01312D] mb-2 flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  Repayment Details
-                </p>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Actual Amount:</span>
-                    <span className="font-semibold">
-                      R{request.actualAmount.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Interest (13%):</span>
-                    <span className="font-semibold text-[#3A7717]">
-                      + R{request.interest?.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t border-blue-200">
-                    <span className="font-semibold">Total Repayable:</span>
-                    <span className="font-bold text-[#01312D]">
-                      R{request.totalRepayable?.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">
-                      Daily Payment ({request.repaymentDays || 7} days):
-                    </span>
-                    <span className="font-semibold text-[#3A7717]">
-                      R{request.dailyPayment?.toLocaleString()}/day
-                    </span>
+            {/* Repayment Progress Section */}
+            {request.actualAmount &&
+              request.totalRepayable &&
+              request.status === "completed" && (
+                <div className="bg-[#eafde7] rounded-xl p-4">
+                  <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-[#3A7717]" />
+                    Repayment Progress
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Total Repayable:</span>
+                      <span className="font-semibold">
+                        R{request.totalRepayable.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Repaid Amount:</span>
+                      <span className="font-semibold text-[#3A7717]">
+                        R{repaidAmount.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">
+                        Outstanding Balance:
+                      </span>
+                      <span className="font-bold text-red-600">
+                        R{(request.remainingBalance || 0).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="mt-2">
+                      <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-[#3A7717] h-2 rounded-full transition-all"
+                          style={{ width: `${progressPercent}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {progressPercent}% paid
+                      </p>
+                    </div>
+                    {request.hasPendingRepayment && (
+                      <div className="mt-2 p-2 bg-yellow-50 rounded-lg">
+                        <p className="text-xs text-yellow-700 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />A repayment of R
+                          {request.pendingRepaymentAmount?.toLocaleString()} is
+                          pending verification
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
             <div className="space-y-2 text-sm">
               <p>
@@ -386,6 +435,19 @@ export default function RequestHistoryPage() {
                 Upload Proof of Payment
               </button>
             )}
+            {needsRepayment && (
+              <button
+                onClick={() => {
+                  onClose();
+                  setSelectedRequestForRepayment(request);
+                  setShowRepaymentModal(true);
+                }}
+                className="w-full bg-[#01312D] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-all"
+              >
+                <Wallet className="w-4 h-4" />
+                Make a Repayment
+              </button>
+            )}
             {(request.popUrl || request.status === "completed") && (
               <button
                 onClick={() => {
@@ -449,7 +511,7 @@ export default function RequestHistoryPage() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-4 gap-2 mt-4">
+          <div className="grid grid-cols-3 gap-2 mt-4">
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
               <p className="text-xs text-gray-500">Total</p>
               <p className="text-lg font-bold text-[#01312D]">{stats.total}</p>
@@ -461,15 +523,21 @@ export default function RequestHistoryPage() {
               </p>
             </div>
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
+              <p className="text-xs text-gray-500">Approved</p>
+              <p className="text-lg font-bold text-blue-600">
+                {stats.approved}
+              </p>
+            </div>
+            <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
               <p className="text-xs text-gray-500">Completed</p>
               <p className="text-lg font-bold text-[#3A7717]">
                 {stats.completed}
               </p>
             </div>
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
-              <p className="text-xs text-gray-500">Spent</p>
-              <p className="text-lg font-bold text-[#72bf00]">
-                R{stats.totalSpent.toLocaleString()}
+              <p className="text-xs text-gray-500">Outstanding</p>
+              <p className="text-lg font-bold text-red-600">
+                R{stats.totalOutstanding.toLocaleString()}
               </p>
             </div>
           </div>
@@ -533,6 +601,15 @@ export default function RequestHistoryPage() {
               const date = new Date(request.date);
               const needsPopUpload =
                 request.status === "approved" && request.type === "fuel";
+              const needsRepayment =
+                request.status === "completed" &&
+                !request.isPaid &&
+                request.remainingBalance &&
+                request.remainingBalance > 0;
+              const hasOutstanding =
+                request.remainingBalance &&
+                request.remainingBalance > 0 &&
+                !request.isPaid;
 
               return (
                 <div
@@ -570,6 +647,12 @@ export default function RequestHistoryPage() {
                       <p className="text-2xl font-bold text-[#01312D]">
                         R{request.amount.toLocaleString()}
                       </p>
+                      {hasOutstanding && (
+                        <p className="text-xs text-red-600 mt-1">
+                          Outstanding: R
+                          {(request.remainingBalance || 0).toLocaleString()}
+                        </p>
+                      )}
                       <p className="text-xs text-gray-500">
                         {date.toLocaleDateString()} at{" "}
                         {date.toLocaleTimeString()}
@@ -613,7 +696,20 @@ export default function RequestHistoryPage() {
                         Upload POP
                       </button>
                     )}
-                    {request.status === "completed" && (
+                    {needsRepayment && (
+                      <button
+                        className="flex-1 py-2 bg-[#01312D] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-all"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedRequestForRepayment(request);
+                          setShowRepaymentModal(true);
+                        }}
+                      >
+                        <Wallet className="w-4 h-4" />
+                        Repay
+                      </button>
+                    )}
+                    {(request.popUrl || request.status === "completed") && (
                       <button
                         className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-sm font-semibold flex items-center justify-center gap-2"
                         onClick={(e) => e.stopPropagation()}
@@ -652,6 +748,33 @@ export default function RequestHistoryPage() {
             fetchRequests();
             setShowPopModal(false);
             setSelectedRequestForPop(null);
+          }}
+        />
+      )}
+
+      {/* Repayment Proof Modal */}
+      {showRepaymentModal && selectedRequestForRepayment && (
+        <RepaymentProofModal
+          isOpen={showRepaymentModal}
+          onClose={() => {
+            setShowRepaymentModal(false);
+            setSelectedRequestForRepayment(null);
+          }}
+          requestId={selectedRequestForRepayment.id}
+          requestedAmount={selectedRequestForRepayment.amount}
+          remainingBalance={
+            selectedRequestForRepayment.remainingBalance ||
+            selectedRequestForRepayment.totalRepayable ||
+            selectedRequestForRepayment.amount
+          }
+          totalRepayable={
+            selectedRequestForRepayment.totalRepayable ||
+            selectedRequestForRepayment.amount
+          }
+          onSuccess={() => {
+            fetchRequests();
+            setShowRepaymentModal(false);
+            setSelectedRequestForRepayment(null);
           }}
         />
       )}
