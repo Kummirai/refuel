@@ -478,13 +478,13 @@ export default function RequestHistoryPage() {
 
       {/* Filter Tabs */}
       <div className="px-5 pt-4 pb-2 overflow-x-auto no-scrollbar">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap items-center justify-center">
           {["all", "pending", "approved", "completed", "rejected"].map(
             (filter) => (
               <button
                 key={filter}
                 onClick={() => setSelectedFilter(filter as any)}
-                className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${
+                className={`px-7 py-1.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap  ${
                   selectedFilter === filter
                     ? "bg-[#01312D] text-white shadow-md"
                     : "bg-white text-[#01312D] border border-[#bff202]/20"
