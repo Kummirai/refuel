@@ -1854,7 +1854,7 @@ Thank you for choosing FueleX! 🚀
               </div>
             </div>
 
-            <div className="border-t border-[#bff202]/20 p-5 flex gap-3 sticky bottom-0 bg-white">
+            <div className="grid border-t border-[#bff202]/20 p-5 gap-3 sticky bottom-0 bg-white">
               <button
                 onClick={handleGenerateImage}
                 disabled={whatsappLoading || imageGenerating}
