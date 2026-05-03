@@ -521,3 +521,357 @@ export async function sendDriverVerificationResultEmail(data: {
     console.error(`Error sending verification ${data.status} email:`, error);
   }
 }
+
+// Add to src/lib/email.ts - Place these new functions at the end of the file
+
+// Admin notification for repayment proof submission
+export async function sendAdminRepaymentProofEmail(data: {
+  driverName: string;
+  driverEmail: string;
+  driverPhone: string;
+  carRegistration: string;
+  serviceType: string;
+  serviceTypeLabel: string;
+  amount: number;
+  remainingBalance: number;
+  proofUrl: string;
+  submittedAt: string;
+  repaymentId: string;
+}) {
+  const adminEmail = process.env.ADMIN_EMAIL || "mieltonkumirai@gmail.com";
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>New Repayment Proof Submitted</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #eafde7; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #01312D 0%, #3A7717 100%); padding: 30px; text-align: center; }
+        .header h1 { color: white; margin: 0; }
+        .header p { color: #bff202; margin: 10px 0 0; }
+        .content { padding: 30px; }
+        .badge { display: inline-block; background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 20px; }
+        .section { background: #eafde7; border-radius: 12px; padding: 15px; margin-bottom: 20px; }
+        .section h3 { color: #01312D; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #bff202; display: flex; align-items: center; gap: 8px; }
+        .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #bff20240; }
+        .row:last-child { border-bottom: none; }
+        .label { color: #666; font-weight: 500; }
+        .value { color: #01312D; font-weight: 600; }
+        .amount { font-size: 24px; color: #3A7717; font-weight: bold; }
+        .amount-remaining { font-size: 18px; color: #dc2626; font-weight: bold; }
+        .button { display: inline-block; background: linear-gradient(135deg, #3A7717 0%, #72bf00 100%); color: white; text-decoration: none; padding: 12px 24px; border-radius: 12px; font-weight: 600; margin-top: 20px; }
+        .button-secondary { display: inline-block; background: #6b7280; color: white; text-decoration: none; padding: 12px 24px; border-radius: 12px; font-weight: 600; margin-top: 20px; margin-left: 10px; }
+        .proof-box { background: white; border: 2px solid #bff202; border-radius: 12px; padding: 15px; text-align: center; margin: 15px 0; }
+        .footer { background: #f5f5f5; padding: 20px; text-align: center; font-size: 12px; color: #999; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>💰 Kapuka</h1>
+          <p>New Repayment Proof Submitted</p>
+        </div>
+        <div class="content">
+          <div style="text-align: center;">
+            <span class="badge">PENDING REVIEW</span>
+          </div>
+          
+          <div class="section">
+            <h3>👤 Driver Information</h3>
+            <div class="row"><span class="label">Driver Name:</span><span class="value">${data.driverName}</span></div>
+            <div class="row"><span class="label">Email:</span><span class="value">${data.driverEmail}</span></div>
+            <div class="row"><span class="label">Phone:</span><span class="value">${data.driverPhone}</span></div>
+            <div class="row"><span class="label">Car Registration:</span><span class="value">${data.carRegistration}</span></div>
+          </div>
+          
+          <div class="section">
+            <h3>📋 Payment Details</h3>
+            <div class="row"><span class="label">Service Type:</span><span class="value">${data.serviceTypeLabel}</span></div>
+            <div class="row"><span class="label">Payment Amount:</span><span class="value amount">R${data.amount.toLocaleString()}</span></div>
+            <div class="row"><span class="label">Remaining Balance:</span><span class="value amount-remaining">R${data.remainingBalance.toLocaleString()}</span></div>
+            <div class="row"><span class="label">Submitted:</span><span class="value">${new Date(data.submittedAt).toLocaleString()}</span></div>
+            <div class="row"><span class="label">Repayment ID:</span><span class="value">${data.repaymentId.slice(-8).toUpperCase()}</span></div>
+          </div>
+          
+          <div class="proof-box">
+            <p style="margin: 0 0 10px; font-weight: bold; color: #01312D;">📎 Proof of Payment</p>
+            <a href="${data.proofUrl}" target="_blank" style="color: #3A7717; text-decoration: underline;">View Payment Proof</a>
+          </div>
+          
+          <div style="text-align: center;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/repayments" class="button">
+              Review Repayment
+            </a>
+          </div>
+        </div>
+        <div class="footer">
+          <p>Kapuka Services • This is an automated notification</p>
+          <p>Please review the proof and approve or reject the repayment.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@Kapuka.netlify.app>',
+      to: adminEmail,
+      subject: `💰 New Repayment Proof - ${data.driverName} - R${data.amount.toLocaleString()}`,
+      html: html,
+      text: `New repayment proof submitted by ${data.driverName} for R${data.amount.toLocaleString()}. Remaining balance: R${data.remainingBalance.toLocaleString()}`,
+    });
+    console.log("Admin repayment proof email sent:", info.messageId);
+    return info;
+  } catch (error) {
+    console.error("Error sending admin repayment proof email:", error);
+    return null;
+  }
+}
+
+// Driver notification for repayment proof approval
+export async function sendDriverRepaymentApprovalEmail(data: {
+  driverEmail: string;
+  driverName: string;
+  carRegistration: string;
+  serviceTypeLabel: string;
+  amount: number;
+  remainingBalance: number;
+  isFullyPaid: boolean;
+}) {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Repayment Approved</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #eafde7; margin: 0; padding: 20px; }
+        .container { max-width: 500px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); padding: 30px; text-align: center; }
+        .header h1 { color: white; margin: 0; }
+        .content { padding: 30px; }
+        .amount-box { background: linear-gradient(135deg, #eafde7 0%, #bff202 100%); border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0; }
+        .amount { font-size: 32px; font-weight: bold; color: #01312D; }
+        .remaining { font-size: 18px; color: ${data.remainingBalance > 0 ? "#dc2626" : "#3A7717"}; font-weight: bold; }
+        .button { background: #3A7717; color: white; text-decoration: none; padding: 12px 24px; border-radius: 12px; display: inline-block; }
+        .success-icon { font-size: 48px; text-align: center; margin: 20px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>${data.isFullyPaid ? "🎉 Payment Approved & Completed!" : "✅ Repayment Approved!"}</h1>
+        </div>
+        <div class="content">
+          <div class="success-icon">${data.isFullyPaid ? "🏆" : "✅"}</div>
+          <p>Hello ${data.driverName},</p>
+          <p>Your repayment of <strong>R${data.amount.toLocaleString()}</strong> for your ${data.serviceTypeLabel} has been <strong>APPROVED</strong>!</p>
+          
+          <div class="amount-box">
+            <p style="margin: 0 0 10px; color: #01312D; font-weight: bold;">Payment Details</p>
+            <div class="amount">R${data.amount.toLocaleString()}</div>
+            <p style="margin: 10px 0 0;">${data.serviceTypeLabel} • ${data.carRegistration}</p>
+          </div>
+          
+          ${
+            data.isFullyPaid
+              ? `
+            <div style="background: #eafde7; border-radius: 12px; padding: 15px; text-align: center; margin: 20px 0;">
+              <p style="margin: 0; color: #01312D; font-weight: bold;">🎊 Congratulations!</p>
+              <p style="margin: 5px 0 0; color: #3A7717;">Your ${data.serviceTypeLabel} is now fully paid off!</p>
+            </div>
+          `
+              : `
+            <div style="background: #fef3c7; border-radius: 12px; padding: 15px; text-align: center; margin: 20px 0;">
+              <p style="margin: 0; color: #92400e;">Remaining Balance</p>
+              <p class="remaining">R${data.remainingBalance.toLocaleString()}</p>
+            </div>
+          `
+          }
+          
+          <div style="text-align: center;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/requests/history" class="button">
+              View Payment History
+            </a>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@Kapuka.netlify.app>',
+      to: data.driverEmail,
+      subject: data.isFullyPaid
+        ? `🎉 ${data.serviceTypeLabel} Fully Paid! - Kapuka`
+        : `✅ Repayment of R${data.amount.toLocaleString()} Approved - Kapuka`,
+      html: html,
+      text: `Your repayment of R${data.amount.toLocaleString()} has been approved. Remaining balance: R${data.remainingBalance.toLocaleString()}`,
+    });
+    console.log("Driver repayment approval email sent:", info.messageId);
+    return info;
+  } catch (error) {
+    console.error("Error sending driver repayment approval email:", error);
+    return null;
+  }
+}
+
+// Driver notification for repayment proof rejection
+export async function sendDriverRepaymentRejectionEmail(data: {
+  driverEmail: string;
+  driverName: string;
+  carRegistration: string;
+  serviceTypeLabel: string;
+  amount: number;
+  reason: string;
+}) {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Repayment Proof Rejected</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #eafde7; margin: 0; padding: 20px; }
+        .container { max-width: 500px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); padding: 30px; text-align: center; }
+        .header h1 { color: white; margin: 0; }
+        .content { padding: 30px; }
+        .reason-box { background: #fef2f2; border-left: 4px solid #dc2626; padding: 15px; border-radius: 12px; margin: 20px 0; }
+        .amount-box { background: #eafde7; border-radius: 12px; padding: 15px; text-align: center; margin: 20px 0; }
+        .button { background: #dc2626; color: white; text-decoration: none; padding: 12px 24px; border-radius: 12px; display: inline-block; }
+        .button-secondary { background: #3A7717; color: white; text-decoration: none; padding: 12px 24px; border-radius: 12px; display: inline-block; margin-left: 10px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Repayment Proof Rejected</h1>
+        </div>
+        <div class="content">
+          <p>Hello ${data.driverName},</p>
+          <p>We regret to inform you that your repayment proof of <strong>R${data.amount.toLocaleString()}</strong> for your ${data.serviceTypeLabel} has been <strong>REJECTED</strong>.</p>
+          
+          <div class="reason-box">
+            <p style="margin: 0 0 5px 0; font-weight: bold; color: #991b1b;">Reason for rejection:</p>
+            <p style="margin: 0; color: #7f1d1d;">${data.reason}</p>
+          </div>
+          
+          <div class="amount-box">
+            <p style="margin: 0;">${data.serviceTypeLabel} • ${data.carRegistration}</p>
+            <p style="margin: 5px 0 0; font-weight: bold; color: #01312D;">Amount: R${data.amount.toLocaleString()}</p>
+          </div>
+          
+          <p>Please submit a new repayment proof with correct documentation.</p>
+          
+          <div style="text-align: center; margin-top: 30px;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/requests/history" class="button-secondary">
+              View History
+            </a>
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/requests/repayments" class="button">
+              Submit New Proof
+            </a>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@Kapuka.netlify.app>',
+      to: data.driverEmail,
+      subject: `❌ Repayment Proof Rejected - Kapuka`,
+      html: html,
+      text: `Your repayment proof of R${data.amount.toLocaleString()} was rejected. Reason: ${data.reason}`,
+    });
+    console.log("Driver repayment rejection email sent:", info.messageId);
+    return info;
+  } catch (error) {
+    console.error("Error sending driver repayment rejection email:", error);
+    return null;
+  }
+}
+
+// Notification when repayment is marked as completed (fully paid)
+export async function sendRepaymentCompletedEmail(data: {
+  driverEmail: string;
+  driverName: string;
+  carRegistration: string;
+  serviceTypeLabel: string;
+  totalPaid: number;
+  completedDate: string;
+}) {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Repayment Completed!</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #eafde7; margin: 0; padding: 20px; }
+        .container { max-width: 500px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); padding: 30px; text-align: center; }
+        .header h1 { color: white; margin: 0; }
+        .content { padding: 30px; }
+        .celebration { background: linear-gradient(135deg, #eafde7 0%, #bff202 100%); border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0; }
+        .total { font-size: 36px; font-weight: bold; color: #01312D; }
+        .button { background: #3A7717; color: white; text-decoration: none; padding: 12px 24px; border-radius: 12px; display: inline-block; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🎉 Repayment Completed!</h1>
+        </div>
+        <div class="content">
+          <div style="text-align: center; font-size: 64px;">🏆</div>
+          <p>Hello ${data.driverName},</p>
+          <p>Congratulations! Your <strong>${data.serviceTypeLabel}</strong> has been fully repaid and marked as <strong>COMPLETED</strong>!</p>
+          
+          <div class="celebration">
+            <p style="margin: 0 0 10px; color: #01312D; font-weight: bold;">Total Repaid</p>
+            <div class="total">R${data.totalPaid.toLocaleString()}</div>
+            <p style="margin: 10px 0 0;">${data.serviceTypeLabel} • ${data.carRegistration}</p>
+            <p style="margin: 5px 0 0; font-size: 12px;">Completed on ${new Date(data.completedDate).toLocaleDateString()}</p>
+          </div>
+          
+          <p>Thank you for being a responsible Kapuka customer! You can now request new services.</p>
+          
+          <div style="text-align: center; margin-top: 30px;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/requests/new" class="button">
+              Request New Service
+            </a>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@Kapuka.netlify.app>',
+      to: data.driverEmail,
+      subject: `🎉 ${data.serviceTypeLabel} Fully Paid! - Kapuka`,
+      html: html,
+      text: `Congratulations! Your ${data.serviceTypeLabel} has been fully paid off. Total paid: R${data.totalPaid.toLocaleString()}`,
+    });
+    console.log("Repayment completed email sent:", info.messageId);
+    return info;
+  } catch (error) {
+    console.error("Error sending repayment completed email:", error);
+    return null;
+  }
+}

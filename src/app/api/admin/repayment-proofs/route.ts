@@ -2,6 +2,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
+import {
+  sendDriverRepaymentApprovalEmail,
+  sendDriverRepaymentRejectionEmail,
+  sendRepaymentCompletedEmail,
+} from "@/lib/email";
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,7 +24,7 @@ export async function GET(request: NextRequest) {
     const enrichedProofs = await Promise.all(
       proofs.map(async (proof: any) => {
         const serviceRequest = await serviceRequestsCollection.findOne({
-          _id: new ObjectId(proof.requestId),
+          id: proof.requestId,
         });
 
         let driver = null;
@@ -55,6 +60,9 @@ export async function GET(request: NextRequest) {
             serviceRequest?.driverPhone || driver?.phone || "Unknown",
           carNumber: serviceRequest?.carNumber || "Not provided",
           serviceType: serviceRequest?.type || "Unknown",
+          serviceTypeLabel: getServiceTypeLabel(
+            serviceRequest?.type || "Unknown",
+          ),
           requestedAmount: serviceRequest?.amount || 0,
           totalRepayable: serviceRequest?.totalRepayable || 0,
         };
@@ -69,6 +77,21 @@ export async function GET(request: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+// Helper function to get service type label
+function getServiceTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    fuel: "Fuel Request",
+    airtime: "Airtime Request",
+    cash: "Cash Loan",
+    carwash: "Car Wash",
+    Fuel: "Fuel Request",
+    Airtime: "Airtime Request",
+    Cash: "Cash Loan",
+    Carwash: "Car Wash",
+  };
+  return labels[type] || type || "Service Request";
 }
 
 export async function PUT(request: NextRequest) {
@@ -86,6 +109,7 @@ export async function PUT(request: NextRequest) {
 
     const repaymentProofsCollection = db.collection("repaymentProofs");
     const serviceRequestsCollection = db.collection("serviceRequests");
+    const usersCollection = db.collection("user");
 
     // Find the repayment proof
     const proof = await repaymentProofsCollection.findOne({
@@ -97,6 +121,24 @@ export async function PUT(request: NextRequest) {
         { error: "Repayment proof not found" },
         { status: 404 },
       );
+    }
+
+    // Get service request and driver details for emails
+    const serviceRequest = await serviceRequestsCollection.findOne({
+      id: proof.requestId,
+    });
+
+    let driver = null;
+    if (serviceRequest?.userId) {
+      try {
+        driver = await usersCollection.findOne({
+          _id: new ObjectId(serviceRequest.userId),
+        });
+      } catch {
+        driver = await usersCollection.findOne({
+          _id: serviceRequest.userId,
+        });
+      }
     }
 
     // Update the proof status
@@ -114,45 +156,86 @@ export async function PUT(request: NextRequest) {
 
     // If approved, update the service request's repaid amount
     if (status === "approved") {
-      const serviceRequest = await serviceRequestsCollection.findOne({
-        _id: new ObjectId(proof.requestId),
-      });
+      const currentRepaid = serviceRequest?.repaidAmount || 0;
+      const newRepaid = currentRepaid + proof.amount;
+      const totalRepayable =
+        serviceRequest?.totalRepayable || serviceRequest?.amount * 1.13;
+      const isFullyPaid = newRepaid >= totalRepayable;
 
-      if (serviceRequest) {
-        const currentRepaid = serviceRequest.repaidAmount || 0;
-        const newRepaid = currentRepaid + proof.amount;
-        const totalRepayable =
-          serviceRequest.totalRepayable || serviceRequest.amount * 1.13;
-        const isFullyPaid = newRepaid >= totalRepayable;
-
-        await serviceRequestsCollection.updateOne(
-          { _id: new ObjectId(proof.requestId) },
-          {
-            $set: {
-              repaidAmount: newRepaid,
-              remainingBalance: totalRepayable - newRepaid,
-              isPaid: isFullyPaid,
-              lastPaymentDate: new Date(),
-              ...(isFullyPaid && { paidDate: new Date() }),
-            },
-            $unset: {
-              hasPendingRepayment: "",
-              pendingRepaymentAmount: "",
-              pendingRepaymentStatus: "",
-            },
+      await serviceRequestsCollection.updateOne(
+        { id: proof.requestId },
+        {
+          $set: {
+            repaidAmount: newRepaid,
+            remainingBalance: totalRepayable - newRepaid,
+            isPaid: isFullyPaid,
+            lastPaymentDate: new Date(),
+            ...(isFullyPaid && { paidDate: new Date() }),
           },
-        );
+          $unset: {
+            hasPendingRepayment: "",
+            pendingRepaymentAmount: "",
+            pendingRepaymentId: "",
+          },
+        },
+      );
+
+      // Send approval email to driver
+      if (driver?.email) {
+        await sendDriverRepaymentApprovalEmail({
+          driverEmail: driver.email,
+          driverName: driver.name || serviceRequest?.driverName || "Driver",
+          carRegistration: serviceRequest?.carNumber || "Unknown",
+          serviceTypeLabel: getServiceTypeLabel(
+            serviceRequest?.type || "service",
+          ),
+          amount: proof.amount,
+          remainingBalance: Math.max(0, totalRepayable - newRepaid),
+          isFullyPaid: isFullyPaid,
+        }).catch((err) => console.error("Failed to send approval email:", err));
+
+        // If fully paid, send completion email
+        if (isFullyPaid) {
+          await sendRepaymentCompletedEmail({
+            driverEmail: driver.email,
+            driverName: driver.name || serviceRequest?.driverName || "Driver",
+            carRegistration: serviceRequest?.carNumber || "Unknown",
+            serviceTypeLabel: getServiceTypeLabel(
+              serviceRequest?.type || "service",
+            ),
+            totalPaid: newRepaid,
+            completedDate: new Date().toISOString(),
+          }).catch((err) =>
+            console.error("Failed to send completion email:", err),
+          );
+        }
       }
     }
 
-    // Clear pending repayment flag on the service request
+    // If rejected, send rejection email to driver
+    if (status === "rejected" && driver?.email) {
+      await sendDriverRepaymentRejectionEmail({
+        driverEmail: driver.email,
+        driverName: driver.name || serviceRequest?.driverName || "Driver",
+        carRegistration: serviceRequest?.carNumber || "Unknown",
+        serviceTypeLabel: getServiceTypeLabel(
+          serviceRequest?.type || "service",
+        ),
+        amount: proof.amount,
+        reason:
+          reason ||
+          "No specific reason provided. Please contact support for more information.",
+      }).catch((err) => console.error("Failed to send rejection email:", err));
+    }
+
+    // Clear pending repayment flag on the service request (if not already cleared)
     await serviceRequestsCollection.updateOne(
-      { _id: new ObjectId(proof.requestId) },
+      { id: proof.requestId },
       {
         $unset: {
           hasPendingRepayment: "",
           pendingRepaymentAmount: "",
-          pendingRepaymentStatus: "",
+          pendingRepaymentId: "",
         },
       },
     );

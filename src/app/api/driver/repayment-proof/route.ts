@@ -1,11 +1,12 @@
-// src/app/api/drivers/repayment-proof/route.ts
+// src/app/api/driver/repayment-proof/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { connectToDatabase } from "@/lib/db";
+import { sendAdminRepaymentProofEmail } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
-  console.log("you reanched this point");
+  console.log("you reached this point");
 
   try {
     // Verify user is authenticated
@@ -37,6 +38,18 @@ export async function POST(request: NextRequest) {
     const { db } = await connectToDatabase();
     const repaymentsCollection = db.collection("repaymentProofs");
     const serviceRequestsCollection = db.collection("serviceRequests");
+    const usersCollection = db.collection("user");
+
+    // Get service request details for email
+    const serviceRequest = await serviceRequestsCollection.findOne({
+      id: requestId,
+      userId: session.user.id,
+    });
+
+    // Get driver details for email
+    const driver = await usersCollection.findOne({
+      _id: session.user.id,
+    });
 
     // Create repayment proof record
     const repaymentProof = {
@@ -67,6 +80,36 @@ export async function POST(request: NextRequest) {
       },
     );
 
+    // Send email notification to admin
+    if (driver && serviceRequest) {
+      const serviceTypeLabel = getServiceTypeLabel(serviceRequest.type);
+
+      await sendAdminRepaymentProofEmail({
+        driverName: driver.name || serviceRequest.driverName || "Unknown",
+        driverEmail: driver.email || serviceRequest.driverEmail || "Unknown",
+        driverPhone: driver.phone || serviceRequest.driverPhone || "Unknown",
+        carRegistration:
+          serviceRequest.carNumber ||
+          serviceRequest.carRegistration ||
+          "Unknown",
+        serviceType: serviceRequest.type || "Unknown",
+        serviceTypeLabel: serviceTypeLabel,
+        amount: amount,
+        remainingBalance: remainingBalance,
+        proofUrl: proofUrl,
+        submittedAt: new Date().toISOString(),
+        repaymentId: requestId,
+      }).catch((err) => {
+        console.error("Failed to send admin notification email:", err);
+        // Don't fail the request if email fails
+      });
+    } else {
+      console.log("Missing driver or service request data for email", {
+        hasDriver: !!driver,
+        hasServiceRequest: !!serviceRequest,
+      });
+    }
+
     return NextResponse.json({
       success: true,
       message:
@@ -80,4 +123,19 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+// Helper function to get service type label
+function getServiceTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    fuel: "Fuel Request",
+    airtime: "Airtime Request",
+    cash: "Cash Loan",
+    carwash: "Car Wash",
+    Fuel: "Fuel Request",
+    Airtime: "Airtime Request",
+    Cash: "Cash Loan",
+    Carwash: "Car Wash",
+  };
+  return labels[type] || type || "Service Request";
 }
