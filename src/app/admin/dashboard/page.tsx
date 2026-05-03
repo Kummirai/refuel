@@ -147,6 +147,13 @@ export default function AdminDashboard() {
   const [recentVerifications, setRecentVerifications] = useState<any[]>([]);
   const [recentRequests, setRecentRequests] = useState<any[]>([]);
 
+  // Function to refresh notification counts in the sidebar
+  const refreshNotificationCounts = () => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("refreshAdminCounts"));
+    }
+  };
+
   useEffect(() => {
     fetchDashboardData();
   }, []);
@@ -205,6 +212,7 @@ export default function AdminDashboard() {
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchDashboardData();
+    refreshNotificationCounts(); // Refresh counts when manually refreshing
   };
 
   const openApproveModal = (request: any) => {
@@ -229,6 +237,7 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
+        refreshNotificationCounts(); // Refresh sidebar counts
         const updatedRequest = {
           ...approvingRequest,
           otp: generatedOtp,
@@ -274,6 +283,7 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
+        refreshNotificationCounts(); // Refresh sidebar counts
         setSuccessMessage(
           `✅ Request ${rejectingRequest.id.slice(-6).toUpperCase()} rejected successfully`,
         );
@@ -307,6 +317,7 @@ export default function AdminDashboard() {
         }),
       });
       if (response.ok) {
+        refreshNotificationCounts(); // Refresh sidebar counts
         setSuccessMessage(
           `✅ Request ${request.id.slice(-6).toUpperCase()} marked as completed`,
         );
@@ -336,6 +347,7 @@ export default function AdminDashboard() {
         }),
       });
       if (response.ok) {
+        refreshNotificationCounts(); // Refresh sidebar counts
         setSuccessMessage(`✅ Approved ${verification.name}'s verification`);
         setShowSuccessModal(true);
         fetchDashboardData();
@@ -373,6 +385,7 @@ export default function AdminDashboard() {
         }),
       });
       if (response.ok) {
+        refreshNotificationCounts(); // Refresh sidebar counts
         setSuccessMessage(
           `❌ Rejected ${selectedVerification.name}'s verification`,
         );

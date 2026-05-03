@@ -5,7 +5,8 @@ import { ObjectId } from "mongodb";
 
 export async function POST(request: Request) {
   try {
-    const { repaymentId, amount, method, reference } = await request.json();
+    const { repaymentId, amount, method, reference, proofUrl, proofPublicId } =
+      await request.json();
 
     if (!repaymentId || !amount || amount <= 0) {
       return NextResponse.json(
@@ -16,7 +17,8 @@ export async function POST(request: Request) {
 
     const { db } = await connectToDatabase();
     const serviceRequestsCollection = db.collection("serviceRequests");
-    const paymentsCollection = db.collection("loanPayments");
+    const loanPaymentsCollection = db.collection("loanPayments");
+    const repaymentRequestsCollection = db.collection("repaymentRequests");
 
     // Get the loan/service request
     const loan = await serviceRequestsCollection.findOne({
@@ -35,8 +37,8 @@ export async function POST(request: Request) {
     // Generate payment ID
     const paymentId = new ObjectId();
 
-    // Record the payment
-    await paymentsCollection.insertOne({
+    // 1. Record the payment in loanPayments collection
+    await loanPaymentsCollection.insertOne({
       _id: paymentId,
       loanId: repaymentId,
       amount: amount,
@@ -45,9 +47,33 @@ export async function POST(request: Request) {
       reference: reference || null,
       remainingBalance: totalRepayable - newRepaid,
       createdAt: new Date(),
+      ...(proofUrl && { proofUrl, proofPublicId }),
     });
 
-    // Update loan with new repaid amount
+    // 2. Update the repayment request status if it exists and is now fully paid
+    if (isFullyPaid) {
+      // Find and update any pending repayment request for this loan
+      const repaymentRequest = await repaymentRequestsCollection.findOne({
+        requestId: repaymentId,
+        status: "pending",
+      });
+
+      if (repaymentRequest) {
+        await repaymentRequestsCollection.updateOne(
+          { _id: repaymentRequest._id },
+          {
+            $set: {
+              status: "approved",
+              approvedAt: new Date(),
+              approvedBy: "admin",
+              updatedAt: new Date(),
+            },
+          },
+        );
+      }
+    }
+
+    // 3. Update loan with new repaid amount
     const updateFields: any = {
       repaidAmount: newRepaid,
       lastPaymentDate: new Date(),
@@ -58,7 +84,6 @@ export async function POST(request: Request) {
       updateFields.isPaid = true;
       updateFields.paidDate = new Date();
       // Note: status remains as is (completed means service was delivered)
-      // We don't change service status here - only financial status
     }
 
     await serviceRequestsCollection.updateOne(
@@ -72,6 +97,7 @@ export async function POST(request: Request) {
             date: new Date(),
             method: method || "cash",
             reference: reference || null,
+            ...(proofUrl && { proofUrl }),
           },
         },
       },
@@ -84,6 +110,7 @@ export async function POST(request: Request) {
       isFullyPaid,
       repaidAmount: newRepaid,
       totalRepayable: totalRepayable,
+      paymentId: paymentId.toString(),
     });
   } catch (error) {
     console.error("Error recording payment:", error);

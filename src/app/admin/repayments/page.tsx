@@ -955,6 +955,130 @@ export default function LoanRepaymentsPage() {
     );
   };
 
+  // Add this new function to mark repayment as completed
+  const handleMarkAsCompleted = async (repayment: Repayment) => {
+    // Check if there's any remaining balance
+    if (repayment.remainingAmount > 0) {
+      setErrorMessage(
+        `Cannot mark as completed. Remaining balance of R${repayment.remainingAmount.toLocaleString()} needs to be paid first.`,
+      );
+      setShowErrorModal(true);
+      return;
+    }
+
+    if (
+      !confirm(
+        `Are you sure you want to mark this ${repayment.serviceTypeLabel} as COMPLETED?\n\n` +
+          `Driver: ${repayment.driverName}\n` +
+          `Vehicle: ${repayment.carRegistration}\n` +
+          `Total Repaid: R${repayment.repaidAmount.toLocaleString()}\n\n` +
+          `This action will close the repayment and mark it as fully completed.`,
+      )
+    )
+      return;
+
+    setProcessing(true);
+    try {
+      const response = await fetch("/api/admin/repayments/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          repaymentId: repayment.id,
+          completedAt: new Date().toISOString(),
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setSuccessMessage(
+          `✅ ${repayment.serviceTypeLabel} marked as COMPLETED successfully!\n\n` +
+            `Driver: ${repayment.driverName}\n` +
+            `Total Repaid: R${repayment.repaidAmount.toLocaleString()}`,
+        );
+        setShowSuccessModal(true);
+        await fetchRepayments(); // Refresh the list
+        setShowDetailsModal(false);
+        setSelectedRepayment(null);
+      } else {
+        const error = await response.json();
+        setErrorMessage(error.error || "Failed to mark repayment as completed");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error marking repayment as completed:", error);
+      setErrorMessage("Failed to mark repayment as completed");
+      setShowErrorModal(true);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // Add this function for bulk complete (optional - for admin efficiency)
+  const handleBulkComplete = async (repaymentIds: string[]) => {
+    if (repaymentIds.length === 0) return;
+
+    if (
+      !confirm(
+        `Are you sure you want to mark ${repaymentIds.length} repayment(s) as COMPLETED?\n\n` +
+          `This will close all selected repayments.`,
+      )
+    )
+      return;
+
+    setProcessing(true);
+    try {
+      const response = await fetch("/api/admin/repayments/bulk-complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repaymentIds }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setSuccessMessage(
+          `✅ Successfully marked ${result.completedCount} repayment(s) as completed!`,
+        );
+        setShowSuccessModal(true);
+        await fetchRepayments();
+      } else {
+        const error = await response.json();
+        setErrorMessage(error.error || "Failed to complete repayments");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error in bulk complete:", error);
+      setErrorMessage("Failed to complete repayments");
+      setShowErrorModal(true);
+    } finally {
+      setProcessing(false);
+      setSelectedRepayments([]);
+    }
+  };
+
+  // Add state for bulk selection
+  const [selectedRepayments, setSelectedRepayments] = useState<string[]>([]);
+  const [showBulkCompleteModal, setShowBulkCompleteModal] = useState(false);
+
+  // Add this to handle checkbox selection
+  const toggleRepaymentSelection = (repaymentId: string) => {
+    setSelectedRepayments((prev) =>
+      prev.includes(repaymentId)
+        ? prev.filter((id) => id !== repaymentId)
+        : [...prev, repaymentId],
+    );
+  };
+
+  // Add this to select all visible repayments
+  const selectAllVisible = () => {
+    const visibleIds = filteredRepayments.map((r) => r.id);
+    setSelectedRepayments(visibleIds);
+  };
+
+  // Add this to clear all selections
+  const clearSelections = () => {
+    setSelectedRepayments([]);
+  };
+
   const DetailsModal = ({
     repayment,
     onClose,

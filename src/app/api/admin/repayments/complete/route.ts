@@ -16,6 +16,8 @@ export async function POST(request: Request) {
 
     const { db } = await connectToDatabase();
     const serviceRequestsCollection = db.collection("serviceRequests");
+    const loanPaymentsCollection = db.collection("loanPayments");
+    const repaymentRequestsCollection = db.collection("repaymentRequests");
 
     // Get the loan/service request
     const loan = await serviceRequestsCollection.findOne({
@@ -30,11 +32,11 @@ export async function POST(request: Request) {
     const remainingAmount = totalRepayable - (loan.repaidAmount || 0);
 
     // Record a final payment for the remaining amount
-    const paymentsCollection = db.collection("loanPayments");
     const paymentId = new ObjectId();
 
     if (remainingAmount > 0) {
-      await paymentsCollection.insertOne({
+      // 1. Insert final payment in loanPayments collection
+      await loanPaymentsCollection.insertOne({
         _id: paymentId,
         loanId: repaymentId,
         amount: remainingAmount,
@@ -45,17 +47,35 @@ export async function POST(request: Request) {
         createdAt: new Date(),
       });
 
-      // Update loan as fully paid (financial settlement complete)
+      // 2. Update any pending repayment request status
+      const repaymentRequest = await repaymentRequestsCollection.findOne({
+        requestId: repaymentId,
+        status: "pending",
+      });
+
+      if (repaymentRequest) {
+        await repaymentRequestsCollection.updateOne(
+          { _id: repaymentRequest._id },
+          {
+            $set: {
+              status: "approved",
+              approvedAt: new Date(),
+              approvedBy: "admin",
+              updatedAt: new Date(),
+            },
+          },
+        );
+      }
+
+      // 3. Update loan as fully paid
       await serviceRequestsCollection.updateOne(
         { _id: new ObjectId(repaymentId) },
         {
           $set: {
             repaidAmount: totalRepayable,
             lastPaymentDate: new Date(),
-            isPaid: true, // Mark as financially paid
+            isPaid: true,
             paidDate: new Date(),
-            // Status remains "completed" (service was already delivered)
-            // We don't change the service status here
           },
           $push: {
             payments: {
