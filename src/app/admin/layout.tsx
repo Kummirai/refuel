@@ -16,6 +16,10 @@ import {
   Bell,
   Shield,
   Loader2,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  XCircle,
 } from "lucide-react";
 
 export default function AdminLayout({
@@ -28,10 +32,16 @@ export default function AdminLayout({
   const { data: session, isPending } = authClient.useSession();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const [pendingVerificationsCount, setPendingVerificationsCount] = useState(0);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [pendingRepaymentsCount, setPendingRepaymentsCount] = useState(0);
+
+  // Store full data for detailed view
+  const [pendingVerifications, setPendingVerifications] = useState<any[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [pendingRepayments, setPendingRepayments] = useState<any[]>([]);
 
   const fetchAllCounts = async () => {
     try {
@@ -53,19 +63,47 @@ export default function AdminLayout({
     }
   };
 
+  const fetchPendingDetails = async () => {
+    try {
+      const [verificationsRes, requestsRes, repaymentsRes] = await Promise.all([
+        fetch("/api/admin/verifications?status=pending&limit=5"),
+        fetch("/api/admin/requests?status=pending&limit=5"),
+        fetch("/api/admin/repayments?status=pending&limit=5"),
+      ]);
+
+      const verifications = await verificationsRes.json();
+      const requests = await requestsRes.json();
+      const repayments = await repaymentsRes.json();
+
+      setPendingVerifications(verifications.data || verifications || []);
+      setPendingRequests(requests.data || requests || []);
+      setPendingRepayments(repayments.data || repayments || []);
+    } catch (error) {
+      console.error("Error fetching pending details:", error);
+    }
+  };
+
   useEffect(() => {
     if (isAuthorized) {
       fetchAllCounts();
-      const interval = setInterval(fetchAllCounts, 30000);
+      fetchPendingDetails();
+      const interval = setInterval(() => {
+        fetchAllCounts();
+        fetchPendingDetails();
+      }, 30000);
 
       const handleVisibilityChange = () => {
         if (!document.hidden) {
           fetchAllCounts();
+          fetchPendingDetails();
         }
       };
       document.addEventListener("visibilitychange", handleVisibilityChange);
 
-      const handleRefresh = () => fetchAllCounts();
+      const handleRefresh = () => {
+        fetchAllCounts();
+        fetchPendingDetails();
+      };
       window.addEventListener("refreshAdminCounts", handleRefresh);
 
       return () => {
@@ -165,6 +203,273 @@ export default function AdminLayout({
     },
   ];
 
+  // Notification Modal Component
+  const NotificationModal = () => {
+    if (!showNotifications) return null;
+
+    const handleNavigate = (path: string) => {
+      setShowNotifications(false);
+      router.push(path);
+    };
+
+    return (
+      <>
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+          onClick={() => setShowNotifications(false)}
+        />
+        <div className="fixed top-16 right-4 z-50 w-96 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-2xl border border-[#bff202]/20 overflow-hidden animate-in slide-in-from-top-2 duration-200">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bell className="w-5 h-5 text-white" />
+                <h2 className="text-white font-bold">Notifications</h2>
+              </div>
+              <button
+                onClick={() => setShowNotifications(false)}
+                className="text-white/70 hover:text-white transition-colors"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-white/70 text-sm mt-1">
+              You have {totalNotifications} pending{" "}
+              {totalNotifications === 1 ? "item" : "items"} to review
+            </p>
+          </div>
+
+          {/* Content */}
+          <div className="max-h-[70vh] overflow-y-auto divide-y divide-gray-100">
+            {totalNotifications === 0 ? (
+              <div className="p-8 text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <CheckCircle className="w-8 h-8 text-green-600" />
+                </div>
+                <p className="text-gray-500 font-medium">All caught up!</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  No pending items to review
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Verifications Section */}
+                {pendingVerificationsCount > 0 && (
+                  <div className="p-4 hover:bg-yellow-50/50 transition-colors">
+                    <button
+                      onClick={() => handleNavigate("/admin/verifications")}
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <Users className="w-5 h-5 text-yellow-600" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-[#01312D]">
+                              Verifications
+                            </span>
+                            <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
+                              {pendingVerificationsCount} pending
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {pendingVerificationsCount} driver
+                            {pendingVerificationsCount !== 1 ? "s" : ""} need
+                            {pendingVerificationsCount === 1 ? "s" : ""}{" "}
+                            document verification
+                          </p>
+                          {pendingVerifications
+                            .slice(0, 2)
+                            .map((v: any, idx) => (
+                              <div
+                                key={idx}
+                                className="mt-2 text-xs text-gray-400 flex items-center gap-2"
+                              >
+                                <Clock className="w-3 h-3" />
+                                <span>
+                                  {v.driverName || v.name || "Driver"} -
+                                  Submitted{" "}
+                                  {v.submittedAt
+                                    ? new Date(
+                                        v.submittedAt,
+                                      ).toLocaleDateString()
+                                    : "recently"}
+                                </span>
+                              </div>
+                            ))}
+                          {pendingVerificationsCount > 2 && (
+                            <p className="text-xs text-yellow-600 mt-1">
+                              +{pendingVerificationsCount - 2} more
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                )}
+
+                {/* Service Requests Section */}
+                {pendingRequestsCount > 0 && (
+                  <div className="p-4 hover:bg-blue-50/50 transition-colors">
+                    <button
+                      onClick={() => handleNavigate("/admin/service-requests")}
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <ClipboardList className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-[#01312D]">
+                              Service Requests
+                            </span>
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                              {pendingRequestsCount} pending
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {pendingRequestsCount} service request
+                            {pendingRequestsCount !== 1 ? "s" : ""} awaiting
+                            approval
+                          </p>
+                          {pendingRequests.slice(0, 2).map((req: any, idx) => (
+                            <div
+                              key={idx}
+                              className="mt-2 text-xs text-gray-400 flex items-center gap-2"
+                            >
+                              <Clock className="w-3 h-3" />
+                              <span>
+                                {req.serviceType || "Service"} -{" "}
+                                {req.driverName || "Driver"} • R
+                                {req.amount?.toLocaleString()}
+                              </span>
+                            </div>
+                          ))}
+                          {pendingRequestsCount > 2 && (
+                            <p className="text-xs text-blue-600 mt-1">
+                              +{pendingRequestsCount - 2} more
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                )}
+
+                {/* Repayments Section */}
+                {pendingRepaymentsCount > 0 && (
+                  <div className="p-4 hover:bg-green-50/50 transition-colors">
+                    <button
+                      onClick={() => handleNavigate("/admin/repayments")}
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <DollarSign className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-[#01312D]">
+                              Repayments
+                            </span>
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                              {pendingRepaymentsCount} pending
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {pendingRepaymentsCount} repayment
+                            {pendingRepaymentsCount !== 1 ? "s" : ""} with
+                            outstanding balances
+                          </p>
+                          {pendingRepayments
+                            .slice(0, 2)
+                            .map((rep: any, idx) => (
+                              <div
+                                key={idx}
+                                className="mt-2 text-xs text-gray-400 flex items-center gap-2"
+                              >
+                                <AlertCircle className="w-3 h-3" />
+                                <span>
+                                  {rep.driverName || "Driver"} - R
+                                  {rep.remainingAmount?.toLocaleString()}{" "}
+                                  remaining • Due{" "}
+                                  {rep.dueDate
+                                    ? new Date(rep.dueDate).toLocaleDateString()
+                                    : "N/A"}
+                                </span>
+                              </div>
+                            ))}
+                          {pendingRepaymentsCount > 2 && (
+                            <p className="text-xs text-green-600 mt-1">
+                              +{pendingRepaymentsCount - 2} more
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Footer */}
+          {totalNotifications > 0 && (
+            <div className="p-3 bg-gray-50 border-t border-gray-100">
+              <div className="grid grid-cols-3 gap-2">
+                {pendingVerificationsCount > 0 && (
+                  <button
+                    onClick={() => handleNavigate("/admin/verifications")}
+                    className="text-center p-2 rounded-lg hover:bg-yellow-100 transition-colors"
+                  >
+                    <Users className="w-4 h-4 text-yellow-600 mx-auto" />
+                    <span className="text-xs text-gray-600 mt-1 block">
+                      Verifications
+                    </span>
+                  </button>
+                )}
+                {pendingRequestsCount > 0 && (
+                  <button
+                    onClick={() => handleNavigate("/admin/service-requests")}
+                    className="text-center p-2 rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                    <ClipboardList className="w-4 h-4 text-blue-600 mx-auto" />
+                    <span className="text-xs text-gray-600 mt-1 block">
+                      Requests
+                    </span>
+                  </button>
+                )}
+                {pendingRepaymentsCount > 0 && (
+                  <button
+                    onClick={() => handleNavigate("/admin/repayments")}
+                    className="text-center p-2 rounded-lg hover:bg-green-100 transition-colors"
+                  >
+                    <DollarSign className="w-4 h-4 text-green-600 mx-auto" />
+                    <span className="text-xs text-gray-600 mt-1 block">
+                      Repayments
+                    </span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Close button for mobile */}
+          <div className="p-3 border-t border-gray-100 lg:hidden">
+            <button
+              onClick={() => setShowNotifications(false)}
+              className="w-full py-2 bg-gray-100 text-gray-600 rounded-lg font-semibold text-sm"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#eafde7]">
       <button
@@ -251,19 +556,11 @@ export default function AdminLayout({
             <div className="flex items-center gap-2 sm:gap-4 ml-auto">
               <button
                 className="relative p-2 rounded-full hover:bg-[#eafde7] transition-all duration-200"
-                onClick={() => {
-                  if (totalNotifications > 0) {
-                    alert(
-                      `📋 Pending Items:\n\n✅ Verifications: ${pendingVerificationsCount}\n📝 Service Requests: ${pendingRequestsCount}\n💰 Repayments: ${pendingRepaymentsCount}`,
-                    );
-                  } else {
-                    alert("✨ No pending items");
-                  }
-                }}
+                onClick={() => setShowNotifications(!showNotifications)}
               >
                 <Bell className="w-5 h-5 text-[#3A7717]" />
                 {totalNotifications > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 animate-pulse">
                     {totalNotifications > 99 ? "99+" : totalNotifications}
                   </span>
                 )}
@@ -291,6 +588,9 @@ export default function AdminLayout({
 
         <main className="p-4 sm:p-6">{children}</main>
       </div>
+
+      {/* Notification Modal */}
+      <NotificationModal />
     </div>
   );
 }

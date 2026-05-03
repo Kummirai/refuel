@@ -1029,7 +1029,7 @@ export default function RequestHistoryPage() {
                     setShowDetailModal(true);
                   }}
                 >
-                  <div className="flex items-start justify-between mb-3">
+                  <div className="flex flex-col items-start gap-3 justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <div
                         className={`w-10 h-10 rounded-xl flex items-center justify-center ${typeColor}`}
@@ -1077,7 +1077,7 @@ export default function RequestHistoryPage() {
                     {request.otp &&
                       (request.status === "approved" ||
                         request.status === "sent") && (
-                        <div className="bg-[#bff202]/20 rounded-lg px-3 py-1">
+                        <div className="bg-[#bff202]/20 rounded-lg h-fit px-5 py-2">
                           <p className="text-xs text-[#01312D] font-semibold">
                             OTP: {request.otp}
                           </p>
