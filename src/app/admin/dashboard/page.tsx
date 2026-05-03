@@ -120,7 +120,11 @@ export default function AdminDashboard() {
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectingRequest, setRejectingRequest] = useState<any>(null);
+  const [rejectingVerification, setRejectingVerification] = useState<any>(null);
   const [rejectLoading, setRejectLoading] = useState(false);
+  const [rejectType, setRejectType] = useState<"request" | "verification">(
+    "request",
+  );
 
   // Financial stats
   const [financialStats, setFinancialStats] = useState({
@@ -169,6 +173,7 @@ export default function AdminDashboard() {
       const driversRes = await fetch("/api/admin/drivers");
       if (driversRes.ok) {
         const driversData = await driversRes.json();
+
         setDrivers(driversData.drivers || []);
         setRecentVerifications(driversData.recent || []);
       }
@@ -212,7 +217,7 @@ export default function AdminDashboard() {
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchDashboardData();
-    refreshNotificationCounts(); // Refresh counts when manually refreshing
+    refreshNotificationCounts();
   };
 
   const openApproveModal = (request: any) => {
@@ -220,6 +225,25 @@ export default function AdminDashboard() {
     setGeneratedOtp(otp);
     setApprovingRequest(request);
     setShowApproveModal(true);
+  };
+
+  const openRejectModal = (item: any, type: "request" | "verification") => {
+    if (type === "request") {
+      setRejectingRequest(item);
+      setRejectingVerification(null);
+    } else {
+      setRejectingVerification(item);
+      setRejectingRequest(null);
+    }
+    setRejectType(type);
+    setShowRejectModal(true);
+
+    // Close the details modal if open
+    if (type === "request") {
+      setShowRequestModal(false);
+    } else {
+      setShowVerificationModal(false);
+    }
   };
 
   const handleConfirmApprove = async () => {
@@ -237,7 +261,7 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        refreshNotificationCounts(); // Refresh sidebar counts
+        refreshNotificationCounts();
         const updatedRequest = {
           ...approvingRequest,
           otp: generatedOtp,
@@ -283,7 +307,7 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        refreshNotificationCounts(); // Refresh sidebar counts
+        refreshNotificationCounts();
         setSuccessMessage(
           `✅ Request ${rejectingRequest.id.slice(-6).toUpperCase()} rejected successfully`,
         );
@@ -293,6 +317,7 @@ export default function AdminDashboard() {
         setShowRequestModal(false);
         setRejectionReason("");
         setRejectingRequest(null);
+        setRejectType("request");
       } else {
         const error = await response.json();
         setErrorMessage(error.error || "Failed to reject request");
@@ -307,6 +332,61 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleRejectVerification = async () => {
+    if (!rejectingVerification) return;
+
+    if (!rejectionReason.trim()) {
+      setErrorMessage("Please enter a reason for rejection");
+      setShowErrorModal(true);
+      return;
+    }
+
+    setRejectLoading(true);
+    try {
+      const response = await fetch("/api/admin/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          verificationId: rejectingVerification.id,
+          action: "reject",
+          reason: rejectionReason,
+        }),
+      });
+
+      if (response.ok) {
+        refreshNotificationCounts();
+        setSuccessMessage(
+          `❌ Rejected ${rejectingVerification.name}'s verification`,
+        );
+        setShowSuccessModal(true);
+        fetchDashboardData();
+        setShowVerificationModal(false);
+        setShowRejectModal(false);
+        setRejectionReason("");
+        setRejectingVerification(null);
+        setRejectType("request");
+      } else {
+        const error = await response.json();
+        setErrorMessage(error.error || "Failed to reject verification");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error rejecting verification:", error);
+      setErrorMessage("Failed to reject verification");
+      setShowErrorModal(true);
+    } finally {
+      setRejectLoading(false);
+    }
+  };
+
+  const handleConfirmRejection = () => {
+    if (rejectType === "request") {
+      handleRejectRequest();
+    } else {
+      handleRejectVerification();
+    }
+  };
+
   const handleCompleteRequest = async (request: any) => {
     try {
       const response = await fetch("/api/admin/requests/complete", {
@@ -317,7 +397,7 @@ export default function AdminDashboard() {
         }),
       });
       if (response.ok) {
-        refreshNotificationCounts(); // Refresh sidebar counts
+        refreshNotificationCounts();
         setSuccessMessage(
           `✅ Request ${request.id.slice(-6).toUpperCase()} marked as completed`,
         );
@@ -346,8 +426,9 @@ export default function AdminDashboard() {
           action: "approve",
         }),
       });
+
       if (response.ok) {
-        refreshNotificationCounts(); // Refresh sidebar counts
+        refreshNotificationCounts();
         setSuccessMessage(`✅ Approved ${verification.name}'s verification`);
         setShowSuccessModal(true);
         fetchDashboardData();
@@ -364,50 +445,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleRejectVerification = async () => {
-    if (!selectedVerification) return;
-
-    if (!rejectionReason.trim()) {
-      setErrorMessage("Please enter a reason for rejection");
-      setShowErrorModal(true);
-      return;
-    }
-
-    setRejectLoading(true);
-    try {
-      const response = await fetch("/api/admin/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          verificationId: selectedVerification.id,
-          action: "reject",
-          reason: rejectionReason,
-        }),
-      });
-      if (response.ok) {
-        refreshNotificationCounts(); // Refresh sidebar counts
-        setSuccessMessage(
-          `❌ Rejected ${selectedVerification.name}'s verification`,
-        );
-        setShowSuccessModal(true);
-        fetchDashboardData();
-        setShowVerificationModal(false);
-        setShowRejectModal(false);
-        setRejectionReason("");
-      } else {
-        const error = await response.json();
-        setErrorMessage(error.error || "Failed to reject verification");
-        setShowErrorModal(true);
-      }
-    } catch (error) {
-      console.error("Error rejecting verification:", error);
-      setErrorMessage("Failed to reject verification");
-      setShowErrorModal(true);
-    } finally {
-      setRejectLoading(false);
-    }
-  };
-
   const handleCopyOtp = (otp: string) => {
     navigator.clipboard.writeText(otp);
     setCopiedOtp(otp);
@@ -415,17 +452,20 @@ export default function AdminDashboard() {
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
+    const normalizedStatus = status?.toLowerCase() || "pending";
+
+    switch (normalizedStatus) {
       case "approved":
+      case "verified":
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-green-100 text-green-700">
-            <CheckCircle className="w-3 h-3" /> Verified
+            <CheckCircle className="w-3 h-3" /> Approved
           </span>
         );
       case "pending":
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-yellow-100 text-yellow-700">
-            <Clock className="w-3 h-3" /> Pending
+            <Clock className="w-3 h-3" /> Pending Review
           </span>
         );
       case "rejected":
@@ -434,10 +474,16 @@ export default function AdminDashboard() {
             <XCircle className="w-3 h-3" /> Rejected
           </span>
         );
+      case "not_submitted":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700">
+            <AlertCircle className="w-3 h-3" /> Not Submitted
+          </span>
+        );
       default:
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700">
-            Not Started
+            {normalizedStatus || "Unknown"}
           </span>
         );
     }
@@ -607,11 +653,21 @@ export default function AdminDashboard() {
   const RejectionModal = () => {
     if (!showRejectModal) return null;
 
+    const itemName =
+      rejectType === "request"
+        ? rejectingRequest?.driverName || "this request"
+        : rejectingVerification?.name || "this verification";
+
+    const itemType = rejectType === "request" ? "Request" : "Verification";
+
     return (
       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
         <div
           className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          onClick={() => setShowRejectModal(false)}
+          onClick={() => {
+            setShowRejectModal(false);
+            setRejectionReason("");
+          }}
         ></div>
         <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl">
           <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-t-2xl p-5">
@@ -621,7 +677,7 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <h2 className="text-xl font-bold text-white">
-                  Confirm Rejection
+                  Reject {itemType}
                 </h2>
                 <p className="text-white/80 text-sm">
                   Provide rejection reason
@@ -638,13 +694,14 @@ export default function AdminDashboard() {
               <textarea
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Please explain why this is being rejected..."
+                placeholder={`Why is ${itemName} being rejected?`}
                 className="w-full px-4 py-3 bg-white border border-red-200 rounded-xl focus:outline-none focus:border-red-500 resize-none"
                 rows={4}
                 required
               />
               <p className="text-xs text-gray-500 mt-1">
-                This reason will be visible to the user
+                This reason will be visible to the{" "}
+                {rejectType === "request" ? "driver" : "user"}
               </p>
             </div>
           </div>
@@ -660,11 +717,7 @@ export default function AdminDashboard() {
               Cancel
             </button>
             <button
-              onClick={
-                selectedVerification
-                  ? handleRejectVerification
-                  : handleRejectRequest
-              }
+              onClick={handleConfirmRejection}
               disabled={rejectLoading}
               className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
             >
@@ -876,11 +929,7 @@ export default function AdminDashboard() {
                   <CheckCircle className="w-4 h-4" /> Approve
                 </button>
                 <button
-                  onClick={() => {
-                    setRejectingRequest(request);
-                    setShowRejectModal(true);
-                    setShowRequestModal(false);
-                  }}
+                  onClick={() => openRejectModal(request, "request")}
                   className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors text-xs"
                 >
                   <XCircle className="w-4 h-4" /> Reject
@@ -927,6 +976,34 @@ export default function AdminDashboard() {
     verification: any;
     onClose: () => void;
   }) => {
+    const mappedVerification = {
+      name:
+        verification.fullName ||
+        verification.name ||
+        verification.driverName ||
+        "Not provided",
+      email: verification.email || "Not provided",
+      phone: verification.phone || "Not provided",
+      carRegistration:
+        verification.carRegistration ||
+        verification.carRegistrationNumber ||
+        "Not provided",
+      carModel: verification.carModel || "Not provided",
+      carYear: verification.carYear || "Not provided",
+      carColor: verification.carColor || "Not provided",
+      verificationStatus:
+        verification.verificationStatus || verification.status || "pending",
+      submittedAt:
+        verification.submittedAt || verification.date || verification.createdAt,
+      address: verification.address || "Not provided",
+      city: verification.city || "Not provided",
+      pincode: verification.pincode || "Not provided",
+      dateOfBirth: verification.dateOfBirth || "Not provided",
+      drivingLicenseUrl: verification.drivingLicenseUrl,
+      carRegistrationUrl: verification.carRegistrationUrl,
+      profilePhotoUrl: verification.profilePhotoUrl,
+    };
+
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
@@ -941,9 +1018,11 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <h2 className="text-xl font-bold text-[#01312D]">
-                  Verification Request
+                  Driver Verification
                 </h2>
-                <p className="text-xs text-gray-500">{verification.name}</p>
+                <p className="text-xs text-gray-500">
+                  {mappedVerification.name}
+                </p>
               </div>
             </div>
             <button
@@ -960,126 +1039,199 @@ export default function AdminDashboard() {
               <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
                 <User className="w-4 h-4 text-[#3A7717]" /> Personal Information
               </h3>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div>
                   <p className="text-gray-500">Full Name</p>
                   <p className="font-semibold text-[#01312D]">
-                    {verification.name || "N/A"}
+                    {mappedVerification.name}
                   </p>
                 </div>
                 <div>
                   <p className="text-gray-500">Email</p>
                   <p className="font-semibold text-[#01312D]">
-                    {verification.email || "N/A"}
+                    {mappedVerification.email}
                   </p>
                 </div>
                 <div>
-                  <p className="text-gray-500">Phone</p>
+                  <p className="text-gray-500">Phone Number</p>
                   <p className="font-semibold text-[#01312D]">
-                    {verification.phone || "N/A"}
+                    {mappedVerification.phone}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Date of Birth</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {mappedVerification.dateOfBirth !== "Not provided"
+                      ? new Date(
+                          mappedVerification.dateOfBirth,
+                        ).toLocaleDateString()
+                      : "Not provided"}
                   </p>
                 </div>
                 <div>
                   <p className="text-gray-500">Submitted</p>
                   <p className="font-semibold text-[#01312D]">
-                    {new Date(verification.submittedAt).toLocaleDateString()}
+                    {mappedVerification.submittedAt
+                      ? new Date(
+                          mappedVerification.submittedAt,
+                        ).toLocaleString()
+                      : "Unknown date"}
                   </p>
                 </div>
               </div>
             </div>
+
+            {/* Location Info */}
+            {(mappedVerification.address !== "Not provided" ||
+              mappedVerification.city !== "Not provided" ||
+              mappedVerification.pincode !== "Not provided") && (
+              <div className="bg-[#eafde7] rounded-xl p-4">
+                <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-[#3A7717]" /> Location
+                  Information
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <p className="text-gray-500">Address</p>
+                    <p className="font-semibold text-[#01312D]">
+                      {mappedVerification.address}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">City</p>
+                    <p className="font-semibold text-[#01312D]">
+                      {mappedVerification.city}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Postal Code</p>
+                    <p className="font-semibold text-[#01312D]">
+                      {mappedVerification.pincode}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Vehicle Info */}
             <div className="bg-[#eafde7] rounded-xl p-4">
               <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
                 <Car className="w-4 h-4 text-[#3A7717]" /> Vehicle Information
               </h3>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div>
                   <p className="text-gray-500">Registration Number</p>
-                  <p className="font-semibold text-[#01312D]">
-                    {verification.carRegistration || "N/A"}
+                  <p className="font-semibold text-[#01312D] uppercase">
+                    {mappedVerification.carRegistration}
                   </p>
                 </div>
                 <div>
                   <p className="text-gray-500">Car Model</p>
-                  <p className="font-semibold text-[#01312D]">
-                    {verification.carModel || "N/A"}
+                  <p className="font-semibold text-[#01312D] capitalize">
+                    {mappedVerification.carModel}
                   </p>
                 </div>
                 <div>
                   <p className="text-gray-500">Year</p>
                   <p className="font-semibold text-[#01312D]">
-                    {verification.carYear || "N/A"}
+                    {mappedVerification.carYear}
                   </p>
                 </div>
                 <div>
                   <p className="text-gray-500">Color</p>
-                  <p className="font-semibold text-[#01312D]">
-                    {verification.carColor || "N/A"}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    {mappedVerification.carColor !== "Not provided" && (
+                      <div
+                        className="w-4 h-4 rounded-full border border-gray-300"
+                        style={{
+                          backgroundColor:
+                            mappedVerification.carColor.toLowerCase(),
+                        }}
+                      />
+                    )}
+                    <p className="font-semibold text-[#01312D] capitalize">
+                      {mappedVerification.carColor}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Documents */}
-            {(verification.drivingLicenseUrl ||
-              verification.carRegistrationUrl ||
-              verification.profilePhotoUrl) && (
-              <div className="bg-[#eafde7] rounded-xl p-4">
-                <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-[#3A7717]" /> Uploaded
-                  Documents
-                </h3>
-                <div className="grid grid-cols-3 gap-3">
-                  {verification.drivingLicenseUrl && (
-                    <div>
+            {/* Documents Section */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#3A7717]" /> Uploaded
+                Documents
+              </h3>
+
+              {mappedVerification.drivingLicenseUrl ||
+              mappedVerification.carRegistrationUrl ||
+              mappedVerification.profilePhotoUrl ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {mappedVerification.drivingLicenseUrl && (
+                    <div className="bg-white rounded-lg p-3 text-center">
+                      <FileText className="w-8 h-8 text-[#3A7717] mx-auto mb-2" />
                       <p className="text-xs text-gray-500 mb-1">
                         Driver's License
                       </p>
                       <a
-                        href={verification.drivingLicenseUrl}
+                        href={mappedVerification.drivingLicenseUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[#3A7717] text-sm hover:underline"
+                        className="text-[#3A7717] text-xs hover:underline inline-flex items-center gap-1"
                       >
-                        View Document →
+                        <Eye className="w-3 h-3" />
+                        View Document
                       </a>
                     </div>
                   )}
-                  {verification.carRegistrationUrl && (
-                    <div>
+                  {mappedVerification.carRegistrationUrl && (
+                    <div className="bg-white rounded-lg p-3 text-center">
+                      <FileText className="w-8 h-8 text-[#3A7717] mx-auto mb-2" />
                       <p className="text-xs text-gray-500 mb-1">
                         Car Registration
                       </p>
                       <a
-                        href={verification.carRegistrationUrl}
+                        href={mappedVerification.carRegistrationUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[#3A7717] text-sm hover:underline"
+                        className="text-[#3A7717] text-xs hover:underline inline-flex items-center gap-1"
                       >
-                        View Document →
+                        <Eye className="w-3 h-3" />
+                        View Document
                       </a>
                     </div>
                   )}
-                  {verification.profilePhotoUrl && (
-                    <div>
+                  {mappedVerification.profilePhotoUrl && (
+                    <div className="bg-white rounded-lg p-3 text-center">
+                      <img
+                        src={mappedVerification.profilePhotoUrl}
+                        alt="Profile"
+                        className="w-16 h-16 rounded-full mx-auto mb-2 object-cover"
+                      />
                       <p className="text-xs text-gray-500 mb-1">
                         Profile Photo
                       </p>
                       <a
-                        href={verification.profilePhotoUrl}
+                        href={mappedVerification.profilePhotoUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[#3A7717] text-sm hover:underline"
+                        className="text-[#3A7717] text-xs hover:underline inline-flex items-center gap-1"
                       >
-                        View Photo →
+                        <Eye className="w-3 h-3" />
+                        View Full Size
                       </a>
                     </div>
                   )}
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-4">
+                  No documents uploaded yet
+                </p>
+              )}
+            </div>
 
+            {/* Verification Status */}
             <div className="bg-[#eafde7] rounded-xl p-4">
               <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-[#3A7717]" /> Verification
@@ -1087,14 +1239,14 @@ export default function AdminDashboard() {
               </h3>
               <div className="flex items-center justify-between">
                 <span className="text-gray-500">Current Status:</span>
-                {getStatusBadge(verification.verificationStatus)}
+                {getStatusBadge(mappedVerification.verificationStatus)}
               </div>
             </div>
           </div>
 
           {/* Action Buttons */}
           <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
-            {verification.verificationStatus === "pending" && (
+            {mappedVerification.verificationStatus === "pending" && (
               <>
                 <button
                   onClick={() => handleApproveVerification(verification)}
@@ -1103,11 +1255,7 @@ export default function AdminDashboard() {
                   <CheckCircle className="w-4 h-4" /> Approve Verification
                 </button>
                 <button
-                  onClick={() => {
-                    setSelectedVerification(verification);
-                    setShowRejectModal(true);
-                    setShowVerificationModal(false);
-                  }}
+                  onClick={() => openRejectModal(verification, "verification")}
                   className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors"
                 >
                   <XCircle className="w-4 h-4" /> Reject
@@ -1116,7 +1264,7 @@ export default function AdminDashboard() {
             )}
             <button
               onClick={onClose}
-              className={`${verification.verificationStatus === "pending" ? "flex-1" : "w-full"} bg-gray-500 text-white py-2 rounded-xl font-semibold`}
+              className={`${mappedVerification.verificationStatus === "pending" ? "flex-1" : "w-full"} bg-gray-500 text-white py-2 rounded-xl font-semibold`}
             >
               Close
             </button>
@@ -1281,7 +1429,7 @@ export default function AdminDashboard() {
     );
   };
 
-  // WhatsApp Modal Component (simplified)
+  // WhatsApp Modal Component
   const WhatsAppModal = () => {
     if (!approvedRequest) return null;
 

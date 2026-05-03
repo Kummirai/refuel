@@ -9,18 +9,22 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { verification, action, verificationId, reason } = body;
 
-    console.log(verificationId);
+    console.log("Verification request:", {
+      verificationId,
+      action,
+      verification,
+    });
 
     const { db } = await connectToDatabase();
     const driverProfilesCollection = db.collection("driverProfiles");
-    const usersCollection = db.collection("users");
+    const usersCollection = db.collection("user"); // Changed from "users" to "user"
 
     let profile;
     let userId;
 
     // Find the profile
     if (verificationId) {
-      console.log(verificationId);
+      console.log("Looking for profile with userId:", verificationId);
       try {
         profile = await driverProfilesCollection.findOne({
           userId: verificationId,
@@ -29,7 +33,7 @@ export async function POST(request: NextRequest) {
           userId = profile.userId;
         }
       } catch (error) {
-        console.error("Invalid verification ID format:", error);
+        console.error("Error finding by userId:", error);
       }
     } else if (verification && verification.id) {
       try {
@@ -51,14 +55,35 @@ export async function POST(request: NextRequest) {
     }
 
     if (!profile || !userId) {
+      console.error("Profile not found for:", { verificationId, verification });
       return NextResponse.json(
         { error: "Verification not found" },
         { status: 404 },
       );
     }
 
-    // Get user details for email
-    const user = await usersCollection.findOne({ _id: userId });
+    console.log("Found profile:", { userId, profileId: profile._id });
+
+    // Get user details for email - try both _id formats
+    let user = null;
+    try {
+      // Try as ObjectId first
+      if (ObjectId.isValid(userId)) {
+        user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+      } else {
+        user = await usersCollection.findOne({ _id: userId as any });
+      }
+    } catch (err) {
+      console.error("Error finding user:", err);
+      user = await usersCollection.findOne({ _id: userId as any });
+    }
+
+    console.log("Found user:", {
+      userId,
+      hasUser: !!user,
+      userEmail: user?.email,
+      userName: user?.name,
+    });
 
     if (action === "approve") {
       // Update driver profile status
@@ -76,7 +101,7 @@ export async function POST(request: NextRequest) {
 
       // Update user's verification status
       await usersCollection.updateOne(
-        { _id: userId },
+        { _id: user?._id || userId },
         {
           $set: {
             verificationStatus: "approved",
@@ -89,19 +114,30 @@ export async function POST(request: NextRequest) {
       );
 
       // Send email notification to driver (run in background)
-      (async () => {
-        try {
-          await sendDriverVerificationResultEmail({
-            driverEmail: user?.email || "",
-            driverName: profile.fullName || user?.name || "Driver",
-            status: "approved",
-            reason: null,
-          });
-          console.log("✅ Verification approved email sent to driver:", userId);
-        } catch (emailError) {
-          console.error("❌ Failed to send approval email:", emailError);
-        }
-      })();
+      const driverEmail = user?.email || profile?.email;
+      const driverName = profile.fullName || user?.name || "Driver";
+
+      if (driverEmail && driverEmail !== "Unknown" && driverEmail !== "") {
+        (async () => {
+          try {
+            await sendDriverVerificationResultEmail({
+              driverEmail: driverEmail,
+              driverName: driverName,
+              status: "approved",
+              reason: null,
+            });
+            console.log("✅ Verification approved email sent to:", driverEmail);
+          } catch (emailError) {
+            console.error("❌ Failed to send approval email:", emailError);
+          }
+        })();
+      } else {
+        console.warn("⚠️ No valid email found for driver:", {
+          userId,
+          driverEmail,
+          user,
+        });
+      }
 
       return NextResponse.json({
         success: true,
@@ -123,7 +159,7 @@ export async function POST(request: NextRequest) {
 
       // Update user's verification status
       await usersCollection.updateOne(
-        { _id: userId },
+        { _id: user?._id || userId },
         {
           $set: {
             verificationStatus: "rejected",
@@ -136,22 +172,33 @@ export async function POST(request: NextRequest) {
       );
 
       // Send email notification to driver (run in background)
-      (async () => {
-        try {
-          await sendDriverVerificationResultEmail({
-            driverEmail: user?.email || "",
-            driverName: profile.fullName || user?.name || "Driver",
-            status: "rejected",
-            reason: reason || "No reason provided",
-          });
-          console.log(
-            "✅ Verification rejection email sent to driver:",
-            userId,
-          );
-        } catch (emailError) {
-          console.error("❌ Failed to send rejection email:", emailError);
-        }
-      })();
+      const driverEmail = user?.email || profile?.email;
+      const driverName = profile.fullName || user?.name || "Driver";
+
+      if (driverEmail && driverEmail !== "Unknown" && driverEmail !== "") {
+        (async () => {
+          try {
+            await sendDriverVerificationResultEmail({
+              driverEmail: driverEmail,
+              driverName: driverName,
+              status: "rejected",
+              reason: reason || "No reason provided",
+            });
+            console.log(
+              "✅ Verification rejection email sent to:",
+              driverEmail,
+            );
+          } catch (emailError) {
+            console.error("❌ Failed to send rejection email:", emailError);
+          }
+        })();
+      } else {
+        console.warn("⚠️ No valid email found for driver:", {
+          userId,
+          driverEmail,
+          user,
+        });
+      }
 
       return NextResponse.json({
         success: true,

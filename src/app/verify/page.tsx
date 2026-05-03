@@ -1,22 +1,27 @@
-// src/app/verify/page.tsx - Fixed scrolling and touch feedback
+// src/app/verify/page.tsx
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { CloudinaryUpload } from "@/components/CloudinaryUpload";
 import {
   ArrowLeft,
-  FileText,
   CheckCircle,
-  AlertCircle,
   Car,
   User,
   Shield,
   Loader2,
-  Image as ImageIcon,
   Home,
   Clock,
+  MapPin,
+  Building2,
+  Hash,
+  Palette,
+  CalendarDays,
+  IdCard,
+  FileCheck,
+  Sparkles,
 } from "lucide-react";
 
 export default function VerifyPage() {
@@ -27,7 +32,6 @@ export default function VerifyPage() {
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [fetchingProfile, setFetchingProfile] = useState(true);
   const [verificationStatus, setVerificationStatus] = useState<string>("");
-  const [existingProfile, setExistingProfile] = useState<any>(null);
   const [shouldRedirect, setShouldRedirect] = useState(false);
 
   // Form Data
@@ -113,7 +117,6 @@ export default function VerifyPage() {
       );
       if (response.ok) {
         const profile = await response.json();
-        setExistingProfile(profile);
         setVerificationStatus(profile?.verificationStatus || "not_submitted");
 
         if (profile?.verificationStatus === "pending") {
@@ -244,15 +247,8 @@ export default function VerifyPage() {
   const nextStep = () => {
     if (step === 1 && isStep1Completed()) {
       setStep(2);
-      // Scroll to top of the form container
-      const formContainer = document.querySelector(".form-container");
-      if (formContainer) {
-        formContainer.scrollTop = 0;
-      }
-      window.scrollTo({ top: 0, behavior: "smooth" });
     } else if (step === 2 && isStep2Completed()) {
       setStep(3);
-      window.scrollTo({ top: 0, behavior: "smooth" });
     } else if (step === 1 && !isStep1Completed()) {
       alert("Please fill in all required fields");
     } else if (step === 2 && !isStep2Completed()) {
@@ -262,7 +258,6 @@ export default function VerifyPage() {
 
   const prevStep = () => {
     setStep(step - 1);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // PENDING STATUS
@@ -283,15 +278,13 @@ export default function VerifyPage() {
           <div className="flex gap-3">
             <button
               onClick={() => router.push("/verify/status")}
-              className="flex-1 bg-[#72bf00] text-white px-4 py-2 rounded-lg font-semibold active:scale-95 transition-transform touch-manipulation"
-              style={{ WebkitTapHighlightColor: "transparent" }}
+              className="flex-1 bg-[#72bf00] text-white px-4 py-2 rounded-lg font-semibold"
             >
               Check Status
             </button>
             <button
               onClick={() => router.push("/")}
-              className="flex-1 bg-[#01312D] text-white px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 active:scale-95 transition-transform touch-manipulation"
-              style={{ WebkitTapHighlightColor: "transparent" }}
+              className="flex-1 bg-[#01312D] text-white px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2"
             >
               <Home className="w-4 h-4" />
               Go Back Home
@@ -346,8 +339,7 @@ export default function VerifyPage() {
           </p>
           <button
             onClick={() => router.push("/")}
-            className="bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white px-6 py-3 rounded-xl font-semibold active:scale-95 transition-transform touch-manipulation"
-            style={{ WebkitTapHighlightColor: "transparent" }}
+            className="bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white px-6 py-3 rounded-xl font-semibold"
           >
             Back to Home
           </button>
@@ -356,17 +348,16 @@ export default function VerifyPage() {
     );
   }
 
-  // Main form render - with proper scrolling container
+  // Main form render
   return (
-    <div className="min-h-screen bg-[#eafde7] flex flex-col overflow-y-auto">
-      {/* Sticky Header */}
-      <div className="bg-white border-b border-[#bff202]/20 sticky top-0 z-20 shadow-sm flex-shrink-0">
+    <div className="min-h-screen bg-[#eafde7] flex flex-col">
+      {/* Header */}
+      <div className="bg-white border-b border-[#bff202]/20 sticky top-0 z-10">
         <div className="px-5 py-4">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center active:scale-95 transition-transform touch-manipulation"
-              style={{ WebkitTapHighlightColor: "transparent" }}
+              className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center"
             >
               <ArrowLeft className="w-5 h-5 text-[#01312D]" />
             </button>
@@ -382,116 +373,99 @@ export default function VerifyPage() {
         </div>
       </div>
 
-      {/* Scrollable Content Container */}
-      <div className="flex-1 overflow-y-auto px-5 pt-6 pb-32 form-container">
+      {/* Content */}
+      <div className="flex-1 px-5 pt-6 pb-24">
         <div className="max-w-3xl mx-auto">
-          {/* Progress Steps with working checkmarks */}
+          {/* Progress Steps */}
           <div className="mb-10">
             <div className="flex items-center justify-between">
               {/* Step 1 */}
               <div className="flex-1 flex flex-col items-center">
                 <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold transition-all duration-300 ${
+                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
                     step === 1
-                      ? "bg-[#3A7717] text-white ring-4 ring-[#bff202] ring-offset-2"
+                      ? "bg-[#3A7717] text-white ring-2 ring-[#bff202] ring-offset-2"
                       : isStep1Completed()
                         ? "bg-[#3A7717] text-white"
                         : "bg-gray-200 text-gray-500"
                   }`}
                 >
                   {isStep1Completed() ? (
-                    <CheckCircle className="w-6 h-6" />
+                    <CheckCircle className="w-5 h-5" />
                   ) : (
                     "1"
                   )}
                 </div>
-                <span className="text-xs text-center mt-2 font-medium text-[#01312D]">
+                <span className="text-xs text-center mt-1 text-[#01312D]">
                   Personal
                 </span>
-                {step === 1 && (
-                  <div className="w-16 h-0.5 bg-[#3A7717] mt-2 rounded-full" />
-                )}
               </div>
 
-              {/* Connector Line 1-2 */}
+              {/* Connector */}
               <div className="flex-1 h-0.5 mx-2 rounded-full bg-gray-200">
                 <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: isStep1Completed() ? "100%" : "0%",
-                    backgroundColor: "#3A7717",
-                  }}
+                  className="h-full rounded-full transition-all bg-[#3A7717]"
+                  style={{ width: isStep1Completed() ? "100%" : "0%" }}
                 />
               </div>
 
               {/* Step 2 */}
               <div className="flex-1 flex flex-col items-center">
                 <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold transition-all duration-300 ${
+                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
                     step === 2
-                      ? "bg-[#3A7717] text-white ring-4 ring-[#bff202] ring-offset-2"
+                      ? "bg-[#3A7717] text-white ring-2 ring-[#bff202] ring-offset-2"
                       : isStep2Completed()
                         ? "bg-[#3A7717] text-white"
-                        : isStep1Completed()
-                          ? "bg-gray-200 text-gray-500"
-                          : "bg-gray-200 text-gray-500"
+                        : "bg-gray-200 text-gray-500"
                   }`}
                 >
                   {isStep2Completed() ? (
-                    <CheckCircle className="w-6 h-6" />
+                    <CheckCircle className="w-5 h-5" />
                   ) : (
                     "2"
                   )}
                 </div>
-                <span className="text-xs text-center mt-2 font-medium text-[#01312D]">
+                <span className="text-xs text-center mt-1 text-[#01312D]">
                   Vehicle
                 </span>
-                {step === 2 && (
-                  <div className="w-16 h-0.5 bg-[#3A7717] mt-2 rounded-full" />
-                )}
               </div>
 
-              {/* Connector Line 2-3 */}
+              {/* Connector */}
               <div className="flex-1 h-0.5 mx-2 rounded-full bg-gray-200">
                 <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: isStep2Completed() ? "100%" : "0%",
-                    backgroundColor: "#3A7717",
-                  }}
+                  className="h-full rounded-full transition-all bg-[#3A7717]"
+                  style={{ width: isStep2Completed() ? "100%" : "0%" }}
                 />
               </div>
 
               {/* Step 3 */}
               <div className="flex-1 flex flex-col items-center">
                 <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold transition-all duration-300 ${
+                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
                     step === 3
-                      ? "bg-[#3A7717] text-white ring-4 ring-[#bff202] ring-offset-2"
+                      ? "bg-[#3A7717] text-white ring-2 ring-[#bff202] ring-offset-2"
                       : isStep3Completed()
                         ? "bg-[#3A7717] text-white"
                         : "bg-gray-200 text-gray-500"
                   }`}
                 >
                   {isStep3Completed() ? (
-                    <CheckCircle className="w-6 h-6" />
+                    <CheckCircle className="w-5 h-5" />
                   ) : (
                     "3"
                   )}
                 </div>
-                <span className="text-xs text-center mt-2 font-medium text-[#01312D]">
+                <span className="text-xs text-center mt-1 text-[#01312D]">
                   Documents
                 </span>
-                {step === 3 && (
-                  <div className="w-16 h-0.5 bg-[#3A7717] mt-2 rounded-full" />
-                )}
               </div>
             </div>
           </div>
 
           {/* Step 1 - Personal Info */}
           {step === 1 && (
-            <div className="space-y-4 animate-fadeIn">
+            <div className="space-y-4">
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
                 <h2 className="text-lg font-bold text-[#01312D] mb-4 flex items-center gap-2">
                   <User className="w-5 h-5 text-[#3A7717]" /> Personal
@@ -509,8 +483,7 @@ export default function VerifyPage() {
                         setFormData({ ...formData, fullName: e.target.value })
                       }
                       placeholder="Enter your full name as per license"
-                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] focus:ring-2 focus:ring-[#72bf00]/20 transition-all"
-                      required
+                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
                     />
                   </div>
                   <div>
@@ -526,8 +499,7 @@ export default function VerifyPage() {
                           dateOfBirth: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] focus:ring-2 focus:ring-[#72bf00]/20 transition-all"
-                      required
+                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
                     />
                   </div>
                   <div>
@@ -541,14 +513,13 @@ export default function VerifyPage() {
                       }
                       placeholder="Enter your full address"
                       rows={3}
-                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] focus:ring-2 focus:ring-[#72bf00]/20 transition-all resize-none"
-                      required
+                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] resize-none"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        City
+                        City <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -557,13 +528,12 @@ export default function VerifyPage() {
                           setFormData({ ...formData, city: e.target.value })
                         }
                         placeholder="City"
-                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] focus:ring-2 focus:ring-[#72bf00]/20 transition-all"
-                        required
+                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
                       />
                     </div>
                     <div>
                       <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Pincode
+                        Pincode <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -572,8 +542,7 @@ export default function VerifyPage() {
                           setFormData({ ...formData, pincode: e.target.value })
                         }
                         placeholder="Pincode"
-                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] focus:ring-2 focus:ring-[#72bf00]/20 transition-all"
-                        required
+                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
                       />
                     </div>
                   </div>
@@ -582,8 +551,7 @@ export default function VerifyPage() {
               <button
                 onClick={nextStep}
                 disabled={!isStep1Completed()}
-                className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-lg active:scale-98 touch-manipulation"
-                style={{ WebkitTapHighlightColor: "transparent" }}
+                className="w-full bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Continue →
               </button>
@@ -592,7 +560,7 @@ export default function VerifyPage() {
 
           {/* Step 2 - Vehicle Info */}
           {step === 2 && (
-            <div className="space-y-4 animate-fadeIn">
+            <div className="space-y-4">
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
                 <h2 className="text-lg font-bold text-[#01312D] mb-4 flex items-center gap-2">
                   <Car className="w-5 h-5 text-[#3A7717]" /> Vehicle Information
@@ -613,13 +581,12 @@ export default function VerifyPage() {
                         })
                       }
                       placeholder="e.g., KA01AB1234"
-                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] focus:ring-2 focus:ring-[#72bf00]/20 transition-all uppercase"
-                      required
+                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] uppercase"
                     />
                   </div>
                   <div>
                     <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                      Car Model
+                      Car Model <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -628,14 +595,13 @@ export default function VerifyPage() {
                         setFormData({ ...formData, carModel: e.target.value })
                       }
                       placeholder="e.g., Toyota Innova"
-                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] focus:ring-2 focus:ring-[#72bf00]/20 transition-all"
-                      required
+                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Year
+                        Year <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="number"
@@ -644,24 +610,35 @@ export default function VerifyPage() {
                           setFormData({ ...formData, carYear: e.target.value })
                         }
                         placeholder="2024"
-                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] focus:ring-2 focus:ring-[#72bf00]/20 transition-all"
-                        required
+                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
                       />
                     </div>
                     <div>
                       <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Color
+                        Color <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="text"
-                        value={formData.carColor}
-                        onChange={(e) =>
-                          setFormData({ ...formData, carColor: e.target.value })
-                        }
-                        placeholder="e.g., White"
-                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] focus:ring-2 focus:ring-[#72bf00]/20 transition-all"
-                        required
-                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={formData.carColor}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              carColor: e.target.value,
+                            })
+                          }
+                          placeholder="e.g., White"
+                          className="flex-1 px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                        />
+                        {formData.carColor && (
+                          <div
+                            className="w-12 h-12 rounded-xl border border-gray-200"
+                            style={{
+                              backgroundColor: formData.carColor.toLowerCase(),
+                            }}
+                          />
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -669,16 +646,14 @@ export default function VerifyPage() {
               <div className="flex gap-3">
                 <button
                   onClick={prevStep}
-                  className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold hover:bg-gray-300 transition-all active:scale-98 touch-manipulation"
-                  style={{ WebkitTapHighlightColor: "transparent" }}
+                  className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold"
                 >
                   ← Back
                 </button>
                 <button
                   onClick={nextStep}
                   disabled={!isStep2Completed()}
-                  className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-lg active:scale-98 touch-manipulation"
-                  style={{ WebkitTapHighlightColor: "transparent" }}
+                  className="flex-1 bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Continue →
                 </button>
@@ -688,7 +663,7 @@ export default function VerifyPage() {
 
           {/* Step 3 - Documents */}
           {step === 3 && (
-            <div className="space-y-4 pb-24 animate-fadeIn">
+            <div className="space-y-4">
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
                 <h2 className="text-lg font-bold text-[#01312D] mb-4 flex items-center gap-2">
                   <Shield className="w-5 h-5 text-[#3A7717]" /> Document Upload
@@ -731,7 +706,7 @@ export default function VerifyPage() {
                   <input
                     type="checkbox"
                     id="declaration"
-                    className="mt-1 w-4 h-4 text-[#3A7717] rounded focus:ring-[#3A7717]"
+                    className="mt-1 w-4 h-4 text-[#3A7717] rounded"
                     required
                   />
                   <label
@@ -747,16 +722,14 @@ export default function VerifyPage() {
               <div className="flex gap-3">
                 <button
                   onClick={prevStep}
-                  className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold hover:bg-gray-300 transition-all active:scale-98 touch-manipulation"
-                  style={{ WebkitTapHighlightColor: "transparent" }}
+                  className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold"
                 >
                   ← Back
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={loading || !isStep3Completed()}
-                  className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all hover:shadow-lg active:scale-98 touch-manipulation"
-                  style={{ WebkitTapHighlightColor: "transparent" }}
+                  className="flex-1 bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {loading ? (
                     <>
@@ -771,55 +744,6 @@ export default function VerifyPage() {
           )}
         </div>
       </div>
-
-      {/* CSS for animations and touch feedback */}
-      <style jsx global>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.3s ease-out;
-        }
-
-        /* Touch feedback styles */
-        .touch-manipulation {
-          touch-action: manipulation;
-          -webkit-tap-highlight-color: transparent;
-        }
-
-        .active\\:scale-98:active {
-          transform: scale(0.98);
-        }
-
-        /* Ensure proper scrolling on mobile */
-        .form-container {
-          -webkit-overflow-scrolling: touch;
-          scroll-behavior: smooth;
-        }
-
-        /* Better input focus styles for mobile */
-        input:focus,
-        textarea:focus,
-        select:focus {
-          outline: none;
-        }
-
-        /* Prevent zoom on input focus on iOS */
-        @media (max-width: 768px) {
-          input,
-          textarea,
-          select {
-            font-size: 16px;
-          }
-        }
-      `}</style>
     </div>
   );
 }

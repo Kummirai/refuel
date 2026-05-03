@@ -22,6 +22,7 @@ interface DriverProfile {
   verificationStatus?: string;
   rating?: number;
   activeLoan?: any;
+  carColor: string;
   drivingLicenseUrl?: string;
   carRegistrationUrl?: string;
   profilePhotoUrl?: string;
@@ -29,6 +30,8 @@ interface DriverProfile {
   city?: string;
   createdAt?: Date;
   fullName?: string;
+  dateOfBirth?: string;
+  pincode?: string;
 }
 
 interface ServiceRequest {
@@ -93,26 +96,38 @@ export async function GET() {
 
     const recentVerifications = await Promise.all(
       recentVerificationsRaw.map(async (verification: DriverProfile) => {
-        const user = (await usersCollection.findOne({
-          _id: verification.userId,
-        })) as User | null;
+        // Get the user document to get email and phone
+        let user = null;
+        try {
+          user = await usersCollection.findOne({
+            _id: new ObjectId(verification.userId),
+          });
+        } catch {
+          // If ObjectId conversion fails, try as string
+          user = await usersCollection.findOne({
+            _id: verification.userId as any,
+          });
+        }
 
         return {
           id: verification._id,
-          name: user?.name || "Unknown",
+          name: verification.fullName || user?.name || "Unknown",
           email: user?.email || "Unknown",
           phone: user?.phone || "Unknown",
           date: verification.createdAt,
-          status: verification.verificationStatus,
+          submittedAt: verification.createdAt,
+          verificationStatus: verification.verificationStatus,
           carRegistration: verification.carRegistrationNumber,
           carModel: verification.carModel,
+          carColor: verification.carColor,
           carYear: verification.carYear,
           address: verification.address,
-          documents: {
-            license: verification.drivingLicenseUrl,
-            registration: verification.carRegistrationUrl,
-            profilePhoto: verification.profilePhotoUrl,
-          },
+          city: verification.city,
+          pincode: verification.pincode,
+          dateOfBirth: verification.dateOfBirth,
+          drivingLicenseUrl: verification.drivingLicenseUrl,
+          carRegistrationUrl: verification.carRegistrationUrl,
+          profilePhotoUrl: verification.profilePhotoUrl,
         };
       }),
     );

@@ -56,6 +56,7 @@ export async function GET() {
           actualAmount: request.actualAmount || null,
           carNumber: request.carNumber,
           carModel: request.carModel,
+          carRegistration: request.carRegistration,
           fuelType: request.fuelType,
           contactPhone: request.contactPhone,
           driverName:
