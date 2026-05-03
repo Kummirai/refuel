@@ -858,7 +858,7 @@ export default function AdminDashboard() {
               <>
                 <button
                   onClick={() => openApproveModal(request)}
-                  className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors"
+                  className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex  items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors text-xs"
                 >
                   <CheckCircle className="w-4 h-4" /> Approve
                 </button>
@@ -868,7 +868,7 @@ export default function AdminDashboard() {
                     setShowRejectModal(true);
                     setShowRequestModal(false);
                   }}
-                  className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors"
+                  className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors text-xs"
                 >
                   <XCircle className="w-4 h-4" /> Reject
                 </button>
@@ -882,13 +882,13 @@ export default function AdminDashboard() {
                     setShowWhatsAppModal(true);
                     setShowRequestModal(false);
                   }}
-                  className="flex-1 bg-[#25D366] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+                  className="flex-1 bg-[#25D366] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 text-xs"
                 >
                   <Send className="w-4 h-4" /> Send WhatsApp
                 </button>
                 <button
                   onClick={() => handleCompleteRequest(request)}
-                  className="flex-1 bg-[#01312D] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+                  className="flex-1 bg-[#01312D] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 text-xs"
                 >
                   <CheckCircle className="w-4 h-4" /> Mark Completed
                 </button>
@@ -896,7 +896,7 @@ export default function AdminDashboard() {
             )}
             <button
               onClick={onClose}
-              className={`${request.status === "pending" || request.status === "approved" ? "flex-1" : "w-full"} bg-gray-500 text-white py-2 rounded-xl font-semibold`}
+              className={`${request.status === "pending" || request.status === "approved" ? "flex-1" : "w-full"} bg-gray-500 text-white py-2 rounded-xl font-semibold text-xs`}
             >
               Close
             </button>

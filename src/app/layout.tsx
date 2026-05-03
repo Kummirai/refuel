@@ -1,4 +1,4 @@
-// src/app/layout.tsx - Clean version with only Montserrat
+// src/app/layout.tsx - 
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
@@ -7,7 +7,7 @@ const jarkata = Plus_Jakarta_Sans({
   subsets: ["latin"],
   weight: ["200", "300", "400", "500", "600", "700", "800"],
   display: "swap",
-  variable: "--font-montserrat",
+  variable: "--font-jarkata",
 });
 
 export const metadata: Metadata = {

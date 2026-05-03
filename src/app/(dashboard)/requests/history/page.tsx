@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import BottomNavigation from "@/components/BottomNavigation";
 import {
   ArrowLeft,
   Fuel,
@@ -27,11 +28,16 @@ import {
   Wallet,
   Hourglass,
   ShieldCheck,
+  Calendar,
+  TrendingUp,
+  Truck,
+  Receipt,
+  Banknote,
 } from "lucide-react";
 import { PopUploadModal } from "@/components/PopUploadModal";
 import { RepaymentProofModal } from "@/components/RepaymentProofModal";
 
-type RequestStatus = "pending" | "approved" | "completed" | "rejected";
+type RequestStatus = "pending" | "approved" | "sent" | "completed" | "rejected";
 type RepaymentStatus = "pending" | "approved" | "rejected";
 
 interface RepaymentRecord {
@@ -65,6 +71,9 @@ interface Request {
   popUploadedAt?: string;
   dailyPayment?: number;
   repaymentDays?: number;
+  sentDate?: string;
+  approvedDate?: string;
+  completedDate?: string;
   // Repayment fields
   repaidAmount?: number;
   remainingBalance?: number;
@@ -80,9 +89,9 @@ export default function RequestHistoryPage() {
   const { data: session, isPending } = authClient.useSession();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState<"all" | RequestStatus>(
-    "all",
-  );
+  const [selectedFilter, setSelectedFilter] = useState<
+    "all" | "pending" | "approved" | "completed" | "rejected"
+  >("all");
   const [requests, setRequests] = useState<Request[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -92,6 +101,12 @@ export default function RequestHistoryPage() {
   const [showRepaymentModal, setShowRepaymentModal] = useState(false);
   const [selectedRequestForRepayment, setSelectedRequestForRepayment] =
     useState<Request | null>(null);
+
+  // Modal states for alerts
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     if (!isPending) {
@@ -112,13 +127,11 @@ export default function RequestHistoryPage() {
         const data = await response.json();
         console.log("Fetched requests:", data);
 
-        // Fetch repayment proofs for each request
         const requestsWithRepayments = await Promise.all(
           data.map(async (req: any) => {
             const requestId =
               req.id || (req._id?.toString ? req._id.toString() : req._id);
 
-            // Fetch repayment proofs for this specific request
             try {
               const repaymentResponse = await fetch(
                 `/api/driver/repayment-proof/getproof?requestId=${requestId}`,
@@ -126,10 +139,8 @@ export default function RequestHistoryPage() {
               let repayments = [];
               if (repaymentResponse.ok) {
                 repayments = await repaymentResponse.json();
-                console.log(`Repayments for request ${requestId}:`, repayments);
               }
 
-              // Check for pending repayment
               const hasPendingRepayment = repayments.some(
                 (r: any) => r.status === "pending",
               );
@@ -150,7 +161,6 @@ export default function RequestHistoryPage() {
                 repayments: repayments,
               };
             } catch (err) {
-              console.error(`Error fetching repayments for ${requestId}:`, err);
               return {
                 ...req,
                 id: requestId,
@@ -182,8 +192,14 @@ export default function RequestHistoryPage() {
     await fetchRequests();
   };
 
+  const getDisplayStatus = (status: RequestStatus): RequestStatus => {
+    if (status === "sent") return "approved";
+    return status;
+  };
+
   const getStatusIcon = (status: RequestStatus) => {
-    switch (status) {
+    const displayStatus = getDisplayStatus(status);
+    switch (displayStatus) {
       case "completed":
         return <CheckCircle className="w-4 h-4 text-[#3A7717]" />;
       case "approved":
@@ -192,24 +208,30 @@ export default function RequestHistoryPage() {
         return <Clock className="w-4 h-4 text-yellow-500" />;
       case "rejected":
         return <XCircle className="w-4 h-4 text-red-500" />;
+      default:
+        return <Clock className="w-4 h-4 text-gray-500" />;
     }
   };
 
   const getStatusText = (status: RequestStatus) => {
-    switch (status) {
+    const displayStatus = getDisplayStatus(status);
+    switch (displayStatus) {
       case "completed":
         return "Completed";
       case "approved":
-        return "Approved - Upload POP";
+        return "Approved - Upload Receipt";
       case "pending":
         return "Pending";
       case "rejected":
         return "Rejected";
+      default:
+        return status;
     }
   };
 
   const getStatusColor = (status: RequestStatus) => {
-    switch (status) {
+    const displayStatus = getDisplayStatus(status);
+    switch (displayStatus) {
       case "completed":
         return "text-[#3A7717] bg-[#3A7717]/10";
       case "approved":
@@ -218,6 +240,8 @@ export default function RequestHistoryPage() {
         return "text-yellow-600 bg-yellow-50";
       case "rejected":
         return "text-red-600 bg-red-50";
+      default:
+        return "text-gray-600 bg-gray-50";
     }
   };
 
@@ -227,21 +251,21 @@ export default function RequestHistoryPage() {
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
             <CheckCircle className="w-3 h-3" />
-            Approved
+            Repayment Approved
           </span>
         );
       case "pending":
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
             <Hourglass className="w-3 h-3" />
-            Pending
+            Repayment Pending Review
           </span>
         );
       case "rejected":
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">
             <XCircle className="w-3 h-3" />
-            Rejected
+            Repayment Rejected
           </span>
         );
       default:
@@ -294,15 +318,20 @@ export default function RequestHistoryPage() {
     }
   };
 
-  const filteredRequests =
-    selectedFilter === "all"
-      ? requests
-      : requests.filter((r) => r.status === selectedFilter);
+  const filteredRequests = requests.filter((r) => {
+    if (selectedFilter === "all") return true;
+    if (selectedFilter === "approved") {
+      return r.status === "approved" || r.status === "sent";
+    }
+    return r.status === selectedFilter;
+  });
 
   const stats = {
     total: requests.length,
     pending: requests.filter((r) => r.status === "pending").length,
-    approved: requests.filter((r) => r.status === "approved").length,
+    approved: requests.filter(
+      (r) => r.status === "approved" || r.status === "sent",
+    ).length,
     completed: requests.filter((r) => r.status === "completed").length,
     rejected: requests.filter((r) => r.status === "rejected").length,
     totalSpent: requests.reduce(
@@ -315,6 +344,146 @@ export default function RequestHistoryPage() {
     ),
   };
 
+  // Helper function to check if request needs receipt upload
+  const needsReceiptUpload = (request: Request) => {
+    const serviceTypesNeedingReceipt = ["fuel", "carwash"];
+    return (
+      (request.status === "approved" || request.status === "sent") &&
+      serviceTypesNeedingReceipt.includes(request.type) &&
+      !request.popUrl
+    );
+  };
+
+  // Success Modal Component
+  const SuccessModal = () => {
+    if (!showSuccessModal) return null;
+
+    const isPopRelated =
+      successMessage.includes("POP") ||
+      successMessage.includes("Proof of Payment") ||
+      successMessage.includes("Receipt");
+    const isRepaymentRelated =
+      successMessage.includes("repayment") ||
+      successMessage.includes("Repayment");
+
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowSuccessModal(false)}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-t-2xl p-5">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                {isPopRelated ? (
+                  <Receipt className="w-6 h-6 text-white" />
+                ) : isRepaymentRelated ? (
+                  <Banknote className="w-6 h-6 text-white" />
+                ) : (
+                  <CheckCircle className="w-6 h-6 text-white" />
+                )}
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">
+                  {isPopRelated
+                    ? "Receipt Uploaded!"
+                    : isRepaymentRelated
+                      ? "Repayment Submitted!"
+                      : "Success!"}
+                </h2>
+                <p className="text-white/80 text-sm">
+                  {isPopRelated
+                    ? "Proof of Payment received"
+                    : isRepaymentRelated
+                      ? "Repayment proof submitted"
+                      : "Operation completed"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 text-center">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              {isPopRelated ? (
+                <Receipt className="w-10 h-10 text-green-600" />
+              ) : isRepaymentRelated ? (
+                <Banknote className="w-10 h-10 text-green-600" />
+              ) : (
+                <CheckCircle className="w-10 h-10 text-green-600" />
+              )}
+            </div>
+            <p className="text-[#01312D] font-semibold mb-2">
+              {successMessage}
+            </p>
+            {isPopRelated && (
+              <p className="text-gray-500 text-sm mt-2">
+                Your service request will be marked as completed once verified.
+              </p>
+            )}
+            {isRepaymentRelated && (
+              <p className="text-gray-500 text-sm mt-2">
+                Your repayment will be processed once our admin verifies it.
+              </p>
+            )}
+          </div>
+
+          <div className="border-t border-gray-100 p-5">
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              className="w-full bg-[#01312D] text-white py-2 rounded-xl font-semibold hover:bg-[#3A7717] transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Error Modal Component
+  const ErrorModal = () => {
+    if (!showErrorModal) return null;
+
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowErrorModal(false)}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-t-2xl p-5">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                <XCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">Error!</h2>
+                <p className="text-white/80 text-sm">Operation failed</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 text-center">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-10 h-10 text-red-600" />
+            </div>
+            <p className="text-[#01312D] font-semibold mb-2">{errorMessage}</p>
+          </div>
+
+          <div className="border-t border-gray-100 p-5">
+            <button
+              onClick={() => setShowErrorModal(false)}
+              className="w-full bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const RequestDetailModal = ({
     request,
     onClose,
@@ -324,8 +493,8 @@ export default function RequestHistoryPage() {
   }) => {
     const IconComponent = getTypeIcon(request.type);
     const date = new Date(request.date);
-    const needsPopUpload =
-      request.status === "approved" && request.type === "fuel";
+    // Driver needs to upload POP for "approved" OR "sent" status for BOTH fuel AND carwash
+    const needsPopUpload = needsReceiptUpload(request);
     const needsRepayment =
       request.status === "completed" &&
       !request.isPaid &&
@@ -336,11 +505,6 @@ export default function RequestHistoryPage() {
     const progressPercent = request.totalRepayable
       ? Math.round((repaidAmount / request.totalRepayable) * 100)
       : 0;
-
-    // Calculate total pending repayment amount
-    const pendingRepaymentTotal = (request.repayments || [])
-      .filter((r) => r.status === "pending")
-      .reduce((sum, r) => sum + r.amount, 0);
 
     if (!IconComponent) {
       return null;
@@ -362,7 +526,7 @@ export default function RequestHistoryPage() {
               </div>
               <div>
                 <h2 className="text-xl font-bold text-[#01312D]">
-                  {getTypeLabel(request.type)}
+                  {getTypeLabel(request.type)} Request
                 </h2>
                 <p className="text-xs text-gray-500">{request.id}</p>
               </div>
@@ -387,7 +551,7 @@ export default function RequestHistoryPage() {
               {request.actualAmount && (
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-gray-500 text-sm">
-                    Actual Amount Paid
+                    Actual Amount Used
                   </span>
                   <span className="text-xl font-bold text-[#3A7717]">
                     R{request.actualAmount.toLocaleString()}
@@ -395,13 +559,45 @@ export default function RequestHistoryPage() {
                 </div>
               )}
               <div className="flex justify-between items-center">
-                <span className="text-gray-500 text-sm">Service Status</span>
+                <span className="text-gray-500 text-sm">Status</span>
                 <div
                   className={`px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${getStatusColor(request.status)}`}
                 >
                   {getStatusIcon(request.status)}
                   <span>{getStatusText(request.status)}</span>
                 </div>
+              </div>
+            </div>
+
+            {/* Timeline Dates */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[#3A7717]" />
+                Timeline
+              </h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Request Date:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {new Date(request.date).toLocaleString()}
+                  </span>
+                </div>
+                {request.approvedDate && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Approved Date:</span>
+                    <span className="font-semibold text-[#01312D]">
+                      {new Date(request.approvedDate).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {request.completedDate && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Completed Date:</span>
+                    <span className="font-semibold text-[#3A7717]">
+                      {new Date(request.completedDate).toLocaleString()}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -412,11 +608,11 @@ export default function RequestHistoryPage() {
                 <div className="bg-[#eafde7] rounded-xl p-4">
                   <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
                     <Wallet className="w-4 h-4 text-[#3A7717]" />
-                    Repayment Progress
+                    Loan Repayment Progress
                   </h3>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Total Repayable:</span>
+                      <span className="text-gray-600">Total Loan Amount:</span>
                       <span className="font-semibold">
                         R{request.totalRepayable.toLocaleString()}
                       </span>
@@ -443,19 +639,56 @@ export default function RequestHistoryPage() {
                         ></div>
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
-                        {progressPercent}% paid
+                        {progressPercent}% of loan repaid
                       </p>
                     </div>
                   </div>
                 </div>
               )}
 
-            {/* Pending Repayments Section */}
+            {/* Upload Proof of Payment (POP) Section - for service completion */}
+            {needsPopUpload && (
+              <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                <div className="flex items-start gap-2">
+                  <Receipt className="w-5 h-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-blue-800">
+                      Upload Receipt
+                    </p>
+                    <p className="text-xs text-blue-700 mt-1">
+                      Your {request.type === "fuel" ? "fuel" : "car wash"}{" "}
+                      request has been approved! Please upload your proof of
+                      payment receipt to confirm service delivery.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Repayment Proof Section - for loan repayments */}
+            {needsRepayment && !request.hasPendingRepayment && (
+              <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+                <div className="flex items-start gap-2">
+                  <Banknote className="w-5 h-5 text-green-600 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-green-800">
+                      Make a Loan Repayment
+                    </p>
+                    <p className="text-xs text-green-700 mt-1">
+                      You have an outstanding balance. Upload proof of repayment
+                      to reduce your loan balance.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Pending Repayment Section */}
             {request.hasPendingRepayment && (
               <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
                 <h3 className="font-semibold text-yellow-800 mb-3 flex items-center gap-2">
                   <Hourglass className="w-4 h-4" />
-                  Pending Verification
+                  Pending Repayment Verification
                 </h3>
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
@@ -500,7 +733,7 @@ export default function RequestHistoryPage() {
                         </p>
                         {repayment.remainingBalance !== undefined && (
                           <p className="text-xs text-gray-400">
-                            Remaining: R
+                            Remaining Loan: R
                             {repayment.remainingBalance.toLocaleString()}
                           </p>
                         )}
@@ -514,7 +747,7 @@ export default function RequestHistoryPage() {
                             rel="noopener noreferrer"
                             className="text-xs text-[#3A7717] underline block mt-1"
                           >
-                            View Proof
+                            View Repayment Proof
                           </a>
                         )}
                       </div>
@@ -525,10 +758,6 @@ export default function RequestHistoryPage() {
             )}
 
             <div className="space-y-2 text-sm">
-              <p>
-                <span className="text-gray-500">Request Date:</span>{" "}
-                {date.toLocaleDateString()} at {date.toLocaleTimeString()}
-              </p>
               <p>
                 <span className="text-gray-500">Car Registration:</span>{" "}
                 {request.carNumber}
@@ -551,34 +780,38 @@ export default function RequestHistoryPage() {
                   {request.phoneNumber}
                 </p>
               )}
+              {request.otp &&
+                (request.status === "approved" ||
+                  request.status === "sent") && (
+                  <div className="mt-3 pt-3 border-t border-[#bff202]/20">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-500">Service OTP:</span>
+                      <code className="bg-white px-3 py-1 rounded-lg font-mono text-lg font-bold text-[#01312D]">
+                        {request.otp}
+                      </code>
+                    </div>
+                  </div>
+                )}
               {request.popUrl && (
                 <div className="mt-3 pt-3 border-t border-[#bff202]/20">
-                  <p className="text-gray-500 mb-2">Proof of Payment:</p>
+                  <p className="text-gray-500 mb-2">Uploaded Receipt:</p>
                   <a
                     href={request.popUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[#3A7717] font-semibold text-sm flex items-center gap-2 underline"
                   >
-                    <FileText className="w-4 h-4" />
-                    View POP
+                    <Receipt className="w-4 h-4" />
+                    View Receipt
                   </a>
-                </div>
-              )}
-              {request.otp && request.status === "approved" && (
-                <div className="mt-3 pt-3 border-t border-[#bff202]/20">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">OTP:</span>
-                    <code className="bg-white px-3 py-1 rounded-lg font-mono text-lg font-bold text-[#01312D]">
-                      {request.otp}
-                    </code>
-                  </div>
                 </div>
               )}
             </div>
           </div>
 
+          {/* Action Buttons Section */}
           <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 space-y-2">
+            {/* Upload POP Button - For service completion (Fuel & Car Wash) */}
             {needsPopUpload && (
               <button
                 onClick={() => {
@@ -586,12 +819,14 @@ export default function RequestHistoryPage() {
                   setSelectedRequestForPop(request);
                   setShowPopModal(true);
                 }}
-                className="w-full bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all"
+                className="w-full bg-[#3A7717] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all"
               >
-                <Upload className="w-4 h-4" />
-                Upload Proof of Payment
+                <Receipt className="w-4 h-4" />
+                Upload Receipt
               </button>
             )}
+
+            {/* Upload Repayment Button - For loan repayments */}
             {needsRepayment && !request.hasPendingRepayment && (
               <button
                 onClick={() => {
@@ -599,18 +834,22 @@ export default function RequestHistoryPage() {
                   setSelectedRequestForRepayment(request);
                   setShowRepaymentModal(true);
                 }}
-                className="w-full bg-[#01312D] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-all"
+                className="w-full bg-[#01312D] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-all"
               >
-                <Wallet className="w-4 h-4" />
-                Make a Repayment
+                <Banknote className="w-4 h-4" />
+                Upload Proof of Repayment
               </button>
             )}
+
+            {/* Pending Repayment Status */}
             {request.hasPendingRepayment && (
-              <div className="w-full py-2 rounded-xl font-semibold flex items-center justify-center gap-2 bg-yellow-100 text-yellow-700">
+              <div className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 bg-yellow-100 text-yellow-700">
                 <Hourglass className="w-4 h-4" />
                 Repayment Pending Approval
               </div>
             )}
+
+            {/* Download Receipt Button */}
             {(request.popUrl || request.status === "completed") && (
               <button
                 onClick={() => {
@@ -618,7 +857,7 @@ export default function RequestHistoryPage() {
                     window.open(request.popUrl, "_blank");
                   }
                 }}
-                className="w-full bg-[#eafde7] text-[#01312D] py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#bff202]/30 transition-all"
+                className="w-full bg-[#eafde7] text-[#01312D] py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#bff202]/30 transition-all"
               >
                 <Download className="w-4 h-4" />
                 Download Receipt
@@ -729,6 +968,13 @@ export default function RequestHistoryPage() {
                       {stats.pending}
                     </span>
                   )}
+                {filter !== "all" &&
+                  filter === "approved" &&
+                  stats.approved > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 bg-blue-500 text-white text-xs rounded-full">
+                      {stats.approved}
+                    </span>
+                  )}
               </button>
             ),
           )}
@@ -762,8 +1008,7 @@ export default function RequestHistoryPage() {
               const typeColor = getTypeColor(request.type);
               const statusColor = getStatusColor(request.status);
               const date = new Date(request.date);
-              const needsPopUpload =
-                request.status === "approved" && request.type === "fuel";
+              const needsPopUpload = needsReceiptUpload(request);
               const needsRepayment =
                 request.status === "completed" &&
                 !request.isPaid &&
@@ -813,14 +1058,14 @@ export default function RequestHistoryPage() {
                       </p>
                       {hasOutstanding && (
                         <p className="text-xs text-red-600 mt-1">
-                          Outstanding: R
+                          Outstanding Loan: R
                           {(request.remainingBalance || 0).toLocaleString()}
                         </p>
                       )}
                       {request.hasPendingRepayment && (
                         <p className="text-xs text-yellow-600 mt-1 flex items-center gap-1">
                           <Hourglass className="w-3 h-3" />
-                          Repayment pending: R
+                          Repayment pending verification: R
                           {request.pendingRepaymentAmount?.toLocaleString()}
                         </p>
                       )}
@@ -829,13 +1074,15 @@ export default function RequestHistoryPage() {
                         {date.toLocaleTimeString()}
                       </p>
                     </div>
-                    {request.otp && request.status === "approved" && (
-                      <div className="bg-[#bff202]/20 rounded-lg px-3 py-1">
-                        <p className="text-xs text-[#01312D] font-semibold">
-                          OTP: {request.otp}
-                        </p>
-                      </div>
-                    )}
+                    {request.otp &&
+                      (request.status === "approved" ||
+                        request.status === "sent") && (
+                        <div className="bg-[#bff202]/20 rounded-lg px-3 py-1">
+                          <p className="text-xs text-[#01312D] font-semibold">
+                            OTP: {request.otp}
+                          </p>
+                        </div>
+                      )}
                   </div>
 
                   <div className="flex gap-2 pt-3 border-t border-gray-100">
@@ -859,8 +1106,8 @@ export default function RequestHistoryPage() {
                           setShowPopModal(true);
                         }}
                       >
-                        <Upload className="w-4 h-4" />
-                        Upload POP
+                        <Receipt className="w-4 h-4" />
+                        Upload Receipt
                       </button>
                     )}
                     {needsRepayment && (
@@ -872,8 +1119,8 @@ export default function RequestHistoryPage() {
                           setShowRepaymentModal(true);
                         }}
                       >
-                        <Wallet className="w-4 h-4" />
-                        Repay
+                        <Banknote className="w-4 h-4" />
+                        Repay Loan
                       </button>
                     )}
                     {(request.popUrl || request.status === "completed") && (
@@ -913,6 +1160,10 @@ export default function RequestHistoryPage() {
             fetchRequests();
             setShowPopModal(false);
             setSelectedRequestForPop(null);
+            setSuccessMessage(
+              "Your receipt has been uploaded successfully! Our admin will verify it shortly.",
+            );
+            setShowSuccessModal(true);
           }}
         />
       )}
@@ -938,57 +1189,18 @@ export default function RequestHistoryPage() {
             fetchRequests();
             setShowRepaymentModal(false);
             setSelectedRequestForRepayment(null);
+            setSuccessMessage(
+              "Your Proof of Repayment has been submitted for approval!",
+            );
+            setShowSuccessModal(true);
           }}
         />
       )}
+      <SuccessModal />
+      <ErrorModal />
 
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 z-50 shadow-lg">
-        <div className="flex justify-around items-center">
-          <button
-            onClick={() => router.push("/")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-              <Home className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-              Home
-            </span>
-          </button>
-          <button
-            onClick={() => router.push("/requests")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-              <ClipboardList className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-              Requests
-            </span>
-          </button>
-          <button
-            onClick={() => router.push("/requests/history")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#bff202] scale-110 shadow-md">
-              <History className="w-5 h-5 text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#01312D] font-bold">History</span>
-          </button>
-          <button
-            onClick={() => router.push("/profile")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-              <User className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-              Profile
-            </span>
-          </button>
-        </div>
-      </nav>
+      {/* Bottom Navigation with Notification Badge */}
+      <BottomNavigation approvedCount={stats.approved} isAdmin={false} />
     </div>
   );
 }

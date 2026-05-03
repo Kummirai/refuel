@@ -131,7 +131,7 @@ export function PopUploadModal({
         throw new Error(data.error || "Failed to submit POP");
       }
 
-      alert("POP uploaded successfully!");
+      // alert("POP uploaded successfully!");
       onSuccess();
       onClose();
       resetForm();

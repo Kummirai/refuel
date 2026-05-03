@@ -1,9 +1,10 @@
-// src/app/page.tsx - Airtime removed
+// src/app/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import BottomNavigation from "@/components/BottomNavigation";
 import {
   ArrowRight,
   Fuel,
@@ -45,12 +46,8 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!isPending) {
-      console.log("Session data:", session);
-
       if (session) {
         const role = (session.user as any)?.role;
-        console.log("User role from session:", role);
-
         setUserRole(role || null);
 
         if (role === "admin") {
@@ -63,6 +60,24 @@ export default function HomePage() {
       }
     }
   }, [session, isPending]);
+
+  // Add state for approved count
+  const [approvedCount, setApprovedCount] = useState(0);
+
+  // In your fetchUserProfile or similar, calculate approved requests
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetch(`/api/driver/requests?userId=${session.user.id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          const approved = data.filter(
+            (r: any) => r.status === "approved" || r.status === "sent",
+          ).length;
+          setApprovedCount(approved);
+        })
+        .catch((err) => console.error("Error fetching approved count:", err));
+    }
+  }, [session]);
 
   const fetchUserProfile = async () => {
     try {
@@ -87,10 +102,7 @@ export default function HomePage() {
   };
 
   const handleGetStarted = () => {
-    console.log("Get Started clicked. User role:", userRole);
-
     if (userRole === "admin") {
-      console.log("Redirecting to admin dashboard");
       router.push("/admin/dashboard");
       return;
     }
@@ -603,75 +615,7 @@ export default function HomePage() {
       </main>
 
       {/* Bottom Navigation Bar */}
-      {!isAdmin && (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-4 py-2 z-50 shadow-lg safe-bottom">
-          <div className="flex justify-around items-center max-w-md mx-auto">
-            <button
-              onClick={() => router.push("/")}
-              className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all duration-200 active:scale-95 active:bg-[#bff202]/20 touch-manipulation"
-            >
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#bff202] shadow-md transition-all duration-200 active:shadow-inner">
-                <Home className="w-5 h-5 text-[#01312D]" />
-              </div>
-              <span className="text-xs text-[#01312D] font-semibold">Home</span>
-            </button>
-
-            <button
-              onClick={() => {
-                if (!isLoggedIn) {
-                  router.push("/auth/sign-in");
-                } else {
-                  router.push("/requests");
-                }
-              }}
-              className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all duration-200 active:scale-95 active:bg-[#bff202]/20 touch-manipulation"
-            >
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] transition-all duration-200 group-hover:bg-[#bff202]/50 active:bg-[#bff202]/50">
-                <ClipboardList className="w-5 h-5 text-[#3A7717]" />
-              </div>
-              <span className="text-xs text-[#3A7717] font-medium">
-                Requests
-              </span>
-            </button>
-
-            <button
-              onClick={() => {
-                if (!isLoggedIn) {
-                  router.push("/auth/sign-in");
-                } else {
-                  router.push("/requests/history");
-                }
-              }}
-              className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all duration-200 active:scale-95 active:bg-[#bff202]/20 touch-manipulation"
-            >
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] transition-all duration-200 active:bg-[#bff202]/50">
-                <History className="w-5 h-5 text-[#3A7717]" />
-              </div>
-              <span className="text-xs text-[#3A7717] font-medium">
-                History
-              </span>
-            </button>
-
-            <button
-              onClick={() => {
-                if (!isLoggedIn) {
-                  router.push("/auth/sign-in");
-                } else {
-                  router.push("/profile");
-                }
-              }}
-              className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all duration-200 active:scale-95 active:bg-[#bff202]/20 touch-manipulation"
-            >
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] transition-all duration-200 active:bg-[#bff202]/50">
-                <UserCircle className="w-5 h-5 text-[#3A7717]" />
-              </div>
-              <span className="text-xs text-[#3A7717] font-medium">
-                Profile
-              </span>
-            </button>
-          </div>
-        </nav>
-      )}
+      <BottomNavigation approvedCount={approvedCount} isAdmin={isAdmin} />
     </div>
   );
 }

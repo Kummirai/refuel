@@ -32,11 +32,12 @@ import {
   MessageCircle,
   FileText,
   ImageIcon,
+  Truck,
 } from "lucide-react";
 import { toPng } from "html-to-image";
 
 type RequestType = "fuel" | "airtime" | "cash" | "carwash";
-type RequestStatus = "pending" | "approved" | "completed" | "rejected";
+type RequestStatus = "pending" | "approved" | "sent" | "completed" | "rejected";
 
 interface ServiceRequest {
   id: string;
@@ -48,8 +49,8 @@ interface ServiceRequest {
   carModel?: string;
   location: string;
   type: RequestType;
-  amount: number; // Requested amount
-  actualAmount?: number; // Actual amount paid (from POP)
+  amount: number;
+  actualAmount?: number;
   fuelType?: "petrol" | "diesel";
   contactPhone?: string;
   interest?: number;
@@ -60,6 +61,7 @@ interface ServiceRequest {
   otp?: string;
   requestDate: string;
   approvedDate?: string;
+  sentDate?: string;
   completedDate?: string;
   popUrl?: string;
   popPublicId?: string;
@@ -70,7 +72,7 @@ interface ServiceRequest {
 export default function AdminServiceRequestsPage() {
   const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<
-    "all" | "pending" | "approved" | "completed" | "rejected"
+    "all" | "pending" | "approved" | "sent" | "completed" | "rejected"
   >("pending");
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(
     null,
@@ -78,13 +80,16 @@ export default function AdminServiceRequestsPage() {
   const [showModal, setShowModal] = useState(false);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [showSentModal, setShowSentModal] = useState(false);
   const [approvingRequest, setApprovingRequest] =
     useState<ServiceRequest | null>(null);
+  const [sentRequest, setSentRequest] = useState<ServiceRequest | null>(null);
   const [approvedRequest, setApprovedRequest] = useState<ServiceRequest | null>(
     null,
   );
   const [generatedOtp, setGeneratedOtp] = useState("");
   const [approvalLoading, setApprovalLoading] = useState(false);
+  const [sentLoading, setSentLoading] = useState(false);
   const [whatsappLoading, setWhatsappLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState<RequestType | "all">("all");
@@ -96,6 +101,7 @@ export default function AdminServiceRequestsPage() {
     total: 0,
     pending: 0,
     approved: 0,
+    sent: 0,
     completed: 0,
     rejected: 0,
     totalRequestedAmount: 0,
@@ -109,13 +115,6 @@ export default function AdminServiceRequestsPage() {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const [showCompleteConfirmModal, setShowCompleteConfirmModal] =
-    useState(false);
-  const [completingRequest, setCompletingRequest] =
-    useState<ServiceRequest | null>(null);
-  const [completeLoading, setCompleteLoading] = useState(false);
-
-  // Rejection modal states
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectingRequest, setRejectingRequest] =
     useState<ServiceRequest | null>(null);
@@ -137,7 +136,7 @@ export default function AdminServiceRequestsPage() {
         }));
         setRequests(requestsWithId);
 
-        // Calculate stats from existing data
+        // Calculate stats
         const totalRequestedAmount = requestsWithId.reduce(
           (sum: number, r: ServiceRequest) => sum + (r.amount || 0),
           0,
@@ -161,6 +160,7 @@ export default function AdminServiceRequestsPage() {
           total: data.total || 0,
           pending: data.pending || 0,
           approved: data.approved || 0,
+          sent: data.sent || 0,
           completed: data.completed || 0,
           rejected: data.rejected || 0,
           totalRequestedAmount,
@@ -227,48 +227,56 @@ export default function AdminServiceRequestsPage() {
     }
   };
 
-  const handleComplete = (request: ServiceRequest) => {
-    setCompletingRequest(request);
-    setShowCompleteConfirmModal(true);
-    setShowModal(false);
-  };
-
-  const handleConfirmComplete = async () => {
-    if (!completingRequest) return;
-
-    setCompleteLoading(true);
+  const handleMarkAsSent = async (request: ServiceRequest) => {
+    setSentLoading(true);
     try {
-      const response = await fetch("/api/admin/requests/complete", {
+      const response = await fetch("/api/admin/requests/sent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          requestId: completingRequest.id,
+          requestId: request.id,
         }),
       });
+
+      // First check if response is ok before trying to parse JSON
       if (response.ok) {
+        const data = await response.json();
         setSuccessMessage(
-          `✅ Request ${completingRequest.id.slice(-6).toUpperCase()} marked as completed`,
+          `✅ Request ${request.id.slice(-6).toUpperCase()} marked as SENT! The driver has been notified.`,
         );
         setShowSuccessModal(true);
-        fetchRequests();
-        setShowCompleteConfirmModal(false);
-        setCompletingRequest(null);
+        await fetchRequests();
+        setShowSentModal(false);
+        setSentRequest(null);
+        setShowModal(false);
       } else {
-        const error = await response.json();
-        setErrorMessage(error.error || "Failed to complete request");
+        // Try to get error message, but handle case where response is not JSON
+        let errorMessage = "Failed to mark as sent";
+        try {
+          const error = await response.json();
+          errorMessage = error.error || errorMessage;
+        } catch (e) {
+          console.error("Could not parse error response:", e);
+          errorMessage = `Server responded with status ${response.status}`;
+        }
+        setErrorMessage(errorMessage);
         setShowErrorModal(true);
-        setShowCompleteConfirmModal(false);
-        setCompletingRequest(null);
       }
     } catch (error) {
-      console.error("Error completing request:", error);
-      setErrorMessage("Failed to complete request");
+      console.error("Error marking as sent:", error);
+      setErrorMessage("Failed to mark as sent. Please check your connection.");
       setShowErrorModal(true);
-      setShowCompleteConfirmModal(false);
-      setCompletingRequest(null);
     } finally {
-      setCompleteLoading(false);
+      setSentLoading(false);
     }
+  };
+
+  const handleComplete = (request: ServiceRequest) => {
+    // This is now handled by driver side, so just show info
+    setSuccessMessage(
+      `ℹ️ Request will be marked as completed when the driver confirms service delivery.`,
+    );
+    setShowSuccessModal(true);
   };
 
   const handleReject = (request: ServiceRequest) => {
@@ -307,6 +315,7 @@ export default function AdminServiceRequestsPage() {
         setShowRejectModal(false);
         setRejectingRequest(null);
         setRejectionReason("");
+        setShowModal(false);
       } else {
         const error = await response.json();
         setErrorMessage(error.error || "Failed to reject request");
@@ -338,6 +347,11 @@ export default function AdminServiceRequestsPage() {
         icon: CheckCircle,
         text: "Approved",
         color: "bg-blue-100 text-blue-700",
+      },
+      sent: {
+        icon: Truck,
+        text: "Sent",
+        color: "bg-purple-100 text-purple-700",
       },
       completed: {
         icon: CheckCircle,
@@ -463,7 +477,7 @@ export default function AdminServiceRequestsPage() {
     return "Show this code at the service center";
   };
 
-  // View Details Modal Component - Directly displays data from the request object
+  // View Details Modal Component
   const ViewDetailsModal = ({
     request,
     onClose,
@@ -477,7 +491,6 @@ export default function AdminServiceRequestsPage() {
     const amountDifference = request.actualAmount
       ? request.actualAmount - request.amount
       : 0;
-    // Use the values directly from the request object (already calculated)
     const displayInterest = request.interest || 0;
     const displayTotal = request.totalRepayable || request.amount;
     const displayDailyPayment = request.dailyPayment || 0;
@@ -568,7 +581,6 @@ export default function AdminServiceRequestsPage() {
                   </span>
                 </div>
 
-                {/* Amount Section */}
                 <div className="border-t border-[#BFF202]/20 pt-2 mt-2">
                   <div className="flex justify-between">
                     <span className="text-gray-500">Requested Amount:</span>
@@ -599,7 +611,6 @@ export default function AdminServiceRequestsPage() {
                   )}
                 </div>
 
-                {/* Financial Details - Using values directly from database */}
                 <div className="bg-[#BFF202]/10 rounded-lg p-3 mt-2">
                   <p className="text-xs font-semibold text-[#01312D] mb-2">
                     📊 Financial Summary
@@ -655,6 +666,22 @@ export default function AdminServiceRequestsPage() {
                     <span className="text-gray-500">Approved Date:</span>
                     <span className="font-semibold text-[#01312D]">
                       {new Date(request.approvedDate).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {request.sentDate && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Sent Date:</span>
+                    <span className="font-semibold text-[#01312D]">
+                      {new Date(request.sentDate).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {request.completedDate && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Completed Date:</span>
+                    <span className="font-semibold text-[#01312D]">
+                      {new Date(request.completedDate).toLocaleString()}
                     </span>
                   </div>
                 )}
@@ -744,13 +771,13 @@ export default function AdminServiceRequestsPage() {
               <>
                 <button
                   onClick={() => openApproveModal(request)}
-                  className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors"
+                  className="w-full bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors"
                 >
                   <CheckCircle className="w-4 h-4" /> Approve Request
                 </button>
                 <button
                   onClick={() => handleReject(request)}
-                  className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors"
+                  className="w-full bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors"
                 >
                   <XCircle className="w-4 h-4" /> Reject
                 </button>
@@ -760,20 +787,37 @@ export default function AdminServiceRequestsPage() {
               <>
                 <button
                   onClick={() => {
+                    setSentRequest(request);
+                    setShowSentModal(true);
+                    setShowModal(false);
+                  }}
+                  className="w-full bg-[#01312D] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-colors"
+                >
+                  <Truck className="w-4 h-4" /> Mark as Sent
+                </button>
+                <button
+                  onClick={() => {
                     setApprovedRequest(request);
                     setShowWhatsAppModal(true);
+                    setShowModal(false);
                   }}
-                  className="flex-1 bg-[#25D366] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#128C7E] transition-colors"
+                  className="w-full bg-[#25D366] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
                 >
                   <Send className="w-4 h-4" /> Send WhatsApp
                 </button>
-                <button
-                  onClick={() => handleComplete(request)}
-                  className="flex-1 bg-[#01312D] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-colors"
-                >
-                  <CheckCircle className="w-4 h-4" /> Mark Completed
-                </button>
               </>
+            )}
+            {request.status === "sent" && (
+              <div className="p-3 bg-purple-50 rounded-xl text-center">
+                <p className="text-sm text-purple-700">
+                  ⏳ Service has been sent. Waiting for driver to confirm
+                  completion.
+                </p>
+                <p className="text-xs text-purple-600 mt-1">
+                  The driver will mark this as completed after receiving the
+                  service.
+                </p>
+              </div>
             )}
             {request.status === "completed" && (
               <button
@@ -783,6 +827,71 @@ export default function AdminServiceRequestsPage() {
                 Close
               </button>
             )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Sent Modal Component
+  const SentModal = () => {
+    if (!sentRequest) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowSentModal(false)}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl p-5">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Truck className="w-8 h-8 text-purple-600" />
+            </div>
+            <h2 className="text-xl font-bold text-[#01312D] mb-2">
+              Mark as Sent
+            </h2>
+            <p className="text-gray-500 text-sm mb-4">
+              Confirm that this service has been dispatched/sent to the driver.
+            </p>
+            <div className="bg-purple-50 rounded-xl p-3 mb-4 text-left">
+              <p className="text-sm font-semibold text-purple-800 mb-2">
+                Request Details:
+              </p>
+              <p className="text-sm">
+                <strong>Driver:</strong> {sentRequest.driverName}
+              </p>
+              <p className="text-sm">
+                <strong>Service:</strong> {getTypeLabel(sentRequest.type)}
+              </p>
+              <p className="text-sm">
+                <strong>Amount:</strong> R{sentRequest.amount?.toLocaleString()}
+              </p>
+              <p className="text-xs text-gray-500 mt-2">
+                Once marked as sent, the driver will receive the OTP and can
+                complete the service on their end.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowSentModal(false)}
+                className="flex-1 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleMarkAsSent(sentRequest)}
+                disabled={sentLoading}
+                className="flex-1 bg-[#01312D] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+              >
+                {sentLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Truck className="w-4 h-4" />
+                )}
+                Confirm Sent
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -870,142 +979,6 @@ export default function AdminServiceRequestsPage() {
               className="w-full bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors"
             >
               Close
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Complete Confirmation Modal
-  const CompleteConfirmModal = () => {
-    if (!showCompleteConfirmModal || !completingRequest) return null;
-
-    const TypeIcon = getTypeIcon(completingRequest.type);
-    const displayAmount =
-      completingRequest.actualAmount || completingRequest.amount;
-    const displayTotal =
-      completingRequest.totalRepayable || completingRequest.amount;
-
-    return (
-      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-        <div
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          onClick={() => !completeLoading && setShowCompleteConfirmModal(false)}
-        ></div>
-        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
-          <div className="bg-gradient-to-r from-[#3A7717] to-[#72BF00] rounded-t-2xl p-5">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-white">
-                  Confirm Completion
-                </h2>
-                <p className="text-white/80 text-sm">
-                  Mark request as completed
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-5 space-y-4">
-            <div className="bg-[#EAFDE7] rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <TypeIcon className="w-4 h-4 text-[#3A7717]" />
-                <h3 className="font-semibold text-[#01312D]">
-                  Request Summary
-                </h3>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Driver:</span>
-                  <span className="font-semibold text-[#01312D]">
-                    {completingRequest.driverName}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Vehicle:</span>
-                  <span className="font-semibold text-[#01312D]">
-                    {completingRequest.carNumber}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Service:</span>
-                  <span className="font-semibold text-[#01312D]">
-                    {getTypeLabel(completingRequest.type)}
-                  </span>
-                </div>
-                <div className="flex justify-between pt-2 border-t border-[#BFF202]/20">
-                  <span className="text-gray-600">Amount:</span>
-                  <span className="font-bold text-[#3A7717] text-lg">
-                    R{displayAmount.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Total Repayable:</span>
-                  <span className="font-semibold text-[#01312D]">
-                    R{displayTotal.toLocaleString()}
-                  </span>
-                </div>
-                {completingRequest.otp && (
-                  <div className="flex justify-between pt-2 border-t border-[#BFF202]/20">
-                    <span className="text-gray-600">
-                      {getTransactionLabel(completingRequest.type)}:
-                    </span>
-                    <code className="font-mono font-bold text-[#01312D]">
-                      {completingRequest.otp}
-                    </code>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="bg-[#BFF202]/10 rounded-xl p-3">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-[#01312D] mt-0.5" />
-                <div>
-                  <p className="text-xs text-[#01312D]">
-                    Are you sure you want to mark this request as completed?
-                  </p>
-                  <ul className="text-xs text-gray-600 mt-1 space-y-0.5 list-disc list-inside">
-                    <li>This action cannot be undone</li>
-                    <li>The request will be moved to completed tab</li>
-                    <li>Driver will be notified of completion</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-100 p-5 grid gap-3">
-            <button
-              onClick={handleConfirmComplete}
-              disabled={completeLoading}
-              className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
-            >
-              {completeLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Completing...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-4 h-4" />
-                  Confirm Complete
-                </>
-              )}
-            </button>
-            <button
-              onClick={() => {
-                setShowCompleteConfirmModal(false);
-                setCompletingRequest(null);
-              }}
-              disabled={completeLoading}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              Cancel
             </button>
           </div>
         </div>
@@ -1149,18 +1122,17 @@ export default function AdminServiceRequestsPage() {
     );
   };
 
-  // WhatsApp Modal Component
-  // WhatsApp Modal Component with Image Download and Send
+  // WhatsApp Modal Component - Modern styling with prominent validity notice
   const WhatsAppModal = () => {
     if (!approvedRequest) return null;
 
     const receiptRef = useRef<HTMLDivElement>(null);
     const [imageGenerating, setImageGenerating] = useState(false);
-    const [downloadedImageUrl, setDownloadedImageUrl] = useState<string | null>(
-      null,
-    );
     const [showDownloadSuccessModal, setShowDownloadSuccessModal] =
       useState(false);
+    const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(
+      null,
+    );
 
     const displayAmount =
       approvedRequest.actualAmount || approvedRequest.amount;
@@ -1172,78 +1144,101 @@ export default function AdminServiceRequestsPage() {
     const currentDateTime = getCurrentDateTime();
     const currentDate = getCurrentDate();
     const currentTime = getCurrentTime();
+    const expiryTime = new Date();
+    expiryTime.setHours(expiryTime.getHours() + 1);
+    const expiryFormatted = expiryTime.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
 
-    const generateImageBlob = async (): Promise<Blob | null> => {
+    const generateImage = async () => {
       if (!receiptRef.current) return null;
 
+      setImageGenerating(true);
+
       try {
-        const receiptElement = receiptRef.current;
-        receiptElement.style.position = "fixed";
-        receiptElement.style.left = "0";
-        receiptElement.style.top = "0";
-        receiptElement.style.zIndex = "-1";
-        receiptElement.style.opacity = "1";
+        const element = receiptRef.current;
+
+        element.style.position = "fixed";
+        element.style.left = "0";
+        element.style.top = "0";
+        element.style.zIndex = "9999";
+        element.style.visibility = "visible";
+        element.style.opacity = "1";
+
+        const images = element.getElementsByTagName("img");
+        await Promise.all(
+          Array.from(images).map((img) => {
+            if (img.complete) return Promise.resolve();
+            return new Promise((resolve) => {
+              img.onload = resolve;
+              img.onerror = resolve;
+            });
+          }),
+        );
 
         await new Promise((resolve) => setTimeout(resolve, 100));
 
-        const dataUrl = await toPng(receiptElement, {
-          quality: 0.95,
+        const dataUrl = await toPng(element, {
+          quality: 1,
           backgroundColor: "#ffffff",
           pixelRatio: 2,
+          cacheBust: true,
         });
 
-        receiptElement.style.position = "absolute";
-        receiptElement.style.left = "-9999px";
-        receiptElement.style.top = "-9999px";
-        receiptElement.style.zIndex = "";
+        element.style.position = "absolute";
+        element.style.left = "-9999px";
+        element.style.top = "-9999px";
+        element.style.zIndex = "-1";
+        element.style.visibility = "hidden";
 
-        const response = await fetch(dataUrl);
-        const blob = await response.blob();
-        return blob;
+        return dataUrl;
       } catch (error) {
         console.error("Error generating image:", error);
-        if (receiptRef.current) {
-          receiptRef.current.style.position = "absolute";
-          receiptRef.current.style.left = "-9999px";
-          receiptRef.current.style.top = "-9999px";
+        const element = receiptRef.current;
+        if (element) {
+          element.style.position = "absolute";
+          element.style.left = "-9999px";
+          element.style.top = "-9999px";
+          element.style.zIndex = "-1";
+          element.style.visibility = "hidden";
         }
         return null;
-      }
-    };
-
-    const handleGenerateImage = async () => {
-      setImageGenerating(true);
-      try {
-        const blob = await generateImageBlob();
-        if (blob) {
-          const imageUrl = URL.createObjectURL(blob);
-          setDownloadedImageUrl(imageUrl);
-          setShowDownloadSuccessModal(true);
-
-          const link = document.createElement("a");
-          link.download = `Kapuka_Receipt_${approvedRequest.id.slice(-6)}.png`;
-          link.href = imageUrl;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        } else {
-          throw new Error("Failed to generate image");
-        }
-      } catch (error) {
-        console.error("Error generating image:", error);
-        setErrorMessage("Failed to generate receipt image");
-        setShowErrorModal(true);
       } finally {
         setImageGenerating(false);
       }
     };
 
-    const handleSendImageViaWhatsApp = async () => {
-      setWhatsappLoading(true);
-      try {
-        const blob = await generateImageBlob();
-        if (!blob) throw new Error("Failed to generate image");
+    const handleDownloadImage = async () => {
+      const dataUrl = await generateImage();
+      if (dataUrl) {
+        const link = document.createElement("a");
+        link.download = `Kapuka_Receipt_${approvedRequest.id.slice(-6)}.png`;
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
 
+        setGeneratedImageUrl(dataUrl);
+        setShowDownloadSuccessModal(true);
+      } else {
+        setErrorMessage("Failed to generate receipt image. Please try again.");
+        setShowErrorModal(true);
+      }
+    };
+
+    const handleSendViaWhatsApp = async () => {
+      const dataUrl = await generateImage();
+      if (!dataUrl) {
+        setErrorMessage("Failed to generate receipt image. Please try again.");
+        setShowErrorModal(true);
+        return;
+      }
+
+      setWhatsappLoading(true);
+
+      try {
         const finalOtp = approvedRequest.otp || generatedOtp;
         const baseAmount =
           approvedRequest.actualAmount || approvedRequest.amount;
@@ -1252,55 +1247,48 @@ export default function AdminServiceRequestsPage() {
           approvedRequest.dailyPayment ||
           Math.ceil(totalRepayable / (approvedRequest.repaymentDays || 7));
 
-        const caption = `*Kapuka - Service Request Approved* 🎉
+        const message = `*🏆 KAPUKA - SERVICE APPROVED* 🏆
 
-Hello ${approvedRequest.driverName},
+✅ *Your request has been APPROVED!*
 
-Your service request has been *APPROVED*! ✅
-
-📋 *Request Details:*
 ━━━━━━━━━━━━━━━━━━━
-🆔 *Request ID:* ${approvedRequest.id.slice(-6).toUpperCase()}
+📋 *REQUEST DETAILS*
+━━━━━━━━━━━━━━━━━━━
+🆔 *ID:* ${approvedRequest.id.slice(-6).toUpperCase()}
 🚗 *Vehicle:* ${approvedRequest.carNumber}
 📱 *Service:* ${getTypeLabel(approvedRequest.type)}
-${hasActualAmount ? `💰 *Requested Amount:* R${approvedRequest.amount?.toLocaleString()}\n💵 *Actual Amount:* R${baseAmount.toLocaleString()}\n` : `💰 *Amount:* R${baseAmount.toLocaleString()}\n`}
+${hasActualAmount ? `💰 *Requested:* R${approvedRequest.amount?.toLocaleString()}\n💵 *Actual:* R${baseAmount.toLocaleString()}\n` : `💰 *Amount:* R${baseAmount.toLocaleString()}\n`}
 🔐 *${transactionLabel}:* ${finalOtp}
 📅 *Date:* ${currentDate}
 ⏰ *Time:* ${currentTime}
-━━━━━━━━━━━━━━━━━━━
 
-📊 *Repayment Details:*
+━━━━━━━━━━━━━━━━━━━
+💰 *REPAYMENT SUMMARY*
+━━━━━━━━━━━━━━━━━━━
 • Interest Rate: ${approvedRequest.interestRate || 13}%
 • Interest Amount: R${approvedRequest.interest?.toLocaleString() || 0}
 • Total Repayable: R${totalRepayable.toLocaleString()}
 • Daily Payment: R${dailyPayment.toLocaleString()}/day
 • Period: ${approvedRequest.repaymentDays || 7} days
 
-📍 *Instructions:*
-1. ${approvedRequest.type === "cash" ? "Use this transaction number for loan reference" : approvedRequest.type === "airtime" ? "Use this transaction number to track your airtime purchase" : "Show this to the service provider"}
-2. The amount will be processed within 30 minutes
-3. Keep this message for reference
+━━━━━━━━━━━━━━━━━━━
+⏰ *VALID FOR 1 HOUR*
+━━━━━━━━━━━━━━━━━━━
 
-Please find your receipt attached below.
+Thank you for choosing Kapuka! 🚀`;
 
-Thank you for choosing Kapuka! 🚀
-
-*This is a system generated message. Valid for 30 minutes.*`;
-
-        // Create download link for the image
-        const imageUrl = URL.createObjectURL(blob);
         const cleanPhone = approvedRequest.driverPhone.replace(/[^0-9]/g, "");
         let fullPhone = cleanPhone;
         if (!cleanPhone.startsWith("27") && cleanPhone.length === 9) {
           fullPhone = `27${cleanPhone}`;
         }
 
-        const whatsappUrl = `https://wa.me/${fullPhone}?text=${encodeURIComponent(caption + "\n\n📸 Please check your downloads folder for the receipt image attached above.")}`;
+        const whatsappUrl = `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, "_blank");
 
         const link = document.createElement("a");
         link.download = `Kapuka_Receipt_${approvedRequest.id.slice(-6)}.png`;
-        link.href = imageUrl;
+        link.href = dataUrl;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -1312,9 +1300,9 @@ Thank you for choosing Kapuka! 🚀
           setApprovingRequest(null);
         }, 1500);
       } catch (error) {
-        console.error("Error sending image via WhatsApp:", error);
+        console.error("Error sending via WhatsApp:", error);
         setErrorMessage(
-          "Failed to send image. The receipt has been downloaded. You can manually attach it to your WhatsApp message.",
+          "Failed to send. The receipt has been downloaded to your device.",
         );
         setShowErrorModal(true);
         setWhatsappLoading(false);
@@ -1340,7 +1328,7 @@ Thank you for choosing Kapuka! 🚀
                   <h2 className="text-xl font-bold text-white">
                     Receipt Ready!
                   </h2>
-                  <p className="text-white/80 text-sm">Image generated</p>
+                  <p className="text-white/80 text-sm">Image saved to device</p>
                 </div>
               </div>
             </div>
@@ -1350,23 +1338,11 @@ Thank you for choosing Kapuka! 🚀
                 <ImageIcon className="w-10 h-10 text-green-600" />
               </div>
               <p className="text-[#01312D] font-semibold mb-2">
-                Receipt image generated and downloaded!
+                Receipt downloaded successfully!
               </p>
               <p className="text-gray-500 text-sm">
-                The receipt has been saved to your device.
+                The receipt has been saved to your device's downloads folder.
               </p>
-
-              {downloadedImageUrl && (
-                <div className="bg-gray-50 rounded-xl p-3 mt-4">
-                  <p className="text-xs text-gray-500 mb-2">Preview:</p>
-                  <img
-                    src={downloadedImageUrl}
-                    alt="Receipt Preview"
-                    className="max-w-full h-auto rounded-lg border border-gray-200 mx-auto"
-                    style={{ maxHeight: "200px" }}
-                  />
-                </div>
-              )}
             </div>
 
             <div className="border-t border-gray-100 p-5">
@@ -1384,6 +1360,392 @@ Thank you for choosing Kapuka! 🚀
 
     return (
       <>
+        {/* Hidden receipt for image generation - Modern Styling */}
+        <div
+          ref={receiptRef}
+          style={{
+            position: "absolute",
+            left: "-9999px",
+            top: "-9999px",
+            width: "450px",
+            background: "linear-gradient(135deg, #ffffff 0%, #f8faf8 100%)",
+            borderRadius: "24px",
+            padding: "0",
+            fontFamily:
+              "'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+            zIndex: -1,
+            visibility: "hidden",
+            overflow: "hidden",
+          }}
+        >
+          {/* Decorative Top Bar */}
+          <div
+            style={{
+              background: "linear-gradient(135deg, #01312D 0%, #3A7717 100%)",
+              padding: "20px 24px",
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "10px",
+                marginBottom: "8px",
+              }}
+            >
+              <span style={{ fontSize: "32px" }}>🚗</span>
+              <h1
+                style={{
+                  color: "white",
+                  margin: 0,
+                  fontSize: "28px",
+                  fontWeight: "800",
+                  letterSpacing: "-0.5px",
+                }}
+              >
+                Kapuka
+              </h1>
+            </div>
+            <p
+              style={{
+                color: "rgba(255,255,255,0.9)",
+                margin: 0,
+                fontSize: "13px",
+                fontWeight: "500",
+              }}
+            >
+              Service Confirmation Receipt
+            </p>
+          </div>
+
+          {/* OTP/Promo Section */}
+          <div style={{ padding: "24px", background: "white" }}>
+            <div
+              style={{
+                background: "linear-gradient(135deg, #FFF5E6 0%, #FFE5CC 100%)",
+                borderRadius: "20px",
+                padding: "24px",
+                textAlign: "center",
+                border: "1px solid rgba(191, 242, 2, 0.3)",
+              }}
+            >
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  background: "rgba(58, 119, 23, 0.1)",
+                  padding: "6px 16px",
+                  borderRadius: "50px",
+                  marginBottom: "16px",
+                }}
+              >
+                <span style={{ fontSize: "16px" }}>🔐</span>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    color: "#3A7717",
+                  }}
+                >
+                  {transactionLabel}
+                </span>
+              </div>
+              <div
+                style={{
+                  background: "white",
+                  borderRadius: "16px",
+                  padding: "20px",
+                  marginBottom: "16px",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                }}
+              >
+                <code
+                  style={{
+                    fontSize: "48px",
+                    fontWeight: "800",
+                    letterSpacing: "8px",
+                    color: "#01312D",
+                    fontFamily: "'Courier New', 'Fira Code', monospace",
+                    display: "block",
+                  }}
+                >
+                  {approvedRequest.otp || generatedOtp}
+                </code>
+              </div>
+              <p
+                style={{
+                  color: "#78350F",
+                  fontSize: "12px",
+                  fontWeight: "500",
+                  margin: 0,
+                }}
+              >
+                {getInstructionText(approvedRequest.type)}
+              </p>
+            </div>
+          </div>
+
+          {/* Details Section */}
+          <div style={{ padding: "0 24px 24px 24px", background: "white" }}>
+            <div
+              style={{
+                background: "#EAFDE7",
+                borderRadius: "20px",
+                padding: "20px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "16px",
+                  paddingBottom: "12px",
+                  borderBottom: "1px dashed rgba(191, 242, 2, 0.5)",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    color: "#01312D",
+                  }}
+                >
+                  DRIVER INFORMATION
+                </span>
+              </div>
+              <div style={{ marginBottom: "16px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: "12px",
+                  }}
+                >
+                  <span style={{ fontSize: "13px", color: "#666" }}>Name:</span>
+                  <strong style={{ fontSize: "13px", color: "#01312D" }}>
+                    {approvedRequest.driverName}
+                  </strong>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: "12px",
+                  }}
+                >
+                  <span style={{ fontSize: "13px", color: "#666" }}>
+                    Vehicle:
+                  </span>
+                  <strong style={{ fontSize: "13px", color: "#01312D" }}>
+                    {approvedRequest.carNumber}
+                  </strong>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: "12px",
+                  }}
+                >
+                  <span style={{ fontSize: "13px", color: "#666" }}>
+                    Service:
+                  </span>
+                  <strong style={{ fontSize: "13px", color: "#3A7717" }}>
+                    {getTypeLabel(approvedRequest.type)}
+                  </strong>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: "white",
+                  borderRadius: "16px",
+                  padding: "16px",
+                  marginBottom: "16px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <span style={{ fontSize: "13px", color: "#666" }}>
+                    Requested Amount:
+                  </span>
+                  <strong style={{ fontSize: "18px", color: "#01312D" }}>
+                    R{displayAmount.toLocaleString()}
+                  </strong>
+                </div>
+                <div
+                  style={{
+                    background: "#BFF20220",
+                    borderRadius: "12px",
+                    padding: "12px",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    <span style={{ fontSize: "12px", color: "#666" }}>
+                      Interest ({approvedRequest.interestRate || 13}%):
+                    </span>
+                    <strong style={{ fontSize: "12px", color: "#3A7717" }}>
+                      + R{approvedRequest.interest?.toLocaleString() || 0}
+                    </strong>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: "8px",
+                      paddingTop: "8px",
+                      borderTop: "1px dashed rgba(191, 242, 2, 0.3)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: "600",
+                        color: "#01312D",
+                      }}
+                    >
+                      Total Repayable:
+                    </span>
+                    <strong style={{ fontSize: "16px", color: "#3A7717" }}>
+                      R{displayTotal.toLocaleString()}
+                    </strong>
+                  </div>
+                  <div
+                    style={{ display: "flex", justifyContent: "space-between" }}
+                  >
+                    <span style={{ fontSize: "12px", color: "#666" }}>
+                      Daily Payment:
+                    </span>
+                    <strong style={{ fontSize: "12px", color: "#01312D" }}>
+                      R{displayDailyPayment.toLocaleString()}/day
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: "12px",
+                  color: "#666",
+                }}
+              >
+                <span>📅 {currentDate}</span>
+                <span>⏰ {currentTime}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Validity Banner - PROMINENT */}
+          <div
+            style={{
+              background: "linear-gradient(135deg, #BFF202 0%, #72BF00 100%)",
+              padding: "20px 24px",
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "12px",
+                marginBottom: "8px",
+              }}
+            >
+              <span style={{ fontSize: "28px" }}>⏰</span>
+              <span
+                style={{
+                  fontSize: "20px",
+                  fontWeight: "800",
+                  color: "#01312D",
+                  letterSpacing: "-0.5px",
+                }}
+              >
+                VALID FOR 1 HOUR
+              </span>
+              <span style={{ fontSize: "28px" }}>⏰</span>
+            </div>
+            <p
+              style={{
+                margin: 0,
+                fontSize: "12px",
+                color: "#01312D",
+                opacity: 0.8,
+                fontWeight: "500",
+              }}
+            >
+              Expires at{" "}
+              {expiryTime.toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+              })}
+            </p>
+            <div
+              style={{
+                marginTop: "12px",
+                background: "#01312D20",
+                borderRadius: "8px",
+                padding: "6px 12px",
+                display: "inline-block",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "11px",
+                  fontWeight: "600",
+                  color: "#01312D",
+                }}
+              >
+                ✓ Keep this receipt for reference
+              </span>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div
+            style={{
+              padding: "16px 24px",
+              textAlign: "center",
+              background: "#f8faf8",
+            }}
+          >
+            <p
+              style={{
+                margin: 0,
+                fontSize: "10px",
+                color: "#999",
+                letterSpacing: "0.5px",
+              }}
+            >
+              Kapuka Services • Customer Support: 24/7
+            </p>
+            <p style={{ margin: "4px 0 0 0", fontSize: "9px", color: "#bbb" }}>
+              Powered by Kapuka Driver Services
+            </p>
+          </div>
+        </div>
+
+        {/* Modal UI - Modern Design */}
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -1393,7 +1755,7 @@ Thank you for choosing Kapuka! 🚀
               setShowWhatsAppModal(false)
             }
           ></div>
-          <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="bg-gradient-to-r from-[#25D366] to-[#128C7E] rounded-t-2xl p-5 sticky top-0 z-10">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -1412,7 +1774,7 @@ Thank you for choosing Kapuka! 🚀
                 {!whatsappLoading && !imageGenerating && (
                   <button
                     onClick={() => setShowWhatsAppModal(false)}
-                    className="p-1 hover:bg-white/10 rounded-lg"
+                    className="p-1 hover:bg-white/10 rounded-lg transition-colors"
                   >
                     <X className="w-5 h-5 text-white" />
                   </button>
@@ -1421,395 +1783,46 @@ Thank you for choosing Kapuka! 🚀
             </div>
 
             <div className="p-5 space-y-4">
-              {/* Hidden receipt for image generation */}
-              <div
-                ref={receiptRef}
-                style={{
-                  position: "fixed",
-                  left: "-9999px",
-                  top: "0",
-                  width: "400px",
-                  background: "white",
-                  borderRadius: "20px",
-                  padding: "20px",
-                  fontFamily:
-                    "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-                  zIndex: -1,
-                }}
-              >
-                <div
-                  style={{
-                    textAlign: "center",
-                    borderBottom: "2px solid #3A7717",
-                    paddingBottom: "15px",
-                    marginBottom: "15px",
-                  }}
-                >
-                  <h2
-                    style={{
-                      color: "#01312D",
-                      margin: 0,
-                      fontSize: "28px",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    🚗 Kapuka
-                  </h2>
-                  <p
-                    style={{
-                      color: "#72bf00",
-                      margin: "5px 0 0",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                    }}
-                  >
-                    Service Receipt
-                  </p>
-                </div>
-
-                <div style={{ marginBottom: "15px" }}>
-                  <div
-                    style={{
-                      background:
-                        "linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)",
-                      borderRadius: "12px",
-                      padding: "20px",
-                      textAlign: "center",
-                    }}
-                  >
-                    <p
-                      style={{
-                        color: "white",
-                        margin: "0 0 8px 0",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        opacity: 0.9,
-                      }}
-                    >
-                      🔐 {transactionLabel}
-                    </p>
-                    <div
-                      style={{
-                        background: "white",
-                        borderRadius: "12px",
-                        padding: "16px",
-                        marginBottom: "12px",
-                      }}
-                    >
-                      <code
-                        style={{
-                          fontSize: "42px",
-                          fontWeight: "bold",
-                          letterSpacing: "6px",
-                          color: "#01312D",
-                          fontFamily: "'Courier New', 'Fira Code', monospace",
-                          display: "block",
-                        }}
-                      >
-                        {approvedRequest.otp || generatedOtp}
-                      </code>
-                    </div>
-                    <p
-                      style={{
-                        color: "white",
-                        fontSize: "12px",
-                        margin: "0",
-                        fontWeight: "500",
-                        opacity: 0.95,
-                      }}
-                    >
-                      {getInstructionText(approvedRequest.type)}
-                    </p>
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: "15px" }}>
-                  <div
-                    style={{
-                      background: "#eafde7",
-                      borderRadius: "12px",
-                      padding: "15px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        marginBottom: "10px",
-                        fontSize: "13px",
-                      }}
-                    >
-                      <span style={{ color: "#666" }}>Driver:</span>
-                      <strong style={{ color: "#01312D" }}>
-                        {approvedRequest.driverName}
-                      </strong>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        marginBottom: "10px",
-                        fontSize: "13px",
-                      }}
-                    >
-                      <span style={{ color: "#666" }}>Vehicle:</span>
-                      <strong style={{ color: "#01312D" }}>
-                        {approvedRequest.carNumber}
-                      </strong>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        marginBottom: "10px",
-                        fontSize: "13px",
-                      }}
-                    >
-                      <span style={{ color: "#666" }}>Service:</span>
-                      <strong style={{ color: "#01312D" }}>
-                        {getTypeLabel(approvedRequest.type)}
-                      </strong>
-                    </div>
-                    {hasActualAmount && (
-                      <>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            marginBottom: "5px",
-                            fontSize: "12px",
-                            textDecoration: "line-through",
-                            color: "#999",
-                          }}
-                        >
-                          <span style={{ color: "#999" }}>Requested:</span>
-                          <span>
-                            R{approvedRequest.amount?.toLocaleString()}
-                          </span>
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            marginBottom: "10px",
-                            fontSize: "13px",
-                          }}
-                        >
-                          <span style={{ color: "#666" }}>Actual Amount:</span>
-                          <strong style={{ color: "#3A7717" }}>
-                            R{displayAmount.toLocaleString()}
-                          </strong>
-                        </div>
-                      </>
-                    )}
-                    {!hasActualAmount && (
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          marginBottom: "10px",
-                          fontSize: "13px",
-                        }}
-                      >
-                        <span style={{ color: "#666" }}>Amount:</span>
-                        <strong style={{ color: "#3A7717", fontSize: "16px" }}>
-                          R{displayAmount.toLocaleString()}
-                        </strong>
-                      </div>
-                    )}
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        marginBottom: "10px",
-                        fontSize: "13px",
-                      }}
-                    >
-                      <span style={{ color: "#666" }}>Request ID:</span>
-                      <strong
-                        style={{ color: "#01312D", fontFamily: "monospace" }}
-                      >
-                        {approvedRequest.id.slice(-6).toUpperCase()}
-                      </strong>
-                    </div>
-
-                    <div
-                      style={{
-                        marginTop: "12px",
-                        paddingTop: "12px",
-                        borderTop: "1px dashed #bff202",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          marginBottom: "8px",
-                          fontSize: "12px",
-                        }}
-                      >
-                        <span style={{ color: "#666" }}>📅 Date:</span>
-                        <strong style={{ color: "#01312D" }}>
-                          {getCurrentDate()}
-                        </strong>
-                      </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          fontSize: "12px",
-                        }}
-                      >
-                        <span style={{ color: "#666" }}>⏰ Time:</span>
-                        <strong style={{ color: "#01312D" }}>
-                          {getCurrentTime()}
-                        </strong>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {(approvedRequest.type === "cash" ||
-                  approvedRequest.type === "fuel") && (
-                  <div style={{ marginBottom: "15px" }}>
-                    <div
-                      style={{
-                        background: "#fef3c7",
-                        borderRadius: "12px",
-                        padding: "12px",
-                      }}
-                    >
-                      <p
-                        style={{
-                          margin: "0 0 8px 0",
-                          fontSize: "12px",
-                          fontWeight: "600",
-                          color: "#92400e",
-                        }}
-                      >
-                        📊 Repayment Details
-                      </p>
-                      <div style={{ fontSize: "11px", color: "#78350f" }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            marginBottom: "5px",
-                          }}
-                        >
-                          <span>Interest Rate:</span>
-                          <strong>{approvedRequest.interestRate || 13}%</strong>
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            marginBottom: "5px",
-                          }}
-                        >
-                          <span>Interest Amount:</span>
-                          <strong>
-                            R{approvedRequest.interest?.toLocaleString() || 0}
-                          </strong>
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            marginBottom: "5px",
-                          }}
-                        >
-                          <span>Total Repayable:</span>
-                          <strong>R{displayTotal.toLocaleString()}</strong>
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          <span>Daily Payment:</span>
-                          <strong>
-                            R{displayDailyPayment.toLocaleString()}/day
-                          </strong>
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          <span>Period:</span>
-                          <strong>
-                            {approvedRequest.repaymentDays || 7} days
-                          </strong>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div
-                  style={{
-                    background: "#bff20220",
-                    borderRadius: "10px",
-                    padding: "10px",
-                    textAlign: "center",
-                    fontSize: "11px",
-                    color: "#666",
-                    marginTop: "15px",
-                  }}
-                >
-                  <p style={{ margin: "0 0 4px 0", fontWeight: "500" }}>
-                    ✅ Valid for 30 minutes
-                  </p>
-                  <p style={{ margin: "0", fontSize: "10px", opacity: 0.7 }}>
-                    Kapuka Services • powered by Kapuka
-                  </p>
-                </div>
-              </div>
-
-              {/* Driver Info */}
-              <div className="bg-green-50 rounded-xl p-4">
+              {/* Driver Info Card */}
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-100">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <User className="w-5 h-5 text-green-600" />
+                  <div className="w-12 h-12 bg-gradient-to-r from-[#3A7717] to-[#72BF00] rounded-full flex items-center justify-center shadow-md">
+                    <User className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-[#01312D]">
+                    <h3 className="font-bold text-[#01312D] text-lg">
                       {approvedRequest.driverName}
                     </h3>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-600">
                       {approvedRequest.carNumber}
                     </p>
                   </div>
                 </div>
                 <div className="space-y-2 text-sm">
-                  <p className="flex items-center gap-2">
-                    <Phone className="w-4 h-4 text-green-600" />
+                  <div className="flex items-center gap-2 p-2 bg-white/60 rounded-lg">
+                    <Phone className="w-4 h-4 text-[#3A7717]" />
                     <span className="text-gray-600">Phone:</span>
-                    <span className="font-semibold">
+                    <span className="font-semibold text-[#01312D]">
                       {approvedRequest.driverPhone}
                     </span>
-                  </p>
-                  <p className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-green-600" />
+                  </div>
+                  <div className="flex items-center gap-2 p-2 bg-white/60 rounded-lg">
+                    <DollarSign className="w-4 h-4 text-[#3A7717]" />
                     <span className="text-gray-600">Amount:</span>
-                    <span className="font-bold text-green-600">
+                    <span className="font-bold text-[#3A7717] text-lg">
                       R{displayAmount.toLocaleString()}
                     </span>
-                  </p>
+                  </div>
                 </div>
               </div>
 
-              {/* Prominent Display */}
-              <div className="bg-gradient-to-r from-yellow-400 to-orange-400 rounded-xl p-5 text-center">
-                <p className="text-white text-sm font-semibold mb-2">
-                  🔐 {transactionLabel}
+              {/* OTP Display */}
+              <div className="bg-gradient-to-r from-amber-400 to-orange-500 rounded-xl p-5 text-center shadow-lg">
+                <p className="text-white text-sm font-semibold mb-2 flex items-center justify-center gap-2">
+                  <span>🔐</span> {transactionLabel}
                 </p>
-                <div className="bg-white rounded-xl p-4 mb-3">
-                  <code className="text-4xl md:text-5xl font-bold tracking-wider text-[#01312D] font-mono">
+                <div className="bg-white rounded-xl p-4 mb-3 shadow-inner">
+                  <code className="text-3xl md:text-4xl font-bold tracking-wider text-[#01312D] font-mono">
                     {approvedRequest.otp || generatedOtp}
                   </code>
                 </div>
@@ -1817,10 +1830,29 @@ Thank you for choosing Kapuka! 🚀
                   onClick={() =>
                     handleCopyOtp(approvedRequest.otp || generatedOtp)
                   }
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-white font-semibold hover:bg-white/30"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-white font-semibold hover:bg-white/30 transition-all"
                 >
-                  <Copy className="w-4 h-4" /> Copy {transactionLabel}
+                  <Copy className="w-4 h-4" /> Copy Code
                 </button>
+              </div>
+
+              {/* Validity Notice - PROMINENT */}
+              <div className="bg-gradient-to-r from-[#BFF202] to-[#72BF00] rounded-xl p-4 text-center shadow-md">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <span className="text-2xl">⏰</span>
+                  <p className="font-extrabold text-[#01312D] text-lg">
+                    VALID FOR 1 HOUR
+                  </p>
+                  <span className="text-2xl">⏰</span>
+                </div>
+                <p className="text-xs text-[#01312D] font-medium">
+                  Expires at{" "}
+                  {expiryTime.toLocaleTimeString("en-US", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: true,
+                  })}
+                </p>
               </div>
 
               {/* Date & Time */}
@@ -1831,57 +1863,58 @@ Thank you for choosing Kapuka! 🚀
                     <span className="text-xs text-gray-600">Generated on:</span>
                   </div>
                   <span className="text-xs font-semibold text-[#01312D]">
-                    {getCurrentDateTime()}
+                    {currentDateTime}
                   </span>
                 </div>
               </div>
 
               {/* Instructions */}
-              <div className="bg-blue-50 rounded-xl p-3">
+              <div className="bg-blue-50 rounded-xl p-3 border border-blue-100">
                 <div className="flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5" />
                   <div>
-                    <p className="text-xs text-blue-800">
-                      Clicking "Send via WhatsApp" will:
+                    <p className="text-xs font-semibold text-blue-800">
+                      Quick Tips:
                     </p>
                     <ul className="text-xs text-blue-700 mt-1 space-y-0.5 list-disc list-inside">
-                      <li>Generate and download the receipt image</li>
-                      <li>Open WhatsApp with a detailed message</li>
-                      <li>The image will be saved to your downloads folder</li>
+                      <li>Download receipt image for your records</li>
+                      <li>Send via WhatsApp with pre-filled message</li>
+                      <li>Receipt valid for 1 hour from generation</li>
                     </ul>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="grid border-t border-[#bff202]/20 p-5 gap-3 sticky bottom-0 bg-white">
+            <div className="border-t border-[#bff202]/20 p-5 flex flex-col gap-3 sticky bottom-0 bg-white">
               <button
-                onClick={handleGenerateImage}
-                disabled={whatsappLoading || imageGenerating}
-                className="flex-1 bg-[#01312D] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-colors disabled:opacity-50"
+                onClick={handleDownloadImage}
+                disabled={imageGenerating}
+                className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
               >
                 {imageGenerating ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> Generating...
+                    <Loader2 className="w-4 h-4 animate-spin" /> Generating
+                    Receipt...
                   </>
                 ) : (
                   <>
-                    <ImageIcon className="w-4 h-4" /> Download Image
+                    <ImageIcon className="w-4 h-4" /> Download Receipt Image
                   </>
                 )}
               </button>
               <button
-                onClick={handleSendImageViaWhatsApp}
+                onClick={handleSendViaWhatsApp}
                 disabled={whatsappLoading || imageGenerating}
-                className="flex-1 bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+                className="w-full bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
               >
                 {whatsappLoading ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> Sending...
+                    <Loader2 className="w-4 h-4 animate-spin" /> Processing...
                   </>
                 ) : (
                   <>
-                    <MessageCircle className="w-4 h-4" /> Send via WhatsApp
+                    <MessageCircle className="w-4 h-4" /> Share via WhatsApp
                   </>
                 )}
               </button>
@@ -1993,18 +2026,11 @@ Thank you for choosing Kapuka! 🚀
             </div>
           </div>
 
-          <div className="border-t p-5 flex gap-3">
-            <button
-              onClick={() => setShowApproveModal(false)}
-              disabled={approvalLoading}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700"
-            >
-              Cancel
-            </button>
+          <div className="border-t p-5 flex flex-col gap-3">
             <button
               onClick={handleConfirmApprove}
               disabled={approvalLoading}
-              className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+              className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
             >
               {approvalLoading ? (
                 <>
@@ -2015,6 +2041,13 @@ Thank you for choosing Kapuka! 🚀
                   <CheckCircle className="w-4 h-4" /> Confirm Approval
                 </>
               )}
+            </button>
+            <button
+              onClick={() => setShowApproveModal(false)}
+              disabled={approvalLoading}
+              className="flex-1 px-4 py-3 border border-gray-300 rounded-xl font-semibold text-gray-700"
+            >
+              Cancel
             </button>
           </div>
         </div>
@@ -2071,6 +2104,10 @@ Thank you for choosing Kapuka! 🚀
           <p className="text-xl font-bold text-blue-600">{stats.approved}</p>
         </div>
         <div className="bg-white rounded-xl p-3 shadow-sm border border-[#BFF202]/20">
+          <p className="text-xs text-gray-500">Sent</p>
+          <p className="text-xl font-bold text-purple-600">{stats.sent}</p>
+        </div>
+        <div className="bg-white rounded-xl p-3 shadow-sm border border-[#BFF202]/20">
           <p className="text-xs text-gray-500">Completed</p>
           <p className="text-xl font-bold text-[#3A7717]">{stats.completed}</p>
         </div>
@@ -2084,12 +2121,6 @@ Thank you for choosing Kapuka! 🚀
           <p className="text-xs text-gray-500">Actual</p>
           <p className="text-xl font-bold text-[#3A7717]">
             R{stats.totalActualAmount.toLocaleString()}
-          </p>
-        </div>
-        <div className="bg-white rounded-xl p-3 shadow-sm border border-[#BFF202]/20">
-          <p className="text-xs text-gray-500">Repayable</p>
-          <p className="text-xl font-bold text-[#72BF00]">
-            R{stats.totalRepayable.toLocaleString()}
           </p>
         </div>
       </div>
@@ -2119,30 +2150,41 @@ Thank you for choosing Kapuka! 🚀
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-2 border-b border-[#BFF202]/20 overflow-x-auto pb-0">
-        {["all", "pending", "approved", "completed", "rejected"].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setSelectedTab(tab as any)}
-            className={`px-4 py-2 font-semibold capitalize transition-all whitespace-nowrap ${selectedTab === tab ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}
-          >
-            {tab}
-            {tab === "pending" && stats.pending > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">
-                {stats.pending}
-              </span>
-            )}
-            {tab === "approved" && stats.approved > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 bg-blue-500 text-white text-xs rounded-full">
-                {stats.approved}
-              </span>
-            )}
-            {tab === "completed" && stats.completed > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 bg-[#3A7717] text-white text-xs rounded-full">
-                {stats.completed}
-              </span>
-            )}
-          </button>
-        ))}
+        {["all", "pending", "approved", "sent", "completed", "rejected"].map(
+          (tab) => (
+            <button
+              key={tab}
+              onClick={() => setSelectedTab(tab as any)}
+              className={`px-4 py-2 font-semibold capitalize transition-all whitespace-nowrap ${
+                selectedTab === tab
+                  ? "text-[#3A7717] border-b-2 border-[#3A7717]"
+                  : "text-gray-500"
+              }`}
+            >
+              {tab}
+              {tab === "pending" && stats.pending > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">
+                  {stats.pending}
+                </span>
+              )}
+              {tab === "approved" && stats.approved > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 bg-blue-500 text-white text-xs rounded-full">
+                  {stats.approved}
+                </span>
+              )}
+              {tab === "sent" && stats.sent > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 bg-purple-500 text-white text-xs rounded-full">
+                  {stats.sent}
+                </span>
+              )}
+              {tab === "completed" && stats.completed > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 bg-[#3A7717] text-white text-xs rounded-full">
+                  {stats.completed}
+                </span>
+              )}
+            </button>
+          ),
+        )}
       </div>
 
       <div className="space-y-3">
@@ -2221,44 +2263,41 @@ Thank you for choosing Kapuka! 🚀
                       setSelectedRequest(request);
                       setShowModal(true);
                     }}
-                    className="flex-1 py-2 bg-[#EAFDE7] rounded-lg text-[#01312D] text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#BFF202]/30 transition-colors"
+                    className="flex-1 py-2 bg-[#EAFDE7] rounded-lg text-[#01312D] text-xs font-semibold flex items-center justify-center gap-1 hover:bg-[#BFF202]/30 transition-colors"
                   >
-                    <Eye className="w-4 h-4" /> View Details
+                    <Eye className="w-4 h-4" /> Details
                   </button>
                   {request.status === "pending" && (
                     <>
                       <button
                         onClick={() => openApproveModal(request)}
-                        className="flex-1 py-2 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors"
+                        className="flex-1 py-2 bg-[#3A7717] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors"
                       >
                         <CheckCircle className="w-4 h-4" /> Approve
                       </button>
                       <button
                         onClick={() => handleReject(request)}
-                        className="flex-1 py-2 bg-red-500 text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors"
+                        className="flex-1 py-2 bg-red-500 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1 hover:bg-red-600 transition-colors"
                       >
                         <XCircle className="w-4 h-4" /> Reject
                       </button>
                     </>
                   )}
                   {request.status === "approved" && (
-                    <>
-                      <button
-                        onClick={() => {
-                          setApprovedRequest(request);
-                          setShowWhatsAppModal(true);
-                        }}
-                        className="flex-1 py-2 bg-[#25D366] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#128C7E] transition-colors"
-                      >
-                        <Send className="w-4 h-4" /> WhatsApp
-                      </button>
-                      <button
-                        onClick={() => handleComplete(request)}
-                        className="flex-1 py-2 bg-[#01312D] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-colors"
-                      >
-                        <CheckCircle className="w-4 h-4" /> Complete
-                      </button>
-                    </>
+                    <button
+                      onClick={() => {
+                        setSentRequest(request);
+                        setShowSentModal(true);
+                      }}
+                      className="flex-1 py-2 bg-[#01312D] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-colors"
+                    >
+                      <Truck className="w-4 h-4" /> Mark as Sent
+                    </button>
+                  )}
+                  {request.status === "sent" && (
+                    <div className="flex-1 py-2 bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1">
+                      <Clock className="w-4 h-4" /> Awaiting Driver Confirmation
+                    </div>
                   )}
                 </div>
               </div>
@@ -2276,7 +2315,7 @@ Thank you for choosing Kapuka! 🚀
       )}
       {showApproveModal && <ApprovalModal />}
       {showWhatsAppModal && approvedRequest && <WhatsAppModal />}
-      {showCompleteConfirmModal && <CompleteConfirmModal />}
+      {showSentModal && sentRequest && <SentModal />}
       {showRejectModal && <RejectionModal />}
       <SuccessModal />
       <ErrorModal />

@@ -105,9 +105,9 @@ export function RepaymentProofModal({
       onSuccess();
       onClose();
       resetForm();
-      alert(
-        `✅ Repayment of R${amountNum.toLocaleString()} submitted for approval!`,
-      );
+      // alert(
+      //   `✅ Repayment of R${amountNum.toLocaleString()} submitted for approval!`,
+      // );
     } catch (err: any) {
       setError(
         err.message || "Failed to submit repayment proof. Please try again.",

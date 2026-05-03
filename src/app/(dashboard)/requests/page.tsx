@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import BottomNavigation from "@/components/BottomNavigation";
 import {
   Fuel,
   Smartphone,
@@ -84,6 +85,23 @@ function RequestsPageContent() {
   const [selectedRepaymentDays, setSelectedRepaymentDays] = useState<number>(7);
   const [serviceConfig, setServiceConfig] = useState(DEFAULT_CONFIG);
   const [settingsLoading, setSettingsLoading] = useState(true);
+
+  const [approvedCount, setApprovedCount] = useState(0);
+
+  // Fetch approved count
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetch(`/api/driver/requests?userId=${session.user.id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          const approved = data.filter(
+            (r: any) => r.status === "approved" || r.status === "sent",
+          ).length;
+          setApprovedCount(approved);
+        })
+        .catch((err) => console.error("Error fetching approved count:", err));
+    }
+  }, [session]);
 
   // Fetch settings from API
   useEffect(() => {
@@ -571,7 +589,6 @@ function RequestsPageContent() {
     <div className="min-h-screen bg-[#eafde7] relative overflow-hidden pb-32">
       <div className="absolute top-0 right-0 w-80 h-80 bg-[#bff202]/10 rounded-full blur-3xl"></div>
       <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#3A7717]/5 rounded-full blur-3xl"></div>
-
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
@@ -601,7 +618,6 @@ function RequestsPageContent() {
           </div>
         </div>
       )}
-
       <main className="relative z-10">
         <div className="bg-white border-b border-[#bff202]/20 sticky top-0 z-20">
           <div className="px-5 py-4 flex items-center gap-3">
@@ -920,6 +936,8 @@ function RequestsPageContent() {
           </form>
         </div>
       </main>
+      
+      <BottomNavigation approvedCount={approvedCount} isAdmin={false} />
     </div>
   );
 }

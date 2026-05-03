@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import BottomNavigation from "@/components/BottomNavigation";
 import {
   Car,
   Wallet,
@@ -43,6 +44,24 @@ export default function DriverDashboard() {
   });
   const [recentRequests, setRecentRequests] = useState<any[]>([]);
   const [activeLoan, setActiveLoan] = useState<any>(null);
+
+  // In your component, add approved count state
+  const [approvedCount, setApprovedCount] = useState(0);
+
+  // Fetch approved count
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetch(`/api/driver/requests?userId=${session.user.id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          const approved = data.filter(
+            (r: any) => r.status === "approved" || r.status === "sent",
+          ).length;
+          setApprovedCount(approved);
+        })
+        .catch((err) => console.error("Error fetching approved count:", err));
+    }
+  }, [session]);
 
   useEffect(() => {
     if (!isPending) {
@@ -499,57 +518,7 @@ export default function DriverDashboard() {
       </div>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 z-50 shadow-lg">
-        <div className="flex justify-around items-center">
-          <button
-            onClick={() => router.push("/")}
-            className="flex flex-col items-center gap-0.5 py-1 group active:scale-95 transition-transform"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-              <Home className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-              Home
-            </span>
-          </button>
-
-          <button
-            onClick={() => router.push("/requests")}
-            className="flex flex-col items-center gap-0.5 py-1 group active:scale-95 transition-transform"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-              <ClipboardList className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-              Requests
-            </span>
-          </button>
-
-          <button
-            onClick={() => router.push("/requests/history")}
-            className="flex flex-col items-center gap-0.5 py-1 group active:scale-95 transition-transform"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-              <History className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-              History
-            </span>
-          </button>
-
-          <button
-            onClick={() => router.push("/profile")}
-            className="flex flex-col items-center gap-0.5 py-1 group active:scale-95 transition-transform"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-              <UserCircle className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-              Profile
-            </span>
-          </button>
-        </div>
-      </nav>
+     <BottomNavigation approvedCount={approvedCount} isAdmin={false} />
     </div>
   );
 }
