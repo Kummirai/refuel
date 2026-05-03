@@ -1245,7 +1245,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Action Buttons */}
-          <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
+          {/* <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
             {mappedVerification.verificationStatus === "pending" && (
               <>
                 <button
@@ -1268,7 +1268,7 @@ export default function AdminDashboard() {
             >
               Close
             </button>
-          </div>
+          </div> */}
         </div>
       </div>
     );
