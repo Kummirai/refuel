@@ -53,7 +53,7 @@ interface Repayment {
   repaidAmount: number;
   remainingAmount: number;
   dueDate: string;
-  status: "paid" | "pending" | "overdue";
+  status: "paid" | "pending" | "overdue" | "completed";
   dailyPayment: number;
   repaymentDays: number;
   nextPaymentDate: string;
@@ -113,6 +113,9 @@ export default function LoanRepaymentsPage() {
     "cash" | "bank_transfer" | "card"
   >("cash");
   const [paymentReference, setPaymentReference] = useState("");
+
+  // Bulk selection states
+  const [selectedRepayments, setSelectedRepayments] = useState<string[]>([]);
 
   // Repayment Proof approval states
   const [showProofModal, setShowProofModal] = useState(false);
@@ -194,6 +197,151 @@ export default function LoanRepaymentsPage() {
     }
   };
 
+  const handleMarkAsCompleted = async (repayment: Repayment) => {
+    // Check if there's any remaining balance
+    if (repayment.remainingAmount > 0) {
+      if (
+        !confirm(
+          `⚠️ WARNING: This ${repayment.serviceTypeLabel} still has a remaining balance of R${repayment.remainingAmount.toLocaleString()}.\n\n` +
+            `Force completing will mark it as closed despite the outstanding balance.\n\n` +
+            `Driver: ${repayment.driverName}\n` +
+            `Vehicle: ${repayment.carRegistration}\n\n` +
+            `Are you sure you want to force complete this repayment?`,
+        )
+      ) {
+        return;
+      }
+    } else {
+      if (
+        !confirm(
+          `Are you sure you want to mark this ${repayment.serviceTypeLabel} as COMPLETED?\n\n` +
+            `Driver: ${repayment.driverName}\n` +
+            `Vehicle: ${repayment.carRegistration}\n` +
+            `Total Repaid: R${repayment.repaidAmount.toLocaleString()}\n\n` +
+            `This action will close the repayment and mark it as fully completed.`,
+        )
+      ) {
+        return;
+      }
+    }
+
+    setProcessing(true);
+    try {
+      const response = await fetch("/api/admin/repayments/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          repaymentId: repayment.id,
+          completedAt: new Date().toISOString(),
+          forceComplete: repayment.remainingAmount > 0,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setSuccessMessage(
+          `✅ ${repayment.serviceTypeLabel} marked as COMPLETED successfully!\n\n` +
+            `Driver: ${repayment.driverName}\n` +
+            `Total Repaid: R${repayment.repaidAmount.toLocaleString()}` +
+            (repayment.remainingAmount > 0
+              ? `\n\nNote: Remaining balance of R${repayment.remainingAmount.toLocaleString()} was written off.`
+              : ""),
+        );
+        setShowSuccessModal(true);
+        await fetchRepayments();
+        setShowDetailsModal(false);
+        setSelectedRepayment(null);
+      } else {
+        const error = await response.json();
+        setErrorMessage(error.error || "Failed to mark repayment as completed");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error marking repayment as completed:", error);
+      setErrorMessage("Failed to mark repayment as completed");
+      setShowErrorModal(true);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleBulkComplete = async () => {
+    if (selectedRepayments.length === 0) return;
+
+    const selectedRepaymentObjects = repayments.filter((r) =>
+      selectedRepayments.includes(r.id),
+    );
+    const hasOutstandingBalance = selectedRepaymentObjects.some(
+      (r) => r.remainingAmount > 0,
+    );
+
+    let confirmMessage = `Are you sure you want to mark ${selectedRepayments.length} repayment(s) as COMPLETED?\n\n`;
+
+    if (hasOutstandingBalance) {
+      confirmMessage +=
+        `⚠️ WARNING: Some selected repayments have outstanding balances.\n` +
+        `These will be force completed and the remaining balances will be written off.\n\n`;
+    }
+
+    confirmMessage += `This action cannot be undone.`;
+
+    if (!confirm(confirmMessage)) return;
+
+    setProcessing(true);
+    try {
+      const response = await fetch("/api/admin/repayments/bulk-complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          repaymentIds: selectedRepayments,
+          completedAt: new Date().toISOString(),
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setSuccessMessage(
+          `✅ Successfully marked ${result.completedCount} repayment(s) as completed!` +
+            (result.writeOffCount > 0
+              ? `\n\n${result.writeOffCount} had outstanding balances that were written off.`
+              : ""),
+        );
+        setShowSuccessModal(true);
+        await fetchRepayments();
+        setSelectedRepayments([]);
+      } else {
+        const error = await response.json();
+        setErrorMessage(error.error || "Failed to complete repayments");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error in bulk complete:", error);
+      setErrorMessage("Failed to complete repayments");
+      setShowErrorModal(true);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const toggleRepaymentSelection = (repaymentId: string) => {
+    setSelectedRepayments((prev) =>
+      prev.includes(repaymentId)
+        ? prev.filter((id) => id !== repaymentId)
+        : [...prev, repaymentId],
+    );
+  };
+
+  const selectAllVisible = () => {
+    const visibleIds = filteredRepayments
+      .filter((r) => r.status !== "paid" && r.status !== "completed")
+      .map((r) => r.id);
+    setSelectedRepayments(visibleIds);
+  };
+
+  const clearSelections = () => {
+    setSelectedRepayments([]);
+  };
+
   const handleMarkLoanAsFullyPaid = async (repayment: Repayment) => {
     if (
       !confirm(
@@ -209,6 +357,7 @@ export default function LoanRepaymentsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           repaymentId: repayment.id,
+          completedAt: new Date().toISOString(),
         }),
       });
 
@@ -361,9 +510,10 @@ export default function LoanRepaymentsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "paid":
+      case "completed":
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-green-100 text-green-700">
-            <CheckCircle className="w-3 h-3" /> Paid
+            <CheckCircle className="w-3 h-3" /> Completed
           </span>
         );
       case "pending":
@@ -413,8 +563,10 @@ export default function LoanRepaymentsPage() {
 
   const filteredRepayments = repayments
     .filter((r) => {
-      if (activeTab === "outstanding") return r.status !== "paid";
-      if (activeTab === "paid") return r.status === "paid";
+      if (activeTab === "outstanding")
+        return r.status !== "paid" && r.status !== "completed";
+      if (activeTab === "paid")
+        return r.status === "paid" || r.status === "completed";
       return true;
     })
     .filter(
@@ -426,13 +578,15 @@ export default function LoanRepaymentsPage() {
 
   const stats = {
     totalOutstanding: repayments
-      .filter((r) => r.status !== "paid")
+      .filter((r) => r.status !== "paid" && r.status !== "completed")
       .reduce((sum, r) => sum + r.remainingAmount, 0),
     totalPaid: repayments
-      .filter((r) => r.status === "paid")
+      .filter((r) => r.status === "paid" || r.status === "completed")
       .reduce((sum, r) => sum + r.repaidAmount, 0),
     totalLoans: repayments.length,
-    activeLoans: repayments.filter((r) => r.status !== "paid").length,
+    activeLoans: repayments.filter(
+      (r) => r.status !== "paid" && r.status !== "completed",
+    ).length,
     overdueCount: repayments.filter((r) => r.status === "overdue").length,
     pendingProofs: repayments.reduce(
       (sum, r) =>
@@ -470,7 +624,7 @@ export default function LoanRepaymentsPage() {
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-10 h-10 text-green-600" />
             </div>
-            <p className="text-[#01312D] font-semibold mb-2">
+            <p className="text-[#01312D] font-semibold mb-2 whitespace-pre-line">
               {successMessage}
             </p>
           </div>
@@ -515,7 +669,9 @@ export default function LoanRepaymentsPage() {
             <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <XCircle className="w-10 h-10 text-red-600" />
             </div>
-            <p className="text-[#01312D] font-semibold mb-2">{errorMessage}</p>
+            <p className="text-[#01312D] font-semibold mb-2 whitespace-pre-line">
+              {errorMessage}
+            </p>
           </div>
 
           <div className="border-t border-gray-100 p-5">
@@ -955,130 +1111,6 @@ export default function LoanRepaymentsPage() {
     );
   };
 
-  // Add this new function to mark repayment as completed
-  const handleMarkAsCompleted = async (repayment: Repayment) => {
-    // Check if there's any remaining balance
-    if (repayment.remainingAmount > 0) {
-      setErrorMessage(
-        `Cannot mark as completed. Remaining balance of R${repayment.remainingAmount.toLocaleString()} needs to be paid first.`,
-      );
-      setShowErrorModal(true);
-      return;
-    }
-
-    if (
-      !confirm(
-        `Are you sure you want to mark this ${repayment.serviceTypeLabel} as COMPLETED?\n\n` +
-          `Driver: ${repayment.driverName}\n` +
-          `Vehicle: ${repayment.carRegistration}\n` +
-          `Total Repaid: R${repayment.repaidAmount.toLocaleString()}\n\n` +
-          `This action will close the repayment and mark it as fully completed.`,
-      )
-    )
-      return;
-
-    setProcessing(true);
-    try {
-      const response = await fetch("/api/admin/repayments/complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          repaymentId: repayment.id,
-          completedAt: new Date().toISOString(),
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        setSuccessMessage(
-          `✅ ${repayment.serviceTypeLabel} marked as COMPLETED successfully!\n\n` +
-            `Driver: ${repayment.driverName}\n` +
-            `Total Repaid: R${repayment.repaidAmount.toLocaleString()}`,
-        );
-        setShowSuccessModal(true);
-        await fetchRepayments(); // Refresh the list
-        setShowDetailsModal(false);
-        setSelectedRepayment(null);
-      } else {
-        const error = await response.json();
-        setErrorMessage(error.error || "Failed to mark repayment as completed");
-        setShowErrorModal(true);
-      }
-    } catch (error) {
-      console.error("Error marking repayment as completed:", error);
-      setErrorMessage("Failed to mark repayment as completed");
-      setShowErrorModal(true);
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  // Add this function for bulk complete (optional - for admin efficiency)
-  const handleBulkComplete = async (repaymentIds: string[]) => {
-    if (repaymentIds.length === 0) return;
-
-    if (
-      !confirm(
-        `Are you sure you want to mark ${repaymentIds.length} repayment(s) as COMPLETED?\n\n` +
-          `This will close all selected repayments.`,
-      )
-    )
-      return;
-
-    setProcessing(true);
-    try {
-      const response = await fetch("/api/admin/repayments/bulk-complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repaymentIds }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        setSuccessMessage(
-          `✅ Successfully marked ${result.completedCount} repayment(s) as completed!`,
-        );
-        setShowSuccessModal(true);
-        await fetchRepayments();
-      } else {
-        const error = await response.json();
-        setErrorMessage(error.error || "Failed to complete repayments");
-        setShowErrorModal(true);
-      }
-    } catch (error) {
-      console.error("Error in bulk complete:", error);
-      setErrorMessage("Failed to complete repayments");
-      setShowErrorModal(true);
-    } finally {
-      setProcessing(false);
-      setSelectedRepayments([]);
-    }
-  };
-
-  // Add state for bulk selection
-  const [selectedRepayments, setSelectedRepayments] = useState<string[]>([]);
-  const [showBulkCompleteModal, setShowBulkCompleteModal] = useState(false);
-
-  // Add this to handle checkbox selection
-  const toggleRepaymentSelection = (repaymentId: string) => {
-    setSelectedRepayments((prev) =>
-      prev.includes(repaymentId)
-        ? prev.filter((id) => id !== repaymentId)
-        : [...prev, repaymentId],
-    );
-  };
-
-  // Add this to select all visible repayments
-  const selectAllVisible = () => {
-    const visibleIds = filteredRepayments.map((r) => r.id);
-    setSelectedRepayments(visibleIds);
-  };
-
-  // Add this to clear all selections
-  const clearSelections = () => {
-    setSelectedRepayments([]);
-  };
-
   const DetailsModal = ({
     repayment,
     onClose,
@@ -1092,6 +1124,8 @@ export default function LoanRepaymentsPage() {
     const pendingProofs =
       repayment.pendingRepaymentProofs?.filter((p) => p.status === "pending") ||
       [];
+    const isCompleted =
+      repayment.status === "paid" || repayment.status === "completed";
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1351,6 +1385,14 @@ export default function LoanRepaymentsPage() {
                   <span className="text-gray-500">Status:</span>
                   {getStatusBadge(repayment.status)}
                 </div>
+                {repayment.completedDate && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Completed Date:</span>
+                    <span className="font-semibold">
+                      {new Date(repayment.completedDate).toLocaleDateString()}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1414,7 +1456,7 @@ export default function LoanRepaymentsPage() {
           </div>
 
           <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 grid gap-4">
-            {repayment.status !== "paid" && (
+            {!isCompleted && (
               <>
                 <button
                   onClick={() => {
@@ -1427,19 +1469,43 @@ export default function LoanRepaymentsPage() {
                   <Banknote className="w-4 h-4" />
                   Record Payment
                 </button>
+
+                {/* Mark as Completed Button */}
                 <button
-                  onClick={() => handleMarkLoanAsFullyPaid(repayment)}
+                  onClick={() => handleMarkAsCompleted(repayment)}
                   disabled={processing}
-                  className="flex-1 bg-green-600 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-green-700 transition-colors"
+                  className={`flex-1 py-2 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors ${
+                    repayment.remainingAmount === 0
+                      ? "bg-green-600 text-white hover:bg-green-700"
+                      : "bg-orange-600 text-white hover:bg-orange-700"
+                  }`}
                 >
-                  <CheckCircle className="w-4 h-4" />
-                  Mark as Fully Paid
+                  {processing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-4 h-4" />
+                  )}
+                  {repayment.remainingAmount === 0
+                    ? "Mark as Completed"
+                    : `Force Complete (R${repayment.remainingAmount.toLocaleString()} remaining)`}
                 </button>
               </>
             )}
+
+            {isCompleted && (
+              <div className="text-center py-2 text-green-600 font-semibold flex items-center justify-center gap-2">
+                <CheckCircle className="w-5 h-5" />✓ Repayment Completed
+                {repayment.completedDate && (
+                  <span className="text-xs text-gray-500">
+                    on {new Date(repayment.completedDate).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+            )}
+
             <button
               onClick={onClose}
-              className={`${repayment.status !== "paid" ? "flex-1" : "w-full"} bg-gray-500 text-white py-2 rounded-xl font-semibold hover:bg-gray-600 transition-colors`}
+              className="w-full bg-gray-500 text-white py-2 rounded-xl font-semibold hover:bg-gray-600 transition-colors"
             >
               Close
             </button>
@@ -1463,23 +1529,36 @@ export default function LoanRepaymentsPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-[#01312D]">Repayments</h1>
           <p className="text-gray-500 text-sm mt-1">
             Track and manage all service repayments
           </p>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all"
-        >
-          <RefreshCw
-            className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
-          />
-          Refresh
-        </button>
+        <div className="flex gap-2">
+          {filteredRepayments.some(
+            (r) => r.status !== "paid" && r.status !== "completed",
+          ) && (
+            <button
+              onClick={selectAllVisible}
+              className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all"
+            >
+              <CheckCircle className="w-4 h-4" />
+              Select All
+            </button>
+          )}
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all"
+          >
+            <RefreshCw
+              className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -1551,6 +1630,38 @@ export default function LoanRepaymentsPage() {
         </div>
       </div>
 
+      {/* Bulk Actions Toolbar */}
+      {selectedRepayments.length > 0 && (
+        <div className="bg-[#eafde7] rounded-xl p-3 flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-5 h-5 text-[#3A7717]" />
+            <span className="font-semibold text-[#01312D]">
+              {selectedRepayments.length} repayment(s) selected
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={clearSelections}
+              className="px-3 py-1.5 bg-gray-200 text-[#01312D] rounded-lg text-sm font-semibold hover:bg-gray-300"
+            >
+              Clear
+            </button>
+            <button
+              onClick={handleBulkComplete}
+              disabled={processing}
+              className="px-3 py-1.5 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-[#2d5a12]"
+            >
+              {processing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <CheckCircle className="w-4 h-4" />
+              )}
+              Mark Selected as Completed
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Search */}
       <div className="flex gap-3">
         <div className="flex-1 relative">
@@ -1577,7 +1688,11 @@ export default function LoanRepaymentsPage() {
         >
           Outstanding
           <span className="ml-1 px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">
-            {repayments.filter((r) => r.status !== "paid").length}
+            {
+              repayments.filter(
+                (r) => r.status !== "paid" && r.status !== "completed",
+              ).length
+            }
           </span>
         </button>
         <button
@@ -1588,9 +1703,13 @@ export default function LoanRepaymentsPage() {
               : "text-gray-500"
           }`}
         >
-          Paid
+          Completed
           <span className="ml-1 px-1.5 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
-            {repayments.filter((r) => r.status === "paid").length}
+            {
+              repayments.filter(
+                (r) => r.status === "paid" || r.status === "completed",
+              ).length
+            }
           </span>
         </button>
         <button
@@ -1622,147 +1741,184 @@ export default function LoanRepaymentsPage() {
             const hasPendingProofs = repayment.pendingRepaymentProofs?.some(
               (p) => p.status === "pending",
             );
+            const isCompleted =
+              repayment.status === "paid" || repayment.status === "completed";
 
             return (
               <div
                 key={repayment.id}
                 className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 hover:shadow-md transition-shadow"
               >
-                <div className="flex items-start justify-between flex-wrap gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-[#eafde7] rounded-full flex items-center justify-center">
-                      {repayment.serviceType === "fuel" && (
-                        <Fuel className="w-6 h-6 text-green-600" />
-                      )}
-                      {repayment.serviceType === "airtime" && (
-                        <Smartphone className="w-6 h-6 text-blue-600" />
-                      )}
-                      {repayment.serviceType === "cash" && (
-                        <DollarSign className="w-6 h-6 text-yellow-600" />
-                      )}
-                      {repayment.serviceType === "carwash" && (
-                        <SprayCan className="w-6 h-6 text-purple-600" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        {getServiceTypeBadge(repayment.serviceType, repayment)}
-                        {getStatusBadge(repayment.status)}
-                        {hasActualAmount && (
-                          <span className="text-xs bg-[#BFF202]/20 text-[#01312D] px-2 py-0.5 rounded-full">
-                            Amount Adjusted
-                          </span>
-                        )}
-                        {hasPendingProofs && (
-                          <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full flex items-center gap-1">
-                            <Hourglass className="w-3 h-3" />
-                            Pending Repayment Proof
-                          </span>
-                        )}
-                      </div>
-                      <p className="font-semibold text-[#01312D]">
-                        {repayment.driverName}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {repayment.carRegistration}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-[#3A7717]">
-                      R{repayment.remainingAmount.toLocaleString()}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Due: {new Date(repayment.dueDate).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-3 border-t border-gray-100">
-                  <div>
-                    <p className="text-xs text-gray-500">Total Amount</p>
-                    <p className="font-semibold text-[#01312D]">
-                      R{repayment.totalRepayable.toLocaleString()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Repaid</p>
-                    <p className="font-semibold text-[#3A7717]">
-                      R{repayment.repaidAmount.toLocaleString()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Daily Payment</p>
-                    <p className="font-semibold text-[#01312D]">
-                      R{repayment.dailyPayment.toLocaleString()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Period</p>
-                    <p className="font-semibold text-[#01312D]">
-                      {repayment.repaymentDays} days
-                    </p>
-                  </div>
-                </div>
-
-                {/* Show actual amount if different */}
-                {hasActualAmount && (
-                  <div className="mt-2 text-xs text-gray-500 flex items-center gap-2">
-                    <span className="text-gray-400">
-                      Requested: R{repayment.amount.toLocaleString()}
-                    </span>
-                    <span>→</span>
-                    <span className="text-[#3A7717] font-medium">
-                      Actual: R{repayment.actualAmount?.toLocaleString()}
-                    </span>
-                  </div>
-                )}
-
-                {/* Progress Bar */}
-                <div className="mt-3">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-gray-500">Repayment Progress</span>
-                    <span className="font-semibold text-[#01312D]">
-                      {Math.round(
-                        (repayment.repaidAmount / repayment.totalRepayable) *
-                          100,
-                      )}
-                      %
-                    </span>
-                  </div>
-                  <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
-                    <div
-                      className="bg-[#3A7717] h-2 rounded-full transition-all"
-                      style={{
-                        width: `${(repayment.repaidAmount / repayment.totalRepayable) * 100}%`,
-                      }}
-                    ></div>
-                  </div>
-                </div>
-
-                <div className="flex gap-2 mt-4">
-                  {repayment.status !== "paid" && (
-                    <button
-                      onClick={() => {
-                        setSelectedRepayment(repayment);
-                        setShowPaymentModal(true);
-                      }}
-                      className="flex-1 py-2 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors"
-                    >
-                      <Banknote className="w-4 h-4" />
-                      Record Payment
-                    </button>
+                <div className="flex items-start gap-3">
+                  {/* Checkbox for bulk actions - only show for non-completed repayments */}
+                  {!isCompleted && (
+                    <input
+                      type="checkbox"
+                      checked={selectedRepayments.includes(repayment.id)}
+                      onChange={() => toggleRepaymentSelection(repayment.id)}
+                      className="mt-3 w-4 h-4 text-[#3A7717] rounded border-gray-300 focus:ring-[#3A7717]"
+                    />
                   )}
-                  <button
-                    onClick={() => {
-                      setSelectedRepayment(repayment);
-                      setShowDetailsModal(true);
-                    }}
-                    className="flex-1 py-2 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#bff202]/30 transition-colors"
-                  >
-                    <Eye className="w-4 h-4" />
-                    View Details
-                  </button>
+
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between flex-wrap gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-[#eafde7] rounded-full flex items-center justify-center">
+                          {repayment.serviceType === "fuel" && (
+                            <Fuel className="w-6 h-6 text-green-600" />
+                          )}
+                          {repayment.serviceType === "airtime" && (
+                            <Smartphone className="w-6 h-6 text-blue-600" />
+                          )}
+                          {repayment.serviceType === "cash" && (
+                            <DollarSign className="w-6 h-6 text-yellow-600" />
+                          )}
+                          {repayment.serviceType === "carwash" && (
+                            <SprayCan className="w-6 h-6 text-purple-600" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            {getServiceTypeBadge(
+                              repayment.serviceType,
+                              repayment,
+                            )}
+                            {getStatusBadge(repayment.status)}
+                            {hasActualAmount && (
+                              <span className="text-xs bg-[#BFF202]/20 text-[#01312D] px-2 py-0.5 rounded-full">
+                                Amount Adjusted
+                              </span>
+                            )}
+                            {hasPendingProofs && (
+                              <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <Hourglass className="w-3 h-3" />
+                                Pending Repayment Proof
+                              </span>
+                            )}
+                          </div>
+                          <p className="font-semibold text-[#01312D]">
+                            {repayment.driverName}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {repayment.carRegistration}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xl font-bold text-[#3A7717]">
+                          R{repayment.remainingAmount.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Due:{" "}
+                          {new Date(repayment.dueDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-3 border-t border-gray-100">
+                      <div>
+                        <p className="text-xs text-gray-500">Total Amount</p>
+                        <p className="font-semibold text-[#01312D]">
+                          R{repayment.totalRepayable.toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Repaid</p>
+                        <p className="font-semibold text-[#3A7717]">
+                          R{repayment.repaidAmount.toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Daily Payment</p>
+                        <p className="font-semibold text-[#01312D]">
+                          R{repayment.dailyPayment.toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Period</p>
+                        <p className="font-semibold text-[#01312D]">
+                          {repayment.repaymentDays} days
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Show actual amount if different */}
+                    {hasActualAmount && (
+                      <div className="mt-2 text-xs text-gray-500 flex items-center gap-2">
+                        <span className="text-gray-400">
+                          Requested: R{repayment.amount.toLocaleString()}
+                        </span>
+                        <span>→</span>
+                        <span className="text-[#3A7717] font-medium">
+                          Actual: R{repayment.actualAmount?.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Progress Bar */}
+                    <div className="mt-3">
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-gray-500">
+                          Repayment Progress
+                        </span>
+                        <span className="font-semibold text-[#01312D]">
+                          {Math.round(
+                            (repayment.repaidAmount /
+                              repayment.totalRepayable) *
+                              100,
+                          )}
+                          %
+                        </span>
+                      </div>
+                      <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-[#3A7717] h-2 rounded-full transition-all"
+                          style={{
+                            width: `${(repayment.repaidAmount / repayment.totalRepayable) * 100}%`,
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 mt-4">
+                      {!isCompleted && (
+                        <>
+                          <button
+                            onClick={() => {
+                              setSelectedRepayment(repayment);
+                              setShowPaymentModal(true);
+                            }}
+                            className="flex-1 py-2 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors"
+                          >
+                            <Banknote className="w-4 h-4" />
+                            Record Payment
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedRepayment(repayment);
+                              setShowDetailsModal(true);
+                            }}
+                            className="flex-1 py-2 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#bff202]/30 transition-colors"
+                          >
+                            <Eye className="w-4 h-4" />
+                            View Details
+                          </button>
+                        </>
+                      )}
+                      {isCompleted && (
+                        <button
+                          onClick={() => {
+                            setSelectedRepayment(repayment);
+                            setShowDetailsModal(true);
+                          }}
+                          className="w-full py-2 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#bff202]/30 transition-colors"
+                        >
+                          <Eye className="w-4 h-4" />
+                          View Details
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             );
