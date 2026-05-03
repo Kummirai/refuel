@@ -1,10 +1,9 @@
 // src/app/verify/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
-import { CloudinaryUpload } from "@/components/CloudinaryUpload";
 import {
   ArrowLeft,
   CheckCircle,
@@ -14,15 +13,215 @@ import {
   Loader2,
   Home,
   Clock,
-  MapPin,
-  Building2,
-  Hash,
-  Palette,
-  CalendarDays,
-  IdCard,
-  FileCheck,
-  Sparkles,
+  Upload,
+  X,
+  AlertCircle,
+  Image as ImageIcon,
 } from "lucide-react";
+
+interface UploadSectionProps {
+  label: string;
+  type: string;
+  onUploadComplete: (url: string, publicId: string) => void;
+  currentUrl?: string;
+  currentPublicId?: string;
+}
+
+function UploadSection({
+  label,
+  type,
+  onUploadComplete,
+  currentUrl,
+  currentPublicId,
+}: UploadSectionProps) {
+  const [uploading, setUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(
+    currentUrl || null,
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+
+
+  const handleFile = async (file: File) => {
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      setError("Please upload an image file (JPEG, PNG, etc.)");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError("File size must be less than 5MB");
+      return;
+    }
+
+    setError(null);
+    setUploading(true);
+
+    // Create local preview immediately
+    const localPreview = URL.createObjectURL(file);
+    setPreviewUrl(localPreview);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("type", type);
+
+      const response = await fetch("/api/driver/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Upload failed");
+      }
+
+      // Use data.url from the response
+      setPreviewUrl(data.url);
+      onUploadComplete(data.url, data.publicId);
+    } catch (err: any) {
+      console.error("Upload error:", err);
+      setError(err.message || "Upload failed. Please try again.");
+      if (localPreview) {
+        URL.revokeObjectURL(localPreview);
+        setPreviewUrl(currentUrl || null);
+      }
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFile(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      handleFile(file);
+    }
+  };
+
+  const handleRemove = () => {
+    setPreviewUrl(null);
+    onUploadComplete("", "");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-[#01312D] font-semibold text-sm">
+        {label} <span className="text-red-500">*</span>
+      </label>
+
+      {!previewUrl ? (
+        <div
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`relative border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
+            isDragging
+              ? "border-[#3A7717] bg-[#eafde7]"
+              : "border-gray-300 bg-gray-50 hover:border-[#72bf00] hover:bg-[#eafde7]/50"
+          }`}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
+          {uploading ? (
+            <div className="flex flex-col items-center">
+              <Loader2 className="w-10 h-10 text-[#3A7717] animate-spin mb-2" />
+              <p className="text-sm text-gray-500">Uploading...</p>
+            </div>
+          ) : (
+            <>
+              <div className="w-16 h-16 mx-auto bg-white rounded-full flex items-center justify-center shadow-sm mb-3">
+                <Upload className="w-8 h-8 text-[#3A7717]" />
+              </div>
+              <p className="text-[#01312D] font-medium mb-1">
+                Click or drag to upload
+              </p>
+              <p className="text-xs text-gray-400">PNG, JPG up to 5MB</p>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="relative bg-[#eafde7] rounded-xl p-4">
+          <div className="flex items-center gap-4">
+            <div className="w-20 h-20 rounded-lg overflow-hidden bg-white shadow-sm flex-shrink-0">
+              <img
+                src={previewUrl}
+                alt={label}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-[#01312D] truncate">{label}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Click to replace or drag new file
+              </p>
+            </div>
+            <button
+              onClick={handleRemove}
+              className="p-2 bg-white rounded-full shadow-sm hover:bg-red-50 transition-colors"
+            >
+              <X className="w-4 h-4 text-red-500" />
+            </button>
+          </div>
+
+          {/* Hidden file input for replacement */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="absolute inset-0 cursor-pointer"
+          />
+        </div>
+      )}
+
+      {error && (
+        <div className="flex items-center gap-2 text-red-600 text-xs mt-1">
+          <AlertCircle className="w-3 h-3" />
+          <span>{error}</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function VerifyPage() {
   const router = useRouter();
@@ -247,8 +446,10 @@ export default function VerifyPage() {
   const nextStep = () => {
     if (step === 1 && isStep1Completed()) {
       setStep(2);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } else if (step === 2 && isStep2Completed()) {
       setStep(3);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } else if (step === 1 && !isStep1Completed()) {
       alert("Please fill in all required fields");
     } else if (step === 2 && !isStep2Completed()) {
@@ -258,6 +459,7 @@ export default function VerifyPage() {
 
   const prevStep = () => {
     setStep(step - 1);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // PENDING STATUS
@@ -379,7 +581,6 @@ export default function VerifyPage() {
           {/* Progress Steps */}
           <div className="mb-10">
             <div className="flex items-center justify-between">
-              {/* Step 1 */}
               <div className="flex-1 flex flex-col items-center">
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
@@ -400,16 +601,12 @@ export default function VerifyPage() {
                   Personal
                 </span>
               </div>
-
-              {/* Connector */}
               <div className="flex-1 h-0.5 mx-2 rounded-full bg-gray-200">
                 <div
                   className="h-full rounded-full transition-all bg-[#3A7717]"
                   style={{ width: isStep1Completed() ? "100%" : "0%" }}
                 />
               </div>
-
-              {/* Step 2 */}
               <div className="flex-1 flex flex-col items-center">
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
@@ -430,16 +627,12 @@ export default function VerifyPage() {
                   Vehicle
                 </span>
               </div>
-
-              {/* Connector */}
               <div className="flex-1 h-0.5 mx-2 rounded-full bg-gray-200">
                 <div
                   className="h-full rounded-full transition-all bg-[#3A7717]"
                   style={{ width: isStep2Completed() ? "100%" : "0%" }}
                 />
               </div>
-
-              {/* Step 3 */}
               <div className="flex-1 flex flex-col items-center">
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
@@ -519,7 +712,7 @@ export default function VerifyPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        City <span className="text-red-500">*</span>
+                        City
                       </label>
                       <input
                         type="text"
@@ -533,7 +726,7 @@ export default function VerifyPage() {
                     </div>
                     <div>
                       <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Pincode <span className="text-red-500">*</span>
+                        Pincode
                       </label>
                       <input
                         type="text"
@@ -551,7 +744,7 @@ export default function VerifyPage() {
               <button
                 onClick={nextStep}
                 disabled={!isStep1Completed()}
-                className="w-full bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50"
               >
                 Continue →
               </button>
@@ -601,7 +794,7 @@ export default function VerifyPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Year <span className="text-red-500">*</span>
+                        Year
                       </label>
                       <input
                         type="number"
@@ -615,7 +808,7 @@ export default function VerifyPage() {
                     </div>
                     <div>
                       <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                        Color <span className="text-red-500">*</span>
+                        Color
                       </label>
                       <div className="flex gap-2">
                         <input
@@ -653,7 +846,7 @@ export default function VerifyPage() {
                 <button
                   onClick={nextStep}
                   disabled={!isStep2Completed()}
-                  className="flex-1 bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50"
                 >
                   Continue →
                 </button>
@@ -663,40 +856,37 @@ export default function VerifyPage() {
 
           {/* Step 3 - Documents */}
           {step === 3 && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
                 <h2 className="text-lg font-bold text-[#01312D] mb-4 flex items-center gap-2">
                   <Shield className="w-5 h-5 text-[#3A7717]" /> Document Upload
                 </h2>
                 <div className="space-y-6">
-                  <CloudinaryUpload
+                  <UploadSection
                     label="Driver's License"
                     type="drivingLicense"
                     onUploadComplete={(url, publicId) =>
                       handleUploadComplete("driversLicense", url, publicId)
                     }
                     currentUrl={uploadedUrls.driversLicense}
-                    currentPublicId={uploadedPublicIds.driversLicense}
                   />
 
-                  <CloudinaryUpload
+                  <UploadSection
                     label="Car Registration Certificate"
                     type="carRegistration"
                     onUploadComplete={(url, publicId) =>
                       handleUploadComplete("carRegistration", url, publicId)
                     }
                     currentUrl={uploadedUrls.carRegistration}
-                    currentPublicId={uploadedPublicIds.carRegistration}
                   />
 
-                  <CloudinaryUpload
+                  <UploadSection
                     label="Profile Photo"
                     type="profilePhoto"
                     onUploadComplete={(url, publicId) =>
                       handleUploadComplete("profilePhoto", url, publicId)
                     }
                     currentUrl={uploadedUrls.profilePhoto}
-                    currentPublicId={uploadedPublicIds.profilePhoto}
                   />
                 </div>
               </div>
@@ -729,7 +919,7 @@ export default function VerifyPage() {
                 <button
                   onClick={handleSubmit}
                   disabled={loading || !isStep3Completed()}
-                  className="flex-1 bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="flex-1 bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {loading ? (
                     <>

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { connectToDatabase } from "@/lib/db";
+import { ObjectId } from "mongodb";
 import { sendAdminRepaymentProofEmail } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
@@ -28,6 +29,9 @@ export async function POST(request: NextRequest) {
       proofPublicId,
     } = body;
 
+    console.log("Request ID from client:", requestId);
+    console.log("Session user ID:", session.user.id);
+
     if (!requestId || !amount || !proofUrl) {
       return NextResponse.json(
         { error: "Missing required fields" },
@@ -39,17 +43,81 @@ export async function POST(request: NextRequest) {
     const repaymentsCollection = db.collection("repaymentProofs");
     const serviceRequestsCollection = db.collection("serviceRequests");
     const usersCollection = db.collection("user");
+    const driverProfilesCollection = db.collection("driverProfiles");
 
-    // Get service request details for email
-    const serviceRequest = await serviceRequestsCollection.findOne({
-      id: requestId,
-      userId: session.user.id,
-    });
+    // Find the service request by _id (since it's stored as ObjectId)
+    let serviceRequest = null;
+    try {
+      // Try to find by _id as ObjectId
+      if (ObjectId.isValid(requestId)) {
+        serviceRequest = await serviceRequestsCollection.findOne({
+          _id: new ObjectId(requestId),
+        });
+      }
 
-    // Get driver details for email
-    const driver = await usersCollection.findOne({
-      _id: session.user.id,
-    });
+      // If not found, try as string
+      if (!serviceRequest) {
+        serviceRequest = await serviceRequestsCollection.findOne({
+          _id: requestId,
+        });
+      }
+
+      // If still not found, try by id field (if exists)
+      if (!serviceRequest) {
+        serviceRequest = await serviceRequestsCollection.findOne({
+          id: requestId,
+        });
+      }
+    } catch (err) {
+      console.error("Error finding service request:", err);
+    }
+
+    console.log("Service request found:", !!serviceRequest);
+    if (serviceRequest) {
+      console.log("Service request:", {
+        _id: serviceRequest._id,
+        type: serviceRequest.type,
+        driverName: serviceRequest.driverName,
+        carNumber: serviceRequest.carNumber,
+        userId: serviceRequest.userId,
+      });
+    }
+
+    // Get driver details from user collection
+    let user = null;
+    try {
+      // Try to find by _id as ObjectId
+      if (ObjectId.isValid(session.user.id)) {
+        user = await usersCollection.findOne({
+          _id: new ObjectId(session.user.id),
+        });
+      } else {
+        user = await usersCollection.findOne({
+          _id: session.user.id,
+        });
+      }
+    } catch (err) {
+      console.error("Error finding user:", err);
+    }
+
+    console.log("User found:", !!user);
+    if (user) {
+      console.log("User:", {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+      });
+    }
+
+    // Get driver profile for additional info if needed
+    let driverProfile = null;
+    if (user) {
+      driverProfile = await driverProfilesCollection.findOne({
+        userId: user._id.toString(),
+      });
+      console.log("Driver profile found:", !!driverProfile);
+    }
 
     // Create repayment proof record
     const repaymentProof = {
@@ -60,38 +128,67 @@ export async function POST(request: NextRequest) {
       isFullyPaid,
       proofUrl,
       proofPublicId,
-      status: "pending", // pending, approved, rejected
+      status: "pending",
       submittedAt: new Date(),
       updatedAt: new Date(),
     };
 
     const result = await repaymentsCollection.insertOne(repaymentProof);
+    console.log("Repayment proof created with ID:", result.insertedId);
 
     // Update the service request with pending repayment flag
-    await serviceRequestsCollection.updateOne(
-      { id: requestId, userId: session.user.id },
-      {
+    let updateQuery = {};
+    try {
+      if (ObjectId.isValid(requestId)) {
+        updateQuery = { _id: new ObjectId(requestId) };
+      } else {
+        updateQuery = { _id: requestId };
+      }
+
+      await serviceRequestsCollection.updateOne(updateQuery, {
         $set: {
           hasPendingRepayment: true,
           pendingRepaymentAmount: amount,
           pendingRepaymentId: result.insertedId.toString(),
           updatedAt: new Date(),
         },
-      },
-    );
+      });
+      console.log("Service request updated successfully");
+    } catch (err) {
+      console.error("Error updating service request:", err);
+    }
 
     // Send email notification to admin
-    if (driver && serviceRequest) {
+    if (user && serviceRequest) {
       const serviceTypeLabel = getServiceTypeLabel(serviceRequest.type);
 
+      const driverName =
+        driverProfile?.fullName ||
+        user.name ||
+        serviceRequest.driverName ||
+        "Unknown";
+      const driverEmail = user.email || serviceRequest.driverEmail || "Unknown";
+      const driverPhone = user.phone || serviceRequest.driverPhone || "Unknown";
+      const carRegistration =
+        serviceRequest.carNumber ||
+        driverProfile?.carRegistrationNumber ||
+        "Unknown";
+
+      console.log("Sending email with:", {
+        driverName,
+        driverEmail,
+        driverPhone,
+        carRegistration,
+        serviceType: serviceRequest.type,
+        amount,
+        remainingBalance,
+      });
+
       await sendAdminRepaymentProofEmail({
-        driverName: driver.name || serviceRequest.driverName || "Unknown",
-        driverEmail: driver.email || serviceRequest.driverEmail || "Unknown",
-        driverPhone: driver.phone || serviceRequest.driverPhone || "Unknown",
-        carRegistration:
-          serviceRequest.carNumber ||
-          serviceRequest.carRegistration ||
-          "Unknown",
+        driverName: driverName,
+        driverEmail: driverEmail,
+        driverPhone: driverPhone,
+        carRegistration: carRegistration,
         serviceType: serviceRequest.type || "Unknown",
         serviceTypeLabel: serviceTypeLabel,
         amount: amount,
@@ -101,12 +198,13 @@ export async function POST(request: NextRequest) {
         repaymentId: requestId,
       }).catch((err) => {
         console.error("Failed to send admin notification email:", err);
-        // Don't fail the request if email fails
       });
     } else {
-      console.log("Missing driver or service request data for email", {
-        hasDriver: !!driver,
+      console.log("Missing data for email:", {
+        hasUser: !!user,
         hasServiceRequest: !!serviceRequest,
+        userId: session.user.id,
+        requestId: requestId,
       });
     }
 
