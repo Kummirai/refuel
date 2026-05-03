@@ -568,7 +568,7 @@ export default function AdminLayout({
 
               <button
                 className="flex items-center gap-2 sm:gap-3 p-1.5 rounded-lg hover:bg-[#eafde7] transition-all duration-200"
-                onClick={() => router.push("/admin/profile")}
+                onClick={() => router.push("#")}
               >
                 <div className="w-8 h-8 bg-gradient-to-r from-[#01312D] to-[#3A7717] rounded-full flex items-center justify-center shadow-md">
                   <span className="text-white font-bold text-sm">
