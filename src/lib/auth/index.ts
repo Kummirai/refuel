@@ -55,6 +55,12 @@ export const auth = betterAuth({
   },
   advanced: {
     cookiePrefix: "Kapuka",
+    useSecureCookies: true,
+    defaultCookieAttributes: {
+      sameSite: "lax",
+      secure: true,
+      path: "/"
+    }
   },
    plugins: [nextCookies()]
 });
