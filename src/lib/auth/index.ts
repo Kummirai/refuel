@@ -55,4 +55,5 @@ export const auth = betterAuth({
   advanced: {
     cookiePrefix: "Kapuka",
   },
+   plugins: [nextCookies()]
 });
