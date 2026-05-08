@@ -488,7 +488,7 @@ export function PopUploadModal({
                 setError("Upload failed. Please try again.");
               }}
               options={{
-                maxFileSize: 5242880,
+                maxFileSize: 10485760,
                 clientAllowedFormats: ["jpg", "jpeg", "png", "pdf"],
                 folder: `Kapuka/pop/${requestId}`,
                 resourceType: "auto",
