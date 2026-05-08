@@ -17,13 +17,72 @@ export async function GET(request: NextRequest) {
 
     const { db } = await connectToDatabase();
     const serviceRequestsCollection = db.collection("serviceRequests");
+    const repaymentProofsCollection = db.collection("repaymentProofs");
 
     const requests = await serviceRequestsCollection
       .find({ userId })
       .sort({ requestDate: -1 })
       .toArray();
 
-    return NextResponse.json(requests);
+    // Enhance each request with calculated repayment data
+    const enhancedRequests = await Promise.all(
+      requests.map(async (request: any) => {
+        const requestId = request._id.toString();
+
+        // Get all repayment proofs for this request
+        const repaymentProofs = await repaymentProofsCollection
+          .find({ requestId: requestId })
+          .toArray();
+
+        // Calculate total repaid amount from APPROVED repayments
+        const totalRepaid = repaymentProofs
+          .filter((r: any) => r.status === "approved")
+          .reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
+
+        // Calculate remaining balance
+        const totalRepayable = request.totalRepayable || request.amount;
+        const calculatedRemainingBalance = Math.max(
+          0,
+          totalRepayable - totalRepaid,
+        );
+
+        // Check for pending repayment
+        const hasPendingRepayment = repaymentProofs.some(
+          (r: any) => r.status === "pending",
+        );
+        const pendingRepayment = repaymentProofs.find(
+          (r: any) => r.status === "pending",
+        );
+
+        // Format repayments for response
+        const formattedRepayments = repaymentProofs.map((r: any) => ({
+          id: r._id.toString(),
+          amount: r.amount,
+          status: r.status,
+          submittedAt: r.submittedAt,
+          approvedAt: r.approvedAt,
+          proofUrl: r.proofUrl,
+          proofPublicId: r.proofPublicId,
+          remainingBalance: r.remainingBalance,
+          isFullyPaid: r.isFullyPaid,
+        }));
+
+        return {
+          ...request,
+          id: requestId,
+          // Override with calculated values
+          repaidAmount: totalRepaid,
+          remainingBalance: calculatedRemainingBalance,
+          isPaid: calculatedRemainingBalance <= 0,
+          hasPendingRepayment: hasPendingRepayment,
+          pendingRepaymentAmount: pendingRepayment?.amount || 0,
+          pendingRepaymentStatus: pendingRepayment?.status || null,
+          repayments: formattedRepayments,
+        };
+      }),
+    );
+
+    return NextResponse.json(enhancedRequests);
   } catch (error) {
     console.error("Error fetching requests:", error);
     return NextResponse.json(
@@ -45,7 +104,7 @@ export async function POST(request: NextRequest) {
       carNumber,
       carModel,
       fuelType,
-      contactPhone, // Changed from phoneNumber to contactPhone
+      contactPhone,
       interest,
       totalRepayable,
       interestRate,
@@ -66,7 +125,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate phone number
     if (!contactPhone) {
       return NextResponse.json(
         { error: "Contact phone number is required" },
@@ -92,7 +150,7 @@ export async function POST(request: NextRequest) {
       carNumber,
       carModel: carModel || "",
       fuelType: fuelType || null,
-      contactPhone, // Save the contact phone number
+      contactPhone,
       driverName: driverName || "",
       driverPhone: driverPhone || "",
       driverEmail: driverEmail || "",
@@ -125,14 +183,13 @@ export async function POST(request: NextRequest) {
       await driverProfilesCollection.updateOne(
         { userId: userId },
         { $inc: { totalRequests: 1, totalSpent: amount } },
+        { upsert: true },
       );
     } catch (updateError) {
       console.error("Error updating driver stats:", updateError);
-      // Don't fail the request if stats update fails
     }
 
-    // Send email notification to admin (don't await to avoid blocking response)
-    // Run in background
+    // Send email notification to admin
     (async () => {
       try {
         await sendAdminNotificationEmail({
@@ -154,7 +211,6 @@ export async function POST(request: NextRequest) {
         console.log("Admin notification email sent for request:", requestId);
       } catch (emailError) {
         console.error("Failed to send admin notification email:", emailError);
-        // Don't fail the request if email fails
       }
     })();
 

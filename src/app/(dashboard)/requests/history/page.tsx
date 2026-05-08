@@ -148,25 +148,42 @@ export default function RequestHistoryPage() {
                 (r: any) => r.status === "pending",
               );
 
+              // CALCULATE remaining balance from approved repayments
+              const totalRepayable = req.totalRepayable || req.amount;
+              const totalApprovedRepayments = repayments
+                .filter((r: any) => r.status === "approved")
+                .reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
+
+              const calculatedRemainingBalance = Math.max(
+                0,
+                totalRepayable - totalApprovedRepayments,
+              );
+              const isPaid = calculatedRemainingBalance <= 0;
+
               return {
                 ...req,
                 id: requestId,
-                repaidAmount: req.repaidAmount || 0,
-                remainingBalance:
-                  req.remainingBalance || req.totalRepayable || req.amount,
-                isPaid: req.isPaid || false,
+                repaidAmount: totalApprovedRepayments,
+                remainingBalance: calculatedRemainingBalance, // USE CALCULATED VALUE
+                isPaid: isPaid,
                 hasPendingRepayment: hasPendingRepayment,
                 pendingRepaymentAmount: pendingRepayment?.amount || 0,
                 pendingRepaymentStatus: pendingRepayment?.status || null,
                 repayments: repayments,
               };
             } catch (err) {
+              // Calculate from request data if repayments fetch fails
+              const totalRepayable = req.totalRepayable || req.amount;
+              const calculatedRemainingBalance = Math.max(
+                0,
+                totalRepayable - (req.repaidAmount || 0),
+              );
+
               return {
                 ...req,
                 id: requestId,
                 repaidAmount: req.repaidAmount || 0,
-                remainingBalance:
-                  req.remainingBalance || req.totalRepayable || req.amount,
+                remainingBalance: calculatedRemainingBalance,
                 isPaid: req.isPaid || false,
                 hasPendingRepayment: false,
                 pendingRepaymentAmount: 0,
