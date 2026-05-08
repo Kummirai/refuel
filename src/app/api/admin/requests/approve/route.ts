@@ -19,6 +19,7 @@ export async function POST(request: Request) {
 
     const { db } = await connectToDatabase();
     const serviceRequestsCollection = db.collection("serviceRequests");
+    const driverProfilesCollection = db.collection("driverProfiles");
 
     // Convert string ID to ObjectId
     let objectId;
@@ -40,6 +41,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Request not found" }, { status: 404 });
     }
 
+    // Get driver profile to fetch car registration
+    let carRegistration = "Not provided";
+    try {
+      // Try to find driver profile by userId or driverEmail
+      const driverProfile = await driverProfilesCollection.findOne({
+        $or: [
+          { userId: requestDoc.userId },
+          { userId: requestDoc.driverId },
+          { email: requestDoc.driverEmail },
+          { driverEmail: requestDoc.driverEmail },
+        ],
+      });
+
+      if (driverProfile) {
+        carRegistration =
+          driverProfile.carRegistrationNumber ||
+          driverProfile.carRegistration ||
+          "Not provided";
+        console.log("Found car registration:", carRegistration);
+      } else {
+        console.log("No driver profile found for request:", requestId);
+      }
+    } catch (profileError) {
+      console.error("Error fetching driver profile:", profileError);
+    }
+
     // Update request status
     await serviceRequestsCollection.updateOne(
       { _id: objectId },
@@ -48,6 +75,7 @@ export async function POST(request: Request) {
           status: "approved",
           otp: otp,
           approvedDate: new Date(),
+          updatedAt: new Date(),
         },
       },
     );
@@ -59,9 +87,10 @@ export async function POST(request: Request) {
           driverEmail: requestDoc.driverEmail,
           driverName: requestDoc.driverName,
           requestId: requestId,
-          serviceType: requestDoc.type,
+          serviceType: requestDoc.type || requestDoc.serviceType,
           amount: requestDoc.amount,
           otp: otp,
+          carRegistration: carRegistration, // Add car registration here
         });
         console.log("Driver approval email sent for request:", requestId);
       } catch (emailError) {

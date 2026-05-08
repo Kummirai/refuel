@@ -405,7 +405,7 @@ export default function VerifyPage() {
           userId: session?.user?.id,
           fullName: formData.fullName,
           email: session?.user?.email || "",
-          phone: session?.user?.phone || "",
+          phone: (session?.user as any)?.phone || "",
           dateOfBirth: formData.dateOfBirth,
           address: formData.address,
           city: formData.city,

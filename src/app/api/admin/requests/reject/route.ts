@@ -1,3 +1,4 @@
+// src/app/api/admin/requests/reject/route.ts
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
 
     const { db } = await connectToDatabase();
     const serviceRequestsCollection = db.collection("serviceRequests");
+    const driverProfilesCollection = db.collection("driverProfiles");
 
     // Convert string ID to ObjectId
     let objectId;
@@ -39,6 +41,41 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Request not found" }, { status: 404 });
     }
 
+    // Get driver profile to fetch car registration
+    let carRegistration = "Not provided";
+    try {
+      // Try to find driver profile by userId or driverEmail
+      const driverProfile = await driverProfilesCollection.findOne({
+        $or: [
+          { userId: requestDoc.userId },
+          { userId: requestDoc.driverId },
+          { email: requestDoc.driverEmail },
+          { driverEmail: requestDoc.driverEmail },
+        ],
+      });
+
+      if (driverProfile) {
+        carRegistration =
+          driverProfile.carRegistrationNumber ||
+          driverProfile.carRegistration ||
+          "Not provided";
+        console.log(
+          "Found car registration for rejection email:",
+          carRegistration,
+        );
+      } else {
+        console.log(
+          "No driver profile found for rejection request:",
+          requestId,
+        );
+      }
+    } catch (profileError) {
+      console.error(
+        "Error fetching driver profile for rejection:",
+        profileError,
+      );
+    }
+
     // Update request status
     await serviceRequestsCollection.updateOne(
       { _id: objectId },
@@ -47,6 +84,7 @@ export async function POST(request: Request) {
           status: "rejected",
           rejectionReason: reason || "No reason provided",
           rejectedDate: new Date(),
+          updatedAt: new Date(),
         },
       },
     );
@@ -57,8 +95,9 @@ export async function POST(request: Request) {
         await sendDriverRejectionEmail({
           driverEmail: requestDoc.driverEmail,
           driverName: requestDoc.driverName,
+          carRegistration: carRegistration, // Add car registration here
           requestId: requestId,
-          serviceType: requestDoc.type,
+          serviceType: requestDoc.type || requestDoc.serviceType,
           amount: requestDoc.amount,
           reason: reason || "No reason provided",
         });
