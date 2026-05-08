@@ -16,6 +16,30 @@ for (const envVar of requiredEnvVars) {
   }
 }
 
+// Helper function to get all admin emails
+const getAdminEmails = (): string[] => {
+  const emails: string[] = [];
+
+  // Check for individual admin email variables
+  if (process.env.ADMIN_EMAIL_1) emails.push(process.env.ADMIN_EMAIL_1);
+  if (process.env.ADMIN_EMAIL_2) emails.push(process.env.ADMIN_EMAIL_2);
+  if (process.env.ADMIN_EMAIL_3) emails.push(process.env.ADMIN_EMAIL_3);
+  if (process.env.ADMIN_EMAIL_4) emails.push(process.env.ADMIN_EMAIL_4);
+  if (process.env.ADMIN_EMAIL_5) emails.push(process.env.ADMIN_EMAIL_5);
+
+  // Fallback to single ADMIN_EMAIL if no individual ones are set
+  if (emails.length === 0 && process.env.ADMIN_EMAIL) {
+    emails.push(process.env.ADMIN_EMAIL);
+  }
+
+  // Final fallback default
+  if (emails.length === 0) {
+    emails.push("admin@kapuka.com");
+  }
+
+  return emails;
+};
+
 // Configure email transporter for Brevo
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || "smtp-relay.brevo.netlify.app",
@@ -199,17 +223,18 @@ const generateAdminEmailHtml = (data: ServiceRequestEmailData): string => {
 export async function sendAdminNotificationEmail(
   data: ServiceRequestEmailData,
 ) {
-  const adminEmail = process.env.ADMIN_EMAIL || "admin@kapuka.com";
+  const adminEmails = getAdminEmails();
 
   try {
     const info = await transporter.sendMail({
       from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
-      to: adminEmail,
+      to: adminEmails,
       subject: `New Service Request: ${data.requestId.slice(-8).toUpperCase()}`,
       html: generateAdminEmailHtml(data),
       text: `New service request from ${data.driverName} for R${data.amount}`,
     });
-    console.log("Admin notification email sent:", info.messageId);
+    console.log("Admin notification email sent to:", adminEmails.join(", "));
+    console.log("Email ID:", info.messageId);
     return info;
   } catch (error) {
     console.error("Error sending admin notification email:", error);
@@ -420,6 +445,7 @@ export async function sendDriverRejectionEmail(data: {
 }
 
 // Verification Notification Email (Admin)
+// Verification Notification Email (Admin) - Debug Version
 export async function sendVerificationNotificationEmail(data: {
   driverName: string;
   driverEmail: string;
@@ -429,7 +455,24 @@ export async function sendVerificationNotificationEmail(data: {
   verificationId: string;
   submissionDate: string;
 }) {
-  const adminEmail = process.env.ADMIN_EMAIL || "admin@kapuka.com";
+  // Add debug logging
+  console.log("=== sendVerificationNotificationEmail Debug ===");
+  console.log("Received data:", JSON.stringify(data, null, 2));
+  console.log("driverEmail value:", data.driverEmail);
+  console.log("driverPhone value:", data.driverPhone);
+  console.log("===========================================");
+
+  const adminEmails = getAdminEmails();
+
+  // Validate required fields
+  if (!data.driverEmail) {
+    console.error("ERROR: driverEmail is missing or empty!");
+    return null;
+  }
+
+  if (!data.driverPhone) {
+    console.warn("WARNING: driverPhone is missing or empty");
+  }
 
   const html = `
     <!DOCTYPE html>
@@ -452,17 +495,17 @@ export async function sendVerificationNotificationEmail(data: {
           </div>
           
           <div class="driver-highlight">
-            <div class="driver-name">${data.driverName}</div>
-            <div class="car-reg">${data.carRegistration}</div>
-            <div class="info-row" style="margin-top: 12px;"><span class="label">📧 Email:</span><span class="value">${data.driverEmail}</span></div>
-            <div class="info-row"><span class="label">📱 Phone:</span><span class="value">${data.driverPhone}</span></div>
+            <div class="driver-name">${data.driverName || "N/A"}</div>
+            <div class="car-reg">${data.carRegistration || "N/A"}</div>
+            <div class="info-row" style="margin-top: 12px;"><span class="label">📧 Email:</span><span class="value">${data.driverEmail || "Not provided"}</span></div>
+            <div class="info-row"><span class="label">📱 Phone:</span><span class="value">${data.driverPhone || "Not provided"}</span></div>
             <div class="info-row"><span class="label">🚗 Car Model:</span><span class="value">${data.carModel || "Not specified"}</span></div>
           </div>
           
           <div class="card">
             <div class="card-title">Verification Status</div>
             <div class="info-row"><span class="label">Status:</span><span class="value">Pending Review</span></div>
-            <div class="info-row"><span class="label">Verification ID:</span><span class="value">${data.verificationId.slice(-8).toUpperCase()}</span></div>
+            <div class="info-row"><span class="label">Verification ID:</span><span class="value">${data.verificationId?.slice(-8).toUpperCase() || "N/A"}</span></div>
             <div class="info-row"><span class="label">Submitted:</span><span class="value">${formatDateTime(data.submissionDate)}</span></div>
           </div>
           
@@ -482,12 +525,16 @@ export async function sendVerificationNotificationEmail(data: {
   try {
     const info = await transporter.sendMail({
       from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
-      to: adminEmail,
-      subject: `New Driver Verification Request - ${data.driverName}`,
+      to: adminEmails,
+      subject: `New Driver Verification Request - ${data.driverName || "Unknown"}`,
       html: html,
-      text: `New verification request from ${data.driverName} (${data.carRegistration})`,
+      text: `New verification request from ${data.driverName || "Unknown"} (${data.carRegistration || "Unknown"})`,
     });
-    console.log("Verification notification email sent:", info.messageId);
+    console.log(
+      "Verification notification email sent to:",
+      adminEmails.join(", "),
+    );
+    console.log("Email ID:", info.messageId);
     return info;
   } catch (error) {
     console.error("Error sending verification notification email:", error);
@@ -600,7 +647,7 @@ export async function sendAdminRepaymentProofEmail(data: {
   submittedAt: string;
   repaymentId: string;
 }) {
-  const adminEmail = process.env.ADMIN_EMAIL || "admin@kapuka.com";
+  const adminEmails = getAdminEmails();
 
   const html = `
     <!DOCTYPE html>
@@ -672,12 +719,13 @@ export async function sendAdminRepaymentProofEmail(data: {
   try {
     const info = await transporter.sendMail({
       from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
-      to: adminEmail,
+      to: adminEmails,
       subject: `New Repayment Proof - ${data.driverName} - R${data.amount.toLocaleString()}`,
       html: html,
       text: `New repayment proof submitted by ${data.driverName} for R${data.amount.toLocaleString()}. Remaining balance: R${data.remainingBalance.toLocaleString()}`,
     });
-    console.log("Admin repayment proof email sent:", info.messageId);
+    console.log("Admin repayment proof email sent to:", adminEmails.join(", "));
+    console.log("Email ID:", info.messageId);
     return info;
   } catch (error) {
     console.error("Error sending admin repayment proof email:", error);
@@ -855,8 +903,6 @@ export async function sendDriverRepaymentRejectionEmail(data: {
 
 // ==================== RECEIPT UPLOAD NOTIFICATIONS ====================
 
-// Add these functions to your existing email.ts file
-
 // Admin Receipt Upload Notification Email (POP Upload)
 export async function sendAdminReceiptUploadEmail(data: {
   driverName: string;
@@ -872,7 +918,7 @@ export async function sendAdminReceiptUploadEmail(data: {
   uploadedAt: string;
   requestId: string;
 }) {
-  const adminEmail = process.env.ADMIN_EMAIL || "admin@kapuka.com";
+  const adminEmails = getAdminEmails();
 
   const html = `
     <!DOCTYPE html>
@@ -976,12 +1022,13 @@ export async function sendAdminReceiptUploadEmail(data: {
   try {
     const info = await transporter.sendMail({
       from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
-      to: adminEmail,
+      to: adminEmails,
       subject: `New Receipt Uploaded - ${data.driverName} (${data.serviceTypeLabel})`,
       html: html,
       text: `${data.driverName} has uploaded a receipt for their ${data.serviceTypeLabel} request. Amount: R${data.actualAmount.toLocaleString()}. Please verify the receipt.`,
     });
-    console.log("Admin receipt upload email sent:", info.messageId);
+    console.log("Admin receipt upload email sent to:", adminEmails.join(", "));
+    console.log("Email ID:", info.messageId);
     return info;
   } catch (error) {
     console.error("Error sending admin receipt upload email:", error);
@@ -1111,8 +1158,6 @@ export async function sendDriverReceiptUploadConfirmation(data: {
     return null;
   }
 }
-
-// Add this function to your email.ts file, before the closing of the file
 
 // Repayment Completed Email (for when a loan is fully paid off)
 export async function sendRepaymentCompletedEmail(data: {
