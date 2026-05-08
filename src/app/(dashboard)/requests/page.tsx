@@ -44,6 +44,8 @@ const DEFAULT_CONFIG: Record<
     icon: any;
     color: string;
     textColor: string;
+    minAmount?: number;
+    maxAmount?: number;
   }
 > = {
   fuel: {
@@ -54,12 +56,14 @@ const DEFAULT_CONFIG: Record<
     icon: Fuel,
     color: "from-[#3A7717] to-[#72bf00]",
     textColor: "text-[#3A7717]",
+    minAmount: 500,
+    maxAmount: 2000,
   },
   carwash: {
     name: "Car Wash",
-    interestRate: 13,
-    defaultRepaymentDays: 7,
-    repaymentOptions: [1, 3, 5, 7],
+    interestRate: 0,
+    defaultRepaymentDays: 0,
+    repaymentOptions: [],
     icon: Car,
     color: "from-[#01312D] to-[#3A7717]",
     textColor: "text-[#01312D]",
@@ -85,8 +89,19 @@ function RequestsPageContent() {
   const [selectedRepaymentDays, setSelectedRepaymentDays] = useState<number>(7);
   const [serviceConfig, setServiceConfig] = useState(DEFAULT_CONFIG);
   const [settingsLoading, setSettingsLoading] = useState(true);
+  const [carWashPackages, setCarWashPackages] = useState<
+    {
+      id: string;
+      name: string;
+      description: string;
+      price: number;
+      isActive: boolean;
+    }[]
+  >([]);
+  const [carWashServiceCharge, setCarWashServiceCharge] = useState<number>(0);
 
   const [approvedCount, setApprovedCount] = useState(0);
+  const [submitted, setSubmitted] = useState(false);
 
   // Fetch approved count
   useEffect(() => {
@@ -117,17 +132,45 @@ function RequestsPageContent() {
           setServiceConfig({
             fuel: {
               ...DEFAULT_CONFIG.fuel,
-              interestRate: data.services.fuelInterestRate || 13,
+              interestRate: Number(data.services.fuelInterestRate) || 13,
               defaultRepaymentDays: data.services.defaultRepaymentPeriod || 7,
               repaymentOptions: data.services.repaymentPeriods || [1, 3, 5, 7],
+              minAmount: Number(data.services.minLoanAmount) || 500,
+              maxAmount: Number(data.services.maxLoanAmount) || 2000,
             },
             carwash: {
               ...DEFAULT_CONFIG.carwash,
-              interestRate: data.services.carwashInterestRate || 13,
-              defaultRepaymentDays: data.services.defaultRepaymentPeriod || 7,
-              repaymentOptions: data.services.repaymentPeriods || [1, 3, 5, 7],
+              interestRate: 0,
+              defaultRepaymentDays: 0,
+              repaymentOptions: [],
             },
           });
+
+          // Load car wash packages from settings
+          const packages =
+            Array.isArray(data.services.carWashPackages) &&
+            data.services.carWashPackages.length > 0
+              ? data.services.carWashPackages.filter((p: any) => p.isActive)
+              : [
+                  {
+                    id: "1",
+                    name: "Basic Wash",
+                    description: "Exterior wash and dry",
+                    price: 60,
+                    isActive: true,
+                  },
+                  {
+                    id: "2",
+                    name: "Full Service",
+                    description: "Interior and exterior cleaning",
+                    price: 100,
+                    isActive: true,
+                  },
+                ];
+          setCarWashPackages(packages);
+          setCarWashServiceCharge(
+            Number(data.services.carWashServiceCharge) || 10,
+          );
         }
       }
     } catch (error) {
@@ -188,7 +231,7 @@ function RequestsPageContent() {
     }
   };
 
-  // Calculate interest and repayment details for any service
+  // Calculate interest and repayment details for fuel only
   const calculateServiceDetails = (amountNum: number) => {
     const interestRate = currentConfig.interestRate / 100;
     const interest = amountNum * interestRate;
@@ -206,106 +249,169 @@ function RequestsPageContent() {
   const getServiceSummary = () => {
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum) || amountNum <= 0) return null;
-
-    const { interest, totalRepayable, dailyPayment, interestRate } =
-      calculateServiceDetails(amountNum);
     const Icon = currentConfig.icon;
 
-    let additionalInfo = null;
-    if (selectedService === "fuel") {
-      additionalInfo = (
-        <div className="flex justify-between">
-          <span className="text-white/80">Fuel Type:</span>
-          <span className="font-semibold text-white capitalize">
-            {fuelType}
-          </span>
-        </div>
-      );
-    } else if (selectedService === "carwash") {
+    // For Car Wash - Show service fee, no interest
+    if (selectedService === "carwash") {
       const selectedPackage = carWashPackages.find(
         (p) => p.price === amountNum,
       );
-      additionalInfo = (
-        <>
-          <div className="flex justify-between">
-            <span className="text-white/80">Package:</span>
-            <span className="font-semibold text-white">
-              {selectedPackage?.name || "Custom"}
-            </span>
+      const totalCarWash = amountNum + carWashServiceCharge;
+      return (
+        <div className="bg-linear-to-r from-[#bff202] to-[#72bf00] rounded-xl p-4 mt-3">
+          <div className="flex items-center gap-2 mb-3">
+            <Icon className="w-4 h-4 text-[#01312D]" />
+            <p className="text-sm font-semibold text-[#01312D]">
+              Car Wash - Order Summary
+            </p>
           </div>
-          {selectedPackage?.description && (
+          <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-white/80">Includes:</span>
-              <span className="font-semibold text-white text-right text-xs">
-                {selectedPackage.description}
+              <span className="text-[#01312D]">Package:</span>
+              <span className="font-semibold text-[#01312D]">
+                {selectedPackage?.name || "Custom"}
               </span>
             </div>
-          )}
-        </>
+            {selectedPackage?.description && (
+              <div className="flex justify-between">
+                <span className="text-[#01312D]">Includes:</span>
+                <span className="font-semibold text-[#01312D] text-right text-xs max-w-[60%]">
+                  {selectedPackage.description}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-[#01312D]">Package Price:</span>
+              <span className="font-semibold text-[#01312D]">
+                R{amountNum.toLocaleString()}
+              </span>
+            </div>
+            {carWashServiceCharge > 0 && (
+              <div className="flex justify-between">
+                <span className="text-[#01312D]">Service Fee:</span>
+                <span className="font-semibold text-[#01312D]">
+                  + R{carWashServiceCharge.toLocaleString()}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-[#01312D]">Contact Number:</span>
+              <span className="font-semibold text-[#01312D]">
+                {phoneNumber || "Not entered"}
+              </span>
+            </div>
+            <div className="flex justify-between pt-2 border-t border-[#01312D]/20 bg-[#01312D]/10 rounded-lg p-2 -mx-1">
+              <span className="font-bold text-[#01312D]">Total Due:</span>
+              <span className="font-bold text-[#01312D]">
+                R{totalCarWash.toLocaleString()}
+              </span>
+            </div>
+            <div className="bg-green-50 rounded-lg p-2 mt-2 -mx-1">
+              <div className="flex items-center gap-2 justify-center">
+                <CheckCircle className="w-3 h-3 text-green-600" />
+                <p className="text-xs text-green-700">
+                  ✓ No interest. Pay the total due after service.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       );
     }
 
-    return (
-      <div className="bg-linear-to-r from-[#bff202] to-[#72bf00] rounded-xl p-4 mt-3">
-        <div className="flex items-center gap-2 mb-3">
-          <Icon className="w-4 h-4 text-[#01312D]" />
-          <p className="text-sm font-semibold text-[#01312D]">
-            {currentConfig.name} - Repayment Summary
-          </p>
+    // For Fuel - Show interest calculation
+    if (selectedService === "fuel") {
+      const { interest, totalRepayable, dailyPayment, interestRate } =
+        calculateServiceDetails(amountNum);
+
+      // Get min/max limits
+      const minAmount = currentConfig.minAmount || 500;
+      const maxAmount = currentConfig.maxAmount || 2000;
+      const isWithinLimits = amountNum >= minAmount && amountNum <= maxAmount;
+
+      return (
+        <div className="bg-linear-to-r from-[#bff202] to-[#72bf00] rounded-xl p-4 mt-3">
+          <div className="flex items-center gap-2 mb-3">
+            <Icon className="w-4 h-4 text-[#01312D]" />
+            <p className="text-sm font-semibold text-[#01312D]">
+              Fuel - Repayment Summary
+            </p>
+          </div>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-[#01312D]">Fuel Amount:</span>
+              <span className="font-semibold text-[#01312D]">
+                R{amountNum.toLocaleString()}
+              </span>
+            </div>
+            {!isWithinLimits && (
+              <div className="flex justify-between bg-red-100 rounded-lg p-1 -mx-1">
+                <span className="text-red-600 text-xs">
+                  ⚠️ Amount outside limits
+                </span>
+                <span className="text-red-600 text-xs font-semibold">
+                  Min: R{minAmount} | Max: R{maxAmount}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-[#01312D]">Fuel Type:</span>
+              <span className="font-semibold text-[#01312D] capitalize">
+                {fuelType}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#01312D]">Contact Number:</span>
+              <span className="font-semibold text-[#01312D]">
+                {phoneNumber || "Not entered"}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#01312D]">Interest Rate:</span>
+              <span className="font-semibold text-[#01312D]">
+                {interestRate}%
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#01312D]">Interest Amount:</span>
+              <span className="font-semibold text-[#01312D]">
+                + R{interest.toLocaleString()}
+              </span>
+            </div>
+            <div className="flex justify-between pt-2 border-t border-[#01312D]/20">
+              <span className="font-semibold text-[#01312D]">
+                Total Repayable:
+              </span>
+              <span className="font-bold text-[#01312D]">
+                R{totalRepayable.toLocaleString()}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#01312D]">Repayment Period:</span>
+              <span className="font-semibold text-[#01312D]">
+                {selectedRepaymentDays} days
+              </span>
+            </div>
+            <div className="flex justify-between bg-[#01312D]/10 rounded-lg p-2 -mx-1">
+              <span className="font-semibold text-[#01312D]">
+                Daily Payment:
+              </span>
+              <span className="font-bold text-[#01312D]">
+                R{Math.ceil(dailyPayment).toLocaleString()}/day
+              </span>
+            </div>
+          </div>
         </div>
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-[#01312D]">Amount:</span>
-            <span className="font-semibold text-[#01312D]">
-              R{amountNum.toLocaleString()}
-            </span>
-          </div>
-          {additionalInfo}
-          <div className="flex justify-between">
-            <span className="text-[#01312D]">Contact Number:</span>
-            <span className="font-semibold text-[#01312D]">
-              {phoneNumber || "Not entered"}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-[#01312D]">Interest Rate:</span>
-            <span className="font-semibold text-[#01312D]">
-              {interestRate}%
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-[#01312D]">Interest Amount:</span>
-            <span className="font-semibold text-[#01312D]">
-              + R{interest.toLocaleString()}
-            </span>
-          </div>
-          <div className="flex justify-between pt-2 border-t border-[#01312D]/20">
-            <span className="font-semibold text-[#01312D]">
-              Total Repayable:
-            </span>
-            <span className="font-bold text-[#01312D]">
-              R{totalRepayable.toLocaleString()}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-[#01312D]">Repayment Period:</span>
-            <span className="font-semibold text-[#01312D]">
-              {selectedRepaymentDays} days
-            </span>
-          </div>
-          <div className="flex justify-between bg-[#01312D]/10 rounded-lg p-2 -mx-1">
-            <span className="font-semibold text-[#01312D]">Daily Payment:</span>
-            <span className="font-bold text-[#01312D]">
-              R{Math.ceil(dailyPayment).toLocaleString()}/day
-            </span>
-          </div>
-        </div>
-      </div>
-    );
+      );
+    }
+
+    return null;
   };
 
-  // Get repayment period selector
+  // Get repayment period selector (only for fuel)
   const getRepaymentPeriodSelector = () => {
+    if (selectedService !== "fuel") return null;
+
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum) || amountNum <= 0) return null;
 
@@ -348,29 +454,15 @@ function RequestsPageContent() {
     interestRate: config.interestRate,
   }));
 
-  const carWashPackages = [
-    {
-      id: "basic",
-      name: "Basic Wash",
-      price: 60,
-      description: "Exterior wash & drying",
-    },
-    {
-      id: "premium",
-      name: "Premium Wash",
-      price: 100,
-      description: "Exterior + Interior cleaning",
-    },
-    {
-      id: "deluxe",
-      name: "Deluxe Wash",
-      price: 150,
-      description: "Complete detailing + wax",
-    },
-  ];
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Prevent duplicate submissions
+    if (submitted || loading) {
+      return;
+    }
+
+    setSubmitted(true);
     setLoading(true);
     setError("");
 
@@ -379,6 +471,7 @@ function RequestsPageContent() {
         "You need to be verified to make requests. Please complete verification first.",
       );
       setLoading(false);
+      setSubmitted(false);
       return;
     }
 
@@ -387,51 +480,106 @@ function RequestsPageContent() {
     if (isNaN(amountNum) || amountNum <= 0) {
       setError("Please enter a valid amount");
       setLoading(false);
+      setSubmitted(false);
       return;
+    }
+
+    // Apply amount limits ONLY for fuel (loan services)
+    // Car wash has fixed packages - no amount limits
+    if (selectedService === "fuel") {
+      const minAmount = currentConfig.minAmount || 500;
+      const maxAmount = currentConfig.maxAmount || 2000;
+
+      if (amountNum < minAmount) {
+        setError(
+          `Minimum fuel request amount is R${minAmount.toLocaleString()}`,
+        );
+        setLoading(false);
+        setSubmitted(false);
+        return;
+      }
+
+      if (amountNum > maxAmount) {
+        setError(
+          `Maximum fuel request amount is R${maxAmount.toLocaleString()}`,
+        );
+        setLoading(false);
+        setSubmitted(false);
+        return;
+      }
+    }
+
+    // For car wash, validate that a package is selected
+    if (selectedService === "carwash") {
+      const selectedPackage = carWashPackages.find(
+        (p) => p.price === amountNum,
+      );
+      if (!selectedPackage) {
+        setError("Please select a valid car wash package");
+        setLoading(false);
+        setSubmitted(false);
+        return;
+      }
     }
 
     // Validate phone number for all services
     if (!phoneNumber || phoneNumber.length < 10) {
       setError("Please enter a valid 10-digit phone number");
       setLoading(false);
+      setSubmitted(false);
       return;
     }
 
     if (!driverDetails.carRegistrationNumber) {
       setError("Please update your car registration number in profile first");
       setLoading(false);
+      setSubmitted(false);
       return;
     }
 
     try {
-      const { interest, totalRepayable, dailyPayment, interestRate } =
-        calculateServiceDetails(amountNum);
-
-      const requestData: any = {
+      let requestData: any = {
         userId: session?.user?.id,
         type: selectedService,
-        amount: amountNum,
         carNumber: driverDetails.carRegistrationNumber,
         carModel: driverDetails.carModel,
-        fuelType: selectedService === "fuel" ? fuelType : null,
         contactPhone: phoneNumber,
         driverName: driverDetails.fullName,
         driverPhone: driverDetails.phone,
         driverEmail: driverDetails.email,
-        interest: interest,
-        totalRepayable: totalRepayable,
-        interestRate: interestRate,
-        repaymentDays: selectedRepaymentDays,
-        dailyPayment: Math.ceil(dailyPayment),
       };
 
-      // Add package info for car wash
-      if (selectedService === "carwash") {
+      if (selectedService === "fuel") {
+        const { interest, totalRepayable, dailyPayment, interestRate } =
+          calculateServiceDetails(amountNum);
+        requestData = {
+          ...requestData,
+          amount: amountNum,
+          fuelType: fuelType,
+          interest: interest,
+          totalRepayable: totalRepayable,
+          interestRate: interestRate,
+          repaymentDays: selectedRepaymentDays,
+          dailyPayment: Math.ceil(dailyPayment),
+        };
+      } else if (selectedService === "carwash") {
         const selectedPackage = carWashPackages.find(
           (p) => p.price === amountNum,
         );
-        requestData.package = selectedPackage?.name || "Custom";
-        requestData.packageDescription = selectedPackage?.description || "";
+        const totalDue = amountNum + carWashServiceCharge;
+        requestData = {
+          ...requestData,
+          amount: amountNum,
+          package: selectedPackage?.name || "Custom",
+          packageDescription: selectedPackage?.description || "",
+          serviceCharge: carWashServiceCharge,
+          totalDue: totalDue,
+          interest: 0,
+          totalRepayable: totalDue,
+          interestRate: 0,
+          repaymentDays: 0,
+          dailyPayment: 0,
+        };
       }
 
       console.log("Submitting request with data:", requestData);
@@ -458,11 +606,12 @@ function RequestsPageContent() {
     } catch (err: any) {
       console.error("Submission error:", err);
       setError(err.message || "Failed to submit request. Please try again.");
+      setSubmitted(false); // Reset submitted state on error so user can retry
     } finally {
       setLoading(false);
+      // Don't reset submitted here - keep it disabled while navigating away
     }
   };
-
   const getPlaceholder = () => {
     switch (selectedService) {
       case "fuel":
@@ -585,6 +734,14 @@ function RequestsPageContent() {
     );
   }
 
+  const minAmount = currentConfig.minAmount || 500;
+  const maxAmount = currentConfig.maxAmount || 2000;
+  const currentAmount = parseFloat(amount) || 0;
+  const isAmountValid =
+    selectedService === "fuel"
+      ? currentAmount >= minAmount && currentAmount <= maxAmount
+      : true;
+
   return (
     <div className="min-h-screen bg-[#eafde7] relative overflow-hidden pb-32">
       <div className="absolute top-0 right-0 w-80 h-80 bg-[#bff202]/10 rounded-full blur-3xl"></div>
@@ -691,9 +848,7 @@ function RequestsPageContent() {
                       setSelectedService(service.id);
                       setAmount("");
                       setError("");
-                      setSelectedRepaymentDays(
-                        serviceConfig[service.id].defaultRepaymentDays,
-                      );
+                      setSelectedRepaymentDays(7);
                     }}
                     className={`flex flex-col items-center gap-1 p-3 rounded-2xl transition-all duration-300 ${
                       isActive
@@ -710,55 +865,17 @@ function RequestsPageContent() {
                       {service.name}
                     </span>
                     <span
-                      className={`text-[10px] ${isActive ? "text-white/80" : "text-[#72bf00]"}`}
+                      className={`text-[10px] ${isActive ? "text-white/80" : service.id === "carwash" ? "text-[#3A7717]" : "text-[#72bf00]"}`}
                     >
-                      {service.interestRate}% interest
+                      {service.id === "carwash"
+                        ? "Service fee applies"
+                        : `${service.interestRate}% interest`}
                     </span>
                   </button>
                 );
               })}
             </div>
           </div>
-
-          {/* Upcoming Services Section */}
-          {/* <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <Calendar className="w-4 h-4 text-[#3A7717]" />
-              <h2 className="text-lg font-bold text-[#01312D]">
-                Upcoming Services
-              </h2>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-             
-              <div className="bg-white/50 rounded-2xl p-4 border border-dashed border-[#bff202]/30 opacity-70">
-                <div className="flex flex-col items-center text-center">
-                  <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mb-2">
-                    <DollarSign className="w-6 h-6 text-gray-400" />
-                  </div>
-                  <h3 className="font-bold text-gray-500 text-sm">Cash Loan</h3>
-                  <p className="text-gray-400 text-xs mt-1">Coming soon</p>
-                  <div className="flex items-center gap-1 mt-2 text-gray-400 text-xs">
-                    <Ban className="w-3 h-3" />
-                    <span>Not yet available</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white/50 rounded-2xl p-4 border border-dashed border-[#bff202]/30 opacity-70">
-                <div className="flex flex-col items-center text-center">
-                  <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mb-2">
-                    <Smartphone className="w-6 h-6 text-gray-400" />
-                  </div>
-                  <h3 className="font-bold text-gray-500 text-sm">Airtime</h3>
-                  <p className="text-gray-400 text-xs mt-1">Coming soon</p>
-                  <div className="flex items-center gap-1 mt-2 text-gray-400 text-xs">
-                    <Ban className="w-3 h-3" />
-                    <span>Not yet available</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div> */}
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
@@ -800,6 +917,14 @@ function RequestsPageContent() {
                       </div>
                     </button>
                   ))}
+                  {carWashServiceCharge > 0 && (
+                    <div className="mt-2 p-2 bg-blue-50 rounded-lg text-center">
+                      <p className="text-xs text-blue-700">
+                        Service fee of R{carWashServiceCharge} applies to all
+                        packages
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <>
@@ -815,18 +940,30 @@ function RequestsPageContent() {
                     />
                   </div>
 
+                  {/* Amount limits hint for fuel */}
                   {selectedService === "fuel" && (
-                    <div className="flex gap-2 mt-2 flex-wrap">
-                      {[500, 1000, 2000, 3000, 5000].map((amt) => (
-                        <button
-                          key={amt}
-                          type="button"
-                          onClick={() => setAmount(amt.toString())}
-                          className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
-                        >
-                          R{amt}
-                        </button>
-                      ))}
+                    <div className="mt-2">
+                      <div className="flex gap-2 flex-wrap">
+                        {[500, 1000, 1500, 2000].map((amt) => (
+                          <button
+                            key={amt}
+                            type="button"
+                            onClick={() => setAmount(amt.toString())}
+                            className="px-3 py-1 bg-[#eafde7] rounded-lg text-xs text-[#3A7717] font-semibold border border-[#bff202]/20"
+                          >
+                            R{amt}
+                          </button>
+                        ))}
+                      </div>
+                      <p
+                        className={`text-xs mt-2 ${!isAmountValid && amount ? "text-red-500" : "text-gray-500"}`}
+                      >
+                        Min: R{minAmount.toLocaleString()} | Max: R
+                        {maxAmount.toLocaleString()}
+                        {!isAmountValid &&
+                          amount &&
+                          ` - Amount must be between R${minAmount} and R${maxAmount}`}
+                      </p>
                     </div>
                   )}
                 </>
@@ -878,7 +1015,11 @@ function RequestsPageContent() {
               </div>
             )}
 
-            {amount && parseFloat(amount) > 0 && getRepaymentPeriodSelector()}
+            {amount &&
+              parseFloat(amount) > 0 &&
+              selectedService === "fuel" &&
+              getRepaymentPeriodSelector()}
+
             {amount && parseFloat(amount) > 0 && getServiceSummary()}
 
             <div>
@@ -903,12 +1044,22 @@ function RequestsPageContent() {
 
             <button
               type="submit"
-              disabled={loading || !amount || !phoneNumber}
+              disabled={
+                loading ||
+                submitted ||
+                !amount ||
+                !phoneNumber ||
+                (selectedService === "fuel" && !isAmountValid)
+              }
               className="w-full bg-linear-to-r from-[#01312D] to-[#3A7717] text-white py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
             >
               {loading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" /> Processing...
+                </>
+              ) : submitted ? (
+                <>
+                  <CheckCircle className="w-5 h-5" /> Submitting...
                 </>
               ) : (
                 <>
@@ -926,9 +1077,9 @@ function RequestsPageContent() {
                     approved, you'll receive an OTP and confirmation details.
                   </p>
                   <p className="text-xs text-[#3A7717] font-semibold mt-1">
-                    💰 Amount will be processed within 30 minutes after
-                    approval. Repayment of {currentConfig.interestRate}%
-                    interest over {selectedRepaymentDays} days.
+                    {selectedService === "carwash"
+                      ? `🚗 Car wash will be scheduled after approval. Service fee: R${carWashServiceCharge}. Total due: R${(parseFloat(amount) || 0) + carWashServiceCharge}.`
+                      : `💰 Fuel request between R${minAmount} - R${maxAmount}. ${currentConfig.interestRate}% interest over ${selectedRepaymentDays} days.`}
                   </p>
                 </div>
               </div>
@@ -936,7 +1087,7 @@ function RequestsPageContent() {
           </form>
         </div>
       </main>
-      
+
       <BottomNavigation approvedCount={approvedCount} isAdmin={false} />
     </div>
   );

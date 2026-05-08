@@ -27,7 +27,133 @@ import {
   AtSign,
   Fuel,
   Loader2,
+  Plus,
+  Trash2,
+  Edit2,
+  Tag,
 } from "lucide-react";
+
+// Car wash package interface
+interface CarWashPackage {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  isActive: boolean;
+}
+
+// Package Modal — defined OUTSIDE AdminSettingsPage to prevent re-mount on every render
+function PackageModal({
+  editingPackage,
+  onSave,
+  onClose,
+}: {
+  editingPackage: CarWashPackage | null;
+  onSave: (pkg: Omit<CarWashPackage, "id">) => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState(editingPackage?.name || "");
+  const [description, setDescription] = useState(
+    editingPackage?.description || "",
+  );
+  const [price, setPrice] = useState<number | "">(editingPackage?.price ?? 50);
+  const [isActive, setIsActive] = useState(editingPackage?.isActive ?? true);
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose}></div>
+      <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl">
+        <div className="bg-[#3A7717] rounded-t-2xl p-5">
+          <h2 className="text-xl font-bold text-white">
+            {editingPackage ? "Edit Package" : "Add New Package"}
+          </h2>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+              Package Name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-[#3A7717]"
+              placeholder="e.g., Basic Wash"
+            />
+          </div>
+          <div>
+            <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-[#3A7717]"
+              placeholder="Package description"
+            />
+          </div>
+          <div>
+            <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+              Price (R)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">
+                R
+              </span>
+              <input
+                type="number"
+                value={price}
+                onChange={(e) =>
+                  setPrice(e.target.value === "" ? "" : Number(e.target.value))
+                }
+                className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-[#3A7717]"
+                placeholder="e.g., 50"
+                min="0"
+                step="1"
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <label className="text-[#01312D] font-semibold text-sm">
+              Active
+            </label>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isActive}
+                onChange={(e) => setIsActive(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+            </label>
+          </div>
+        </div>
+        <div className="border-t border-gray-100 p-5 flex gap-3">
+          <button
+            onClick={() =>
+              onSave({
+                name,
+                description,
+                price: price === "" ? 0 : price,
+                isActive,
+              })
+            }
+            className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold hover:bg-[#2d5a12]"
+          >
+            Save Package
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold hover:bg-gray-300"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminSettingsPage() {
   const [activeTab, setActiveTab] = useState<
@@ -37,16 +163,20 @@ export default function AdminSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [editingPackage, setEditingPackage] = useState<CarWashPackage | null>(
+    null,
+  );
+  const [showPackageModal, setShowPackageModal] = useState(false);
 
   // General Settings
   const [generalSettings, setGeneralSettings] = useState({
     siteName: "Kapuka",
     siteDescription: "Driver Services Platform",
     contactEmail: "support@Kapuka.com",
-    contactPhone: "+91 98765 43210",
-    address: "123, Tech Park, Bangalore - 560001",
-    timezone: "Asia/Kolkata",
-    currency: "INR",
+    contactPhone: "+27 12 345 6789",
+    address: "123, Tech Park, Johannesburg - 2000",
+    timezone: "Africa/Johannesburg",
+    currency: "ZAR",
     dateFormat: "DD/MM/YYYY",
   });
 
@@ -59,14 +189,16 @@ export default function AdminSettingsPage() {
     fuelInterestRate: 13,
     airtimeInterestRate: 13,
     cashInterestRate: 13,
-    carwashInterestRate: 13,
-    minLoanAmount: 1000,
-    maxLoanAmount: 50000,
+    carWashIsFixedPrice: true,
+    carWashServiceCharge: 0,
+    carWashPackages: [] as CarWashPackage[],
+    minLoanAmount: 100,
+    maxLoanAmount: 5000,
     repaymentPeriods: [7, 14, 21, 30],
     defaultRepaymentPeriod: 7,
     lateFeePercentage: 2,
-    airtimeNetworks: ["Jio", "Airtel", "VI", "BSNL"],
-    fuelTypes: ["Petrol", "Diesel"],
+    airtimeNetworks: ["Vodacom", "MTN", "Telkom", "Cell C"],
+    fuelTypes: ["Petrol 93", "Petrol 95", "Diesel 500ppm", "Diesel 50ppm"],
   });
 
   // Notification Settings
@@ -75,8 +207,8 @@ export default function AdminSettingsPage() {
     whatsappNotifications: true,
     smsNotifications: false,
     adminEmail: "admin@Kapuka.com",
-    adminPhone: "+91 98765 43210",
-    whatsappBusinessNumber: "+91 98765 43210",
+    adminPhone: "+27 12 345 6789",
+    whatsappBusinessNumber: "+27 12 345 6789",
     notifyOnNewVerification: true,
     notifyOnNewRequest: true,
     notifyOnRequestApproval: true,
@@ -97,15 +229,15 @@ export default function AdminSettingsPage() {
 
   // Business Settings
   const [businessSettings, setBusinessSettings] = useState({
-    businessName: "Kapuka Services Pvt Ltd",
+    businessName: "Kapuka Services Pty Ltd",
     businessEmail: "business@Kapuka.com",
-    businessPhone: "+91 98765 43210",
-    gstNumber: "29ABCDE1234F1Z5",
-    panNumber: "ABCDE1234F",
-    bankName: "HDFC Bank",
+    businessPhone: "+27 12 345 6789",
+    registrationNumber: "2020/123456/07",
+    vatNumber: "1234567890",
+    bankName: "Standard Bank",
     accountNumber: "XXXX1234",
-    ifscCode: "HDFC0001234",
-    upiId: "Kapuka@hdfcbank",
+    branchCode: "051001",
+    upiId: "Kapuka@standardbank",
     termsAndConditions: "https://Kapuka.com/terms",
     privacyPolicy: "https://Kapuka.com/privacy",
   });
@@ -121,7 +253,37 @@ export default function AdminSettingsPage() {
       if (response.ok) {
         const data = await response.json();
         if (data.general) setGeneralSettings(data.general);
-        if (data.services) setServiceSettings(data.services);
+        if (data.services) {
+          setServiceSettings(data.services);
+          if (!data.services.carWashPackages) {
+            setServiceSettings((prev) => ({
+              ...prev,
+              carWashPackages: [
+                {
+                  id: "1",
+                  name: "Basic Wash",
+                  description: "Exterior wash and dry",
+                  price: 50,
+                  isActive: true,
+                },
+                {
+                  id: "2",
+                  name: "Full Service",
+                  description: "Interior and exterior cleaning",
+                  price: 100,
+                  isActive: true,
+                },
+                {
+                  id: "3",
+                  name: "Premium Detail",
+                  description: "Complete detailing service",
+                  price: 200,
+                  isActive: true,
+                },
+              ],
+            }));
+          }
+        }
         if (data.notifications) setNotificationSettings(data.notifications);
         if (data.security) setSecuritySettings(data.security);
         if (data.business) setBusinessSettings(data.business);
@@ -131,6 +293,94 @@ export default function AdminSettingsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Generic input change handlers
+  const handleGeneralChange =
+    (field: string) =>
+    (
+      e: React.ChangeEvent<
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+      >,
+    ) => {
+      setGeneralSettings((prev) => ({ ...prev, [field]: e.target.value }));
+    };
+
+  const handleNotificationChange =
+    (field: string) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      const value =
+        e.target.type === "checkbox"
+          ? (e.target as HTMLInputElement).checked
+          : e.target.value;
+      setNotificationSettings((prev) => ({ ...prev, [field]: value }));
+    };
+
+  const handleSecurityChange =
+    (field: string) =>
+    (
+      e: React.ChangeEvent<
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+      >,
+    ) => {
+      const value =
+        e.target.type === "checkbox"
+          ? (e.target as HTMLInputElement).checked
+          : e.target.value;
+      setSecuritySettings((prev) => ({ ...prev, [field]: value }));
+    };
+
+  const handleBusinessChange =
+    (field: string) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      setBusinessSettings((prev) => ({ ...prev, [field]: e.target.value }));
+    };
+
+  // Fix for numeric inputs: allows empty string for typing and converts to number on state update
+  const handleServiceNumericChange =
+    (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      setServiceSettings((prev) => ({
+        ...prev,
+        [field]: val === "" ? 0 : Number(val),
+      }));
+    };
+
+  // Car wash package handlers
+  const handleAddPackage = () => {
+    setEditingPackage(null);
+    setShowPackageModal(true);
+  };
+
+  const handleEditPackage = (pkg: CarWashPackage) => {
+    setEditingPackage(pkg);
+    setShowPackageModal(true);
+  };
+
+  const handleDeletePackage = (packageId: string) => {
+    setServiceSettings((prev) => ({
+      ...prev,
+      carWashPackages: prev.carWashPackages.filter((p) => p.id !== packageId),
+    }));
+  };
+
+  const handleSavePackage = (pkgData: Omit<CarWashPackage, "id">) => {
+    if (editingPackage) {
+      setServiceSettings((prev) => ({
+        ...prev,
+        carWashPackages: prev.carWashPackages.map((p) =>
+          p.id === editingPackage.id ? { ...pkgData, id: p.id } : p,
+        ),
+      }));
+    } else {
+      const newId = Date.now().toString();
+      setServiceSettings((prev) => ({
+        ...prev,
+        carWashPackages: [...prev.carWashPackages, { ...pkgData, id: newId }],
+      }));
+    }
+    setShowPackageModal(false);
+    setEditingPackage(null);
   };
 
   const handleSave = async () => {
@@ -150,8 +400,8 @@ export default function AdminSettingsPage() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to save settings");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to save settings");
       }
 
       setSaveSuccess(true);
@@ -269,12 +519,7 @@ export default function AdminSettingsPage() {
                 <input
                   type="text"
                   value={generalSettings.siteName}
-                  onChange={(e) =>
-                    setGeneralSettings({
-                      ...generalSettings,
-                      siteName: e.target.value,
-                    })
-                  }
+                  onChange={handleGeneralChange("siteName")}
                   className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
                 />
               </div>
@@ -285,12 +530,7 @@ export default function AdminSettingsPage() {
                 <input
                   type="text"
                   value={generalSettings.siteDescription}
-                  onChange={(e) =>
-                    setGeneralSettings({
-                      ...generalSettings,
-                      siteDescription: e.target.value,
-                    })
-                  }
+                  onChange={handleGeneralChange("siteDescription")}
                   className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 />
               </div>
@@ -303,12 +543,7 @@ export default function AdminSettingsPage() {
                   <input
                     type="email"
                     value={generalSettings.contactEmail}
-                    onChange={(e) =>
-                      setGeneralSettings({
-                        ...generalSettings,
-                        contactEmail: e.target.value,
-                      })
-                    }
+                    onChange={handleGeneralChange("contactEmail")}
                     className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
@@ -322,12 +557,7 @@ export default function AdminSettingsPage() {
                   <input
                     type="tel"
                     value={generalSettings.contactPhone}
-                    onChange={(e) =>
-                      setGeneralSettings({
-                        ...generalSettings,
-                        contactPhone: e.target.value,
-                      })
-                    }
+                    onChange={handleGeneralChange("contactPhone")}
                     className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
@@ -340,12 +570,7 @@ export default function AdminSettingsPage() {
                   <MapPin className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                   <textarea
                     value={generalSettings.address}
-                    onChange={(e) =>
-                      setGeneralSettings({
-                        ...generalSettings,
-                        address: e.target.value,
-                      })
-                    }
+                    onChange={handleGeneralChange("address")}
                     rows={2}
                     className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
@@ -357,15 +582,10 @@ export default function AdminSettingsPage() {
                 </label>
                 <select
                   value={generalSettings.timezone}
-                  onChange={(e) =>
-                    setGeneralSettings({
-                      ...generalSettings,
-                      timezone: e.target.value,
-                    })
-                  }
+                  onChange={handleGeneralChange("timezone")}
                   className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 >
-                  <option value="Asia/Kolkata">IST (UTC+5:30)</option>
+                  <option value="Africa/Johannesburg">SAST (UTC+2)</option>
                   <option value="UTC">UTC</option>
                   <option value="America/New_York">EST (UTC-5)</option>
                   <option value="Europe/London">GMT (UTC+0)</option>
@@ -377,12 +597,7 @@ export default function AdminSettingsPage() {
                 </label>
                 <select
                   value={generalSettings.dateFormat}
-                  onChange={(e) =>
-                    setGeneralSettings({
-                      ...generalSettings,
-                      dateFormat: e.target.value,
-                    })
-                  }
+                  onChange={handleGeneralChange("dateFormat")}
                   className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 >
                   <option value="DD/MM/YYYY">DD/MM/YYYY</option>
@@ -410,14 +625,14 @@ export default function AdminSettingsPage() {
                     type="checkbox"
                     checked={serviceSettings.fuelEnabled}
                     onChange={(e) =>
-                      setServiceSettings({
-                        ...serviceSettings,
+                      setServiceSettings((prev) => ({
+                        ...prev,
                         fuelEnabled: e.target.checked,
-                      })
+                      }))
                     }
                     className="sr-only peer"
                   />
-                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
                 </label>
               </div>
               <div className="flex items-center justify-between p-3 bg-[#eafde7] rounded-xl">
@@ -430,14 +645,14 @@ export default function AdminSettingsPage() {
                     type="checkbox"
                     checked={serviceSettings.airtimeEnabled}
                     onChange={(e) =>
-                      setServiceSettings({
-                        ...serviceSettings,
+                      setServiceSettings((prev) => ({
+                        ...prev,
                         airtimeEnabled: e.target.checked,
-                      })
+                      }))
                     }
                     className="sr-only peer"
                   />
-                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
                 </label>
               </div>
               <div className="flex items-center justify-between p-3 bg-[#eafde7] rounded-xl">
@@ -452,14 +667,14 @@ export default function AdminSettingsPage() {
                     type="checkbox"
                     checked={serviceSettings.cashLoanEnabled}
                     onChange={(e) =>
-                      setServiceSettings({
-                        ...serviceSettings,
+                      setServiceSettings((prev) => ({
+                        ...prev,
                         cashLoanEnabled: e.target.checked,
-                      })
+                      }))
                     }
                     className="sr-only peer"
                   />
-                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
                 </label>
               </div>
               <div className="flex items-center justify-between p-3 bg-[#eafde7] rounded-xl">
@@ -472,21 +687,22 @@ export default function AdminSettingsPage() {
                     type="checkbox"
                     checked={serviceSettings.carWashEnabled}
                     onChange={(e) =>
-                      setServiceSettings({
-                        ...serviceSettings,
+                      setServiceSettings((prev) => ({
+                        ...prev,
                         carWashEnabled: e.target.checked,
-                      })
+                      }))
                     }
                     className="sr-only peer"
                   />
-                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
                 </label>
               </div>
             </div>
           </SettingSection>
 
+          {/* Interest Rates (%) */}
           <SettingSection title="Interest Rates (%)">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Fuel Interest Rate
@@ -495,14 +711,12 @@ export default function AdminSettingsPage() {
                   <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="number"
-                    value={serviceSettings.fuelInterestRate}
-                    onChange={(e) =>
-                      setServiceSettings({
-                        ...serviceSettings,
-                        fuelInterestRate: Number(e.target.value),
-                      })
-                    }
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                    value={serviceSettings.fuelInterestRate || ""}
+                    onChange={handleServiceNumericChange("fuelInterestRate")}
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    step="1"
+                    min="0"
+                    max="100"
                   />
                 </div>
               </div>
@@ -514,14 +728,12 @@ export default function AdminSettingsPage() {
                   <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="number"
-                    value={serviceSettings.airtimeInterestRate}
-                    onChange={(e) =>
-                      setServiceSettings({
-                        ...serviceSettings,
-                        airtimeInterestRate: Number(e.target.value),
-                      })
-                    }
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                    value={serviceSettings.airtimeInterestRate || ""}
+                    onChange={handleServiceNumericChange("airtimeInterestRate")}
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    step="1"
+                    min="0"
+                    max="100"
                   />
                 </div>
               </div>
@@ -533,39 +745,121 @@ export default function AdminSettingsPage() {
                   <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="number"
-                    value={serviceSettings.cashInterestRate}
-                    onChange={(e) =>
-                      setServiceSettings({
-                        ...serviceSettings,
-                        cashInterestRate: Number(e.target.value),
-                      })
-                    }
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                  Car Wash Interest Rate
-                </label>
-                <div className="relative">
-                  <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="number"
-                    value={serviceSettings.carwashInterestRate}
-                    onChange={(e) =>
-                      setServiceSettings({
-                        ...serviceSettings,
-                        carwashInterestRate: Number(e.target.value),
-                      })
-                    }
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                    value={serviceSettings.cashInterestRate || ""}
+                    onChange={handleServiceNumericChange("cashInterestRate")}
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    step="1"
+                    min="0"
+                    max="100"
                   />
                 </div>
               </div>
             </div>
+            <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>Note:</strong> Car wash uses fixed price packages (not
+                interest rates). Configure packages below.
+              </p>
+            </div>
           </SettingSection>
 
+          {/* Car Wash Packages Section */}
+          {serviceSettings.carWashEnabled && (
+            <SettingSection title="Car Wash Packages">
+              <div className="space-y-3">
+                {/* Service Charge Amount */}
+                <div className="p-4 bg-[#eafde7] rounded-xl border border-[#bff202]/30">
+                  <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                    Service Charge (R)
+                  </label>
+                  <div className="relative max-w-xs">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">
+                      R
+                    </span>
+                    <input
+                      type="number"
+                      value={serviceSettings.carWashServiceCharge || ""}
+                      onChange={handleServiceNumericChange(
+                        "carWashServiceCharge",
+                      )}
+                      className="w-full pl-8 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                      placeholder="e.g., 20"
+                      min="0"
+                      step="1"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Fixed amount charged per car wash transaction (in addition
+                    to the package price).
+                  </p>
+                </div>
+                <button
+                  onClick={handleAddPackage}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#3A7717] text-white rounded-xl text-sm font-semibold hover:bg-[#2d5e12]"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Package
+                </button>
+                <div className="grid grid-cols-1 gap-3">
+                  {serviceSettings.carWashPackages.map((pkg) => (
+                    <div
+                      key={pkg.id}
+                      className={`flex items-center justify-between p-4 rounded-xl border ${
+                        pkg.isActive
+                          ? "bg-white border-[#bff202]/30"
+                          : "bg-gray-50 border-gray-200 opacity-70"
+                      }`}
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Car className="w-5 h-5 text-[#3A7717]" />
+                          <h4 className="font-bold text-[#01312D]">
+                            {pkg.name}
+                          </h4>
+                          {!pkg.isActive && (
+                            <span className="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">
+                              Inactive
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {pkg.description}
+                        </p>
+                        <p className="text-lg font-bold text-[#3A7717] mt-2">
+                          R{pkg.price.toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEditPackage(pkg)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeletePackage(pkg.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {serviceSettings.carWashPackages.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <Tag className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>No packages configured yet.</p>
+                      <p className="text-sm">
+                        Click "Add Package" to create car wash services.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </SettingSection>
+          )}
+
+          {/* Loan Configuration */}
           <SettingSection title="Loan Configuration">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -574,14 +868,11 @@ export default function AdminSettingsPage() {
                 </label>
                 <input
                   type="number"
-                  value={serviceSettings.minLoanAmount}
-                  onChange={(e) =>
-                    setServiceSettings({
-                      ...serviceSettings,
-                      minLoanAmount: Number(e.target.value),
-                    })
-                  }
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                  value={serviceSettings.minLoanAmount || ""}
+                  onChange={handleServiceNumericChange("minLoanAmount")}
+                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                  step="10"
+                  min="0"
                 />
               </div>
               <div>
@@ -590,14 +881,11 @@ export default function AdminSettingsPage() {
                 </label>
                 <input
                   type="number"
-                  value={serviceSettings.maxLoanAmount}
-                  onChange={(e) =>
-                    setServiceSettings({
-                      ...serviceSettings,
-                      maxLoanAmount: Number(e.target.value),
-                    })
-                  }
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                  value={serviceSettings.maxLoanAmount || ""}
+                  onChange={handleServiceNumericChange("maxLoanAmount")}
+                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                  step="10"
+                  min="0"
                 />
               </div>
               <div>
@@ -606,13 +894,14 @@ export default function AdminSettingsPage() {
                 </label>
                 <select
                   value={serviceSettings.defaultRepaymentPeriod}
-                  onChange={(e) =>
-                    setServiceSettings({
-                      ...serviceSettings,
-                      defaultRepaymentPeriod: Number(e.target.value),
-                    })
-                  }
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setServiceSettings((prev) => ({
+                      ...prev,
+                      defaultRepaymentPeriod: val,
+                    }));
+                  }}
+                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
                 >
                   {serviceSettings.repaymentPeriods.map((days) => (
                     <option key={days} value={days}>
@@ -629,14 +918,12 @@ export default function AdminSettingsPage() {
                   <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="number"
-                    value={serviceSettings.lateFeePercentage}
-                    onChange={(e) =>
-                      setServiceSettings({
-                        ...serviceSettings,
-                        lateFeePercentage: Number(e.target.value),
-                      })
-                    }
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                    value={serviceSettings.lateFeePercentage || ""}
+                    onChange={handleServiceNumericChange("lateFeePercentage")}
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    step="0.5"
+                    min="0"
+                    max="100"
                   />
                 </div>
               </div>
@@ -661,15 +948,10 @@ export default function AdminSettingsPage() {
                   <input
                     type="checkbox"
                     checked={notificationSettings.emailNotifications}
-                    onChange={(e) =>
-                      setNotificationSettings({
-                        ...notificationSettings,
-                        emailNotifications: e.target.checked,
-                      })
-                    }
+                    onChange={handleNotificationChange("emailNotifications")}
                     className="sr-only peer"
                   />
-                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
                 </label>
               </div>
               <div className="flex items-center justify-between p-3 bg-[#eafde7] rounded-xl">
@@ -683,15 +965,10 @@ export default function AdminSettingsPage() {
                   <input
                     type="checkbox"
                     checked={notificationSettings.whatsappNotifications}
-                    onChange={(e) =>
-                      setNotificationSettings({
-                        ...notificationSettings,
-                        whatsappNotifications: e.target.checked,
-                      })
-                    }
+                    onChange={handleNotificationChange("whatsappNotifications")}
                     className="sr-only peer"
                   />
-                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
                 </label>
               </div>
               <div className="flex items-center justify-between p-3 bg-[#eafde7] rounded-xl">
@@ -705,15 +982,10 @@ export default function AdminSettingsPage() {
                   <input
                     type="checkbox"
                     checked={notificationSettings.smsNotifications}
-                    onChange={(e) =>
-                      setNotificationSettings({
-                        ...notificationSettings,
-                        smsNotifications: e.target.checked,
-                      })
-                    }
+                    onChange={handleNotificationChange("smsNotifications")}
                     className="sr-only peer"
                   />
-                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
                 </label>
               </div>
             </div>
@@ -730,12 +1002,7 @@ export default function AdminSettingsPage() {
                   <input
                     type="email"
                     value={notificationSettings.adminEmail}
-                    onChange={(e) =>
-                      setNotificationSettings({
-                        ...notificationSettings,
-                        adminEmail: e.target.value,
-                      })
-                    }
+                    onChange={handleNotificationChange("adminEmail")}
                     className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
@@ -749,12 +1016,7 @@ export default function AdminSettingsPage() {
                   <input
                     type="tel"
                     value={notificationSettings.adminPhone}
-                    onChange={(e) =>
-                      setNotificationSettings({
-                        ...notificationSettings,
-                        adminPhone: e.target.value,
-                      })
-                    }
+                    onChange={handleNotificationChange("adminPhone")}
                     className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
@@ -768,12 +1030,9 @@ export default function AdminSettingsPage() {
                   <input
                     type="tel"
                     value={notificationSettings.whatsappBusinessNumber}
-                    onChange={(e) =>
-                      setNotificationSettings({
-                        ...notificationSettings,
-                        whatsappBusinessNumber: e.target.value,
-                      })
-                    }
+                    onChange={handleNotificationChange(
+                      "whatsappBusinessNumber",
+                    )}
                     className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
@@ -789,15 +1048,12 @@ export default function AdminSettingsPage() {
                   <input
                     type="checkbox"
                     checked={notificationSettings.notifyOnNewVerification}
-                    onChange={(e) =>
-                      setNotificationSettings({
-                        ...notificationSettings,
-                        notifyOnNewVerification: e.target.checked,
-                      })
-                    }
+                    onChange={handleNotificationChange(
+                      "notifyOnNewVerification",
+                    )}
                     className="sr-only peer"
                   />
-                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
                 </label>
               </div>
               <div className="flex items-center justify-between">
@@ -806,15 +1062,10 @@ export default function AdminSettingsPage() {
                   <input
                     type="checkbox"
                     checked={notificationSettings.notifyOnNewRequest}
-                    onChange={(e) =>
-                      setNotificationSettings({
-                        ...notificationSettings,
-                        notifyOnNewRequest: e.target.checked,
-                      })
-                    }
+                    onChange={handleNotificationChange("notifyOnNewRequest")}
                     className="sr-only peer"
                   />
-                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
                 </label>
               </div>
               <div className="flex items-center justify-between">
@@ -825,15 +1076,12 @@ export default function AdminSettingsPage() {
                   <input
                     type="checkbox"
                     checked={notificationSettings.notifyOnRequestApproval}
-                    onChange={(e) =>
-                      setNotificationSettings({
-                        ...notificationSettings,
-                        notifyOnRequestApproval: e.target.checked,
-                      })
-                    }
+                    onChange={handleNotificationChange(
+                      "notifyOnRequestApproval",
+                    )}
                     className="sr-only peer"
                   />
-                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
                 </label>
               </div>
               <div className="flex items-center justify-between">
@@ -842,15 +1090,10 @@ export default function AdminSettingsPage() {
                   <input
                     type="checkbox"
                     checked={notificationSettings.notifyOnLoanDue}
-                    onChange={(e) =>
-                      setNotificationSettings({
-                        ...notificationSettings,
-                        notifyOnLoanDue: e.target.checked,
-                      })
-                    }
+                    onChange={handleNotificationChange("notifyOnLoanDue")}
                     className="sr-only peer"
                   />
-                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
                 </label>
               </div>
             </div>
@@ -874,15 +1117,10 @@ export default function AdminSettingsPage() {
                   <input
                     type="checkbox"
                     checked={securitySettings.twoFactorAuth}
-                    onChange={(e) =>
-                      setSecuritySettings({
-                        ...securitySettings,
-                        twoFactorAuth: e.target.checked,
-                      })
-                    }
+                    onChange={handleSecurityChange("twoFactorAuth")}
                     className="sr-only peer"
                   />
-                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
                 </label>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -892,13 +1130,8 @@ export default function AdminSettingsPage() {
                   </label>
                   <input
                     type="number"
-                    value={securitySettings.sessionTimeout}
-                    onChange={(e) =>
-                      setSecuritySettings({
-                        ...securitySettings,
-                        sessionTimeout: Number(e.target.value),
-                      })
-                    }
+                    value={securitySettings.sessionTimeout || ""}
+                    onChange={handleSecurityChange("sessionTimeout")}
                     className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
@@ -908,13 +1141,8 @@ export default function AdminSettingsPage() {
                   </label>
                   <input
                     type="number"
-                    value={securitySettings.maxLoginAttempts}
-                    onChange={(e) =>
-                      setSecuritySettings({
-                        ...securitySettings,
-                        maxLoginAttempts: Number(e.target.value),
-                      })
-                    }
+                    value={securitySettings.maxLoginAttempts || ""}
+                    onChange={handleSecurityChange("maxLoginAttempts")}
                     className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
@@ -924,13 +1152,8 @@ export default function AdminSettingsPage() {
                   </label>
                   <input
                     type="number"
-                    value={securitySettings.lockoutDuration}
-                    onChange={(e) =>
-                      setSecuritySettings({
-                        ...securitySettings,
-                        lockoutDuration: Number(e.target.value),
-                      })
-                    }
+                    value={securitySettings.lockoutDuration || ""}
+                    onChange={handleSecurityChange("lockoutDuration")}
                     className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
@@ -940,13 +1163,8 @@ export default function AdminSettingsPage() {
                   </label>
                   <input
                     type="number"
-                    value={securitySettings.passwordExpiry}
-                    onChange={(e) =>
-                      setSecuritySettings({
-                        ...securitySettings,
-                        passwordExpiry: Number(e.target.value),
-                      })
-                    }
+                    value={securitySettings.passwordExpiry || ""}
+                    onChange={handleSecurityChange("passwordExpiry")}
                     className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
@@ -969,15 +1187,10 @@ export default function AdminSettingsPage() {
                   <input
                     type="checkbox"
                     checked={securitySettings.allowMultipleSessions}
-                    onChange={(e) =>
-                      setSecuritySettings({
-                        ...securitySettings,
-                        allowMultipleSessions: e.target.checked,
-                      })
-                    }
+                    onChange={handleSecurityChange("allowMultipleSessions")}
                     className="sr-only peer"
                   />
-                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
                 </label>
               </div>
               <div className="flex items-center justify-between">
@@ -993,15 +1206,10 @@ export default function AdminSettingsPage() {
                   <input
                     type="checkbox"
                     checked={securitySettings.ipWhitelisting}
-                    onChange={(e) =>
-                      setSecuritySettings({
-                        ...securitySettings,
-                        ipWhitelisting: e.target.checked,
-                      })
-                    }
+                    onChange={handleSecurityChange("ipWhitelisting")}
                     className="sr-only peer"
                   />
-                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
                 </label>
               </div>
               {securitySettings.ipWhitelisting && (
@@ -1011,12 +1219,7 @@ export default function AdminSettingsPage() {
                   </label>
                   <textarea
                     value={securitySettings.ipWhitelist}
-                    onChange={(e) =>
-                      setSecuritySettings({
-                        ...securitySettings,
-                        ipWhitelist: e.target.value,
-                      })
-                    }
+                    onChange={handleSecurityChange("ipWhitelist")}
                     rows={3}
                     placeholder="192.168.1.1&#10;10.0.0.1"
                     className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
@@ -1040,12 +1243,7 @@ export default function AdminSettingsPage() {
                 <input
                   type="text"
                   value={businessSettings.businessName}
-                  onChange={(e) =>
-                    setBusinessSettings({
-                      ...businessSettings,
-                      businessName: e.target.value,
-                    })
-                  }
+                  onChange={handleBusinessChange("businessName")}
                   className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 />
               </div>
@@ -1058,12 +1256,7 @@ export default function AdminSettingsPage() {
                   <input
                     type="email"
                     value={businessSettings.businessEmail}
-                    onChange={(e) =>
-                      setBusinessSettings({
-                        ...businessSettings,
-                        businessEmail: e.target.value,
-                      })
-                    }
+                    onChange={handleBusinessChange("businessEmail")}
                     className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
@@ -1077,45 +1270,30 @@ export default function AdminSettingsPage() {
                   <input
                     type="tel"
                     value={businessSettings.businessPhone}
-                    onChange={(e) =>
-                      setBusinessSettings({
-                        ...businessSettings,
-                        businessPhone: e.target.value,
-                      })
-                    }
+                    onChange={handleBusinessChange("businessPhone")}
                     className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                  GST Number
+                  Registration Number
                 </label>
                 <input
                   type="text"
-                  value={businessSettings.gstNumber}
-                  onChange={(e) =>
-                    setBusinessSettings({
-                      ...businessSettings,
-                      gstNumber: e.target.value,
-                    })
-                  }
+                  value={businessSettings.registrationNumber}
+                  onChange={handleBusinessChange("registrationNumber")}
                   className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 />
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                  PAN Number
+                  VAT Number
                 </label>
                 <input
                   type="text"
-                  value={businessSettings.panNumber}
-                  onChange={(e) =>
-                    setBusinessSettings({
-                      ...businessSettings,
-                      panNumber: e.target.value,
-                    })
-                  }
+                  value={businessSettings.vatNumber}
+                  onChange={handleBusinessChange("vatNumber")}
                   className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 />
               </div>
@@ -1131,12 +1309,7 @@ export default function AdminSettingsPage() {
                 <input
                   type="text"
                   value={businessSettings.bankName}
-                  onChange={(e) =>
-                    setBusinessSettings({
-                      ...businessSettings,
-                      bankName: e.target.value,
-                    })
-                  }
+                  onChange={handleBusinessChange("bankName")}
                   className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 />
               </div>
@@ -1147,46 +1320,31 @@ export default function AdminSettingsPage() {
                 <input
                   type="text"
                   value={businessSettings.accountNumber}
-                  onChange={(e) =>
-                    setBusinessSettings({
-                      ...businessSettings,
-                      accountNumber: e.target.value,
-                    })
-                  }
+                  onChange={handleBusinessChange("accountNumber")}
                   className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 />
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                  IFSC Code
+                  Branch Code
                 </label>
                 <input
                   type="text"
-                  value={businessSettings.ifscCode}
-                  onChange={(e) =>
-                    setBusinessSettings({
-                      ...businessSettings,
-                      ifscCode: e.target.value,
-                    })
-                  }
+                  value={businessSettings.branchCode}
+                  onChange={handleBusinessChange("branchCode")}
                   className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                 />
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                  UPI ID
+                  UPI ID / Payable To
                 </label>
                 <div className="relative">
                   <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="text"
                     value={businessSettings.upiId}
-                    onChange={(e) =>
-                      setBusinessSettings({
-                        ...businessSettings,
-                        upiId: e.target.value,
-                      })
-                    }
+                    onChange={handleBusinessChange("upiId")}
                     className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
@@ -1205,12 +1363,7 @@ export default function AdminSettingsPage() {
                   <input
                     type="url"
                     value={businessSettings.termsAndConditions}
-                    onChange={(e) =>
-                      setBusinessSettings({
-                        ...businessSettings,
-                        termsAndConditions: e.target.value,
-                      })
-                    }
+                    onChange={handleBusinessChange("termsAndConditions")}
                     className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
@@ -1224,12 +1377,7 @@ export default function AdminSettingsPage() {
                   <input
                     type="url"
                     value={businessSettings.privacyPolicy}
-                    onChange={(e) =>
-                      setBusinessSettings({
-                        ...businessSettings,
-                        privacyPolicy: e.target.value,
-                      })
-                    }
+                    onChange={handleBusinessChange("privacyPolicy")}
                     className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
                   />
                 </div>
@@ -1253,6 +1401,18 @@ export default function AdminSettingsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Package Modal */}
+      {showPackageModal && (
+        <PackageModal
+          editingPackage={editingPackage}
+          onSave={handleSavePackage}
+          onClose={() => {
+            setShowPackageModal(false);
+            setEditingPackage(null);
+          }}
+        />
       )}
     </div>
   );
