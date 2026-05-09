@@ -69,6 +69,10 @@ interface ServiceRequest {
   dailyPayment?: number;
 }
 
+// Cloudinary configuration
+const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_UPLOAD_PRESET = "driver_documents";
+
 export default function AdminServiceRequestsPage() {
   const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<
@@ -238,11 +242,10 @@ export default function AdminServiceRequestsPage() {
         }),
       });
 
-      // First check if response is ok before trying to parse JSON
       if (response.ok) {
         const data = await response.json();
         setSuccessMessage(
-          `✅ Request ${request.id.slice(-6).toUpperCase()} marked as SENT! The driver has been notified.`,
+          `Request ${request.id.slice(-6).toUpperCase()} marked as SENT! The driver has been notified.`,
         );
         setShowSuccessModal(true);
         await fetchRequests();
@@ -250,7 +253,6 @@ export default function AdminServiceRequestsPage() {
         setSentRequest(null);
         setShowModal(false);
       } else {
-        // Try to get error message, but handle case where response is not JSON
         let errorMessage = "Failed to mark as sent";
         try {
           const error = await response.json();
@@ -272,9 +274,8 @@ export default function AdminServiceRequestsPage() {
   };
 
   const handleComplete = (request: ServiceRequest) => {
-    // This is now handled by driver side, so just show info
     setSuccessMessage(
-      `ℹ️ Request will be marked as completed when the driver confirms service delivery.`,
+      `Request will be marked as completed when the driver confirms service delivery.`,
     );
     setShowSuccessModal(true);
   };
@@ -308,7 +309,7 @@ export default function AdminServiceRequestsPage() {
 
       if (response.ok) {
         setSuccessMessage(
-          `❌ Request ${rejectingRequest.id.slice(-6).toUpperCase()} rejected successfully`,
+          `Request ${rejectingRequest.id.slice(-6).toUpperCase()} rejected successfully`,
         );
         setShowSuccessModal(true);
         fetchRequests();
@@ -431,7 +432,6 @@ export default function AdminServiceRequestsPage() {
         r.id?.toLowerCase().includes(searchTerm.toLowerCase()),
     );
 
-  // Get current date and time
   const getCurrentDateTime = () => {
     const now = new Date();
     const options: Intl.DateTimeFormatOptions = {
@@ -475,6 +475,21 @@ export default function AdminServiceRequestsPage() {
       return "This is your airtime transaction number";
     }
     return "Show this code at the service center";
+  };
+
+  const formatPhoneNumber = (phone: string): string => {
+    const cleanPhone = phone.replace(/[^0-9]/g, "");
+    if (!cleanPhone.startsWith("27") && cleanPhone.length === 9) {
+      return `27${cleanPhone}`;
+    }
+    if (
+      !cleanPhone.startsWith("27") &&
+      cleanPhone.length === 10 &&
+      cleanPhone.startsWith("0")
+    ) {
+      return `27${cleanPhone.substring(1)}`;
+    }
+    return cleanPhone;
   };
 
   // View Details Modal Component
@@ -613,7 +628,7 @@ export default function AdminServiceRequestsPage() {
 
                 <div className="bg-[#BFF202]/10 rounded-lg p-3 mt-2">
                   <p className="text-xs font-semibold text-[#01312D] mb-2">
-                    📊 Financial Summary
+                    Financial Summary
                   </p>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
@@ -810,7 +825,7 @@ export default function AdminServiceRequestsPage() {
             {request.status === "sent" && (
               <div className="p-3 bg-purple-50 rounded-xl text-center">
                 <p className="text-sm text-purple-700">
-                  ⏳ Service has been sent. Waiting for driver to confirm
+                  Service has been sent. Waiting for driver to confirm
                   completion.
                 </p>
                 <p className="text-xs text-purple-600 mt-1">
@@ -1122,17 +1137,15 @@ export default function AdminServiceRequestsPage() {
     );
   };
 
-  // WhatsApp Modal Component - Modern styling with prominent validity notice
+  // WhatsApp Modal Component - With Cloudinary Image Upload
   const WhatsAppModal = () => {
     if (!approvedRequest) return null;
 
     const receiptRef = useRef<HTMLDivElement>(null);
     const [imageGenerating, setImageGenerating] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
     const [showDownloadSuccessModal, setShowDownloadSuccessModal] =
       useState(false);
-    const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(
-      null,
-    );
 
     const displayAmount =
       approvedRequest.actualAmount || approvedRequest.amount;
@@ -1152,7 +1165,7 @@ export default function AdminServiceRequestsPage() {
       hour12: true,
     });
 
-    const generateImage = async () => {
+    const generateImage = async (): Promise<string | null> => {
       if (!receiptRef.current) return null;
 
       setImageGenerating(true);
@@ -1210,6 +1223,39 @@ export default function AdminServiceRequestsPage() {
       }
     };
 
+    const uploadImageToCloudinary = async (
+      dataUrl: string,
+    ): Promise<string | null> => {
+      try {
+        const blob = await (await fetch(dataUrl)).blob();
+        const formData = new FormData();
+        formData.append(
+          "file",
+          blob,
+          `kapuka_receipt_${approvedRequest.id.slice(-6)}.png`,
+        );
+        formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+        const uploadResponse = await fetch(
+          `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+          {
+            method: "POST",
+            body: formData,
+          },
+        );
+
+        if (!uploadResponse.ok) {
+          throw new Error("Failed to upload image to Cloudinary");
+        }
+
+        const uploadData = await uploadResponse.json();
+        return uploadData.secure_url;
+      } catch (error) {
+        console.error("Error uploading to Cloudinary:", error);
+        return null;
+      }
+    };
+
     const handleDownloadImage = async () => {
       const dataUrl = await generateImage();
       if (dataUrl) {
@@ -1220,7 +1266,6 @@ export default function AdminServiceRequestsPage() {
         link.click();
         document.body.removeChild(link);
 
-        setGeneratedImageUrl(dataUrl);
         setShowDownloadSuccessModal(true);
       } else {
         setErrorMessage("Failed to generate receipt image. Please try again.");
@@ -1236,56 +1281,36 @@ export default function AdminServiceRequestsPage() {
         return;
       }
 
+      setUploadingImage(true);
       setWhatsappLoading(true);
 
       try {
+        // Upload image to Cloudinary
+        const imageUrl = await uploadImageToCloudinary(dataUrl);
+
         const finalOtp = approvedRequest.otp || generatedOtp;
         const baseAmount =
           approvedRequest.actualAmount || approvedRequest.amount;
-        const totalRepayable = approvedRequest.totalRepayable || baseAmount;
-        const dailyPayment =
-          approvedRequest.dailyPayment ||
-          Math.ceil(totalRepayable / (approvedRequest.repaymentDays || 7));
 
-        const message = `*🏆 KAPUKA - SERVICE APPROVED* 🏆
+        // Minimal text message - all details are in the image
+        const message = `KAPUKA - Service Approved
 
-✅ *Your request has been APPROVED!*
+Your service request has been approved.
 
-━━━━━━━━━━━━━━━━━━━
-📋 *REQUEST DETAILS*
-━━━━━━━━━━━━━━━━━━━
-🆔 *ID:* ${approvedRequest.id.slice(-6).toUpperCase()}
-🚗 *Vehicle:* ${approvedRequest.carNumber}
-📱 *Service:* ${getTypeLabel(approvedRequest.type)}
-${hasActualAmount ? `💰 *Requested:* R${approvedRequest.amount?.toLocaleString()}\n💵 *Actual:* R${baseAmount.toLocaleString()}\n` : `💰 *Amount:* R${baseAmount.toLocaleString()}\n`}
-🔐 *${transactionLabel}:* ${finalOtp}
-📅 *Date:* ${currentDate}
-⏰ *Time:* ${currentTime}
+Request ID: ${approvedRequest.id.slice(-6).toUpperCase()}
+${transactionLabel}: ${finalOtp}
 
-━━━━━━━━━━━━━━━━━━━
-💰 *REPAYMENT SUMMARY*
-━━━━━━━━━━━━━━━━━━━
-• Interest Rate: ${approvedRequest.interestRate || 13}%
-• Interest Amount: R${approvedRequest.interest?.toLocaleString() || 0}
-• Total Repayable: R${totalRepayable.toLocaleString()}
-• Daily Payment: R${dailyPayment.toLocaleString()}/day
-• Period: ${approvedRequest.repaymentDays || 7} days
+View your receipt: ${imageUrl || "Receipt image attached"}
 
-━━━━━━━━━━━━━━━━━━━
-⏰ *VALID FOR 1 HOUR*
-━━━━━━━━━━━━━━━━━━━
+Valid for 1 hour from approval time.
 
-Thank you for choosing Kapuka! 🚀`;
+Kapuka Driver Services`;
 
-        const cleanPhone = approvedRequest.driverPhone.replace(/[^0-9]/g, "");
-        let fullPhone = cleanPhone;
-        if (!cleanPhone.startsWith("27") && cleanPhone.length === 9) {
-          fullPhone = `27${cleanPhone}`;
-        }
-
+        const fullPhone = formatPhoneNumber(approvedRequest.driverPhone);
         const whatsappUrl = `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, "_blank");
 
+        // Also download the image for backup
         const link = document.createElement("a");
         link.download = `Kapuka_Receipt_${approvedRequest.id.slice(-6)}.png`;
         link.href = dataUrl;
@@ -1293,19 +1318,48 @@ Thank you for choosing Kapuka! 🚀`;
         link.click();
         document.body.removeChild(link);
 
+        setSuccessMessage(
+          "WhatsApp message sent with receipt link. Receipt also downloaded to your device.",
+        );
+        setShowSuccessModal(true);
+
         setTimeout(() => {
           setWhatsappLoading(false);
+          setUploadingImage(false);
           setShowWhatsAppModal(false);
           setApprovedRequest(null);
           setApprovingRequest(null);
-        }, 1500);
+        }, 2000);
       } catch (error) {
         console.error("Error sending via WhatsApp:", error);
+
+        // Fallback: Send message without image link
+        const fallbackMessage = `KAPUKA - Service Approved
+
+Your service request has been approved.
+
+Request ID: ${approvedRequest.id.slice(-6).toUpperCase()}
+${transactionLabel}: ${approvedRequest.otp || generatedOtp}
+Amount: R${displayAmount.toLocaleString()}
+
+Please check your email for the receipt.
+
+Valid for 1 hour from approval time.
+
+Kapuka Driver Services`;
+
+        const fullPhone = formatPhoneNumber(approvedRequest.driverPhone);
+        window.open(
+          `https://wa.me/${fullPhone}?text=${encodeURIComponent(fallbackMessage)}`,
+          "_blank",
+        );
+
         setErrorMessage(
-          "Failed to send. The receipt has been downloaded to your device.",
+          "Failed to upload receipt image, but WhatsApp message sent without image.",
         );
         setShowErrorModal(true);
         setWhatsappLoading(false);
+        setUploadingImage(false);
       }
     };
 
@@ -1360,7 +1414,7 @@ Thank you for choosing Kapuka! 🚀`;
 
     return (
       <>
-        {/* Hidden receipt for image generation - Modern Styling */}
+        {/* Hidden receipt for image generation */}
         <div
           ref={receiptRef}
           style={{
@@ -1654,7 +1708,7 @@ Thank you for choosing Kapuka! 🚀`;
             </div>
           </div>
 
-          {/* Validity Banner - PROMINENT */}
+          {/* Validity Banner */}
           <div
             style={{
               background: "linear-gradient(135deg, #BFF202 0%, #72BF00 100%)",
@@ -1716,7 +1770,7 @@ Thank you for choosing Kapuka! 🚀`;
                   color: "#01312D",
                 }}
               >
-                ✓ Keep this receipt for reference
+                Keep this receipt for reference
               </span>
             </div>
           </div>
@@ -1745,13 +1799,14 @@ Thank you for choosing Kapuka! 🚀`;
           </div>
         </div>
 
-        {/* Modal UI - Modern Design */}
+        {/* Modal UI */}
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() =>
               !whatsappLoading &&
               !imageGenerating &&
+              !uploadingImage &&
               setShowWhatsAppModal(false)
             }
           ></div>
@@ -1771,7 +1826,7 @@ Thank you for choosing Kapuka! 🚀`;
                     </p>
                   </div>
                 </div>
-                {!whatsappLoading && !imageGenerating && (
+                {!whatsappLoading && !imageGenerating && !uploadingImage && (
                   <button
                     onClick={() => setShowWhatsAppModal(false)}
                     className="p-1 hover:bg-white/10 rounded-lg transition-colors"
@@ -1836,7 +1891,7 @@ Thank you for choosing Kapuka! 🚀`;
                 </button>
               </div>
 
-              {/* Validity Notice - PROMINENT */}
+              {/* Validity Notice */}
               <div className="bg-gradient-to-r from-[#BFF202] to-[#72BF00] rounded-xl p-4 text-center shadow-md">
                 <div className="flex items-center justify-center gap-2 mb-1">
                   <span className="text-2xl">⏰</span>
@@ -1878,7 +1933,7 @@ Thank you for choosing Kapuka! 🚀`;
                     </p>
                     <ul className="text-xs text-blue-700 mt-1 space-y-0.5 list-disc list-inside">
                       <li>Download receipt image for your records</li>
-                      <li>Send via WhatsApp with pre-filled message</li>
+                      <li>Send via WhatsApp with receipt link</li>
                       <li>Receipt valid for 1 hour from generation</li>
                     </ul>
                   </div>
@@ -1889,7 +1944,7 @@ Thank you for choosing Kapuka! 🚀`;
             <div className="border-t border-[#bff202]/20 p-5 flex flex-col gap-3 sticky bottom-0 bg-white">
               <button
                 onClick={handleDownloadImage}
-                disabled={imageGenerating}
+                disabled={imageGenerating || uploadingImage || whatsappLoading}
                 className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
               >
                 {imageGenerating ? (
@@ -1905,10 +1960,10 @@ Thank you for choosing Kapuka! 🚀`;
               </button>
               <button
                 onClick={handleSendViaWhatsApp}
-                disabled={whatsappLoading || imageGenerating}
+                disabled={whatsappLoading || imageGenerating || uploadingImage}
                 className="w-full bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
               >
-                {whatsappLoading ? (
+                {whatsappLoading || uploadingImage ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" /> Processing...
                   </>
