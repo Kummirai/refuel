@@ -174,6 +174,8 @@ export default function AdminDashboard() {
       if (driversRes.ok) {
         const driversData = await driversRes.json();
 
+        console.log(driversData);
+
         setDrivers(driversData.drivers || []);
         setRecentVerifications(driversData.recent || []);
       }
@@ -1337,7 +1339,11 @@ export default function AdminDashboard() {
                 <div>
                   <p className="text-gray-500">Member Since</p>
                   <p className="font-semibold text-[#01312D]">
-                    {new Date(driver.createdAt).toLocaleDateString()}
+                    {new Date(driver.joinedDate).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
                   </p>
                 </div>
               </div>
