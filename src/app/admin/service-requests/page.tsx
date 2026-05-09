@@ -1293,7 +1293,7 @@ Your service request has been approved.
 Request ID: ${approvedRequest.id.slice(-6).toUpperCase()}
 ${transactionLabel}: ${finalOtp}
 
-View your receipt: ${imageUrl || "Receipt image attached"}
+Click here to view your receipt: ${imageUrl || "Receipt image attached"}
 
 Valid for 1 hour from approval time.
 
