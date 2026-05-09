@@ -808,7 +808,7 @@ export default function AdminDashboard() {
                 <div>
                   <p className="text-gray-500">Car Registration</p>
                   <p className="font-semibold text-[#01312D]">
-                    {request.carRegistration || "N/A"}
+                    {request.carNumber || "N/A"}
                   </p>
                 </div>
               </div>
@@ -921,7 +921,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Action Buttons */}
-          <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
+          {/* <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
             {request.status === "pending" && (
               <>
                 <button
@@ -964,7 +964,7 @@ export default function AdminDashboard() {
             >
               Close
             </button>
-          </div>
+          </div> */}
         </div>
       </div>
     );
