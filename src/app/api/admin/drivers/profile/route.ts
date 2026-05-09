@@ -18,16 +18,16 @@ export async function GET(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const usersCollection = db.collection("users");
+    const usersCollection = db.collection("user");
     const driverProfilesCollection = db.collection("driverProfiles");
 
     // Get user
-    // const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+    const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
 
-    // if (!user) {
-    //   console.log("User not found for userId:", userId);
-    //   return NextResponse.json({ error: "User not found" }, { status: 404 });
-    // }
+    if (!user) {
+      console.log("User not found for userId:", userId);
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
     // Get driver profile
     const profile = await driverProfilesCollection.findOne({ userId: userId });
@@ -77,9 +77,9 @@ export async function GET(request: NextRequest) {
       rating: profile.rating || 0,
 
       // User info
-      // email: user.email || "",
-      // phone: user.phone || "",
-      // name: profile.fullName || user.name || "",
+      email: user.email || "",
+      phone: user.phone || "",
+      name: profile.fullName || user.name || "",
     };
 
     return NextResponse.json({

@@ -109,8 +109,10 @@ export default function VerificationsPage() {
       const response = await fetch(
         `/api/admin/drivers/profile?userId=${userId}`,
       );
+
       if (response.ok) {
         const data = await response.json();
+        
         return data.profile;
       }
       return null;
@@ -125,8 +127,6 @@ export default function VerificationsPage() {
   const handleViewDetails = async (driver: any) => {
     setSelectedDriver(driver);
     setShowModal(true);
-
-    console.log(driver);
 
     // Fetch full profile details
     const fullProfile = await fetchDriverProfile(driver.id);
