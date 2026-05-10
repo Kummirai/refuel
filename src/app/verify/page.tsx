@@ -48,9 +48,9 @@ function UploadSection({
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError("File size must be less than 5MB");
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setError("File size must be less than 10MB");
       return;
     }
 
@@ -168,7 +168,7 @@ function UploadSection({
               <p className="text-[#01312D] font-medium mb-1">
                 Click or drag to upload
               </p>
-              <p className="text-xs text-gray-400">PNG, JPG up to 5MB</p>
+              <p className="text-xs text-gray-400">PNG, JPG up to 10MB</p>
             </>
           )}
         </div>

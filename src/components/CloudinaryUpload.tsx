@@ -184,7 +184,7 @@ export function CloudinaryUpload({
       </CldUploadWidget>
 
       <p className="text-xs text-gray-500">
-        Max file size: 5MB. Allowed formats: JPG, PNG, WebP
+        Max file size: 10MB. Allowed formats: JPG, PNG, WebP
       </p>
     </div>
   );
