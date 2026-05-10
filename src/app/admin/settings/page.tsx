@@ -469,8 +469,8 @@ export default function AdminSettingsPage() {
       {/* Page Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-[#01312D]">Settings</h1>
-          <p className="text-gray-500 text-sm mt-1">
+          <h1 className="text-2xl  font-bold text-[#01312D]">Settings</h1>
+          <p className="text-gray-500 text-sm mt-1 w-5/6">
             Manage system configuration and preferences
           </p>
         </div>
@@ -490,7 +490,7 @@ export default function AdminSettingsPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 bg-[#3A7717] text-white rounded-xl font-semibold hover:bg-[#2d5e12] transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-[#3A7717] text-white rounded-xl hover:bg-[#2d5e12] text-sm transition-all disabled:opacity-50"
           >
             {saving ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
@@ -503,7 +503,7 @@ export default function AdminSettingsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+      <div className="flex gap-3 text-sm flex-wrap pb-2 no-scrollbar">
         <TabButton id="general" label="General" icon={Settings} activeTab={activeTab} setActiveTab={setActiveTab} />
         <TabButton id="services" label="Services" icon={DollarSign} activeTab={activeTab} setActiveTab={setActiveTab} />
         <TabButton id="notifications" label="Notifications" icon={Bell} activeTab={activeTab} setActiveTab={setActiveTab} />

@@ -358,104 +358,104 @@ export default function AdminReceiptsPage() {
 
       {/* Details Modal */}
       {showDetailsModal && selectedReceipt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setShowDetailsModal(false)}
           />
-          <div className="relative bg-white rounded-[2rem] max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-            <div className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-[#bff202]/20 p-6 flex justify-between items-center z-10">
-              <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+          <div className="relative bg-white rounded-[0.5rem] sm:rounded-[2rem] max-w-2xl w-full max-h-[95vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+            <div className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-[#bff202]/20 p-4 sm:p-6 flex justify-between items-center z-10">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center ${
                   selectedReceipt.type === 'fuel' ? 'bg-green-50' : 'bg-blue-50'
                 }`}>
                   {getServiceTypeIcon(selectedReceipt.type)}
                 </div>
                 <div>
-                  <h2 className="text-xl font-black text-[#01312D]">Receipt Verification</h2>
-                  <p className="text-sm text-gray-500">Verify service delivery proof</p>
+                  <h2 className="text-lg sm:text-xl font-black text-[#01312D] leading-tight">Receipt Verification</h2>
+                  <p className="text-[10px] sm:text-sm text-gray-500">Verify service delivery proof</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowDetailsModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full transition-colors"
               >
-                <AlertCircle className="w-6 h-6 text-gray-400" />
+                <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" />
               </button>
             </div>
 
-            <div className="p-8 space-y-8">
+            <div className="p-4 sm:p-8 space-y-4 sm:space-y-8 overflow-y-auto">
               {/* Receipt Image */}
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-[#01312D] flex items-center gap-2">
-                    <ImageIcon className="w-5 h-5 text-[#3A7717]" /> Uploaded Receipt
+                  <h3 className="text-sm sm:text-base font-bold text-[#01312D] flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-[#3A7717]" /> Uploaded Receipt
                   </h3>
                   {selectedReceipt.popUrl && (
                     <a 
                       href={selectedReceipt.popUrl} 
                       target="_blank" 
-                      className="text-xs font-bold text-[#3A7717] hover:underline flex items-center gap-1"
+                      className="text-[10px] sm:text-xs font-bold text-[#3A7717] hover:underline flex items-center gap-1"
                     >
-                      Open Original <ArrowRight className="w-3 h-3" />
+                      Open Original <ArrowRight className="w-2.5 h-2.5 sm:w-3 h-3" />
                     </a>
                   )}
                 </div>
                 
-                <div className="bg-gray-50 rounded-3xl p-4 border-2 border-dashed border-[#bff202]/30 min-h-[300px] flex items-center justify-center relative group overflow-hidden">
+                <div className="bg-gray-50 rounded-2xl sm:rounded-3xl p-2 sm:p-4 border-2 border-dashed border-[#bff202]/30 min-h-[200px] sm:min-h-[300px] flex items-center justify-center relative group overflow-hidden">
                   {selectedReceipt.popUrl ? (
                     <img
                       src={selectedReceipt.popUrl}
                       alt="Service Receipt"
-                      className="max-w-full h-auto rounded-2xl shadow-lg transition-transform duration-500 group-hover:scale-105"
+                      className="max-w-full h-auto max-h-[40vh] sm:max-h-none rounded-xl sm:rounded-2xl shadow-lg transition-transform duration-500 group-hover:scale-105"
                     />
                   ) : (
-                    <div className="text-center">
-                      <ImageIcon className="w-16 h-16 text-gray-200 mx-auto mb-2" />
-                      <p className="text-gray-400 text-sm">No image available</p>
+                    <div className="text-center p-4">
+                      <ImageIcon className="w-12 h-12 sm:w-16 sm:h-16 text-gray-200 mx-auto mb-2" />
+                      <p className="text-gray-400 text-xs sm:text-sm">No image available</p>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Info Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-[#eafde7] rounded-3xl p-6 space-y-4">
-                  <h3 className="font-bold text-[#01312D] flex items-center gap-2 border-b border-[#bff202]/20 pb-2">
-                    <User className="w-4 h-4 text-[#3A7717]" /> Driver Details
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
+                <div className="bg-[#eafde7] rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-3 sm:space-y-4">
+                  <h3 className="text-sm sm:text-base font-bold text-[#01312D] flex items-center gap-2 border-b border-[#bff202]/20 pb-2">
+                    <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#3A7717]" /> Driver Details
                   </h3>
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-500 font-bold uppercase tracking-wider">Name</span>
-                      <span className="font-bold text-[#01312D]">{selectedReceipt.driverName}</span>
+                      <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider">Name</span>
+                      <span className="text-xs sm:text-sm font-bold text-[#01312D]">{selectedReceipt.driverName}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-500 font-bold uppercase tracking-wider">Phone</span>
-                      <span className="font-bold text-[#01312D]">{selectedReceipt.driverPhone}</span>
+                      <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider">Phone</span>
+                      <span className="text-xs sm:text-sm font-bold text-[#01312D]">{selectedReceipt.driverPhone}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-500 font-bold uppercase tracking-wider">Vehicle</span>
-                      <span className="font-bold text-[#01312D]">{selectedReceipt.carRegistration}</span>
+                      <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider">Vehicle</span>
+                      <span className="text-xs sm:text-sm font-bold text-[#01312D]">{selectedReceipt.carRegistration}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-[#eafde7] rounded-3xl p-6 space-y-4">
-                  <h3 className="font-bold text-[#01312D] flex items-center gap-2 border-b border-[#bff202]/20 pb-2">
-                    <FileText className="w-4 h-4 text-[#3A7717]" /> Service Info
+                <div className="bg-[#eafde7] rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-3 sm:space-y-4">
+                  <h3 className="text-sm sm:text-base font-bold text-[#01312D] flex items-center gap-2 border-b border-[#bff202]/20 pb-2">
+                    <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#3A7717]" /> Service Info
                   </h3>
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-500 font-bold uppercase tracking-wider">Type</span>
-                      <span className="font-bold text-[#01312D] capitalize">{selectedReceipt.type}</span>
+                      <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider">Type</span>
+                      <span className="text-xs sm:text-sm font-bold text-[#01312D] capitalize">{selectedReceipt.type}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-500 font-bold uppercase tracking-wider">Date</span>
-                      <span className="font-bold text-[#01312D]">{new Date(selectedReceipt.completedDate).toLocaleDateString()}</span>
+                      <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider">Date</span>
+                      <span className="text-xs sm:text-sm font-bold text-[#01312D]">{new Date(selectedReceipt.completedDate).toLocaleDateString()}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-500 font-bold uppercase tracking-wider">Amount</span>
-                      <span className="text-xl font-black text-[#3A7717]">R{(selectedReceipt.actualAmount || selectedReceipt.amount).toLocaleString()}</span>
+                      <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider">Amount</span>
+                      <span className="text-base sm:text-xl font-black text-[#3A7717]">R{(selectedReceipt.actualAmount || selectedReceipt.amount).toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
@@ -463,42 +463,43 @@ export default function AdminReceiptsPage() {
 
               {/* Warning box if not verified */}
               {!selectedReceipt.hasReceipt && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" />
-                  <p className="text-sm text-yellow-800">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl sm:rounded-2xl p-3 sm:p-4 flex items-start gap-2 sm:gap-3">
+                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600 shrink-0 mt-0.5" />
+                  <p className="text-[10px] sm:text-sm text-yellow-800 leading-relaxed">
                     Please ensure the receipt clearly shows the <strong>amount</strong>, <strong>date</strong>, and <strong>station name</strong> before verifying. Verified receipts will be used for final bookkeeping.
                   </p>
                 </div>
               )}
             </div>
 
-            <div className="sticky bottom-0 bg-white/80 backdrop-blur-md border-t border-[#bff202]/20 p-6 flex gap-4">
-              <button
-                onClick={() => setShowDetailsModal(false)}
-                className="flex-1 px-6 py-4 rounded-2xl font-bold text-gray-500 hover:bg-gray-100 transition-all"
-              >
-                Cancel
-              </button>
+            <div className="sticky bottom-0 bg-white/80 backdrop-blur-md border-t border-[#bff202]/20 p-4 sm:p-6 flex flex-col gap-4 sm:gap-4">
+              
               
               {!selectedReceipt.hasReceipt ? (
                 <button
                   onClick={() => handleVerifyReceipt(selectedReceipt.id)}
                   disabled={processing}
-                  className="flex-[2] bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white px-6 py-4 rounded-2xl font-black shadow-lg shadow-[#3A7717]/30 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:translate-y-0"
+                  className="flex-[2] bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white px-4 py-3 sm:px-6 sm:py-4 rounded-xl sm:rounded-2xl text-sm sm:text-base font-black shadow-lg shadow-[#3A7717]/30 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:translate-y-0"
                 >
                   {processing ? (
-                    <Loader2 className="w-6 h-6 animate-spin" />
+                    <Loader2 className="w-4 h-4 sm:w-6 sm:h-6 animate-spin" />
                   ) : (
-                    <CheckCircle className="w-6 h-6" />
+                    <CheckCircle className="w-4 h-4 sm:w-6 sm:h-6" />
                   )}
-                  Verify & Approve Receipt
+                  <span className="whitespace-nowrap">Verify & Approve</span>
                 </button>
               ) : (
-                <div className="flex-[2] bg-green-50 text-green-700 px-6 py-4 rounded-2xl font-bold flex items-center justify-center gap-2">
-                  <CheckCircle className="w-6 h-6" />
-                  Verified on {selectedReceipt.receiptVerifiedAt ? new Date(selectedReceipt.receiptVerifiedAt).toLocaleDateString() : 'N/A'}
+                <div className="flex-[2] bg-green-50 text-green-700 px-4 py-3 sm:px-6 sm:py-4 rounded-xl sm:rounded-2xl text-sm sm:text-base font-bold flex items-center justify-center gap-2">
+                  <CheckCircle className="w-4 h-4 sm:w-6 sm:h-6" />
+                  <span>Verified</span>
                 </div>
               )}
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="flex-1 px-4 py-3 sm:px-6 sm:py-4 rounded-xl sm:rounded-2xl text-sm sm:text-base font-bold text-gray-500 hover:bg-gray-100 transition-all"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

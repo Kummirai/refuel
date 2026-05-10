@@ -5,7 +5,7 @@ import { ObjectId } from "mongodb";
 
 export async function POST(request: Request) {
   try {
-    const { repaymentId, amount, method, reference, proofUrl, proofPublicId } =
+    const { repaymentId, amount, method, reference, date, proofUrl, proofPublicId } =
       await request.json();
 
     if (!repaymentId || !amount || amount <= 0) {
@@ -14,6 +14,8 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+
+    const paymentDate = date ? new Date(date) : new Date();
 
     const { db } = await connectToDatabase();
     const serviceRequestsCollection = db.collection("serviceRequests");
@@ -42,7 +44,7 @@ export async function POST(request: Request) {
       _id: paymentId,
       loanId: repaymentId,
       amount: amount,
-      paymentDate: new Date(),
+      paymentDate: paymentDate,
       method: method || "cash",
       reference: reference || null,
       remainingBalance: totalRepayable - newRepaid,
@@ -76,7 +78,7 @@ export async function POST(request: Request) {
     // 3. Update loan with new repaid amount
     const updateFields: any = {
       repaidAmount: newRepaid,
-      lastPaymentDate: new Date(),
+      lastPaymentDate: paymentDate,
     };
 
     // If fully paid, mark as paid (financial settlement complete)
@@ -94,7 +96,7 @@ export async function POST(request: Request) {
           payments: {
             id: paymentId.toString(),
             amount: amount,
-            date: new Date(),
+            date: paymentDate,
             method: method || "cash",
             reference: reference || null,
             ...(proofUrl && { proofUrl }),
