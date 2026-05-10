@@ -20,6 +20,7 @@ import {
   Clock,
   AlertCircle,
   XCircle,
+  FileText,
   Receipt
 } from "lucide-react";
 
@@ -480,55 +481,57 @@ export default function AdminLayout({
                     </button>
                   </div>
                 )}
-          {/* Footer */}
-          {totalNotifications > 0 && (
-            <div className="p-3 bg-gray-50 border-t border-gray-100">
-              <div className="grid grid-cols-3 gap-2">
-                {pendingVerificationsCount > 0 && (
-                  <button
-                    onClick={() => handleNavigate("/admin/verifications")}
-                    className="text-center p-2 rounded-lg hover:bg-yellow-100 transition-colors"
-                  >
-                    <Users className="w-4 h-4 text-yellow-600 mx-auto" />
-                    <span className="text-xs text-gray-600 mt-1 block">
-                      Verifications
-                    </span>
-                  </button>
-                )}
-                {pendingRequestsCount > 0 && (
-                  <button
-                    onClick={() => handleNavigate("/admin/service-requests")}
-                    className="text-center p-2 rounded-lg hover:bg-blue-100 transition-colors"
-                  >
-                    <ClipboardList className="w-4 h-4 text-blue-600 mx-auto" />
-                    <span className="text-xs text-gray-600 mt-1 block">
-                      Requests
-                    </span>
-                  </button>
-                )}
-                {pendingRepaymentsCount > 0 && (
-                  <button
-                    onClick={() => handleNavigate("/admin/repayments")}
-                    className="text-center p-2 rounded-lg hover:bg-green-100 transition-colors"
-                  >
-                    <DollarSign className="w-4 h-4 text-green-600 mx-auto" />
-                    <span className="text-xs text-gray-600 mt-1 block">
-                      Repayments
-                    </span>
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
 
-          {/* Close button for mobile */}
-          <div className="p-3 border-t border-gray-100 lg:hidden">
-            <button
-              onClick={() => setShowNotifications(false)}
-              className="w-full py-2 bg-gray-100 text-gray-600 rounded-lg font-semibold text-sm"
-            >
-              Close
-            </button>
+                {/* Footer */}
+                <div className="p-3 bg-gray-50 border-t border-gray-100">
+                  <div className="grid grid-cols-3 gap-2">
+                    {pendingVerificationsCount > 0 && (
+                      <button
+                        onClick={() => handleNavigate("/admin/verifications")}
+                        className="text-center p-2 rounded-lg hover:bg-yellow-100 transition-colors"
+                      >
+                        <Users className="w-4 h-4 text-yellow-600 mx-auto" />
+                        <span className="text-xs text-gray-600 mt-1 block">
+                          Verifications
+                        </span>
+                      </button>
+                    )}
+                    {pendingRequestsCount > 0 && (
+                      <button
+                        onClick={() => handleNavigate("/admin/service-requests")}
+                        className="text-center p-2 rounded-lg hover:bg-blue-100 transition-colors"
+                      >
+                        <ClipboardList className="w-4 h-4 text-blue-600 mx-auto" />
+                        <span className="text-xs text-gray-600 mt-1 block">
+                          Requests
+                        </span>
+                      </button>
+                    )}
+                    {pendingRepaymentsCount > 0 && (
+                      <button
+                        onClick={() => handleNavigate("/admin/repayments")}
+                        className="text-center p-2 rounded-lg hover:bg-green-100 transition-colors"
+                      >
+                        <DollarSign className="w-4 h-4 text-green-600 mx-auto" />
+                        <span className="text-xs text-gray-600 mt-1 block">
+                          Repayments
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Close button for mobile */}
+                <div className="p-3 border-t border-gray-100 lg:hidden">
+                  <button
+                    onClick={() => setShowNotifications(false)}
+                    className="w-full py-2 bg-gray-100 text-gray-600 rounded-lg font-semibold text-sm"
+                  >
+                    Close
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </>
