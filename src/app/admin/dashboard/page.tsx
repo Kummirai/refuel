@@ -174,6 +174,8 @@ export default function AdminDashboard() {
       if (driversRes.ok) {
         const driversData = await driversRes.json();
 
+        console.log(driversData);
+
         setDrivers(driversData.drivers || []);
         setRecentVerifications(driversData.recent || []);
       }
@@ -806,7 +808,7 @@ export default function AdminDashboard() {
                 <div>
                   <p className="text-gray-500">Car Registration</p>
                   <p className="font-semibold text-[#01312D]">
-                    {request.carRegistration || "N/A"}
+                    {request.carNumber || "N/A"}
                   </p>
                 </div>
               </div>
@@ -919,7 +921,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Action Buttons */}
-          <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
+          {/* <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
             {request.status === "pending" && (
               <>
                 <button
@@ -962,7 +964,7 @@ export default function AdminDashboard() {
             >
               Close
             </button>
-          </div>
+          </div> */}
         </div>
       </div>
     );
@@ -1337,7 +1339,11 @@ export default function AdminDashboard() {
                 <div>
                   <p className="text-gray-500">Member Since</p>
                   <p className="font-semibold text-[#01312D]">
-                    {new Date(driver.createdAt).toLocaleDateString()}
+                    {new Date(driver.joinedDate).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
                   </p>
                 </div>
               </div>

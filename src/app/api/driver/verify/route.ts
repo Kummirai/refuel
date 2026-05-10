@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { sendVerificationNotificationEmail } from "@/lib/email";
+import { ObjectId } from "mongodb"; // Add this import
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,8 +34,37 @@ export async function POST(request: NextRequest) {
     const driverProfiles = db.collection("driverProfiles");
     const usersCollection = db.collection("users");
 
-    // Get user details for email
-    const user = await usersCollection.findOne({ _id: userId });
+    // Get user details for email - FIXED: Convert string ID to ObjectId if needed
+    let user;
+    try {
+      // Try to find by ObjectId if it's a valid ObjectId string
+      if (ObjectId.isValid(userId)) {
+        user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+      } else {
+        // Otherwise try as string ID
+        user = await usersCollection.findOne({ _id: userId });
+      }
+
+      console.log("Found user:", user?._id);
+      console.log("User email:", user?.email);
+      console.log("User phone:", user?.phone);
+      console.log("User name:", user?.name);
+    } catch (error) {
+      console.error("Error finding user:", error);
+    }
+
+    // If user not found, try to find by customId or email
+    if (!user) {
+      user = await usersCollection.findOne({ customId: userId });
+      if (!user) {
+        user = await usersCollection.findOne({ email: userId });
+      }
+    }
+
+    if (!user) {
+      console.error("User not found for userId:", userId);
+      // Don't return error, continue with verification but log the issue
+    }
 
     // Update or create driver profile
     const result = await driverProfiles.updateOne(
@@ -56,6 +86,9 @@ export async function POST(request: NextRequest) {
           profilePhotoUrl,
           verificationStatus: "pending",
           updatedAt: new Date(),
+          // Store email and phone in the driver profile as well for redundancy
+          driverEmail: user?.email || "",
+          driverPhone: user?.phone || "",
         },
         $setOnInsert: {
           userId,
@@ -79,24 +112,51 @@ export async function POST(request: NextRequest) {
 
     // Update user's verification status
     await usersCollection.updateOne(
-      { _id: userId },
+      { _id: user?._id || userId },
       {
         $set: {
           verificationStatus: "pending",
           isVerified: false,
           verificationSubmittedAt: new Date(),
           updatedAt: new Date(),
+          // Make sure email and phone are set on the user if missing
+          ...(user?.email ? {} : { email: body.email || "" }),
+          ...(user?.phone ? {} : { phone: body.phone || "" }),
         },
       },
     );
 
+    // Prepare email data with better fallbacks
+    const driverEmail = user?.email || body.email || "";
+    const driverPhone = user?.phone || body.phone || "";
+    const driverName = fullName || user?.name || body.fullName || "Unknown";
+
+    console.log("Preparing to send email with:", {
+      driverName,
+      driverEmail,
+      driverPhone,
+      carRegistration: carRegistrationNumber,
+      carModel,
+      verificationId: profileId,
+    });
+
     // Send email notification to admin (run in background, don't await)
     (async () => {
       try {
+        // Only send email if we have a valid email address
+        if (!driverEmail) {
+          console.error(
+            "❌ Cannot send verification email: No email address found for user:",
+            userId,
+          );
+          console.log("User data:", { user, body });
+          return;
+        }
+
         await sendVerificationNotificationEmail({
-          driverName: fullName || user?.name || "Unknown",
-          driverEmail: user?.email || "",
-          driverPhone: user?.phone || "",
+          driverName: driverName,
+          driverEmail: driverEmail,
+          driverPhone: driverPhone,
           carRegistration: carRegistrationNumber || "Not provided",
           carModel: carModel || "Not provided",
           verificationId: profileId || "unknown",
@@ -105,6 +165,8 @@ export async function POST(request: NextRequest) {
         console.log(
           "✅ Verification notification email sent for user:",
           userId,
+          "to email:",
+          driverEmail,
         );
       } catch (emailError) {
         console.error(

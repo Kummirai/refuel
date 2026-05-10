@@ -69,6 +69,10 @@ interface ServiceRequest {
   dailyPayment?: number;
 }
 
+// Cloudinary configuration
+const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_UPLOAD_PRESET = "driver_documents";
+
 export default function AdminServiceRequestsPage() {
   const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<
@@ -238,11 +242,10 @@ export default function AdminServiceRequestsPage() {
         }),
       });
 
-      // First check if response is ok before trying to parse JSON
       if (response.ok) {
         const data = await response.json();
         setSuccessMessage(
-          `✅ Request ${request.id.slice(-6).toUpperCase()} marked as SENT! The driver has been notified.`,
+          `Request ${request.id.slice(-6).toUpperCase()} marked as SENT! The driver has been notified.`,
         );
         setShowSuccessModal(true);
         await fetchRequests();
@@ -250,7 +253,6 @@ export default function AdminServiceRequestsPage() {
         setSentRequest(null);
         setShowModal(false);
       } else {
-        // Try to get error message, but handle case where response is not JSON
         let errorMessage = "Failed to mark as sent";
         try {
           const error = await response.json();
@@ -272,9 +274,8 @@ export default function AdminServiceRequestsPage() {
   };
 
   const handleComplete = (request: ServiceRequest) => {
-    // This is now handled by driver side, so just show info
     setSuccessMessage(
-      `ℹ️ Request will be marked as completed when the driver confirms service delivery.`,
+      `Request will be marked as completed when the driver confirms service delivery.`,
     );
     setShowSuccessModal(true);
   };
@@ -308,7 +309,7 @@ export default function AdminServiceRequestsPage() {
 
       if (response.ok) {
         setSuccessMessage(
-          `❌ Request ${rejectingRequest.id.slice(-6).toUpperCase()} rejected successfully`,
+          `Request ${rejectingRequest.id.slice(-6).toUpperCase()} rejected successfully`,
         );
         setShowSuccessModal(true);
         fetchRequests();
@@ -431,7 +432,6 @@ export default function AdminServiceRequestsPage() {
         r.id?.toLowerCase().includes(searchTerm.toLowerCase()),
     );
 
-  // Get current date and time
   const getCurrentDateTime = () => {
     const now = new Date();
     const options: Intl.DateTimeFormatOptions = {
@@ -475,6 +475,21 @@ export default function AdminServiceRequestsPage() {
       return "This is your airtime transaction number";
     }
     return "Show this code at the service center";
+  };
+
+  const formatPhoneNumber = (phone: string): string => {
+    const cleanPhone = phone.replace(/[^0-9]/g, "");
+    if (!cleanPhone.startsWith("27") && cleanPhone.length === 9) {
+      return `27${cleanPhone}`;
+    }
+    if (
+      !cleanPhone.startsWith("27") &&
+      cleanPhone.length === 10 &&
+      cleanPhone.startsWith("0")
+    ) {
+      return `27${cleanPhone.substring(1)}`;
+    }
+    return cleanPhone;
   };
 
   // View Details Modal Component
@@ -613,7 +628,7 @@ export default function AdminServiceRequestsPage() {
 
                 <div className="bg-[#BFF202]/10 rounded-lg p-3 mt-2">
                   <p className="text-xs font-semibold text-[#01312D] mb-2">
-                    📊 Financial Summary
+                    Financial Summary
                   </p>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
@@ -810,7 +825,7 @@ export default function AdminServiceRequestsPage() {
             {request.status === "sent" && (
               <div className="p-3 bg-purple-50 rounded-xl text-center">
                 <p className="text-sm text-purple-700">
-                  ⏳ Service has been sent. Waiting for driver to confirm
+                  Service has been sent. Waiting for driver to confirm
                   completion.
                 </p>
                 <p className="text-xs text-purple-600 mt-1">
@@ -1122,17 +1137,15 @@ export default function AdminServiceRequestsPage() {
     );
   };
 
-  // WhatsApp Modal Component - Modern styling with prominent validity notice
+  // WhatsApp Modal Component - With Cloudinary Image Upload
   const WhatsAppModal = () => {
     if (!approvedRequest) return null;
 
     const receiptRef = useRef<HTMLDivElement>(null);
     const [imageGenerating, setImageGenerating] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
     const [showDownloadSuccessModal, setShowDownloadSuccessModal] =
       useState(false);
-    const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(
-      null,
-    );
 
     const displayAmount =
       approvedRequest.actualAmount || approvedRequest.amount;
@@ -1146,13 +1159,8 @@ export default function AdminServiceRequestsPage() {
     const currentTime = getCurrentTime();
     const expiryTime = new Date();
     expiryTime.setHours(expiryTime.getHours() + 1);
-    const expiryFormatted = expiryTime.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
 
-    const generateImage = async () => {
+    const generateImage = async (): Promise<string | null> => {
       if (!receiptRef.current) return null;
 
       setImageGenerating(true);
@@ -1183,7 +1191,7 @@ export default function AdminServiceRequestsPage() {
         const dataUrl = await toPng(element, {
           quality: 1,
           backgroundColor: "#ffffff",
-          pixelRatio: 2,
+          pixelRatio: 2.5,
           cacheBust: true,
         });
 
@@ -1210,6 +1218,39 @@ export default function AdminServiceRequestsPage() {
       }
     };
 
+    const uploadImageToCloudinary = async (
+      dataUrl: string,
+    ): Promise<string | null> => {
+      try {
+        const blob = await (await fetch(dataUrl)).blob();
+        const formData = new FormData();
+        formData.append(
+          "file",
+          blob,
+          `kapuka_receipt_${approvedRequest.id.slice(-6)}.png`,
+        );
+        formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+        const uploadResponse = await fetch(
+          `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+          {
+            method: "POST",
+            body: formData,
+          },
+        );
+
+        if (!uploadResponse.ok) {
+          throw new Error("Failed to upload image to Cloudinary");
+        }
+
+        const uploadData = await uploadResponse.json();
+        return uploadData.secure_url;
+      } catch (error) {
+        console.error("Error uploading to Cloudinary:", error);
+        return null;
+      }
+    };
+
     const handleDownloadImage = async () => {
       const dataUrl = await generateImage();
       if (dataUrl) {
@@ -1220,7 +1261,6 @@ export default function AdminServiceRequestsPage() {
         link.click();
         document.body.removeChild(link);
 
-        setGeneratedImageUrl(dataUrl);
         setShowDownloadSuccessModal(true);
       } else {
         setErrorMessage("Failed to generate receipt image. Please try again.");
@@ -1236,53 +1276,30 @@ export default function AdminServiceRequestsPage() {
         return;
       }
 
+      setUploadingImage(true);
       setWhatsappLoading(true);
 
       try {
+        const imageUrl = await uploadImageToCloudinary(dataUrl);
+
         const finalOtp = approvedRequest.otp || generatedOtp;
         const baseAmount =
           approvedRequest.actualAmount || approvedRequest.amount;
-        const totalRepayable = approvedRequest.totalRepayable || baseAmount;
-        const dailyPayment =
-          approvedRequest.dailyPayment ||
-          Math.ceil(totalRepayable / (approvedRequest.repaymentDays || 7));
 
-        const message = `*🏆 KAPUKA - SERVICE APPROVED* 🏆
+        const message = `KAPUKA - Service Approved
 
-✅ *Your request has been APPROVED!*
+Your service request has been approved.
 
-━━━━━━━━━━━━━━━━━━━
-📋 *REQUEST DETAILS*
-━━━━━━━━━━━━━━━━━━━
-🆔 *ID:* ${approvedRequest.id.slice(-6).toUpperCase()}
-🚗 *Vehicle:* ${approvedRequest.carNumber}
-📱 *Service:* ${getTypeLabel(approvedRequest.type)}
-${hasActualAmount ? `💰 *Requested:* R${approvedRequest.amount?.toLocaleString()}\n💵 *Actual:* R${baseAmount.toLocaleString()}\n` : `💰 *Amount:* R${baseAmount.toLocaleString()}\n`}
-🔐 *${transactionLabel}:* ${finalOtp}
-📅 *Date:* ${currentDate}
-⏰ *Time:* ${currentTime}
+Request ID: ${approvedRequest.id.slice(-6).toUpperCase()}
+${transactionLabel}: ${finalOtp}
 
-━━━━━━━━━━━━━━━━━━━
-💰 *REPAYMENT SUMMARY*
-━━━━━━━━━━━━━━━━━━━
-• Interest Rate: ${approvedRequest.interestRate || 13}%
-• Interest Amount: R${approvedRequest.interest?.toLocaleString() || 0}
-• Total Repayable: R${totalRepayable.toLocaleString()}
-• Daily Payment: R${dailyPayment.toLocaleString()}/day
-• Period: ${approvedRequest.repaymentDays || 7} days
+Click here to view your receipt: ${imageUrl || "Receipt image attached"}
 
-━━━━━━━━━━━━━━━━━━━
-⏰ *VALID FOR 1 HOUR*
-━━━━━━━━━━━━━━━━━━━
+Valid for 1 hour from approval time.
 
-Thank you for choosing Kapuka! 🚀`;
+Kapuka Tradings`;
 
-        const cleanPhone = approvedRequest.driverPhone.replace(/[^0-9]/g, "");
-        let fullPhone = cleanPhone;
-        if (!cleanPhone.startsWith("27") && cleanPhone.length === 9) {
-          fullPhone = `27${cleanPhone}`;
-        }
-
+        const fullPhone = formatPhoneNumber(approvedRequest.driverPhone);
         const whatsappUrl = `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, "_blank");
 
@@ -1293,19 +1310,47 @@ Thank you for choosing Kapuka! 🚀`;
         link.click();
         document.body.removeChild(link);
 
+        setSuccessMessage(
+          "WhatsApp message sent with receipt link. Receipt also downloaded to your device.",
+        );
+        setShowSuccessModal(true);
+
         setTimeout(() => {
           setWhatsappLoading(false);
+          setUploadingImage(false);
           setShowWhatsAppModal(false);
           setApprovedRequest(null);
           setApprovingRequest(null);
-        }, 1500);
+        }, 2000);
       } catch (error) {
         console.error("Error sending via WhatsApp:", error);
+
+        const fallbackMessage = `KAPUKA - Service Approved
+
+Your service request has been approved.
+
+Request ID: ${approvedRequest.id.slice(-6).toUpperCase()}
+${transactionLabel}: ${approvedRequest.otp || generatedOtp}
+Amount: R${displayAmount.toLocaleString()}
+
+Please check your email for the receipt.
+
+Valid for 1 hour from approval time.
+
+Kapuka Tradings`;
+
+        const fullPhone = formatPhoneNumber(approvedRequest.driverPhone);
+        window.open(
+          `https://wa.me/${fullPhone}?text=${encodeURIComponent(fallbackMessage)}`,
+          "_blank",
+        );
+
         setErrorMessage(
-          "Failed to send. The receipt has been downloaded to your device.",
+          "Failed to upload receipt image, but WhatsApp message sent without image.",
         );
         setShowErrorModal(true);
         setWhatsappLoading(false);
+        setUploadingImage(false);
       }
     };
 
@@ -1319,7 +1364,7 @@ Thank you for choosing Kapuka! 🚀`;
             onClick={() => setShowDownloadSuccessModal(false)}
           ></div>
           <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-t-2xl p-5">
+            <div className="bg-gradient-to-r from-[#3A7717] to-[#72BF00] rounded-t-2xl p-5">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
                   <CheckCircle className="w-6 h-6 text-white" />
@@ -1334,8 +1379,8 @@ Thank you for choosing Kapuka! 🚀`;
             </div>
 
             <div className="p-5 text-center">
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <ImageIcon className="w-10 h-10 text-green-600" />
+              <div className="w-20 h-20 bg-[#EAFDE7] rounded-full flex items-center justify-center mx-auto mb-4">
+                <ImageIcon className="w-10 h-10 text-[#3A7717]" />
               </div>
               <p className="text-[#01312D] font-semibold mb-2">
                 Receipt downloaded successfully!
@@ -1360,95 +1405,183 @@ Thank you for choosing Kapuka! 🚀`;
 
     return (
       <>
-        {/* Hidden receipt for image generation - Modern Styling */}
+        {/* Hidden receipt for image generation - MODERN DESIGN */}
         <div
           ref={receiptRef}
           style={{
             position: "absolute",
             left: "-9999px",
             top: "-9999px",
-            width: "450px",
-            background: "linear-gradient(135deg, #ffffff 0%, #f8faf8 100%)",
-            borderRadius: "24px",
+            width: "500px",
+            background: "#ffffff",
+            borderRadius: "32px",
             padding: "0",
             fontFamily:
-              "'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+              "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
             boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
             zIndex: -1,
             visibility: "hidden",
             overflow: "hidden",
           }}
         >
-          {/* Decorative Top Bar */}
+          {/* Gradient Header */}
           <div
             style={{
               background: "linear-gradient(135deg, #01312D 0%, #3A7717 100%)",
-              padding: "20px 24px",
+              padding: "32px 28px",
               textAlign: "center",
+              position: "relative",
             }}
           >
+            {/* Decorative circles */}
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "10px",
-                marginBottom: "8px",
+                position: "absolute",
+                top: "-50%",
+                right: "-20%",
+                width: "200px",
+                height: "200px",
+                background: "rgba(191, 242, 2, 0.1)",
+                borderRadius: "50%",
               }}
-            >
-              <span style={{ fontSize: "32px" }}>🚗</span>
-              <h1
-                style={{
-                  color: "white",
-                  margin: 0,
-                  fontSize: "28px",
-                  fontWeight: "800",
-                  letterSpacing: "-0.5px",
-                }}
-              >
-                Kapuka
-              </h1>
-            </div>
-            <p
+            />
+            <div
               style={{
-                color: "rgba(255,255,255,0.9)",
-                margin: 0,
-                fontSize: "13px",
-                fontWeight: "500",
+                position: "absolute",
+                bottom: "-50%",
+                left: "-20%",
+                width: "180px",
+                height: "180px",
+                background: "rgba(191, 242, 2, 0.08)",
+                borderRadius: "50%",
               }}
-            >
-              Service Confirmation Receipt
-            </p>
-          </div>
+            />
 
-          {/* OTP/Promo Section */}
-          <div style={{ padding: "24px", background: "white" }}>
             <div
               style={{
-                background: "linear-gradient(135deg, #FFF5E6 0%, #FFE5CC 100%)",
-                borderRadius: "20px",
-                padding: "24px",
-                textAlign: "center",
-                border: "1px solid rgba(191, 242, 2, 0.3)",
+                position: "relative",
+                zIndex: 1,
               }}
             >
               <div
                 style={{
-                  display: "inline-flex",
+                  display: "flex",
                   alignItems: "center",
+                  justifyContent: "center",
                   gap: "8px",
-                  background: "rgba(58, 119, 23, 0.1)",
-                  padding: "6px 16px",
-                  borderRadius: "50px",
+                  marginBottom: "12px",
+                }}
+              >
+                <svg
+                  width="36"
+                  height="36"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M5 13l4 4L19 7"
+                    stroke="#BFF202"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="9"
+                    stroke="#BFF202"
+                    strokeWidth="2"
+                  />
+                </svg>
+                <h1
+                  style={{
+                    color: "white",
+                    margin: 0,
+                    fontSize: "32px",
+                    fontWeight: "700",
+                    letterSpacing: "-0.5px",
+                  }}
+                >
+                  Kapuka
+                </h1>
+              </div>
+              <p
+                style={{
+                  color: "rgba(255, 255, 255, 0.9)",
+                  margin: 0,
+                  fontSize: "13px",
+                  fontWeight: "500",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                SERVICE CONFIRMATION
+              </p>
+            </div>
+          </div>
+
+          {/* Success Status Badge */}
+          <div style={{ padding: "28px 28px 0 28px", textAlign: "center" }}>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                background: "#EAFDE7",
+                padding: "8px 20px",
+                borderRadius: "100px",
+              }}
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M20 6L9 17L4 12"
+                  stroke="#3A7717"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span
+                style={{
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  color: "#3A7717",
+                }}
+              >
+                APPROVED
+              </span>
+            </div>
+          </div>
+
+          {/* OTP/Code Section */}
+          <div style={{ padding: "24px 28px" }}>
+            <div
+              style={{
+                background: "#F8FAF8",
+                borderRadius: "24px",
+                padding: "28px",
+                textAlign: "center",
+                border: "1px solid #EAFDE7",
+              }}
+            >
+              <div
+                style={{
                   marginBottom: "16px",
                 }}
               >
-                <span style={{ fontSize: "16px" }}>🔐</span>
                 <span
                   style={{
                     fontSize: "12px",
                     fontWeight: "600",
-                    color: "#3A7717",
+                    color: "#72BF00",
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
                   }}
                 >
                   {transactionLabel}
@@ -1457,19 +1590,20 @@ Thank you for choosing Kapuka! 🚀`;
               <div
                 style={{
                   background: "white",
-                  borderRadius: "16px",
-                  padding: "20px",
-                  marginBottom: "16px",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                  borderRadius: "20px",
+                  padding: "24px",
+                  marginBottom: "12px",
+                  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
                 }}
               >
                 <code
                   style={{
-                    fontSize: "48px",
-                    fontWeight: "800",
-                    letterSpacing: "8px",
+                    fontSize: "52px",
+                    fontWeight: "700",
+                    letterSpacing: "10px",
                     color: "#01312D",
-                    fontFamily: "'Courier New', 'Fira Code', monospace",
+                    fontFamily:
+                      "'SF Mono', 'Fira Code', 'Courier New', monospace",
                     display: "block",
                   }}
                 >
@@ -1478,9 +1612,8 @@ Thank you for choosing Kapuka! 🚀`;
               </div>
               <p
                 style={{
-                  color: "#78350F",
+                  color: "#666",
                   fontSize: "12px",
-                  fontWeight: "500",
                   margin: 0,
                 }}
               >
@@ -1489,13 +1622,126 @@ Thank you for choosing Kapuka! 🚀`;
             </div>
           </div>
 
-          {/* Details Section */}
-          <div style={{ padding: "0 24px 24px 24px", background: "white" }}>
+          {/* Service Details */}
+          <div style={{ padding: "0 28px" }}>
+            <div
+              style={{
+                borderTop: "1px solid #EAFDE7",
+                paddingTop: "24px",
+              }}
+            >
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "20px",
+                  marginBottom: "20px",
+                }}
+              >
+                <div>
+                  <p
+                    style={{
+                      fontSize: "11px",
+                      color: "#999",
+                      marginBottom: "6px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    Driver
+                  </p>
+                  <p
+                    style={{
+                      fontSize: "15px",
+                      fontWeight: "600",
+                      color: "#01312D",
+                      margin: 0,
+                    }}
+                  >
+                    {approvedRequest.driverName}
+                  </p>
+                </div>
+                <div>
+                  <p
+                    style={{
+                      fontSize: "11px",
+                      color: "#999",
+                      marginBottom: "6px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    Vehicle
+                  </p>
+                  <p
+                    style={{
+                      fontSize: "15px",
+                      fontWeight: "600",
+                      color: "#01312D",
+                      margin: 0,
+                    }}
+                  >
+                    {approvedRequest.carNumber}
+                  </p>
+                </div>
+                <div>
+                  <p
+                    style={{
+                      fontSize: "11px",
+                      color: "#999",
+                      marginBottom: "6px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    Service
+                  </p>
+                  <p
+                    style={{
+                      fontSize: "15px",
+                      fontWeight: "600",
+                      color: "#3A7717",
+                      margin: 0,
+                    }}
+                  >
+                    {getTypeLabel(approvedRequest.type)}
+                  </p>
+                </div>
+                <div>
+                  <p
+                    style={{
+                      fontSize: "11px",
+                      color: "#999",
+                      marginBottom: "6px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    Request ID
+                  </p>
+                  <p
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: "500",
+                      color: "#01312D",
+                      margin: 0,
+                      fontFamily: "monospace",
+                    }}
+                  >
+                    #{approvedRequest.id.slice(-6).toUpperCase()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Amount Card */}
+          <div style={{ padding: "20px 28px" }}>
             <div
               style={{
                 background: "#EAFDE7",
                 borderRadius: "20px",
-                padding: "20px",
+                padding: "24px",
               }}
             >
               <div
@@ -1503,21 +1749,60 @@ Thank you for choosing Kapuka! 🚀`;
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  marginBottom: "16px",
-                  paddingBottom: "12px",
-                  borderBottom: "1px dashed rgba(191, 242, 2, 0.5)",
+                  marginBottom: "20px",
                 }}
               >
                 <span
                   style={{
                     fontSize: "14px",
-                    fontWeight: "600",
+                    fontWeight: "500",
                     color: "#01312D",
                   }}
                 >
-                  DRIVER INFORMATION
+                  Amount
+                </span>
+                <span
+                  style={{
+                    fontSize: "28px",
+                    fontWeight: "700",
+                    color: "#01312D",
+                  }}
+                >
+                  R{displayAmount.toLocaleString()}
                 </span>
               </div>
+
+              {hasActualAmount && (
+                <div
+                  style={{
+                    marginBottom: "16px",
+                    paddingBottom: "16px",
+                    borderBottom: "1px solid rgba(58, 119, 23, 0.2)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    <span style={{ fontSize: "12px", color: "#666" }}>
+                      Requested Amount
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "13px",
+                        color: "#999",
+                        textDecoration: "line-through",
+                      }}
+                    >
+                      R{approvedRequest.amount?.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <div style={{ marginBottom: "16px" }}>
                 <div
                   style={{
@@ -1526,10 +1811,18 @@ Thank you for choosing Kapuka! 🚀`;
                     marginBottom: "12px",
                   }}
                 >
-                  <span style={{ fontSize: "13px", color: "#666" }}>Name:</span>
-                  <strong style={{ fontSize: "13px", color: "#01312D" }}>
-                    {approvedRequest.driverName}
-                  </strong>
+                  <span style={{ fontSize: "13px", color: "#666" }}>
+                    Interest ({approvedRequest.interestRate || 13}%)
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "14px",
+                      fontWeight: "500",
+                      color: "#3A7717",
+                    }}
+                  >
+                    + R{approvedRequest.interest?.toLocaleString() || 0}
+                  </span>
                 </div>
                 <div
                   style={{
@@ -1538,35 +1831,50 @@ Thank you for choosing Kapuka! 🚀`;
                     marginBottom: "12px",
                   }}
                 >
-                  <span style={{ fontSize: "13px", color: "#666" }}>
-                    Vehicle:
+                  <span
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: "600",
+                      color: "#01312D",
+                    }}
+                  >
+                    Total Repayable
                   </span>
-                  <strong style={{ fontSize: "13px", color: "#01312D" }}>
-                    {approvedRequest.carNumber}
-                  </strong>
+                  <span
+                    style={{
+                      fontSize: "18px",
+                      fontWeight: "700",
+                      color: "#3A7717",
+                    }}
+                  >
+                    R{displayTotal.toLocaleString()}
+                  </span>
                 </div>
                 <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: "12px",
-                  }}
+                  style={{ display: "flex", justifyContent: "space-between" }}
                 >
-                  <span style={{ fontSize: "13px", color: "#666" }}>
-                    Service:
+                  <span style={{ fontSize: "12px", color: "#666" }}>
+                    Repayment Period
                   </span>
-                  <strong style={{ fontSize: "13px", color: "#3A7717" }}>
-                    {getTypeLabel(approvedRequest.type)}
-                  </strong>
+                  <span
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: "500",
+                      color: "#01312D",
+                    }}
+                  >
+                    {approvedRequest.repaymentDays || 7} days • R
+                    {displayDailyPayment.toLocaleString()}/day
+                  </span>
                 </div>
               </div>
 
               <div
                 style={{
                   background: "white",
-                  borderRadius: "16px",
-                  padding: "16px",
-                  marginBottom: "16px",
+                  borderRadius: "12px",
+                  padding: "12px",
+                  marginTop: "8px",
                 }}
               >
                 <div
@@ -1574,193 +1882,184 @@ Thank you for choosing Kapuka! 🚀`;
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    marginBottom: "16px",
                   }}
                 >
-                  <span style={{ fontSize: "13px", color: "#666" }}>
-                    Requested Amount:
-                  </span>
-                  <strong style={{ fontSize: "18px", color: "#01312D" }}>
-                    R{displayAmount.toLocaleString()}
-                  </strong>
-                </div>
-                <div
-                  style={{
-                    background: "#BFF20220",
-                    borderRadius: "12px",
-                    padding: "12px",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    <span style={{ fontSize: "12px", color: "#666" }}>
-                      Interest ({approvedRequest.interestRate || 13}%):
-                    </span>
-                    <strong style={{ fontSize: "12px", color: "#3A7717" }}>
-                      + R{approvedRequest.interest?.toLocaleString() || 0}
-                    </strong>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: "8px",
-                      paddingTop: "8px",
-                      borderTop: "1px dashed rgba(191, 242, 2, 0.3)",
-                    }}
-                  >
-                    <span
+                  <div>
+                    <p
                       style={{
-                        fontSize: "13px",
-                        fontWeight: "600",
-                        color: "#01312D",
+                        fontSize: "10px",
+                        color: "#999",
+                        marginBottom: "4px",
+                        textTransform: "uppercase",
                       }}
                     >
-                      Total Repayable:
-                    </span>
-                    <strong style={{ fontSize: "16px", color: "#3A7717" }}>
-                      R{displayTotal.toLocaleString()}
-                    </strong>
+                      Date & Time
+                    </p>
+                    <p
+                      style={{
+                        fontSize: "12px",
+                        fontWeight: "500",
+                        color: "#01312D",
+                        margin: 0,
+                      }}
+                    >
+                      {currentDate} • {currentTime}
+                    </p>
                   </div>
-                  <div
-                    style={{ display: "flex", justifyContent: "space-between" }}
+                  <svg
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
                   >
-                    <span style={{ fontSize: "12px", color: "#666" }}>
-                      Daily Payment:
-                    </span>
-                    <strong style={{ fontSize: "12px", color: "#01312D" }}>
-                      R{displayDailyPayment.toLocaleString()}/day
-                    </strong>
-                  </div>
+                    <path
+                      d="M12 8v4l3 3"
+                      stroke="#72BF00"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="9"
+                      stroke="#72BF00"
+                      strokeWidth="2"
+                    />
+                  </svg>
                 </div>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: "12px",
-                  color: "#666",
-                }}
-              >
-                <span>📅 {currentDate}</span>
-                <span>⏰ {currentTime}</span>
               </div>
             </div>
           </div>
 
-          {/* Validity Banner - PROMINENT */}
-          <div
-            style={{
-              background: "linear-gradient(135deg, #BFF202 0%, #72BF00 100%)",
-              padding: "20px 24px",
-              textAlign: "center",
-            }}
-          >
+          {/* Validity Banner - Modern */}
+          <div style={{ padding: "0 28px 28px 28px" }}>
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "12px",
-                marginBottom: "8px",
+                background: "linear-gradient(135deg, #BFF202 0%, #72BF00 100%)",
+                borderRadius: "20px",
+                padding: "20px",
+                textAlign: "center",
               }}
             >
-              <span style={{ fontSize: "28px" }}>⏰</span>
-              <span
+              <div
                 style={{
-                  fontSize: "20px",
-                  fontWeight: "800",
-                  color: "#01312D",
-                  letterSpacing: "-0.5px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                  marginBottom: "8px",
                 }}
               >
-                VALID FOR 1 HOUR
-              </span>
-              <span style={{ fontSize: "28px" }}>⏰</span>
-            </div>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "12px",
-                color: "#01312D",
-                opacity: 0.8,
-                fontWeight: "500",
-              }}
-            >
-              Expires at{" "}
-              {expiryTime.toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true,
-              })}
-            </p>
-            <div
-              style={{
-                marginTop: "12px",
-                background: "#01312D20",
-                borderRadius: "8px",
-                padding: "6px 12px",
-                display: "inline-block",
-              }}
-            >
-              <span
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="#01312D"
+                    strokeWidth="2"
+                  />
+                  <polyline
+                    points="12 6 12 12 16 14"
+                    stroke="#01312D"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <span
+                  style={{
+                    fontSize: "16px",
+                    fontWeight: "700",
+                    color: "#01312D",
+                  }}
+                >
+                  Valid for 1 Hour
+                </span>
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="#01312D"
+                    strokeWidth="2"
+                  />
+                  <polyline
+                    points="12 6 12 12 16 14"
+                    stroke="#01312D"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </div>
+              <p
                 style={{
-                  fontSize: "11px",
-                  fontWeight: "600",
+                  margin: 0,
+                  fontSize: "12px",
                   color: "#01312D",
+                  opacity: 0.8,
                 }}
               >
-                ✓ Keep this receipt for reference
-              </span>
+                Expires at{" "}
+                {expiryTime.toLocaleTimeString("en-US", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: true,
+                })}
+              </p>
             </div>
           </div>
 
           {/* Footer */}
           <div
             style={{
-              padding: "16px 24px",
+              padding: "20px 28px",
               textAlign: "center",
-              background: "#f8faf8",
+              background: "#F8FAF8",
+              borderTop: "1px solid #EAFDE7",
             }}
           >
             <p
               style={{
                 margin: 0,
-                fontSize: "10px",
+                fontSize: "11px",
                 color: "#999",
-                letterSpacing: "0.5px",
+                letterSpacing: "0.3px",
               }}
             >
-              Kapuka Services • Customer Support: 24/7
-            </p>
-            <p style={{ margin: "4px 0 0 0", fontSize: "9px", color: "#bbb" }}>
-              Powered by Kapuka Driver Services
+              Kapuka Tradings • support@kapuka.com
             </p>
           </div>
         </div>
 
-        {/* Modal UI - Modern Design */}
+        {/* Modal UI */}
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() =>
               !whatsappLoading &&
               !imageGenerating &&
+              !uploadingImage &&
               setShowWhatsAppModal(false)
             }
           ></div>
           <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="bg-gradient-to-r from-[#25D366] to-[#128C7E] rounded-t-2xl p-5 sticky top-0 z-10">
+            <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] rounded-t-2xl p-5 sticky top-0 z-10">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                    <MessageCircle className="w-6 h-6 text-white" />
+                    <Send className="w-6 h-6 text-white" />
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-white">
@@ -1771,7 +2070,7 @@ Thank you for choosing Kapuka! 🚀`;
                     </p>
                   </div>
                 </div>
-                {!whatsappLoading && !imageGenerating && (
+                {!whatsappLoading && !imageGenerating && !uploadingImage && (
                   <button
                     onClick={() => setShowWhatsAppModal(false)}
                     className="p-1 hover:bg-white/10 rounded-lg transition-colors"
@@ -1783,10 +2082,9 @@ Thank you for choosing Kapuka! 🚀`;
             </div>
 
             <div className="p-5 space-y-4">
-              {/* Driver Info Card */}
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-100">
+              <div className="bg-[#EAFDE7] rounded-xl p-4">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-12 h-12 bg-gradient-to-r from-[#3A7717] to-[#72BF00] rounded-full flex items-center justify-center shadow-md">
+                  <div className="w-12 h-12 bg-gradient-to-r from-[#01312D] to-[#3A7717] rounded-full flex items-center justify-center shadow-md">
                     <User className="w-6 h-6 text-white" />
                   </div>
                   <div>
@@ -1816,10 +2114,9 @@ Thank you for choosing Kapuka! 🚀`;
                 </div>
               </div>
 
-              {/* OTP Display */}
-              <div className="bg-gradient-to-r from-amber-400 to-orange-500 rounded-xl p-5 text-center shadow-lg">
-                <p className="text-white text-sm font-semibold mb-2 flex items-center justify-center gap-2">
-                  <span>🔐</span> {transactionLabel}
+              <div className="bg-gradient-to-r from-[#BFF202] to-[#72BF00] rounded-xl p-5 text-center shadow-lg">
+                <p className="text-[#01312D] text-sm font-semibold mb-2">
+                  {transactionLabel}
                 </p>
                 <div className="bg-white rounded-xl p-4 mb-3 shadow-inner">
                   <code className="text-3xl md:text-4xl font-bold tracking-wider text-[#01312D] font-mono">
@@ -1830,22 +2127,18 @@ Thank you for choosing Kapuka! 🚀`;
                   onClick={() =>
                     handleCopyOtp(approvedRequest.otp || generatedOtp)
                   }
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-white font-semibold hover:bg-white/30 transition-all"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/30 rounded-lg text-[#01312D] font-semibold hover:bg-white/50 transition-all"
                 >
                   <Copy className="w-4 h-4" /> Copy Code
                 </button>
               </div>
 
-              {/* Validity Notice - PROMINENT */}
-              <div className="bg-gradient-to-r from-[#BFF202] to-[#72BF00] rounded-xl p-4 text-center shadow-md">
+              <div className="bg-[#EAFDE7] rounded-xl p-4 text-center">
                 <div className="flex items-center justify-center gap-2 mb-1">
-                  <span className="text-2xl">⏰</span>
-                  <p className="font-extrabold text-[#01312D] text-lg">
-                    VALID FOR 1 HOUR
-                  </p>
-                  <span className="text-2xl">⏰</span>
+                  <Clock className="w-5 h-5 text-[#3A7717]" />
+                  <p className="font-bold text-[#01312D]">Valid for 1 Hour</p>
                 </div>
-                <p className="text-xs text-[#01312D] font-medium">
+                <p className="text-xs text-gray-600">
                   Expires at{" "}
                   {expiryTime.toLocaleTimeString("en-US", {
                     hour: "2-digit",
@@ -1854,67 +2147,36 @@ Thank you for choosing Kapuka! 🚀`;
                   })}
                 </p>
               </div>
-
-              {/* Date & Time */}
-              <div className="bg-gray-50 rounded-xl p-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-gray-500" />
-                    <span className="text-xs text-gray-600">Generated on:</span>
-                  </div>
-                  <span className="text-xs font-semibold text-[#01312D]">
-                    {currentDateTime}
-                  </span>
-                </div>
-              </div>
-
-              {/* Instructions */}
-              <div className="bg-blue-50 rounded-xl p-3 border border-blue-100">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5" />
-                  <div>
-                    <p className="text-xs font-semibold text-blue-800">
-                      Quick Tips:
-                    </p>
-                    <ul className="text-xs text-blue-700 mt-1 space-y-0.5 list-disc list-inside">
-                      <li>Download receipt image for your records</li>
-                      <li>Send via WhatsApp with pre-filled message</li>
-                      <li>Receipt valid for 1 hour from generation</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
             </div>
 
             <div className="border-t border-[#bff202]/20 p-5 flex flex-col gap-3 sticky bottom-0 bg-white">
               <button
                 onClick={handleDownloadImage}
-                disabled={imageGenerating}
+                disabled={imageGenerating || uploadingImage || whatsappLoading}
                 className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
               >
                 {imageGenerating ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> Generating
-                    Receipt...
+                    <Loader2 className="w-4 h-4 animate-spin" /> Generating...
                   </>
                 ) : (
                   <>
-                    <ImageIcon className="w-4 h-4" /> Download Receipt Image
+                    <Download className="w-4 h-4" /> Download Receipt
                   </>
                 )}
               </button>
               <button
                 onClick={handleSendViaWhatsApp}
-                disabled={whatsappLoading || imageGenerating}
+                disabled={whatsappLoading || imageGenerating || uploadingImage}
                 className="w-full bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
               >
-                {whatsappLoading ? (
+                {whatsappLoading || uploadingImage ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" /> Processing...
                   </>
                 ) : (
                   <>
-                    <MessageCircle className="w-4 h-4" /> Share via WhatsApp
+                    <Send className="w-4 h-4" /> Send via WhatsApp
                   </>
                 )}
               </button>

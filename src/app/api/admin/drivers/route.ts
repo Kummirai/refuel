@@ -76,6 +76,7 @@ export async function GET() {
           carRegistration: profile?.carRegistrationNumber || "Not provided",
           carModel: profile?.carModel || "Not provided",
           carYear: profile?.carYear || "Not provided",
+          carColor: profile?.carColor || "Not provided",
           verificationStatus: profile?.verificationStatus || "not_submitted",
           rating: profile?.rating || 0,
           totalRequests,

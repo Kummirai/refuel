@@ -16,7 +16,6 @@ import {
   Upload,
   X,
   AlertCircle,
-  Image as ImageIcon,
 } from "lucide-react";
 
 interface UploadSectionProps {
@@ -42,8 +41,6 @@ function UploadSection({
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-
-
   const handleFile = async (file: File) => {
     // Validate file type
     if (!file.type.startsWith("image/")) {
@@ -51,9 +48,9 @@ function UploadSection({
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError("File size must be less than 5MB");
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setError("File size must be less than 10MB");
       return;
     }
 
@@ -97,6 +94,7 @@ function UploadSection({
       }
     }
   };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -170,7 +168,7 @@ function UploadSection({
               <p className="text-[#01312D] font-medium mb-1">
                 Click or drag to upload
               </p>
-              <p className="text-xs text-gray-400">PNG, JPG up to 5MB</p>
+              <p className="text-xs text-gray-400">PNG, JPG up to 10MB</p>
             </>
           )}
         </div>
@@ -394,50 +392,46 @@ export default function VerifyPage() {
     setUploadedPublicIds((prev) => ({ ...prev, [type]: publicId }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setLoading(true);
 
     try {
       const response = await fetch("/api/driver/verify", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           userId: session?.user?.id,
           fullName: formData.fullName,
+          email: session?.user?.email || "",
+          phone: (session?.user as any)?.phone || "",
           dateOfBirth: formData.dateOfBirth,
           address: formData.address,
           city: formData.city,
           pincode: formData.pincode,
           carRegistrationNumber: formData.carRegistrationNumber,
           carModel: formData.carModel,
-          carYear: parseInt(formData.carYear),
+          carYear: formData.carYear,
           carColor: formData.carColor,
-          drivingLicenseUrl: uploadedUrls.driversLicense || "pending",
-          carRegistrationUrl: uploadedUrls.carRegistration || "pending",
-          profilePhotoUrl: uploadedUrls.profilePhoto || "pending",
-          drivingLicensePublicId: uploadedPublicIds.driversLicense,
-          carRegistrationPublicId: uploadedPublicIds.carRegistration,
-          profilePhotoPublicId: uploadedPublicIds.profilePhoto,
+          drivingLicenseUrl: uploadedUrls.driversLicense,
+          carRegistrationUrl: uploadedUrls.carRegistration,
+          profilePhotoUrl: uploadedUrls.profilePhoto,
         }),
       });
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to submit verification");
+      if (response.ok) {
+        setSubmitSuccess(true);
+        // Scroll to top to show success message
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        alert(data.error || "Failed to submit verification");
       }
-
-      setSubmitSuccess(true);
-
-      setTimeout(() => {
-        router.push("/");
-      }, 3000);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Submission error:", error);
-      alert(
-        error.message || "Failed to submit verification. Please try again.",
-      );
+      alert("An error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -904,7 +898,8 @@ export default function VerifyPage() {
                     className="text-xs text-gray-600"
                   >
                     I hereby declare that all the information provided is true
-                    and correct.
+                    and correct. I understand that providing false information
+                    may result in rejection of my application.
                   </label>
                 </div>
               </div>

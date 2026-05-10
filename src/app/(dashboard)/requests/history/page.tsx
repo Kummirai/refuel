@@ -71,6 +71,10 @@ interface Request {
   popUploadedAt?: string;
   dailyPayment?: number;
   repaymentDays?: number;
+  serviceCharge?: number;
+  totalDue?: number;
+  package?: string;
+  packageDescription?: string;
   sentDate?: string;
   approvedDate?: string;
   completedDate?: string;
@@ -148,25 +152,42 @@ export default function RequestHistoryPage() {
                 (r: any) => r.status === "pending",
               );
 
+              // CALCULATE remaining balance from approved repayments
+              const totalRepayable = req.totalRepayable || req.amount;
+              const totalApprovedRepayments = repayments
+                .filter((r: any) => r.status === "approved")
+                .reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
+
+              const calculatedRemainingBalance = Math.max(
+                0,
+                totalRepayable - totalApprovedRepayments,
+              );
+              const isPaid = calculatedRemainingBalance <= 0;
+
               return {
                 ...req,
                 id: requestId,
-                repaidAmount: req.repaidAmount || 0,
-                remainingBalance:
-                  req.remainingBalance || req.totalRepayable || req.amount,
-                isPaid: req.isPaid || false,
+                repaidAmount: totalApprovedRepayments,
+                remainingBalance: calculatedRemainingBalance, // USE CALCULATED VALUE
+                isPaid: isPaid,
                 hasPendingRepayment: hasPendingRepayment,
                 pendingRepaymentAmount: pendingRepayment?.amount || 0,
                 pendingRepaymentStatus: pendingRepayment?.status || null,
                 repayments: repayments,
               };
             } catch (err) {
+              // Calculate from request data if repayments fetch fails
+              const totalRepayable = req.totalRepayable || req.amount;
+              const calculatedRemainingBalance = Math.max(
+                0,
+                totalRepayable - (req.repaidAmount || 0),
+              );
+
               return {
                 ...req,
                 id: requestId,
                 repaidAmount: req.repaidAmount || 0,
-                remainingBalance:
-                  req.remainingBalance || req.totalRepayable || req.amount,
+                remainingBalance: calculatedRemainingBalance,
                 isPaid: req.isPaid || false,
                 hasPendingRepayment: false,
                 pendingRepaymentAmount: 0,
@@ -542,21 +563,70 @@ export default function RequestHistoryPage() {
           <div className="p-5 space-y-4">
             {/* Amount Section */}
             <div className="bg-[#eafde7] rounded-xl p-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-500 text-sm">Requested Amount</span>
-                <span className="text-2xl font-bold text-[#01312D]">
-                  R{request.amount.toLocaleString()}
-                </span>
-              </div>
-              {request.actualAmount && (
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-gray-500 text-sm">
-                    Actual Amount Used
-                  </span>
-                  <span className="text-xl font-bold text-[#3A7717]">
-                    R{request.actualAmount.toLocaleString()}
-                  </span>
-                </div>
+              {request.type === "carwash" ? (
+                <>
+                  {request.package && (
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-gray-500 text-sm">Package</span>
+                      <span className="font-semibold text-[#01312D]">
+                        {request.package}
+                      </span>
+                    </div>
+                  )}
+                  {request.packageDescription && (
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-gray-500 text-sm">Includes</span>
+                      <span className="font-semibold text-[#01312D] text-right text-xs max-w-[60%]">
+                        {request.packageDescription}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-gray-500 text-sm">Package Price</span>
+                    <span className="text-xl font-bold text-[#01312D]">
+                      R{request.amount.toLocaleString()}
+                    </span>
+                  </div>
+                  {(request.serviceCharge ?? 0) > 0 && (
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-gray-500 text-sm">
+                        Service Charge
+                      </span>
+                      <span className="font-semibold text-[#01312D]">
+                        + R{(request.serviceCharge ?? 0).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center mb-3 pt-2 border-t border-[#bff202]/30">
+                    <span className="text-gray-500 text-sm font-semibold">
+                      Total Due
+                    </span>
+                    <span className="text-2xl font-bold text-[#3A7717]">
+                      R{(request.totalDue ?? request.amount).toLocaleString()}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-gray-500 text-sm">
+                      Requested Amount
+                    </span>
+                    <span className="text-2xl font-bold text-[#01312D]">
+                      R{request.amount.toLocaleString()}
+                    </span>
+                  </div>
+                  {request.actualAmount && (
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-gray-500 text-sm">
+                        Actual Amount Used
+                      </span>
+                      <span className="text-xl font-bold text-[#3A7717]">
+                        R{request.actualAmount.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                </>
               )}
               <div className="flex justify-between items-center">
                 <span className="text-gray-500 text-sm">Status</span>
@@ -656,9 +726,9 @@ export default function RequestHistoryPage() {
                       Upload Receipt
                     </p>
                     <p className="text-xs text-blue-700 mt-1">
-                      Your {request.type === "fuel" ? "fuel" : "car wash"}{" "}
-                      request has been approved! Please upload your proof of
-                      payment receipt to confirm service delivery.
+                      {request.type === "carwash"
+                        ? `Your car wash request has been approved! Please upload your proof of payment to confirm the total of R${(request.totalDue ?? request.amount).toLocaleString()}.`
+                        : "Your fuel request has been approved! Please upload your proof of payment receipt to confirm service delivery."}
                     </p>
                   </div>
                 </div>
@@ -945,7 +1015,6 @@ export default function RequestHistoryPage() {
           </div>
         </div>
       </div>
-
       {/* Filter Tabs */}
       <div className="px-5 pt-4 pb-2 overflow-x-auto no-scrollbar">
         <div className="flex gap-2 flex-wrap items-center justify-center">
@@ -980,7 +1049,6 @@ export default function RequestHistoryPage() {
           )}
         </div>
       </div>
-
       {/* Requests List */}
       <div className="px-5 pt-4 pb-24">
         {filteredRequests.length === 0 ? (
@@ -1056,12 +1124,21 @@ export default function RequestHistoryPage() {
                       <p className="text-2xl font-bold text-[#01312D]">
                         R{request.amount.toLocaleString()}
                       </p>
-                      {hasOutstanding && (
+                      {hasOutstanding && request.type !== "carwash" && (
                         <p className="text-xs text-red-600 mt-1">
                           Outstanding Loan: R
                           {(request.remainingBalance || 0).toLocaleString()}
                         </p>
                       )}
+                      {request.type === "carwash" &&
+                        (request.serviceCharge ?? 0) > 0 && (
+                          <p className="text-xs text-[#3A7717] mt-1">
+                            Total due: R
+                            {(
+                              request.totalDue ?? request.amount
+                            ).toLocaleString()}
+                          </p>
+                        )}
                       {request.hasPendingRepayment && (
                         <p className="text-xs text-yellow-600 mt-1 flex items-center gap-1">
                           <Hourglass className="w-3 h-3" />
@@ -1139,7 +1216,6 @@ export default function RequestHistoryPage() {
           </div>
         )}
       </div>
-
       {/* Modals */}
       {showDetailModal && selectedRequest && (
         <RequestDetailModal
@@ -1147,6 +1223,7 @@ export default function RequestHistoryPage() {
           onClose={() => setShowDetailModal(false)}
         />
       )}
+      // In the PopUploadModal props section (around line 999-1012), update to:
       {showPopModal && selectedRequestForPop && (
         <PopUploadModal
           isOpen={showPopModal}
@@ -1155,7 +1232,18 @@ export default function RequestHistoryPage() {
             setSelectedRequestForPop(null);
           }}
           requestId={selectedRequestForPop.id}
+          requestType={selectedRequestForPop.type}
           requestedAmount={selectedRequestForPop.amount}
+          serviceCharge={selectedRequestForPop.serviceCharge ?? 0}
+          // For car wash, use totalRepayable which already includes service charge
+          // For other services, use totalDue or amount
+          totalDue={
+            selectedRequestForPop.type === "carwash"
+              ? selectedRequestForPop.totalRepayable ||
+                selectedRequestForPop.amount
+              : (selectedRequestForPop.totalDue ?? selectedRequestForPop.amount)
+          }
+          packageName={selectedRequestForPop.package}
           onSuccess={() => {
             fetchRequests();
             setShowPopModal(false);
@@ -1198,7 +1286,6 @@ export default function RequestHistoryPage() {
       )}
       <SuccessModal />
       <ErrorModal />
-
       {/* Bottom Navigation with Notification Badge */}
       <BottomNavigation approvedCount={stats.approved} isAdmin={false} />
     </div>

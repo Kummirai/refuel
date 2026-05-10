@@ -4,6 +4,10 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { connectToDatabase } from "@/lib/mongodb/client";
 import { ObjectId } from "mongodb";
+import {
+  sendAdminReceiptUploadEmail,
+  sendDriverReceiptUploadConfirmation,
+} from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -57,8 +61,6 @@ export async function POST(request: NextRequest) {
     const { db } = await connectToDatabase();
     const requestsCollection = db.collection("serviceRequests");
 
-    console.log(`These are the ${requestsCollection}`);
-
     // Find the request
     const existingRequest = await requestsCollection.findOne({
       _id: new ObjectId(requestId),
@@ -75,6 +77,15 @@ export async function POST(request: NextRequest) {
 
     console.log("Found request:", existingRequest);
 
+    // Calculate total repayable if interest is provided
+    const finalTotalRepayable =
+      totalRepayable ||
+      (interest
+        ? actualAmount + (actualAmount * interest) / 100
+        : actualAmount);
+    const finalDailyPayment = dailyPayment || finalTotalRepayable / 7;
+    const finalRepaymentDays = repaymentDays || 7;
+
     // Update the request
     const updateResult = await requestsCollection.updateOne(
       {
@@ -87,11 +98,14 @@ export async function POST(request: NextRequest) {
           popUrl: popUrl,
           popPublicId: popPublicId || `pop_${requestId}_${Date.now()}`,
           popUploadedAt: new Date(),
-          interest: interest,
-          totalRepayable: totalRepayable,
-          dailyPayment: dailyPayment,
-          repaymentDays: repaymentDays || 7,
+          interest: interest || (existingRequest.type === "cash" ? 15 : 0),
+          totalRepayable: finalTotalRepayable,
+          dailyPayment: finalDailyPayment,
+          repaymentDays: finalRepaymentDays,
           status: "completed",
+          remainingBalance: finalTotalRepayable,
+          isPaid: false,
+          completedDate: new Date(),
           updatedAt: new Date(),
         },
       },
@@ -117,12 +131,64 @@ export async function POST(request: NextRequest) {
       { upsert: true },
     );
 
-    console.log("Successfully updated profile");
+    // Get driver details for email
+    const usersCollection = db.collection("user");
+    const user = await usersCollection.findOne({ id: session.user.id });
+
+    // Type-safe service type mapping
+    const serviceTypeMap: Record<string, string> = {
+      fuel: "Fuel",
+      airtime: "Airtime",
+      cash: "Cash Loan",
+      carwash: "Car Wash",
+    };
+
+    const serviceTypeLabel =
+      serviceTypeMap[existingRequest.type] || existingRequest.type;
+
+    // Send email to admin about receipt upload (don't await - fire and forget)
+    sendAdminReceiptUploadEmail({
+      driverName: user?.name || session.user.name || "Driver",
+      driverEmail: user?.email || session.user.email || "",
+      driverPhone: user?.phone || existingRequest.phoneNumber || "Not provided",
+      carRegistration: existingRequest.carNumber || "Unknown",
+      serviceType: existingRequest.type,
+      serviceTypeLabel: serviceTypeLabel,
+      amount: existingRequest.amount,
+      actualAmount: actualAmount,
+      totalRepayable: finalTotalRepayable,
+      popUrl: popUrl,
+      uploadedAt: new Date().toISOString(),
+      requestId: requestId,
+    }).catch((err) =>
+      console.error("Failed to send admin receipt email:", err),
+    );
+
+    // Send confirmation email to driver (don't await - fire and forget)
+    sendDriverReceiptUploadConfirmation({
+      driverEmail: user?.email || session.user.email || "",
+      driverName: user?.name || session.user.name || "Driver",
+      carRegistration: existingRequest.carNumber || "Unknown",
+      serviceTypeLabel: serviceTypeLabel,
+      amount: existingRequest.amount,
+      actualAmount: actualAmount,
+      totalRepayable: finalTotalRepayable,
+      uploadedAt: new Date().toISOString(),
+      requestId: requestId,
+    }).catch((err) =>
+      console.error("Failed to send driver receipt confirmation:", err),
+    );
+
+    console.log("Successfully updated profile and sent notifications");
 
     return NextResponse.json({
       success: true,
       message: "POP uploaded successfully",
-      data: { actualAmount, totalRepayable, dailyPayment },
+      data: {
+        actualAmount,
+        totalRepayable: finalTotalRepayable,
+        dailyPayment: finalDailyPayment,
+      },
     });
   } catch (error: any) {
     console.error("POP upload error:", error);

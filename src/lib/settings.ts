@@ -61,7 +61,7 @@ export async function getSettings() {
           ipWhitelist: "",
         },
         business: {
-          businessName: "Kapuka Services Pvt Ltd",
+          businessName: "Kapuka Tradings Pvt Ltd",
           businessEmail: "business@Kapuka.com",
           businessPhone: "+91 98765 43210",
           gstNumber: "29ABCDE1234F1Z5",

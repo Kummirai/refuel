@@ -54,7 +54,7 @@ const DEFAULT_SETTINGS = {
     ipWhitelist: "",
   },
   business: {
-    businessName: "Kapuka Services Pvt Ltd",
+    businessName: "Kapuka Tradings Pvt Ltd",
     businessEmail: "business@Kapuka.com",
     businessPhone: "+27 782 677 436",
     gstNumber: "29ABCDE1234F1Z5",

@@ -12,6 +12,9 @@ import {
   FileText,
   CheckCircle,
   X,
+  Car,
+  Info,
+  Percent,
 } from "lucide-react";
 import type { CloudinaryUploadWidgetInfo } from "next-cloudinary";
 
@@ -19,7 +22,11 @@ interface PopUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
   requestId: string;
+  requestType?: string;
   requestedAmount: number;
+  serviceCharge?: number;
+  totalDue?: number;
+  packageName?: string;
   onSuccess: () => void;
 }
 
@@ -29,7 +36,11 @@ export function PopUploadModal({
   isOpen,
   onClose,
   requestId,
+  requestType = "fuel",
   requestedAmount,
+  serviceCharge = 0,
+  totalDue,
+  packageName,
   onSuccess,
 }: PopUploadModalProps) {
   const [actualAmount, setActualAmount] = useState<string>("");
@@ -38,15 +49,62 @@ export function PopUploadModal({
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [interestRate, setInterestRate] = useState<number>(13); // Default 13%
   const [calculatedRepayment, setCalculatedRepayment] = useState<{
     interest: number;
     totalRepayable: number;
     dailyPayment: number;
   } | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+
+  const isCarWash = requestType === "carwash";
+  // For car wash, use totalDue (which is package price + service charge from database)
+  const carWashTotalDue = totalDue || requestedAmount + serviceCharge;
+
+  // Fetch interest rate from settings
+  useEffect(() => {
+    const fetchInterestRate = async () => {
+      try {
+        const response = await fetch("/api/admin/settings");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.services) {
+            // Get the appropriate interest rate based on service type
+            let rate = 13; // default
+            if (requestType === "fuel") {
+              rate = Number(data.services.fuelInterestRate) || 13;
+            } else if (requestType === "airtime") {
+              rate = Number(data.services.airtimeInterestRate) || 13;
+            } else if (requestType === "cash") {
+              rate = Number(data.services.cashInterestRate) || 13;
+            }
+            setInterestRate(rate);
+            console.log(`Loaded interest rate for ${requestType}: ${rate}%`);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching interest rate:", error);
+      } finally {
+        setSettingsLoading(false);
+      }
+    };
+
+    if (!isCarWash && isOpen) {
+      fetchInterestRate();
+    } else {
+      setSettingsLoading(false);
+    }
+  }, [requestType, isCarWash, isOpen]);
 
   // Debug logging
   console.log("PopUploadModal - requestId:", requestId);
+  console.log("PopUploadModal - requestType:", requestType);
+  console.log("PopUploadModal - isCarWash:", isCarWash);
   console.log("PopUploadModal - requestedAmount:", requestedAmount);
+  console.log("PopUploadModal - interestRate:", interestRate);
+  console.log("PopUploadModal - serviceCharge:", serviceCharge);
+  console.log("PopUploadModal - totalDue:", totalDue);
+  console.log("PopUploadModal - carWashTotalDue:", carWashTotalDue);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -60,10 +118,10 @@ export function PopUploadModal({
     };
   }, [isOpen]);
 
-  // Calculate repayment based on actual amount
+  // Calculate repayment based on actual amount (only for non-carwash services)
   const calculateRepayment = (amount: number) => {
-    const interestRate = 0.13; // 13%
-    const interest = amount * interestRate;
+    const rate = interestRate / 100;
+    const interest = amount * rate;
     const totalRepayable = amount + interest;
     const dailyPayment = totalRepayable / 7; // 7 days default
     return { interest, totalRepayable, dailyPayment: Math.ceil(dailyPayment) };
@@ -81,14 +139,10 @@ export function PopUploadModal({
 
   const handleSubmit = async () => {
     console.log("Submitting POP - requestId:", requestId);
+    console.log("isCarWash:", isCarWash);
 
     if (!requestId) {
       setError("Missing request ID. Please try again.");
-      return;
-    }
-
-    if (!actualAmount || parseFloat(actualAmount) <= 0) {
-      setError("Please enter the actual amount paid");
       return;
     }
 
@@ -97,23 +151,56 @@ export function PopUploadModal({
       return;
     }
 
+    let amountToSubmit: number;
+    let interestToSubmit: number;
+    let totalRepayableToSubmit: number;
+    let dailyPaymentToSubmit: number;
+    let repaymentDaysToSubmit: number;
+
+    if (isCarWash) {
+      // For car wash: NO INTEREST - use totalDue from database
+      amountToSubmit = carWashTotalDue;
+      if (amountToSubmit <= 0) {
+        setError("Invalid total amount. Please contact support.");
+        return;
+      }
+      interestToSubmit = 0;
+      totalRepayableToSubmit = amountToSubmit; // Total repayable = total due (no interest)
+      dailyPaymentToSubmit = 0; // No daily payments for car wash
+      repaymentDaysToSubmit = 0;
+      console.log("Car Wash - Using totalDue:", carWashTotalDue);
+      console.log(
+        "Car Wash - Total repayable (no interest):",
+        totalRepayableToSubmit,
+      );
+    } else {
+      // For fuel/airtime/cash, use the actual amount entered with interest from database
+      if (!actualAmount || parseFloat(actualAmount) <= 0) {
+        setError("Please enter the actual amount paid");
+        return;
+      }
+      amountToSubmit = parseFloat(actualAmount);
+      const { interest, totalRepayable, dailyPayment } =
+        calculateRepayment(amountToSubmit);
+      interestToSubmit = interest;
+      totalRepayableToSubmit = totalRepayable;
+      dailyPaymentToSubmit = dailyPayment;
+      repaymentDaysToSubmit = 7;
+    }
+
     setSubmitting(true);
     setError("");
 
     try {
-      const amountNum = parseFloat(actualAmount);
-      const { interest, totalRepayable, dailyPayment } =
-        calculateRepayment(amountNum);
-
       const requestData = {
         requestId: requestId,
-        actualAmount: amountNum,
+        actualAmount: amountToSubmit,
         popUrl: popUrl,
         popPublicId: popPublicId,
-        interest: interest,
-        totalRepayable: totalRepayable,
-        dailyPayment: dailyPayment,
-        repaymentDays: 7,
+        interest: interestToSubmit,
+        totalRepayable: totalRepayableToSubmit,
+        dailyPayment: dailyPaymentToSubmit,
+        repaymentDays: repaymentDaysToSubmit,
       };
 
       console.log("Sending POP data:", requestData);
@@ -131,7 +218,6 @@ export function PopUploadModal({
         throw new Error(data.error || "Failed to submit POP");
       }
 
-      // alert("POP uploaded successfully!");
       onSuccess();
       onClose();
       resetForm();
@@ -151,6 +237,22 @@ export function PopUploadModal({
     setError("");
   };
 
+  // Get service display name
+  const getServiceDisplayName = () => {
+    switch (requestType) {
+      case "fuel":
+        return "Fuel";
+      case "airtime":
+        return "Airtime";
+      case "cash":
+        return "Cash Loan";
+      case "carwash":
+        return "Car Wash";
+      default:
+        return "Service";
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -165,6 +267,12 @@ export function PopUploadModal({
             <p className="text-sm text-gray-500 mt-0.5">
               Request ID: {requestId}
             </p>
+            {isCarWash && packageName && (
+              <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-[#eafde7] text-[#3A7717] rounded-full text-xs">
+                <Car className="w-3 h-3" />
+                {packageName}
+              </span>
+            )}
           </div>
           <button
             onClick={() => {
@@ -185,40 +293,132 @@ export function PopUploadModal({
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
             <div>
-              <p className="text-sm text-blue-800 font-semibold">
-                Requested Amount: R{requestedAmount.toLocaleString()}
-              </p>
-              <p className="text-xs text-blue-700 mt-1">
-                Please upload your bank transfer receipt or proof of payment. If
-                the actual amount differs, enter the correct amount below.
-              </p>
+              {isCarWash ? (
+                <>
+                  <p className="text-sm text-blue-800 font-semibold">
+                    Car Wash Package: {packageName || "Standard"}
+                  </p>
+                  <p className="text-sm text-blue-800">
+                    Package Price: R{requestedAmount.toLocaleString()}
+                  </p>
+                  {serviceCharge > 0 && (
+                    <p className="text-sm text-blue-800">
+                      Service Charge: + R{serviceCharge.toLocaleString()}
+                    </p>
+                  )}
+                  <p className="text-base font-bold text-blue-900 mt-2">
+                    Total Due: R{carWashTotalDue.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    <strong>No interest applies to car wash services.</strong>{" "}
+                    The amount above is the total you need to pay.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-blue-800 font-semibold">
+                    {getServiceDisplayName()} Request
+                  </p>
+                  <p className="text-sm text-blue-800">
+                    Requested Amount: R{requestedAmount.toLocaleString()}
+                  </p>
+                  <div className="mt-2 p-2 bg-blue-100 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Percent className="w-4 h-4 text-blue-800" />
+                      <p className="text-sm font-semibold text-blue-800">
+                        Current Interest Rate: {interestRate}%
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-blue-700 mt-2">
+                    Please upload your bank transfer receipt or proof of
+                    payment. If the actual amount differs, enter the correct
+                    amount below.
+                    <strong>
+                      {" "}
+                      {interestRate}% interest will be added to the amount.
+                    </strong>
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Actual Amount Input */}
-        <div className="mb-6">
-          <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-            Actual Amount Paid <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#72bf00]" />
-            <input
-              type="number"
-              value={actualAmount}
-              onChange={(e) => handleAmountChange(e.target.value)}
-              placeholder="Enter actual amount paid"
-              className="w-full pl-10 pr-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] text-base"
-              required
-            />
+        {/* Actual Amount Input - Only for non-carwash services */}
+        {!isCarWash && (
+          <div className="mb-6">
+            <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+              Actual Amount Paid <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#72bf00]" />
+              <input
+                type="number"
+                value={actualAmount}
+                onChange={(e) => handleAmountChange(e.target.value)}
+                placeholder="Enter actual amount paid"
+                className="w-full pl-10 pr-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] text-base"
+                required
+              />
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Repayment Calculation Preview */}
-        {calculatedRepayment && (
+        {/* Car Wash Fixed Amount Summary - No Interest */}
+        {isCarWash && (
           <div className="bg-[#eafde7] rounded-xl p-4 mb-6">
-            <p className="font-semibold text-[#01312D] mb-3">
-              Repayment Summary
+            <div className="flex items-center gap-2 mb-3">
+              <Car className="w-5 h-5 text-[#3A7717]" />
+              <p className="font-semibold text-[#01312D]">Car Wash Summary</p>
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Package:</span>
+                <span className="font-semibold text-[#01312D]">
+                  {packageName || "Standard Package"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Package Price:</span>
+                <span className="font-semibold text-[#01312D]">
+                  R{requestedAmount.toLocaleString()}
+                </span>
+              </div>
+              {serviceCharge > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Service Charge:</span>
+                  <span className="font-semibold text-[#3A7717]">
+                    + R{serviceCharge.toLocaleString()}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between pt-2 border-t border-[#bff202]/30 bg-white/50 rounded-lg p-2 -mx-2">
+                <span className="font-semibold text-[#01312D]">
+                  Total Due (No Interest):
+                </span>
+                <span className="font-bold text-[#3A7717] text-xl">
+                  R{carWashTotalDue.toLocaleString()}
+                </span>
+              </div>
+              <div className="bg-green-50 rounded-lg p-2 mt-2 -mx-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-3 h-3 text-green-600" />
+                  <p className="text-xs text-green-700">
+                    ✓ No interest applies. This is the final amount due.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Repayment Calculation Preview - For non-carwash services */}
+        {!isCarWash && calculatedRepayment && (
+          <div className="bg-[#eafde7] rounded-xl p-4 mb-6">
+            <p className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+              <Percent className="w-4 h-4 text-[#3A7717]" />
+              Repayment Summary ({interestRate}% Interest)
             </p>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
@@ -228,7 +428,9 @@ export function PopUploadModal({
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Interest (13%):</span>
+                <span className="text-gray-600">
+                  Interest ({interestRate}%):
+                </span>
                 <span className="font-semibold text-[#3A7717]">
                   + R{calculatedRepayment.interest.toLocaleString()}
                 </span>
@@ -250,6 +452,14 @@ export function PopUploadModal({
                 </span>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Loading state for settings */}
+        {!isCarWash && settingsLoading && (
+          <div className="bg-gray-50 rounded-xl p-4 mb-6 text-center">
+            <Loader2 className="w-6 h-6 text-[#3A7717] animate-spin mx-auto mb-2" />
+            <p className="text-xs text-gray-500">Loading interest rate...</p>
           </div>
         )}
 
@@ -278,7 +488,7 @@ export function PopUploadModal({
                 setError("Upload failed. Please try again.");
               }}
               options={{
-                maxFileSize: 5242880,
+                maxFileSize: 10485760,
                 clientAllowedFormats: ["jpg", "jpeg", "png", "pdf"],
                 folder: `Kapuka/pop/${requestId}`,
                 resourceType: "auto",
@@ -362,7 +572,12 @@ export function PopUploadModal({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={submitting || !popUrl || !actualAmount}
+            disabled={
+              submitting ||
+              !popUrl ||
+              (!isCarWash && !actualAmount) ||
+              settingsLoading
+            }
             className="flex-1 bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all active:scale-95"
           >
             {submitting ? (

@@ -133,7 +133,7 @@ export function CloudinaryUpload({
         uploadPreset={UPLOAD_PRESET}
         options={{
           cloudName: cloudName,
-          maxFileSize: 5242880,
+          maxFileSize: 10485760,
           clientAllowedFormats: ["jpg", "jpeg", "png", "webp"],
           folder: `kapuka/drivers/${type}`,
           cropping: true,
@@ -184,7 +184,7 @@ export function CloudinaryUpload({
       </CldUploadWidget>
 
       <p className="text-xs text-gray-500">
-        Max file size: 5MB. Allowed formats: JPG, PNG, WebP
+        Max file size: 10MB. Allowed formats: JPG, PNG, WebP
       </p>
     </div>
   );

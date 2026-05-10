@@ -62,7 +62,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("Found profile:", { userId, profileId: profile._id });
+    console.log("Found profile:", {
+      userId,
+      profileId: profile._id,
+      carRegistrationNumber: profile.carRegistrationNumber,
+    });
 
     // Get user details for email - try both _id formats
     let user = null;
@@ -116,6 +120,10 @@ export async function POST(request: NextRequest) {
       // Send email notification to driver (run in background)
       const driverEmail = user?.email || profile?.email;
       const driverName = profile.fullName || user?.name || "Driver";
+      const carRegistration =
+        profile.carRegistrationNumber ||
+        profile.carRegistration ||
+        "Not provided";
 
       if (driverEmail && driverEmail !== "Unknown" && driverEmail !== "") {
         (async () => {
@@ -123,6 +131,7 @@ export async function POST(request: NextRequest) {
             await sendDriverVerificationResultEmail({
               driverEmail: driverEmail,
               driverName: driverName,
+              carRegistration: carRegistration, // ADDED: Include car registration
               status: "approved",
               reason: null,
             });
@@ -174,6 +183,10 @@ export async function POST(request: NextRequest) {
       // Send email notification to driver (run in background)
       const driverEmail = user?.email || profile?.email;
       const driverName = profile.fullName || user?.name || "Driver";
+      const carRegistration =
+        profile.carRegistrationNumber ||
+        profile.carRegistration ||
+        "Not provided";
 
       if (driverEmail && driverEmail !== "Unknown" && driverEmail !== "") {
         (async () => {
@@ -181,6 +194,7 @@ export async function POST(request: NextRequest) {
             await sendDriverVerificationResultEmail({
               driverEmail: driverEmail,
               driverName: driverName,
+              carRegistration: carRegistration, // ADDED: Include car registration
               status: "rejected",
               reason: reason || "No reason provided",
             });
