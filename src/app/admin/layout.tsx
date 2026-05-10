@@ -20,6 +20,7 @@ import {
   Clock,
   AlertCircle,
   XCircle,
+  Receipt
 } from "lucide-react";
 
 export default function AdminLayout({
@@ -37,27 +38,31 @@ export default function AdminLayout({
   const [pendingVerificationsCount, setPendingVerificationsCount] = useState(0);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [pendingRepaymentsCount, setPendingRepaymentsCount] = useState(0);
+  const [pendingReceiptsCount, setPendingReceiptsCount] = useState(0);
 
   // Store full data for detailed view
   const [pendingVerifications, setPendingVerifications] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [pendingRepayments, setPendingRepayments] = useState<any[]>([]);
-
+  const [pendingReceipts, setPendingReceipts] = useState<any[]>([]);
   const fetchAllCounts = async () => {
     try {
-      const [verificationsRes, requestsRes, repaymentsRes] = await Promise.all([
+      const [verificationsRes, requestsRes, repaymentsRes, receiptRes] = await Promise.all([
         fetch("/api/admin/verifications/count"),
         fetch("/api/admin/requests/count"),
         fetch("/api/admin/repayments/count"),
+        fetch("/api/admin/receipts/count")
       ]);
 
       const verifications = await verificationsRes.json();
       const requests = await requestsRes.json();
       const repayments = await repaymentsRes.json();
+      const receipts = await receiptRes.json();
 
       setPendingVerificationsCount(verifications.pending || 0);
       setPendingRequestsCount(requests.pending || 0);
       setPendingRepaymentsCount(repayments.pending || 0);
+      setPendingReceiptsCount(receipts.pending || 0);
     } catch (error) {
       console.error("Error fetching counts:", error);
     }
@@ -65,19 +70,22 @@ export default function AdminLayout({
 
   const fetchPendingDetails = async () => {
     try {
-      const [verificationsRes, requestsRes, repaymentsRes] = await Promise.all([
+      const [verificationsRes, requestsRes, repaymentsRes, receiptsRes] = await Promise.all([
         fetch("/api/admin/verifications?status=pending&limit=5"),
         fetch("/api/admin/requests?status=pending&limit=5"),
         fetch("/api/admin/repayments?status=pending&limit=5"),
+        fetch("/api/admin/receipts?status=pending&limit=5")
       ]);
 
       const verifications = await verificationsRes.json();
       const requests = await requestsRes.json();
       const repayments = await repaymentsRes.json();
+      const receipts = await receiptsRes.json();
 
       setPendingVerifications(verifications.data || verifications || []);
       setPendingRequests(requests.data || requests || []);
       setPendingRepayments(repayments.data || repayments || []);
+      setPendingReceipts(receipts.data || receipts || []);
     } catch (error) {
       console.error("Error fetching pending details:", error);
     }
@@ -160,7 +168,7 @@ export default function AdminLayout({
 
   const user = session?.user as any;
   const totalNotifications =
-    pendingVerificationsCount + pendingRequestsCount + pendingRepaymentsCount;
+    pendingVerificationsCount + pendingRequestsCount + pendingRepaymentsCount + pendingReceiptsCount;
 
   const navItems = [
     {
@@ -185,6 +193,14 @@ export default function AdminLayout({
       active: pathname === "/admin/service-requests",
       badge: pendingRequestsCount,
       badgeColor: "bg-blue-500",
+    },
+    {
+      icon: Receipt,
+      label: "Approve Receipts",
+      path: "/admin/pending-receipts",
+      active: pathname === "/admin/pending-receipts",
+      badge: pendingReceiptsCount,
+      badgeColor: "bg-purple-500",
     },
     {
       icon: DollarSign,
