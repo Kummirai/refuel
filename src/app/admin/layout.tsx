@@ -196,7 +196,7 @@ export default function AdminLayout({
     },
     {
       icon: Receipt,
-      label: "Approve Receipts",
+      label: "Receipts",
       path: "/admin/pending-receipts",
       active: pathname === "/admin/pending-receipts",
       badge: pendingReceiptsCount,
@@ -427,10 +427,59 @@ export default function AdminLayout({
                     </button>
                   </div>
                 )}
-              </>
-            )}
-          </div>
 
+                {/* Receipts Section */}
+                {pendingReceiptsCount > 0 && (
+                  <div className="p-4 hover:bg-purple-50/50 transition-colors">
+                    <button
+                      onClick={() => handleNavigate("/admin/receipts")}
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <FileText className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-[#01312D]">
+                              Receipts
+                            </span>
+                            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                              {pendingReceiptsCount} pending
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {pendingReceiptsCount} receipt
+                            {pendingReceiptsCount !== 1 ? "s" : ""} to approve
+                          </p>
+                          {pendingReceipts
+                            .slice(0, 2)
+                            .map((receipt: any, idx) => (
+                              <div
+                                key={idx}
+                                className="mt-2 text-xs text-gray-400 flex items-center gap-2"
+                              >
+                                <AlertCircle className="w-3 h-3" />
+                                <span>
+                                  {receipt.driverName || "Driver"} - R
+                                  {receipt.amount?.toLocaleString()}{" "}
+                                  • Due{" "}
+                                  {receipt.dueDate
+                                    ? new Date(receipt.dueDate).toLocaleDateString()
+                                    : "N/A"}
+                                </span>
+                              </div>
+                            ))}
+                          {pendingReceiptsCount > 2 && (
+                            <p className="text-xs text-purple-600 mt-1">
+                              +{pendingReceiptsCount - 2} more
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                )}
           {/* Footer */}
           {totalNotifications > 0 && (
             <div className="p-3 bg-gray-50 border-t border-gray-100">
