@@ -198,8 +198,8 @@ export default function AdminLayout({
     {
       icon: Receipt,
       label: "Receipts",
-      path: "/admin/pending-receipts",
-      active: pathname === "/admin/pending-receipts",
+      path: "/admin/receipts",
+      active: pathname === "/admin/receipts",
       badge: pendingReceiptsCount,
       badgeColor: "bg-purple-500",
     },
