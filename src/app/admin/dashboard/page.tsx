@@ -1780,6 +1780,9 @@ export default function AdminDashboard() {
                       Status
                     </th>
                     <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
+                      Rating
+                    </th>
+                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
                       Requests
                     </th>
                     <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
@@ -1816,6 +1819,14 @@ export default function AdminDashboard() {
                       </td>
                       <td className="p-4">
                         {getStatusBadge(driver.verificationStatus)}
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-1">
+                          <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                          <span className="font-bold text-[#01312D]">
+                            {driver.rating ? driver.rating.toFixed(1) : "N/A"}
+                          </span>
+                        </div>
                       </td>
                       <td className="p-4">
                         <span className="font-semibold text-[#01312D]">

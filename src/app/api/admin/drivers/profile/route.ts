@@ -1,7 +1,7 @@
-// src/app/api/admin/drivers/profile/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
+import { calculateDriverRating } from "@/lib/utils/rating";
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
     const { db } = await connectToDatabase();
     const usersCollection = db.collection("user");
     const driverProfilesCollection = db.collection("driverProfiles");
+    const serviceRequestsCollection = db.collection("serviceRequests");
+    const repaymentProofsCollection = db.collection("repaymentProofs");
 
     // Get user
     const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
@@ -39,6 +41,36 @@ export async function GET(request: NextRequest) {
         { status: 404 },
       );
     }
+
+    // Fetch all requests and repayments to calculate accurate rating
+    const requests = await serviceRequestsCollection
+      .find({ userId })
+      .toArray();
+    
+    const enhancedRequests = await Promise.all(
+      requests.map(async (request: any) => {
+        const requestId = request._id.toString();
+        const repaymentProofs = await repaymentProofsCollection
+          .find({ requestId: requestId })
+          .toArray();
+        
+        const totalRepaid = repaymentProofs
+          .filter((r: any) => r.status === "approved")
+          .reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
+
+        const totalRepayable = request.totalRepayable || request.amount;
+        const remainingBalance = Math.max(0, totalRepayable - totalRepaid);
+
+        return {
+          ...request,
+          repayments: repaymentProofs,
+          remainingBalance,
+          isPaid: remainingBalance <= 0
+        };
+      })
+    );
+
+    const rating = calculateDriverRating(profile, enhancedRequests);
 
     console.log("Found profile:", profile._id);
 
@@ -72,9 +104,9 @@ export async function GET(request: NextRequest) {
       verifiedAt: profile.verifiedAt || null,
 
       // Statistics
-      totalRequests: profile.totalRequests || 0,
-      totalSpent: profile.totalSpent || 0,
-      rating: profile.rating || 0,
+      totalRequests: requests.length,
+      totalSpent: requests.reduce((sum, r) => sum + (r.amount || 0), 0),
+      rating: rating,
 
       // User info
       email: user.email || "",
