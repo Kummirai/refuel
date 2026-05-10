@@ -410,7 +410,8 @@ function RequestsPageContent() {
 
   // Get repayment period selector (only for fuel)
   const getRepaymentPeriodSelector = () => {
-    if (selectedService !== "fuel") return null;
+    if (selectedService === "fuel" || selectedService === "carwash")
+      return null;
 
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum) || amountNum <= 0) return null;
