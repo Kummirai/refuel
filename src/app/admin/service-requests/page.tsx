@@ -1297,7 +1297,7 @@ Click here to view your receipt: ${imageUrl || "Receipt image attached"}
 
 Valid for 1 hour from approval time.
 
-Kapuka Driver Services`;
+Kapuka Tradings`;
 
         const fullPhone = formatPhoneNumber(approvedRequest.driverPhone);
         const whatsappUrl = `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`;
@@ -1337,7 +1337,7 @@ Please check your email for the receipt.
 
 Valid for 1 hour from approval time.
 
-Kapuka Driver Services`;
+Kapuka Tradings`;
 
         const fullPhone = formatPhoneNumber(approvedRequest.driverPhone);
         window.open(
@@ -2038,7 +2038,7 @@ Kapuka Driver Services`;
                 letterSpacing: "0.3px",
               }}
             >
-              Kapuka Driver Services • support@kapuka.com
+              Kapuka Tradings • support@kapuka.com
             </p>
           </div>
         </div>

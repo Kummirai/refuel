@@ -177,7 +177,7 @@ const generateAdminEmailHtml = (data: ServiceRequestEmailData): string => {
     <body>
       <div class="container">
         <div class="header">
-          <h1>Kapuka Services</h1>
+          <h1>Kapuka Tradings</h1>
           <p>New Service Request Received</p>
         </div>
         <div class="content">
@@ -211,7 +211,7 @@ const generateAdminEmailHtml = (data: ServiceRequestEmailData): string => {
           </div>
         </div>
         <div class="footer">
-          <p>Kapuka Services - Automated Notification</p>
+          <p>Kapuka Tradings - Automated Notification</p>
           <p>This is an automated message, please do not reply.</p>
         </div>
       </div>
@@ -316,7 +316,7 @@ const generateDriverApprovalHtml = (data: {
           </div>
         </div>
         <div class="footer">
-          <p>Kapuka Services - Automated Notification</p>
+          <p>Kapuka Tradings - Automated Notification</p>
           <p>This is an automated message, please do not reply.</p>
         </div>
       </div>
@@ -410,7 +410,7 @@ const generateDriverRejectionHtml = (data: {
           </div>
         </div>
         <div class="footer">
-          <p>Kapuka Services - Automated Notification</p>
+          <p>Kapuka Tradings - Automated Notification</p>
           <p>This is an automated message, please do not reply.</p>
         </div>
       </div>
@@ -486,7 +486,7 @@ export async function sendVerificationNotificationEmail(data: {
     <body>
       <div class="container">
         <div class="header">
-          <h1>Kapuka Services</h1>
+          <h1>Kapuka Tradings</h1>
           <p>New Driver Verification Request</p>
         </div>
         <div class="content">
@@ -514,7 +514,7 @@ export async function sendVerificationNotificationEmail(data: {
           </div>
         </div>
         <div class="footer">
-          <p>Kapuka Services - Automated Notification</p>
+          <p>Kapuka Tradings - Automated Notification</p>
           <p>Please review the driver's documents to approve or reject.</p>
         </div>
       </div>
@@ -599,7 +599,7 @@ export async function sendDriverVerificationResultEmail(data: {
               <div style="font-weight: bold; margin-bottom: 8px;">Reason for rejection:</div>
               <div class="reason-text">${data.reason || "Your documents could not be verified"}</div>
             </div>
-            <p style="margin: 16px 0; font-size: 14px;">Please re-submit your verification with correct information to continue using Kapuka services.</p>
+            <p style="margin: 16px 0; font-size: 14px;">Please re-submit your verification with correct information to continue using Kapuka Tradings.</p>
           `
           }
           
@@ -610,7 +610,7 @@ export async function sendDriverVerificationResultEmail(data: {
           </div>
         </div>
         <div class="footer">
-          <p>Kapuka Services - Automated Notification</p>
+          <p>Kapuka Tradings - Automated Notification</p>
           <p>This is an automated message, please do not reply.</p>
         </div>
       </div>
@@ -661,7 +661,7 @@ export async function sendAdminRepaymentProofEmail(data: {
     <body>
       <div class="container">
         <div class="header">
-          <h1>Kapuka Services</h1>
+          <h1>Kapuka Tradings</h1>
           <p>New Repayment Proof Submitted</p>
         </div>
         <div class="content">
@@ -708,7 +708,7 @@ export async function sendAdminRepaymentProofEmail(data: {
           </div>
         </div>
         <div class="footer">
-          <p>Kapuka Services - Automated Notification</p>
+          <p>Kapuka Tradings - Automated Notification</p>
           <p>Please review the proof and approve or reject the repayment.</p>
         </div>
       </div>
@@ -798,7 +798,7 @@ export async function sendDriverRepaymentApprovalEmail(data: {
           </div>
         </div>
         <div class="footer">
-          <p>Kapuka Services - Automated Notification</p>
+          <p>Kapuka Tradings - Automated Notification</p>
           <p>This is an automated message, please do not reply.</p>
         </div>
       </div>
@@ -877,7 +877,7 @@ export async function sendDriverRepaymentRejectionEmail(data: {
           </div>
         </div>
         <div class="footer">
-          <p>Kapuka Services - Automated Notification</p>
+          <p>Kapuka Tradings - Automated Notification</p>
           <p>This is an automated message, please do not reply.</p>
         </div>
       </div>
@@ -952,7 +952,7 @@ export async function sendAdminReceiptUploadEmail(data: {
     <body>
       <div class="container">
         <div class="header">
-          <h1>Kapuka Services</h1>
+          <h1>Kapuka Tradings</h1>
           <p>New Receipt Uploaded for Verification</p>
         </div>
         <div class="content">
@@ -1011,7 +1011,7 @@ export async function sendAdminReceiptUploadEmail(data: {
           </div>
         </div>
         <div class="footer">
-          <p>Kapuka Services - Automated Notification</p>
+          <p>Kapuka Tradings - Automated Notification</p>
           <p>This is an automated message, please do not reply.</p>
         </div>
       </div>
@@ -1129,7 +1129,7 @@ export async function sendDriverReceiptUploadConfirmation(data: {
           </div>
         </div>
         <div class="footer">
-          <p>Kapuka Services - Automated Notification</p>
+          <p>Kapuka Tradings - Automated Notification</p>
           <p>This is an automated message, please do not reply.</p>
         </div>
       </div>
@@ -1224,7 +1224,7 @@ export async function sendRepaymentCompletedEmail(data: {
           </div>
         </div>
         <div class="footer">
-          <p>Kapuka Services - Automated Notification</p>
+          <p>Kapuka Tradings - Automated Notification</p>
           <p>This is an automated message, please do not reply.</p>
         </div>
       </div>

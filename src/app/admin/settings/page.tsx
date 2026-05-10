@@ -229,7 +229,7 @@ export default function AdminSettingsPage() {
 
   // Business Settings
   const [businessSettings, setBusinessSettings] = useState({
-    businessName: "Kapuka Services Pty Ltd",
+    businessName: "Kapuka Tradings Pty Ltd",
     businessEmail: "business@Kapuka.com",
     businessPhone: "+27 12 345 6789",
     registrationNumber: "2020/123456/07",
