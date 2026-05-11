@@ -357,11 +357,11 @@ export default function RequestHistoryPage() {
     completed: requests.filter((r) => r.status === "completed").length,
     rejected: requests.filter((r) => r.status === "rejected").length,
     totalSpent: requests.reduce(
-      (sum, r) => sum + (r.actualAmount || r.amount),
+      (sum: number, r: any) => sum + (r.actualAmount || r.amount),
       0,
     ),
     totalOutstanding: requests.reduce(
-      (sum, r) => sum + (r.remainingBalance || 0),
+      (sum: number, r: any) => sum + (r.remainingBalance || 0),
       0,
     ),
   };
@@ -1224,7 +1224,6 @@ export default function RequestHistoryPage() {
           onClose={() => setShowDetailModal(false)}
         />
       )}
-      // In the PopUploadModal props section (around line 999-1012), update to:
       {showPopModal && selectedRequestForPop && (
         <PopUploadModal
           isOpen={showPopModal}

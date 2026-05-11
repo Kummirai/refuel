@@ -84,7 +84,7 @@ export async function GET() {
         );
 
         const totalSpent = requests.reduce(
-          (sum, req) => sum + (req.amount || 0),
+          (sum: number, req: any) => sum + (req.amount || 0),
           0,
         );
 

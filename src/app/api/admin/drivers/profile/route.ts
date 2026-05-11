@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
 
       // Statistics
       totalRequests: requests.length,
-      totalSpent: requests.reduce((sum, r) => sum + (r.amount || 0), 0),
+      totalSpent: requests.reduce((sum: number, r: any) => sum + (r.amount || 0), 0),
       rating: rating,
 
       // User info
