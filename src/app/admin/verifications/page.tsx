@@ -364,10 +364,8 @@ export default function VerificationsPage() {
     );
   };
 
-  // Rejection Modal Component
-  const RejectionModal = () => {
-    if (!showRejectModal || !selectedForAction) return null;
-
+  // Rejection Modal
+  const renderRejectionModal = () => {
     return (
       <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
         <div
@@ -952,7 +950,7 @@ export default function VerificationsPage() {
         />
       )}
       <ApproveModal />
-      <RejectionModal />
+      {showRejectModal && selectedForAction && renderRejectionModal()}
     </div>
   );
 }
