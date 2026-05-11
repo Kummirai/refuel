@@ -351,7 +351,7 @@ export default function AdminLayout({
                             {pendingRequestsCount !== 1 ? "s" : ""} awaiting
                             approval
                           </p>
-                          {pendingRequests.slice(0, 2).map((req: any, idx) => (
+                          {Array.isArray(pendingRequests) && pendingRequests.slice(0, 2).map((req: any, idx) => (
                             <div
                               key={idx}
                               className="mt-2 text-xs text-gray-400 flex items-center gap-2"
