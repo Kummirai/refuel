@@ -155,6 +155,45 @@ function PackageModal({
   );
 }
 
+const TabButton = ({
+  id,
+  label,
+  icon: Icon,
+  activeTab,
+  setActiveTab,
+}: {
+  id: string;
+  label: string;
+  icon: any;
+  activeTab: string;
+  setActiveTab: (id: any) => void;
+}) => (
+  <button
+    onClick={() => setActiveTab(id as any)}
+    className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap ${
+      activeTab === id
+        ? "bg-[#3A7717] text-white shadow-md"
+        : "bg-white text-[#01312D] border border-[#bff202]/20 hover:bg-[#eafde7]"
+    }`}
+  >
+    <Icon className="w-4 h-4" />
+    {label}
+  </button>
+);
+
+const SettingSection = ({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) => (
+  <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
+    <h2 className="text-lg font-bold text-[#01312D] mb-4">{title}</h2>
+    {children}
+  </div>
+);
+
 export default function AdminSettingsPage() {
   const [activeTab, setActiveTab] = useState<
     "general" | "services" | "notifications" | "security" | "business"
@@ -414,41 +453,6 @@ export default function AdminSettingsPage() {
     }
   };
 
-  const TabButton = ({
-    id,
-    label,
-    icon: Icon,
-  }: {
-    id: string;
-    label: string;
-    icon: any;
-  }) => (
-    <button
-      onClick={() => setActiveTab(id as any)}
-      className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all whitespace-nowrap ${
-        activeTab === id
-          ? "bg-[#3A7717] text-white shadow-md"
-          : "bg-white text-[#01312D] border border-[#bff202]/20 hover:bg-[#eafde7]"
-      }`}
-    >
-      <Icon className="w-4 h-4" />
-      {label}
-    </button>
-  );
-
-  const SettingSection = ({
-    title,
-    children,
-  }: {
-    title: string;
-    children: React.ReactNode;
-  }) => (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
-      <h2 className="text-lg font-bold text-[#01312D] mb-4">{title}</h2>
-      {children}
-    </div>
-  );
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -465,8 +469,8 @@ export default function AdminSettingsPage() {
       {/* Page Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-[#01312D]">Settings</h1>
-          <p className="text-gray-500 text-sm mt-1">
+          <h1 className="text-2xl  font-bold text-[#01312D]">Settings</h1>
+          <p className="text-gray-500 text-sm mt-1 w-5/6">
             Manage system configuration and preferences
           </p>
         </div>
@@ -486,7 +490,7 @@ export default function AdminSettingsPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 bg-[#3A7717] text-white rounded-xl font-semibold hover:bg-[#2d5e12] transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-[#3A7717] text-white rounded-xl hover:bg-[#2d5e12] text-sm transition-all disabled:opacity-50"
           >
             {saving ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
@@ -499,12 +503,12 @@ export default function AdminSettingsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-        <TabButton id="general" label="General" icon={Settings} />
-        <TabButton id="services" label="Services" icon={DollarSign} />
-        <TabButton id="notifications" label="Notifications" icon={Bell} />
-        <TabButton id="security" label="Security" icon={Shield} />
-        <TabButton id="business" label="Business" icon={Building} />
+      <div className="flex gap-3 text-sm flex-wrap pb-2 no-scrollbar">
+        <TabButton id="general" label="General" icon={Settings} activeTab={activeTab} setActiveTab={setActiveTab} />
+        <TabButton id="services" label="Services" icon={DollarSign} activeTab={activeTab} setActiveTab={setActiveTab} />
+        <TabButton id="notifications" label="Notifications" icon={Bell} activeTab={activeTab} setActiveTab={setActiveTab} />
+        <TabButton id="security" label="Security" icon={Shield} activeTab={activeTab} setActiveTab={setActiveTab} />
+        <TabButton id="business" label="Business" icon={Building} activeTab={activeTab} setActiveTab={setActiveTab} />
       </div>
 
       {/* General Settings Tab */}

@@ -86,6 +86,7 @@ interface Request {
   pendingRepaymentAmount?: number;
   pendingRepaymentStatus?: RepaymentStatus;
   repayments?: RepaymentRecord[];
+  requestDate: string; // Original request date field
 }
 
 export default function RequestHistoryPage() {
@@ -356,11 +357,11 @@ export default function RequestHistoryPage() {
     completed: requests.filter((r) => r.status === "completed").length,
     rejected: requests.filter((r) => r.status === "rejected").length,
     totalSpent: requests.reduce(
-      (sum, r) => sum + (r.actualAmount || r.amount),
+      (sum: number, r: any) => sum + (r.actualAmount || r.amount),
       0,
     ),
     totalOutstanding: requests.reduce(
-      (sum, r) => sum + (r.remainingBalance || 0),
+      (sum: number, r: any) => sum + (r.remainingBalance || 0),
       0,
     ),
   };
@@ -649,7 +650,7 @@ export default function RequestHistoryPage() {
                 <div className="flex justify-between">
                   <span className="text-gray-500">Request Date:</span>
                   <span className="font-semibold text-[#01312D]">
-                    {new Date(request.date).toLocaleString()}
+                    {new Date(request.requestDate).toLocaleString()}
                   </span>
                 </div>
                 {request.approvedDate && (
@@ -1146,10 +1147,10 @@ export default function RequestHistoryPage() {
                           {request.pendingRepaymentAmount?.toLocaleString()}
                         </p>
                       )}
-                      <p className="text-xs text-gray-500">
+                      {/* <p className="text-xs text-gray-500">
                         {date.toLocaleDateString()} at{" "}
                         {date.toLocaleTimeString()}
-                      </p>
+                      </p> */}
                     </div>
                     {request.otp &&
                       (request.status === "approved" ||
@@ -1223,7 +1224,6 @@ export default function RequestHistoryPage() {
           onClose={() => setShowDetailModal(false)}
         />
       )}
-      // In the PopUploadModal props section (around line 999-1012), update to:
       {showPopModal && selectedRequestForPop && (
         <PopUploadModal
           isOpen={showPopModal}

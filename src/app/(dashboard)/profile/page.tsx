@@ -33,6 +33,10 @@ import {
   Home,
   ClipboardList,
   UserCircle,
+  Fuel,
+  Smartphone,
+  SprayCan,
+  DollarSign,
 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -44,6 +48,7 @@ export default function ProfilePage() {
     "profile",
   );
   const [profile, setProfile] = useState<any>(null);
+  const [allRequests, setAllRequests] = useState<any[]>([]);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string>("");
   const [userData, setUserData] = useState({
     name: "",
@@ -52,9 +57,13 @@ export default function ProfilePage() {
     address: "",
     city: "",
     pincode: "",
+    dateOfBirth: "",
     carRegistration: "",
     carModel: "",
     carYear: "",
+    carColor: "",
+    drivingLicenseUrl: "",
+    carRegistrationUrl: "",
     isVerified: false,
     verificationStatus: "not_submitted",
     memberSince: "",
@@ -77,11 +86,14 @@ export default function ProfilePage() {
 
   const fetchProfile = async () => {
     try {
-      const response = await fetch(
-        `/api/driver/profile?userId=${session?.user?.id}`,
-      );
-      if (response.ok) {
-        const data = await response.json();
+      setLoading(true);
+      const [profileRes, requestsRes] = await Promise.all([
+        fetch(`/api/driver/profile?userId=${session?.user?.id}`),
+        fetch(`/api/driver/requests?userId=${session?.user?.id}`),
+      ]);
+
+      if (profileRes.ok) {
+        const data = await profileRes.json();
         setProfile(data);
 
         // Set profile photo URL if exists
@@ -97,25 +109,48 @@ export default function ProfilePage() {
             })
           : "Recently";
 
-        setUserData({
+        setUserData((prev) => ({
+          ...prev,
           name: data?.fullName || session?.user?.name || "",
           email: session?.user?.email || "",
           phone: data?.phone || "",
           address: data?.address || "Not provided",
           city: data?.city || "Not provided",
           pincode: data?.pincode || "Not provided",
+          dateOfBirth: data?.dateOfBirth || "Not provided",
           carRegistration: data?.carRegistrationNumber || "Not provided",
           carModel: data?.carModel || "Not provided",
           carYear: data?.carYear || "Not provided",
+          carColor: data?.carColor || "Not provided",
+          drivingLicenseUrl: data?.drivingLicenseUrl || "",
+          carRegistrationUrl: data?.carRegistrationUrl || "",
           isVerified: data?.isVerified || false,
           verificationStatus: data?.verificationStatus || "not_submitted",
           memberSince: memberSince,
           totalRequests: data?.totalRequests || 0,
           totalSpent: data?.totalSpent || 0,
-          totalLoans: 0,
           rating: data?.rating || 0,
-          activeLoan: data?.activeLoan || null,
-        });
+        }));
+      }
+
+      if (requestsRes.ok) {
+        const requestsData = await requestsRes.json();
+        setAllRequests(requestsData);
+
+        // Calculate total active loans (where balance > 0)
+        const activeLoansCount = requestsData.filter(
+          (r: any) =>
+            (r.status === "approved" ||
+              r.status === "sent" ||
+              r.status === "completed") &&
+            r.remainingBalance > 0,
+        ).length;
+
+        setUserData((prev) => ({
+          ...prev,
+          totalLoans: activeLoansCount,
+          totalRequests: requestsData.length,
+        }));
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -218,6 +253,21 @@ export default function ProfilePage() {
     }
   };
 
+  const getServiceIcon = (type: string) => {
+    switch (type) {
+      case "fuel":
+        return <Fuel className="w-4 h-4 text-green-600" />;
+      case "airtime":
+        return <Smartphone className="w-4 h-4 text-blue-600" />;
+      case "carwash":
+        return <SprayCan className="w-4 h-4 text-purple-600" />;
+      case "cash":
+        return <DollarSign className="w-4 h-4 text-yellow-600" />;
+      default:
+        return <FileText className="w-4 h-4 text-gray-600" />;
+    }
+  };
+
   if (isPending || loading) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
@@ -238,6 +288,17 @@ export default function ProfilePage() {
     userData.address !== "Not provided"
       ? `${userData.address}, ${userData.city} - ${userData.pincode}`
       : "Not provided";
+
+  // Filter for active loans and recent activity
+  const activeLoans = allRequests.filter(
+    (r: any) =>
+      (r.status === "approved" ||
+        r.status === "sent" ||
+        r.status === "completed") &&
+      r.remainingBalance > 0,
+  );
+
+  const recentActivity = allRequests.slice(0, 5);
 
   return (
     <div className="min-h-screen bg-[#eafde7] pb-24">
@@ -458,6 +519,17 @@ export default function ProfilePage() {
                     <p className="text-sm text-[#01312D]">{fullAddress}</p>
                   </div>
                 </div>
+                <div className="flex items-center gap-3">
+                  <Calendar className="w-4 h-4 text-[#72bf00]" />
+                  <div>
+                    <p className="text-xs text-gray-500">Date of Birth</p>
+                    <p className="text-sm text-[#01312D]">
+                      {userData.dateOfBirth !== "Not provided"
+                        ? new Date(userData.dateOfBirth).toLocaleDateString()
+                        : "Not provided"}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -487,18 +559,123 @@ export default function ProfilePage() {
                     {userData.carYear}
                   </span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">Color</span>
+                  <span className="text-sm font-semibold text-[#01312D]">
+                    {userData.carColor}
+                  </span>
+                </div>
               </div>
             </div>
+
+            {userData.isVerified && (
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
+                <h3 className="font-bold text-[#01312D] mb-3 flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-[#3A7717]" />
+                  Verified Documents
+                </h3>
+                <div className="space-y-2">
+                  {userData.drivingLicenseUrl && (
+                    <a
+                      href={userData.drivingLicenseUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center justify-between p-3 bg-[#eafde7] rounded-xl"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+                          <FileText className="w-5 h-5 text-[#3A7717]" />
+                        </div>
+                        <div className="text-left">
+                          <p className="font-semibold text-[#01312D]">
+                            Driving License
+                          </p>
+                          <p className="text-xs text-gray-500">View Document</p>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-gray-400" />
+                    </a>
+                  )}
+                  {userData.carRegistrationUrl && (
+                    <a
+                      href={userData.carRegistrationUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center justify-between p-3 bg-[#eafde7] rounded-xl"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+                          <FileText className="w-5 h-5 text-[#3A7717]" />
+                        </div>
+                        <div className="text-left">
+                          <p className="font-semibold text-[#01312D]">
+                            Vehicle Registration
+                          </p>
+                          <p className="text-xs text-gray-500">View Document</p>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-gray-400" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
               <div className="flex justify-between items-center mb-3">
                 <h3 className="font-bold text-[#01312D]">Recent Activity</h3>
-                <button className="text-[#72bf00] text-xs font-semibold">
+                <button
+                  onClick={() => router.push("/requests/history")}
+                  className="text-[#72bf00] text-xs font-semibold"
+                >
                   View All
                 </button>
               </div>
-              <div className="text-center py-6">
-                <p className="text-sm text-gray-500">No recent activity</p>
+              <div className="space-y-3">
+                {recentActivity.length > 0 ? (
+                  recentActivity.map((req, idx) => (
+                    <div
+                      key={req.id || idx}
+                      className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-xl transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-[#eafde7] rounded-lg flex items-center justify-center">
+                          {getServiceIcon(req.type)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-[#01312D] capitalize">
+                            {req.type} Service
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(req.requestDate).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-[#01312D]">
+                          R{req.amount.toLocaleString()}
+                        </p>
+                        <p
+                          className={`text-[10px] font-bold uppercase ${
+                            req.status === "approved" ||
+                            req.status === "sent" ||
+                            req.status === "completed"
+                              ? "text-green-600"
+                              : req.status === "rejected"
+                                ? "text-red-600"
+                                : "text-yellow-600"
+                          }`}
+                        >
+                          {req.status}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-6">
+                    <p className="text-sm text-gray-500">No recent activity</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -507,17 +684,67 @@ export default function ProfilePage() {
         {/* Loans & History Tab */}
         {activeTab === "loans" && (
           <div className="space-y-4">
-            <div className="bg-white rounded-2xl p-8 text-center shadow-sm border border-[#bff202]/20">
-              <Wallet className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <h3 className="font-semibold text-[#01312D] mb-2">
-                No Active Loans
+            {/* Active Loans Section */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
+              <h3 className="font-bold text-[#01312D] mb-3 flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-[#3A7717]" />
+                Active Loans & Balances
               </h3>
-              <p className="text-sm text-gray-500">
-                You don't have any active loans at the moment.
-              </p>
-              <button className="mt-4 text-[#72bf00] text-sm font-semibold">
-                Request a Loan →
-              </button>
+              {activeLoans.length > 0 ? (
+                <div className="space-y-3">
+                  {activeLoans.map((loan, idx) => (
+                    <div
+                      key={loan.id || idx}
+                      className="p-3 bg-[#eafde7] rounded-xl border border-[#bff202]/10"
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-2">
+                          {getServiceIcon(loan.type)}
+                          <span className="font-bold text-[#01312D] capitalize">
+                            {loan.type}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-500">Balance</p>
+                          <p className="text-sm font-black text-[#01312D]">
+                            R{loan.remainingBalance.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="w-full bg-white/50 rounded-full h-1.5 mb-2">
+                        <div
+                          className="bg-[#3A7717] h-1.5 rounded-full"
+                          style={{
+                            width: `${Math.max(5, (1 - loan.remainingBalance / (loan.totalRepayable || loan.amount)) * 100)}%`,
+                          }}
+                        ></div>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="text-gray-500">
+                          Total: R{loan.totalRepayable?.toLocaleString() || loan.amount.toLocaleString()}
+                        </span>
+                        <button
+                          onClick={() => router.push("/requests/history")}
+                          className="text-[#3A7717] font-bold"
+                        >
+                          Pay Now →
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <CheckCircle className="w-10 h-10 text-green-200 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">All loans paid up!</p>
+                  <button
+                    onClick={() => router.push("/requests")}
+                    className="mt-2 text-[#72bf00] text-xs font-bold"
+                  >
+                    Request New Service →
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">

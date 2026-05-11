@@ -17,7 +17,7 @@ export async function GET() {
       .sort({ requestDate: -1 })
       .toArray();
 
-    console.log("Found requests:", requests.length);
+    // console.log("Found requests:", requests.length);
 
     // Get driver details for each request
     const requestsWithDetails = await Promise.all(
@@ -96,13 +96,13 @@ export async function GET() {
       }),
     );
 
-    console.log("Requests with details:", requestsWithDetails.length);
-    if (requestsWithDetails.length > 0) {
-      console.log(
-        "First request details:",
-        JSON.stringify(requestsWithDetails[0], null, 2),
-      );
-    }
+    // console.log("Requests with details:", requestsWithDetails.length);
+    // if (requestsWithDetails.length > 0) {
+    //   console.log(
+    //     "First request details:",
+    //     JSON.stringify(requestsWithDetails[0], null, 2),
+    //   );
+    // }
 
     // Calculate stats
     const total = requestsWithDetails.length;

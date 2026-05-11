@@ -562,6 +562,7 @@ function RequestsPageContent() {
           interestRate: interestRate,
           repaymentDays: selectedRepaymentDays,
           dailyPayment: Math.ceil(dailyPayment),
+          hasReceipt: false
         };
       } else if (selectedService === "carwash") {
         const selectedPackage = carWashPackages.find(
@@ -580,6 +581,7 @@ function RequestsPageContent() {
           interestRate: 0,
           repaymentDays: 0,
           dailyPayment: 0,
+          hasReceipt: false
         };
       }
 

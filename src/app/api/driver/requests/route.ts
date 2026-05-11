@@ -115,6 +115,7 @@ export async function POST(request: NextRequest) {
       driverEmail,
       package: packageName,
       packageDescription,
+      hasReceipt
     } = body;
 
     // Validate required fields
@@ -164,6 +165,7 @@ export async function POST(request: NextRequest) {
       status: "pending",
       requestDate: new Date(),
       createdAt: new Date(),
+      hasReceipt: hasReceipt || false,
     };
 
     console.log("Saving request data:", requestData);

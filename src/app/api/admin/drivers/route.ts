@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
+import { calculateDriverRating } from "@/lib/utils/rating";
 
 interface User {
   _id: ObjectId;
@@ -34,10 +35,6 @@ interface DriverProfile {
   pincode?: string;
 }
 
-interface ServiceRequest {
-  amount: number;
-}
-
 export async function GET() {
   try {
     const { db } = await connectToDatabase();
@@ -45,6 +42,7 @@ export async function GET() {
     const usersCollection = db.collection("user");
     const driverProfilesCollection = db.collection("driverProfiles");
     const serviceRequestsCollection = db.collection("serviceRequests");
+    const repaymentProofsCollection = db.collection("repaymentProofs");
 
     // Get all drivers (users with role 'driver')
     const drivers = await usersCollection.find({ role: "driver" }).toArray();
@@ -52,24 +50,49 @@ export async function GET() {
     // Get driver profiles and request counts
     const driversWithData = await Promise.all(
       drivers.map(async (driver: User) => {
+        const userId = driver._id.toString();
         const profile = (await driverProfilesCollection.findOne({
-          userId: driver._id.toString(),
+          userId: userId,
         })) as DriverProfile | null;
 
-        // Get driver's request count and total spent
-        const driverRequests = (await serviceRequestsCollection
-          .find({ userId: driver._id.toString() })
-          .toArray()) as ServiceRequest[];
+        // Fetch requests and repayments to calculate rating
+        const requests = await serviceRequestsCollection
+          .find({ userId: userId })
+          .toArray();
+        
+        const enhancedRequests = await Promise.all(
+          requests.map(async (req: any) => {
+            const requestId = req._id.toString();
+            const repayments = await repaymentProofsCollection
+              .find({ requestId: requestId })
+              .toArray();
+            
+            const totalRepaid = repayments
+              .filter((r: any) => r.status === "approved")
+              .reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
+            
+            const totalRepayable = req.totalRepayable || req.amount;
+            const remainingBalance = Math.max(0, totalRepayable - totalRepaid);
 
-        const totalRequests = driverRequests.length;
-        const totalSpent = driverRequests.reduce(
-          (sum, req) => sum + (req.amount || 0),
+            return {
+              ...req,
+              repayments,
+              remainingBalance,
+              isPaid: remainingBalance <= 0
+            };
+          })
+        );
+
+        const totalSpent = requests.reduce(
+          (sum: number, req: any) => sum + (req.amount || 0),
           0,
         );
 
+        const rating = calculateDriverRating(profile, enhancedRequests);
+
         return {
           id: driver._id,
-          userId: driver._id.toString(),
+          userId: userId,
           name: driver.name,
           email: driver.email,
           phone: driver.phone,
@@ -78,8 +101,8 @@ export async function GET() {
           carYear: profile?.carYear || "Not provided",
           carColor: profile?.carColor || "Not provided",
           verificationStatus: profile?.verificationStatus || "not_submitted",
-          rating: profile?.rating || 0,
-          totalRequests,
+          rating: rating,
+          totalRequests: requests.length,
           totalSpent,
           activeLoan: profile?.activeLoan || null,
           joinedDate: driver.createdAt,
