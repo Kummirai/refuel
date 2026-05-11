@@ -72,7 +72,7 @@ export default function AdminLayout({
   const fetchPendingDetails = async () => {
     try {
       const [verificationsRes, requestsRes, repaymentsRes, receiptsRes] = await Promise.all([
-        fetch("/api/admin/verifications?status=pending&limit=5"),
+        fetch("/api/admin/verifications/pending?limit=5"),
         fetch("/api/admin/requests?status=pending&limit=5"),
         fetch("/api/admin/repayments?status=pending&limit=5"),
         fetch("/api/admin/receipts?status=pending&limit=5")
