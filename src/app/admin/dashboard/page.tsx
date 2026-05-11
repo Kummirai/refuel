@@ -652,9 +652,7 @@ export default function AdminDashboard() {
   };
 
   // Rejection Modal
-  const RejectionModal = () => {
-    if (!showRejectModal) return null;
-
+  const renderRejectionModal = () => {
     const itemName =
       rejectType === "request"
         ? rejectingRequest?.driverName || "this request"
@@ -1873,7 +1871,7 @@ export default function AdminDashboard() {
       )}
       {showApproveModal && <ApprovalModal />}
       {showWhatsAppModal && approvedRequest && <WhatsAppModal />}
-      {showRejectModal && <RejectionModal />}
+      {showRejectModal && renderRejectionModal()}
       <SuccessModal />
       <ErrorModal />
     </div>

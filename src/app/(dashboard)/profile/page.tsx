@@ -74,6 +74,25 @@ export default function ProfilePage() {
     activeLoan: null,
   });
 
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showChangePhone, setShowChangePhone] = useState(false);
+  const [showUpdateVehicle, setShowUpdateVehicle] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [phoneForm, setPhoneForm] = useState({ phone: "" });
+  const [vehicleForm, setVehicleForm] = useState({
+    carRegistrationNumber: "",
+    carModel: "",
+    carYear: "",
+    carColor: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [saveSuccess, setSaveSuccess] = useState("");
+
   useEffect(() => {
     if (!isPending) {
       if (!session) {
@@ -217,6 +236,162 @@ export default function ProfilePage() {
     } finally {
       setUploadingPhoto(false);
     }
+  };
+
+  const handleChangePassword = async () => {
+    setSaveError("");
+    setSaveSuccess("");
+
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setSaveError("All fields are required");
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      setSaveError("New password must be at least 6 characters");
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setSaveError("New passwords do not match");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch("/api/driver/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to change password");
+      }
+
+      setSaveSuccess("Password changed successfully");
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setTimeout(() => {
+        setShowChangePassword(false);
+        setSaveSuccess("");
+      }, 1500);
+    } catch (error: any) {
+      setSaveError(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleChangePhone = async () => {
+    setSaveError("");
+    setSaveSuccess("");
+
+    if (!phoneForm.phone.trim()) {
+      setSaveError("Phone number is required");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch("/api/driver/update-credentials", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phoneForm.phone.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update phone number");
+      }
+
+      setUserData((prev) => ({ ...prev, phone: phoneForm.phone.trim() }));
+      setSaveSuccess("Phone number updated successfully");
+      setTimeout(() => {
+        setShowChangePhone(false);
+        setSaveSuccess("");
+      }, 1500);
+    } catch (error: any) {
+      setSaveError(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUpdateVehicle = async () => {
+    setSaveError("");
+    setSaveSuccess("");
+
+    if (!vehicleForm.carRegistrationNumber.trim()) {
+      setSaveError("Car registration number is required");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch("/api/driver/update-vehicle", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(vehicleForm),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update vehicle details");
+      }
+
+      setUserData((prev) => ({
+        ...prev,
+        carRegistration: vehicleForm.carRegistrationNumber || prev.carRegistration,
+        carModel: vehicleForm.carModel || prev.carModel,
+        carYear: vehicleForm.carYear || prev.carYear,
+        carColor: vehicleForm.carColor || prev.carColor,
+      }));
+      setSaveSuccess("Vehicle details updated successfully");
+      setTimeout(() => {
+        setShowUpdateVehicle(false);
+        setSaveSuccess("");
+      }, 1500);
+    } catch (error: any) {
+      setSaveError(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openChangePassword = () => {
+    setSaveError("");
+    setSaveSuccess("");
+    setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    setShowChangePassword(true);
+  };
+
+  const openChangePhone = () => {
+    setSaveError("");
+    setSaveSuccess("");
+    setPhoneForm({ phone: userData.phone === "Not provided" ? "" : userData.phone });
+    setShowChangePhone(true);
+  };
+
+  const openUpdateVehicle = () => {
+    setSaveError("");
+    setSaveSuccess("");
+    setVehicleForm({
+      carRegistrationNumber:
+        userData.carRegistration === "Not provided"
+          ? ""
+          : userData.carRegistration,
+      carModel: userData.carModel === "Not provided" ? "" : userData.carModel,
+      carYear: userData.carYear === "Not provided" ? "" : userData.carYear,
+      carColor: userData.carColor === "Not provided" ? "" : userData.carColor,
+    });
+    setShowUpdateVehicle(true);
   };
 
   const handleLogout = async () => {
@@ -796,19 +971,24 @@ export default function ProfilePage() {
                 Account Settings
               </h3>
               <div className="space-y-3">
-                <button className="w-full flex items-center justify-between py-2">
+                <button
+                  onClick={openChangePassword}
+                  className="w-full flex items-center justify-between py-2"
+                >
                   <span className="text-[#01312D]">Change Password</span>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </button>
-                <button className="w-full flex items-center justify-between py-2">
+                <button
+                  onClick={openChangePhone}
+                  className="w-full flex items-center justify-between py-2"
+                >
                   <span className="text-[#01312D]">Change Phone Number</span>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </button>
-                <button className="w-full flex items-center justify-between py-2">
-                  <span className="text-[#01312D]">Update Email</span>
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                </button>
-                <button className="w-full flex items-center justify-between py-2">
+                <button
+                  onClick={openUpdateVehicle}
+                  className="w-full flex items-center justify-between py-2"
+                >
                   <span className="text-[#01312D]">Update Vehicle Details</span>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </button>
@@ -903,6 +1083,209 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Change Password Modal */}
+      {showChangePassword && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => { setShowChangePassword(false); setSaveError(""); setSaveSuccess(""); }}
+          ></div>
+          <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] rounded-t-2xl p-5">
+              <h2 className="text-xl font-bold text-white">Change Password</h2>
+              <p className="text-white/80 text-sm mt-1">Enter your current and new password</p>
+            </div>
+            <div className="p-5 space-y-4">
+              {saveError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{saveError}</div>
+              )}
+              {saveSuccess && (
+                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm">{saveSuccess}</div>
+              )}
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Current Password</label>
+                <input
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#3A7717]"
+                  placeholder="Enter current password"
+                />
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">New Password</label>
+                <input
+                  type="password"
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#3A7717]"
+                  placeholder="Enter new password"
+                />
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Confirm New Password</label>
+                <input
+                  type="password"
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#3A7717]"
+                  placeholder="Confirm new password"
+                />
+              </div>
+            </div>
+            <div className="border-t border-gray-100 p-5 flex gap-3">
+              <button
+                onClick={() => { setShowChangePassword(false); setSaveError(""); setSaveSuccess(""); }}
+                disabled={saving}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleChangePassword}
+                disabled={saving}
+                className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Change Password
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Phone Modal */}
+      {showChangePhone && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => { setShowChangePhone(false); setSaveError(""); setSaveSuccess(""); }}
+          ></div>
+          <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] rounded-t-2xl p-5">
+              <h2 className="text-xl font-bold text-white">Change Phone Number</h2>
+              <p className="text-white/80 text-sm mt-1">Update your phone number</p>
+            </div>
+            <div className="p-5 space-y-4">
+              {saveError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{saveError}</div>
+              )}
+              {saveSuccess && (
+                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm">{saveSuccess}</div>
+              )}
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Phone Number</label>
+                <input
+                  type="tel"
+                  value={phoneForm.phone}
+                  onChange={(e) => setPhoneForm({ phone: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#3A7717]"
+                  placeholder="Enter phone number"
+                />
+              </div>
+            </div>
+            <div className="border-t border-gray-100 p-5 flex gap-3">
+              <button
+                onClick={() => { setShowChangePhone(false); setSaveError(""); setSaveSuccess(""); }}
+                disabled={saving}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleChangePhone}
+                disabled={saving}
+                className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Update Phone
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Update Vehicle Modal */}
+      {showUpdateVehicle && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => { setShowUpdateVehicle(false); setSaveError(""); setSaveSuccess(""); }}
+          ></div>
+          <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] rounded-t-2xl p-5">
+              <h2 className="text-xl font-bold text-white">Update Vehicle Details</h2>
+              <p className="text-white/80 text-sm mt-1">Update your car information</p>
+            </div>
+            <div className="p-5 space-y-4">
+              {saveError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{saveError}</div>
+              )}
+              {saveSuccess && (
+                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm">{saveSuccess}</div>
+              )}
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Car Registration <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={vehicleForm.carRegistrationNumber}
+                  onChange={(e) => setVehicleForm({ ...vehicleForm, carRegistrationNumber: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#3A7717]"
+                  placeholder="e.g. ABC 123 GP"
+                />
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Car Model</label>
+                <input
+                  type="text"
+                  value={vehicleForm.carModel}
+                  onChange={(e) => setVehicleForm({ ...vehicleForm, carModel: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#3A7717]"
+                  placeholder="e.g. Toyota Corolla"
+                />
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Year</label>
+                <input
+                  type="text"
+                  value={vehicleForm.carYear}
+                  onChange={(e) => setVehicleForm({ ...vehicleForm, carYear: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#3A7717]"
+                  placeholder="e.g. 2020"
+                />
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Color</label>
+                <input
+                  type="text"
+                  value={vehicleForm.carColor}
+                  onChange={(e) => setVehicleForm({ ...vehicleForm, carColor: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#3A7717]"
+                  placeholder="e.g. White"
+                />
+              </div>
+            </div>
+            <div className="border-t border-gray-100 p-5 flex gap-3">
+              <button
+                onClick={() => { setShowUpdateVehicle(false); setSaveError(""); setSaveSuccess(""); }}
+                disabled={saving}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateVehicle}
+                disabled={saving}
+                className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Update Vehicle
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 z-50 shadow-lg">

@@ -847,9 +847,7 @@ export default function LoanRepaymentsPage() {
   };
 
   // Rejection Modal
-  const RejectionModal = () => {
-    if (!showRejectModal) return null;
-
+  const renderRejectionModal = () => {
     return (
       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
         <div
@@ -1902,7 +1900,7 @@ export default function LoanRepaymentsPage() {
       {showProofModal && selectedProof && selectedRepayment && (
         <RepaymentProofModal />
       )}
-      {showRejectModal && <RejectionModal />}
+      {showRejectModal && renderRejectionModal()}
       <SuccessModal />
       <ErrorModal />
     </div>

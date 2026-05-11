@@ -1001,10 +1001,9 @@ export default function AdminServiceRequestsPage() {
     );
   };
 
-  // Rejection Modal Component
-  const RejectionModal = () => {
-    if (!showRejectModal || !rejectingRequest) return null;
-
+  // Rejection Modal
+  const renderRejectionModal = () => {
+    if (!rejectingRequest) return null;
     const TypeIcon = getTypeIcon(rejectingRequest.type);
     const displayAmount =
       rejectingRequest.actualAmount || rejectingRequest.amount;
@@ -2578,7 +2577,7 @@ Kapuka Tradings`;
       {showApproveModal && <ApprovalModal />}
       {showWhatsAppModal && approvedRequest && <WhatsAppModal />}
       {showSentModal && sentRequest && <SentModal />}
-      {showRejectModal && <RejectionModal />}
+      {showRejectModal && rejectingRequest && renderRejectionModal()}
       <SuccessModal />
       <ErrorModal />
     </div>
