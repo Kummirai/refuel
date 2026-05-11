@@ -1247,3 +1247,93 @@ export async function sendRepaymentCompletedEmail(data: {
     return null;
   }
 }
+
+// ==================== PROFILE CHANGE NOTIFICATION ====================
+
+const generateProfileChangeAdminHtml = (data: {
+  driverName: string;
+  driverEmail: string;
+  changes: { field: string; newValue: string }[];
+}): string => {
+  const changesRows = data.changes
+    .map(
+      (change) => `
+    <div class="info-row">
+      <span class="label">${change.field}:</span>
+      <span class="value">${change.newValue || "N/A"}</span>
+    </div>`,
+    )
+    .join("");
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Profile Update Notification</title>
+      <style>${globalStyles}</style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header" style="background-color: #1a4d2a;">
+          <h1>Kapuka Tradings</h1>
+          <p>Driver Profile Updated</p>
+        </div>
+        <div class="content">
+          <div style="text-align: center;">
+            <span class="badge badge-pending">PROFILE UPDATE</span>
+          </div>
+
+          <div class="driver-highlight">
+            <div class="driver-name">${data.driverName}</div>
+            <div class="info-row" style="margin-top: 12px;"><span class="label">📧 Email:</span><span class="value">${data.driverEmail}</span></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Updated Information</div>
+            ${changesRows}
+          </div>
+
+          <div style="text-align: center;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/dashboard" class="button">Go to Admin Dashboard</a>
+          </div>
+        </div>
+        <div class="footer">
+          <p>Kapuka Tradings - Automated Notification</p>
+          <p>This is an automated message, please do not reply.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
+export async function sendAdminProfileChangeEmail(data: {
+  driverName: string;
+  driverEmail: string;
+  changes: { field: string; newValue: string }[];
+}) {
+  const adminEmails = getAdminEmails();
+
+  const fieldList = data.changes.map((c) => c.field).join(", ");
+  const changesText = data.changes
+    .map((c) => `${c.field}: ${c.newValue}`)
+    .join("\n");
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
+      to: adminEmails,
+      subject: `Driver Profile Updated - ${data.driverName} (${fieldList})`,
+      html: generateProfileChangeAdminHtml(data),
+      text: `Driver ${data.driverName} (${data.driverEmail}) updated their profile:\n\n${changesText}`,
+    });
+    console.log("Profile change notification sent to:", adminEmails.join(", "));
+    console.log("Email ID:", info.messageId);
+    return info;
+  } catch (error) {
+    console.error("Error sending profile change email:", error);
+    return null;
+  }
+}

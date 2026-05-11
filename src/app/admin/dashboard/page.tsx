@@ -653,6 +653,13 @@ export default function AdminDashboard() {
 
   // Rejection Modal
   const renderRejectionModal = () => {
+    const itemName =
+      rejectType === "request"
+        ? rejectingRequest?.driverName || "this request"
+        : rejectingVerification?.name || "this verification";
+
+    const itemType = rejectType === "request" ? "Request" : "Verification";
+
     return (
       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
         <div

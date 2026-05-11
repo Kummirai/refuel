@@ -1003,6 +1003,11 @@ export default function AdminServiceRequestsPage() {
 
   // Rejection Modal
   const renderRejectionModal = () => {
+    if (!rejectingRequest) return null;
+    const TypeIcon = getTypeIcon(rejectingRequest.type);
+    const displayAmount =
+      rejectingRequest.actualAmount || rejectingRequest.amount;
+
     return (
       <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
         <div
