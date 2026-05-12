@@ -33,6 +33,11 @@ export async function POST(request: Request) {
       );
     }
 
+    const existing = await serviceRequestsCollection.findOne({ _id: objectId });
+    if (!existing) {
+      return NextResponse.json({ error: "Request not found" }, { status: 404 });
+    }
+
     const allowedFields = [
       "actualAmount",
       "driverName",
@@ -45,9 +50,32 @@ export async function POST(request: Request) {
       updatedAt: new Date(),
     };
 
+    let recalculated = false;
+
     for (const [key, value] of Object.entries(updates)) {
       if (allowedFields.includes(key)) {
         setFields[key] = value;
+        if (key === "actualAmount") {
+          recalculated = true;
+        }
+      }
+    }
+
+    // Recalculate financial fields when actualAmount changes
+    if (recalculated) {
+      const newActualAmount = parseFloat(setFields.actualAmount) || 0;
+      const interestRate = existing.interestRate || 13;
+      const repaymentDays = existing.repaymentDays || 7;
+
+      if (newActualAmount > 0) {
+        const totalRepayable = Math.ceil(newActualAmount * (1 + interestRate / 100));
+        const interestAmount = totalRepayable - newActualAmount;
+
+        setFields.interest = parseFloat(interestAmount.toFixed(2));
+        setFields.totalRepayable = totalRepayable;
+        setFields.dailyPayment = Math.ceil(totalRepayable / repaymentDays);
+        setFields.remainingBalance = totalRepayable;
+        setFields.isPaid = false;
       }
     }
 
@@ -69,7 +97,10 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       message: "Receipt information corrected successfully",
-      updatedFields: Object.keys(setFields).filter(k => k !== "updatedAt" && k !== "correctedByAdmin" && k !== "correctedAt"),
+      updatedFields: Object.keys(setFields).filter(
+        (k) =>
+          k !== "updatedAt" && k !== "correctedByAdmin" && k !== "correctedAt",
+      ),
     });
   } catch (error) {
     console.error("Error correcting receipt:", error);
