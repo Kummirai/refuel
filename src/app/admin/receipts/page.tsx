@@ -100,6 +100,10 @@ export default function AdminReceiptsPage() {
   const [uploadLoading, setUploadLoading] = useState(false);
   const [showUploadSuccessModal, setShowUploadSuccessModal] = useState(false);
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState("");
+  const [drivers, setDrivers] = useState<any[]>([]);
+  const [driversLoading, setDriversLoading] = useState(false);
+  const [driverSearch, setDriverSearch] = useState("");
+  const [showDriverDropdown, setShowDriverDropdown] = useState(false);
 
   useEffect(() => {
     fetchReceipts();
@@ -261,6 +265,35 @@ export default function AdminReceiptsPage() {
     }
   };
 
+  const fetchDrivers = async () => {
+    setDriversLoading(true);
+    try {
+      const res = await fetch("/api/admin/drivers");
+      if (res.ok) {
+        const data = await res.json();
+        setDrivers(data.drivers || []);
+      }
+    } catch (error) {
+      console.error("Error fetching drivers:", error);
+    } finally {
+      setDriversLoading(false);
+    }
+  };
+
+  const handleSelectDriver = (driver: any) => {
+    setUploadDriverName(driver.name || "");
+    setUploadDriverEmail(driver.email || "");
+    setUploadDriverPhone(driver.phone || "");
+    setUploadCarNumber(driver.carRegistration || "");
+    setDriverSearch(driver.name || "");
+    setShowDriverDropdown(false);
+  };
+
+  const handleOpenUploadModal = () => {
+    setShowUploadModal(true);
+    fetchDrivers();
+  };
+
   const handleUploadForDriver = async () => {
     if (!uploadFile) {
       setErrorMessage("Please select a file to upload");
@@ -298,6 +331,7 @@ export default function AdminReceiptsPage() {
         setUploadCarNumber("");
         setUploadAmount("");
         setUploadType("fuel");
+        setDriverSearch("");
         fetchReceipts();
         window.dispatchEvent(new Event("refreshAdminCounts"));
       } else {
@@ -380,7 +414,7 @@ export default function AdminReceiptsPage() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => setShowUploadModal(true)}
+            onClick={handleOpenUploadModal}
             className="flex items-center gap-2 px-4 py-2 bg-[#3A7717] text-white rounded-xl font-semibold hover:bg-[#2d5a12] transition-all shadow-sm"
           >
             <Upload className="w-4 h-4" />
@@ -1003,48 +1037,83 @@ export default function AdminReceiptsPage() {
                   className="w-full px-4 py-2.5 bg-white border border-[#bff202]/40 rounded-xl focus:outline-none focus:border-[#3A7717] text-sm"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Driver Name</label>
-                  <input
-                    type="text"
-                    value={uploadDriverName}
-                    onChange={(e) => setUploadDriverName(e.target.value)}
-                    placeholder="Full name"
-                    className="w-full px-4 py-2.5 bg-white border border-[#bff202]/40 rounded-xl focus:outline-none focus:border-[#3A7717] text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Car Registration</label>
-                  <input
-                    type="text"
-                    value={uploadCarNumber}
-                    onChange={(e) => setUploadCarNumber(e.target.value)}
-                    placeholder="e.g. CA 123-456"
-                    className="w-full px-4 py-2.5 bg-white border border-[#bff202]/40 rounded-xl focus:outline-none focus:border-[#3A7717] text-sm"
-                  />
-                </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Select Driver</label>
+                <select
+                  value={driverSearch}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDriverSearch(val);
+                    if (val === "__manual__") {
+                      setUploadDriverName("");
+                      setUploadDriverEmail("");
+                      setUploadDriverPhone("");
+                      setUploadCarNumber("");
+                    } else {
+                      const driver = drivers.find((d: any) => d.userId === val);
+                      if (driver) handleSelectDriver(driver);
+                    }
+                  }}
+                  className="w-full px-4 py-2.5 bg-white border border-[#bff202]/40 rounded-xl focus:outline-none focus:border-[#3A7717] text-sm"
+                >
+                  <option value="">-- Select a driver --</option>
+                  <option value="__manual__">✏️ Manual Entry (driver not listed)</option>
+                  {driversLoading ? (
+                    <option disabled>Loading drivers...</option>
+                  ) : (
+                    drivers.map((driver: any) => (
+                      <option key={driver.userId} value={driver.userId}>
+                        {driver.name} - {driver.carRegistration}
+                      </option>
+                    ))
+                  )}
+                </select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Driver Email</label>
-                  <input
-                    type="email"
-                    value={uploadDriverEmail}
-                    onChange={(e) => setUploadDriverEmail(e.target.value)}
-                    placeholder="email@example.com"
-                    className="w-full px-4 py-2.5 bg-white border border-[#bff202]/40 rounded-xl focus:outline-none focus:border-[#3A7717] text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Driver Phone</label>
-                  <input
-                    type="text"
-                    value={uploadDriverPhone}
-                    onChange={(e) => setUploadDriverPhone(e.target.value)}
-                    placeholder="+27 XX XXX XXXX"
-                    className="w-full px-4 py-2.5 bg-white border border-[#bff202]/40 rounded-xl focus:outline-none focus:border-[#3A7717] text-sm"
-                  />
+              <div className="bg-[#eafde7] rounded-xl p-3 space-y-3">
+                <p className="text-xs font-semibold text-[#01312D]">
+                  {uploadDriverName ? "Driver Details (edit if needed)" : "Manual Driver Details"}
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-gray-500 font-semibold uppercase mb-1">Name *</label>
+                    <input
+                      type="text"
+                      value={uploadDriverName}
+                      onChange={(e) => setUploadDriverName(e.target.value)}
+                      placeholder="Full name"
+                      className="w-full px-3 py-2 bg-white border border-[#bff202]/30 rounded-lg text-sm focus:outline-none focus:border-[#3A7717]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-500 font-semibold uppercase mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={uploadDriverEmail}
+                      onChange={(e) => setUploadDriverEmail(e.target.value)}
+                      placeholder="email@example.com"
+                      className="w-full px-3 py-2 bg-white border border-[#bff202]/30 rounded-lg text-sm focus:outline-none focus:border-[#3A7717]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-500 font-semibold uppercase mb-1">Phone</label>
+                    <input
+                      type="text"
+                      value={uploadDriverPhone}
+                      onChange={(e) => setUploadDriverPhone(e.target.value)}
+                      placeholder="+27 XX XXX XXXX"
+                      className="w-full px-3 py-2 bg-white border border-[#bff202]/30 rounded-lg text-sm focus:outline-none focus:border-[#3A7717]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-500 font-semibold uppercase mb-1">Vehicle</label>
+                    <input
+                      type="text"
+                      value={uploadCarNumber}
+                      onChange={(e) => setUploadCarNumber(e.target.value)}
+                      placeholder="e.g. CA 123-456"
+                      className="w-full px-3 py-2 bg-white border border-[#bff202]/30 rounded-lg text-sm focus:outline-none focus:border-[#3A7717]"
+                    />
+                  </div>
                 </div>
               </div>
               <div>
