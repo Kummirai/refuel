@@ -22,6 +22,16 @@ export async function GET(request: Request) {
       query.hasReceipt = { $eq: false };
     } else if (status === "verified") {
       query.hasReceipt = { $eq: true };
+    } else if (status === "noreceipt") {
+      query = {
+        status: { $in: ["approved", "sent"] },
+        $or: [
+          { popUrl: { $exists: false } },
+          { popUrl: null },
+          { popUrl: "" },
+        ],
+      };
+      delete query.completedDate;
     }
 
     const receipts = await serviceRequestsCollection

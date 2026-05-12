@@ -28,6 +28,7 @@ import {
   Upload,
   X,
   Save,
+  Send,
 } from "lucide-react";
 
 interface ReceiptRequest {
@@ -56,13 +57,14 @@ interface ReceiptRequest {
 
 export default function AdminReceiptsPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"pending" | "verified" | "all">(
+  const [activeTab, setActiveTab] = useState<"pending" | "verified" | "all" | "noreceipt">(
     "pending",
   );
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [receipts, setReceipts] = useState<ReceiptRequest[]>([]);
+  const [noReceiptRequests, setNoReceiptRequests] = useState<any[]>([]);
   const [selectedReceipt, setSelectedReceipt] = useState<ReceiptRequest | null>(
     null,
   );
@@ -114,10 +116,23 @@ export default function AdminReceiptsPage() {
   const fetchReceipts = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/admin/receipts?status=${activeTab === "all" ? "" : activeTab}`);
-      if (response.ok) {
-        const data = await response.json();
-        setReceipts(data.data || []);
+
+      if (activeTab === "noreceipt") {
+        const response = await fetch("/api/admin/receipts?status=noreceipt");
+        if (response.ok) {
+          const data = await response.json();
+          setNoReceiptRequests(data.data || []);
+          setNoReceiptStats({
+            count: data.data?.length || 0,
+            totalAmount: (data.data || []).reduce((sum: number, r: any) => sum + (r.amount || 0), 0),
+          });
+        }
+      } else {
+        const response = await fetch(`/api/admin/receipts?status=${activeTab === "all" ? "" : activeTab}`);
+        if (response.ok) {
+          const data = await response.json();
+          setReceipts(data.data || []);
+        }
       }
     } catch (error) {
       console.error("Error fetching receipts:", error);
@@ -402,6 +417,35 @@ export default function AdminReceiptsPage() {
     setShowDetailsModal(false);
   };
 
+  const formatPhoneNumber = (phone: string): string => {
+    const cleanPhone = phone.replace(/[^0-9]/g, "");
+    if (!cleanPhone.startsWith("27") && cleanPhone.length === 9) {
+      return `27${cleanPhone}`;
+    }
+    if (!cleanPhone.startsWith("27") && cleanPhone.length === 10 && cleanPhone.startsWith("0")) {
+      return `27${cleanPhone.substring(1)}`;
+    }
+    return cleanPhone;
+  };
+
+  const handleWhatsAppReminder = (req: any) => {
+    const message = `Hi ${req.driverName || "Driver"},
+
+This is a reminder from Kapuka Tradings to please upload your receipt for your recent ${req.type || "service"} request of R${(req.actualAmount || req.amount || 0).toLocaleString()}.
+
+Vehicle: ${req.carNumber || "N/A"}
+Request ID: ${(req.id || req._id || "").slice(-6).toUpperCase()}
+
+Please upload your receipt as soon as possible to keep your account up to date.
+
+Thank you,
+Kapuka Tradings Team`;
+
+    const fullPhone = formatPhoneNumber(req.driverPhone);
+    const whatsappUrl = `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, "_blank");
+  };
+
   const getServiceTypeIcon = (type: string) => {
     switch (type) {
       case "fuel":
@@ -446,6 +490,9 @@ export default function AdminReceiptsPage() {
     totalAmount: receipts.reduce((sum, r) => sum + (r.actualAmount || r.amount), 0),
   };
 
+  // No receipt stats are loaded separately
+  const [noReceiptStats, setNoReceiptStats] = useState({ count: 0, totalAmount: 0 });
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-3">
@@ -475,7 +522,7 @@ export default function AdminReceiptsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
           <div className="flex items-center justify-between">
             <div>
@@ -509,6 +556,17 @@ export default function AdminReceiptsPage() {
             </div>
           </div>
         </div>
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-500">Awaiting Receipt Upload</p>
+              <p className="text-2xl font-bold text-orange-600">{noReceiptStats.count}</p>
+            </div>
+            <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
+              <Upload className="w-5 h-5 text-orange-600" />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Tabs & Search */}
@@ -533,6 +591,16 @@ export default function AdminReceiptsPage() {
             }`}
           >
             Verified
+          </button>
+          <button
+            onClick={() => setActiveTab("noreceipt")}
+            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === "noreceipt"
+                ? "bg-white text-[#01312D] shadow-sm"
+                : "text-gray-500 hover:text-[#01312D]"
+            }`}
+          >
+            No Receipt
           </button>
           <button
             onClick={() => setActiveTab("all")}
@@ -563,6 +631,72 @@ export default function AdminReceiptsPage() {
         <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-[#bff202]/20">
           <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mb-4" />
           <p className="text-[#01312D] font-medium">Loading receipts...</p>
+        </div>
+      ) : activeTab === "noreceipt" && noReceiptRequests.length === 0 ? (
+        <div className="text-center py-20 bg-white rounded-3xl border border-[#bff202]/20">
+          <div className="w-20 h-20 bg-[#eafde7] rounded-full flex items-center justify-center mx-auto mb-4">
+            <Upload className="w-10 h-10 text-gray-300" />
+          </div>
+          <h3 className="text-lg font-bold text-[#01312D]">All receipts uploaded</h3>
+          <p className="text-gray-500">All approved/sent requests have receipts uploaded.</p>
+        </div>
+      ) : activeTab === "noreceipt" ? (
+        <div className="grid grid-cols-1 gap-4">
+          {noReceiptRequests.map((req: any) => (
+            <div
+              key={req.id || req._id}
+              className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/10 hover:border-orange-300 transition-all group"
+            >
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div className="flex items-start gap-4">
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${
+                    req.type === 'fuel' ? 'bg-green-50' : 
+                    req.type === 'airtime' ? 'bg-blue-50' : 
+                    req.type === 'cash' ? 'bg-yellow-50' : 'bg-purple-50'
+                  }`}>
+                    {getServiceTypeIcon(req.type)}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-[#01312D] text-lg">
+                        {req.driverName}
+                      </h3>
+                      {getServiceTypeBadge(req.type)}
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
+                        <Clock className="w-3 h-3" /> NO RECEIPT
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <Car className="w-4 h-4" /> {req.carNumber}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" /> {req.approvedDate ? new Date(req.approvedDate).toLocaleDateString() : "N/A"}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="capitalize text-xs font-semibold text-gray-400">{req.status}</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between lg:justify-end gap-8 border-t lg:border-t-0 pt-4 lg:pt-0">
+                  <div className="text-right">
+                    <p className="text-xs text-gray-400 uppercase font-bold tracking-wider">Amount</p>
+                    <p className="text-2xl font-black text-[#01312D]">
+                      R{(req.actualAmount || req.amount).toLocaleString()}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleWhatsAppReminder(req)}
+                    className="flex items-center gap-2 bg-[#25D366] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#1da851] transition-all shadow-md active:scale-95"
+                  >
+                    <Send className="w-5 h-5" />
+                    Send WhatsApp
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : filteredReceipts.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-3xl border border-[#bff202]/20">

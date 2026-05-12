@@ -1,18 +1,28 @@
 import { NextResponse } from "next/server";
-import {connectToDatabase} from "@/lib/db"
+import { connectToDatabase } from "@/lib/db";
 
-export async function GET(){
+export async function GET() {
+  try {
+    const { db } = await connectToDatabase();
+    const collection = db.collection("serviceRequests");
 
-console.log(`You request reached this point`);
+    const pending = await collection.countDocuments({
+      completedDate: { $ne: null },
+      hasReceipt: { $eq: false },
+    });
 
+    const noReceipt = await collection.countDocuments({
+      status: { $in: ["approved", "sent"] },
+      $or: [
+        { popUrl: { $exists: false } },
+        { popUrl: null },
+        { popUrl: "" },
+      ],
+    });
 
-    try {
-        const {db} = await connectToDatabase();
-        const pending = await db.collection("serviceRequests").countDocuments({completedDate: {$ne: null}, hasReceipt: {$eq: false}}, );
-        console.log(`Pending receipts ${pending}`);
-        return NextResponse.json({ pending });
-    } catch (error) {
-    console.error("Error fetching verification count:", error);
-    return NextResponse.json({ pending: 0 });    
-    }
+    return NextResponse.json({ pending, noReceipt });
+  } catch (error) {
+    console.error("Error fetching receipt counts:", error);
+    return NextResponse.json({ pending: 0, noReceipt: 0 });
+  }
 }
