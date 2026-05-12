@@ -40,6 +40,7 @@ export default function AdminLayout({
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [pendingRepaymentsCount, setPendingRepaymentsCount] = useState(0);
   const [pendingReceiptsCount, setPendingReceiptsCount] = useState(0);
+  const [noReceiptCount, setNoReceiptCount] = useState(0);
 
   // Store full data for detailed view
   const [pendingVerifications, setPendingVerifications] = useState<any[]>([]);
@@ -64,6 +65,7 @@ export default function AdminLayout({
       setPendingRequestsCount(requests.pending || 0);
       setPendingRepaymentsCount(repayments.pending || 0);
       setPendingReceiptsCount(receipts.pending || 0);
+      setNoReceiptCount(receipts.noReceipt || 0);
     } catch (error) {
       console.error("Error fetching counts:", error);
     }
