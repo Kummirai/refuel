@@ -164,7 +164,7 @@ export default function ProfilePage() {
               r.status === "sent" ||
               r.status === "completed",
           )
-          .reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
+          .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount || 0), 0);
 
         // Calculate total active loans (where balance > 0)
         const activeLoansCount = requestsData.filter(
@@ -839,7 +839,7 @@ export default function ProfilePage() {
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-bold text-[#01312D]">
-                          R{req.amount.toLocaleString()}
+                          R{(req.actualAmount || req.amount).toLocaleString()}
                         </p>
                         <p
                           className={`text-[10px] font-bold uppercase ${
