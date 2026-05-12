@@ -156,6 +156,16 @@ export default function ProfilePage() {
         const requestsData = await requestsRes.json();
         setAllRequests(requestsData);
 
+        // Calculate total spent from fulfilled requests only
+        const totalSpent = requestsData
+          .filter(
+            (r: any) =>
+              r.status === "approved" ||
+              r.status === "sent" ||
+              r.status === "completed",
+          )
+          .reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
+
         // Calculate total active loans (where balance > 0)
         const activeLoansCount = requestsData.filter(
           (r: any) =>
@@ -167,6 +177,7 @@ export default function ProfilePage() {
 
         setUserData((prev) => ({
           ...prev,
+          totalSpent,
           totalLoans: activeLoansCount,
           totalRequests: requestsData.length,
         }));
