@@ -90,7 +90,7 @@ export default function AdminReceiptsPage() {
   // Upload for driver state
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadRequestId, setUploadRequestId] = useState("");
+
   const [uploadDriverName, setUploadDriverName] = useState("");
   const [uploadDriverEmail, setUploadDriverEmail] = useState("");
   const [uploadDriverPhone, setUploadDriverPhone] = useState("");
@@ -103,7 +103,9 @@ export default function AdminReceiptsPage() {
   const [drivers, setDrivers] = useState<any[]>([]);
   const [driversLoading, setDriversLoading] = useState(false);
   const [driverSearch, setDriverSearch] = useState("");
-  const [showDriverDropdown, setShowDriverDropdown] = useState(false);
+  const [availableRequests, setAvailableRequests] = useState<any[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
+  const [selectedRequestId, setSelectedRequestId] = useState("");
 
   useEffect(() => {
     fetchReceipts();
@@ -280,18 +282,59 @@ export default function AdminReceiptsPage() {
     }
   };
 
+  const fetchAvailableRequests = async () => {
+    setRequestsLoading(true);
+    try {
+      const res = await fetch("/api/admin/requests");
+      if (res.ok) {
+        const data = await res.json();
+        const pendingReceipt = (data.requests || []).filter(
+          (r: any) =>
+            (r.status === "approved" || r.status === "sent" || r.status === "completed") &&
+            !r.hasReceipt
+        );
+        setAvailableRequests(pendingReceipt);
+      }
+    } catch (error) {
+      console.error("Error fetching requests:", error);
+    } finally {
+      setRequestsLoading(false);
+    }
+  };
+
   const handleSelectDriver = (driver: any) => {
     setUploadDriverName(driver.name || "");
     setUploadDriverEmail(driver.email || "");
     setUploadDriverPhone(driver.phone || "");
     setUploadCarNumber(driver.carRegistration || "");
-    setDriverSearch(driver.name || "");
-    setShowDriverDropdown(false);
+  };
+
+  const handleSelectRequest = (requestId: string) => {
+    setSelectedRequestId(requestId);
+    if (!requestId) {
+      setUploadDriverName("");
+      setUploadDriverEmail("");
+      setUploadDriverPhone("");
+      setUploadCarNumber("");
+      setUploadAmount("");
+      setUploadType("fuel");
+      return;
+    }
+    const req = availableRequests.find((r: any) => r.id === requestId);
+    if (req) {
+      setUploadDriverName(req.driverName || "");
+      setUploadDriverEmail(req.driverEmail || "");
+      setUploadDriverPhone(req.driverPhone || "");
+      setUploadCarNumber(req.carNumber || "");
+      setUploadAmount(req.actualAmount?.toString() || req.amount?.toString() || "");
+      setUploadType(req.type || "fuel");
+    }
   };
 
   const handleOpenUploadModal = () => {
     setShowUploadModal(true);
     fetchDrivers();
+    fetchAvailableRequests();
   };
 
   const handleUploadForDriver = async () => {
@@ -305,7 +348,7 @@ export default function AdminReceiptsPage() {
     try {
       const formData = new FormData();
       formData.append("file", uploadFile);
-      formData.append("requestId", uploadRequestId);
+      formData.append("requestId", selectedRequestId);
       formData.append("driverName", uploadDriverName);
       formData.append("driverEmail", uploadDriverEmail);
       formData.append("driverPhone", uploadDriverPhone);
@@ -324,7 +367,7 @@ export default function AdminReceiptsPage() {
         setShowUploadSuccessModal(true);
         setShowUploadModal(false);
         setUploadFile(null);
-        setUploadRequestId("");
+        setSelectedRequestId("");
         setUploadDriverName("");
         setUploadDriverEmail("");
         setUploadDriverPhone("");
@@ -993,7 +1036,7 @@ export default function AdminReceiptsPage() {
                   </div>
                 </div>
                 <button
-                  onClick={() => setShowUploadModal(false)}
+                onClick={() => { setShowUploadModal(false); setSelectedRequestId(""); }}
                   className="p-1 hover:bg-white/20 rounded-full transition-colors"
                 >
                   <X className="w-5 h-5 text-white" />
@@ -1038,40 +1081,39 @@ export default function AdminReceiptsPage() {
                 />
               </div>
               <div>
-                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Select Driver</label>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">
+                  Link to Existing Request <span className="text-red-500">*</span>
+                </label>
                 <select
-                  value={driverSearch}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setDriverSearch(val);
-                    if (val === "__manual__") {
-                      setUploadDriverName("");
-                      setUploadDriverEmail("");
-                      setUploadDriverPhone("");
-                      setUploadCarNumber("");
-                    } else {
-                      const driver = drivers.find((d: any) => d.userId === val);
-                      if (driver) handleSelectDriver(driver);
-                    }
-                  }}
+                  value={selectedRequestId}
+                  onChange={(e) => handleSelectRequest(e.target.value)}
                   className="w-full px-4 py-2.5 bg-white border border-[#bff202]/40 rounded-xl focus:outline-none focus:border-[#3A7717] text-sm"
                 >
-                  <option value="">-- Select a driver --</option>
-                  <option value="__manual__">✏️ Manual Entry (driver not listed)</option>
-                  {driversLoading ? (
-                    <option disabled>Loading drivers...</option>
+                  <option value="">-- Select a completed request --</option>
+                  {requestsLoading ? (
+                    <option disabled>Loading requests...</option>
+                  ) : availableRequests.length === 0 ? (
+                    <option disabled>No completed requests without receipts</option>
                   ) : (
-                    drivers.map((driver: any) => (
-                      <option key={driver.userId} value={driver.userId}>
-                        {driver.name} - {driver.carRegistration}
+                    availableRequests.map((req: any) => (
+                      <option key={req.id} value={req.id}>
+                        {req.driverName || "Unknown"} - {req.type} - R{(req.actualAmount || req.amount).toLocaleString()} ({req.id.slice(-6).toUpperCase()})
                       </option>
                     ))
                   )}
                 </select>
+                {!requestsLoading && availableRequests.length > 0 && (
+                  <p className="text-xs text-gray-400 mt-1">{availableRequests.length} request{availableRequests.length !== 1 ? "s" : ""} awaiting receipt upload</p>
+                )}
               </div>
               <div className="bg-[#eafde7] rounded-xl p-3 space-y-3">
                 <p className="text-xs font-semibold text-[#01312D]">
-                  {uploadDriverName ? "Driver Details (edit if needed)" : "Manual Driver Details"}
+                  Driver Details
+                  {selectedRequestId ? (
+                    <span className="text-[#3A7717] font-normal"> (auto-filled from request)</span>
+                  ) : (
+                    <span className="text-gray-400 font-normal"> (or enter manually)</span>
+                  )}
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -1116,18 +1158,7 @@ export default function AdminReceiptsPage() {
                   </div>
                 </div>
               </div>
-              <div>
-                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">
-                  Request ID <span className="text-gray-400 font-normal">(optional - link to existing request)</span>
-                </label>
-                <input
-                  type="text"
-                  value={uploadRequestId}
-                  onChange={(e) => setUploadRequestId(e.target.value)}
-                  placeholder="Leave blank to create new"
-                  className="w-full px-4 py-2.5 bg-white border border-[#bff202]/40 rounded-xl focus:outline-none focus:border-[#3A7717] text-sm"
-                />
-              </div>
+
             </div>
             <div className="border-t border-gray-100 p-6 flex gap-3">
               <button

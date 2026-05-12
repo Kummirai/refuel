@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
-import { connectToDatabase } from "@/lib/mongodb/client";
+import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 
 cloudinary.config({
@@ -23,6 +23,10 @@ export async function POST(request: NextRequest) {
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    }
+
+    if (!driverName) {
+      return NextResponse.json({ error: "Driver name is required" }, { status: 400 });
     }
 
     if (!file.type.startsWith("image/")) {
@@ -59,62 +63,99 @@ export async function POST(request: NextRequest) {
 
     const { db } = await connectToDatabase();
     const serviceRequestsCollection = db.collection("serviceRequests");
+    const driverProfilesCollection = db.collection("driverProfiles");
+    const usersCollection = db.collection("user");
 
-    const updateData: Record<string, any> = {
-      popUrl: (result as any).secure_url,
-      popPublicId: (result as any).public_id,
-      popUploadedAt: new Date(),
-      updatedAt: new Date(),
-      uploadedByAdmin: true,
-    };
+    const popUrl = (result as any).secure_url;
+    const popPublicId = (result as any).public_id;
+    const amount = actualAmount ? parseFloat(actualAmount) : 0;
 
+    // Link to existing request
     if (requestId && ObjectId.isValid(requestId)) {
-      updateData.actualAmount = actualAmount ? parseFloat(actualAmount) : undefined;
-      updateData.completedDate = new Date();
-      updateData.hasReceipt = false;
-      updateData.receiptStatus = "pending";
-
       const existing = await serviceRequestsCollection.findOne({
         _id: new ObjectId(requestId),
       });
 
       if (existing) {
-        updateData.driverName = driverName || existing.driverName;
-        updateData.driverEmail = driverEmail || existing.driverEmail;
-        updateData.driverPhone = driverPhone || existing.driverPhone;
-        updateData.carNumber = carNumber || existing.carNumber;
+        const updateData: Record<string, any> = {
+          popUrl,
+          popPublicId,
+          popUploadedAt: new Date(),
+          updatedAt: new Date(),
+          uploadedByAdmin: true,
+          hasReceipt: true,
+          receiptStatus: "verified",
+          receiptVerifiedAt: new Date(),
+          driverName: driverName || existing.driverName,
+          driverEmail: driverEmail || existing.driverEmail,
+          driverPhone: driverPhone || existing.driverPhone,
+          carNumber: carNumber || existing.carNumber,
+        };
+
+        if (amount > 0) {
+          updateData.actualAmount = amount;
+        }
+
+        if (!existing.completedDate) {
+          updateData.completedDate = new Date();
+        }
+
+        // If the request was pending or approved, mark it as completed
+        if (existing.status === "pending" || existing.status === "approved" || existing.status === "sent") {
+          updateData.status = "completed";
+        }
 
         await serviceRequestsCollection.updateOne(
           { _id: new ObjectId(requestId) },
           { $set: updateData },
         );
 
+        // Update driver profile stats
+        const userId = existing.userId;
+        if (userId && typeof userId === "string") {
+          const actualAmountVal = amount > 0 ? amount : (existing.actualAmount || existing.amount || 0);
+          await driverProfilesCollection.updateOne(
+            { userId },
+            {
+              $inc: { totalSpent: actualAmountVal },
+              $set: { updatedAt: new Date() },
+            },
+            { upsert: true },
+          );
+
+          await usersCollection.updateOne(
+            { _id: userId },
+            { $inc: { totalSpent: actualAmountVal, totalRequests: 1 } },
+          );
+        }
+
         return NextResponse.json({
           success: true,
-          message: "Receipt uploaded successfully for existing request",
-          url: (result as any).secure_url,
+          message: "Receipt uploaded and linked to existing request. The driver can now see the receipt pending verification.",
+          url: popUrl,
           requestId,
         });
       }
     }
 
+    // Fallback: create a new request entry (shouldn't normally happen since UI requires request selection)
     const insertData: Record<string, any> = {
-      userId: `admin_upload_${Date.now()}`,
       type: type || "fuel",
-      amount: actualAmount ? parseFloat(actualAmount) : 0,
-      actualAmount: actualAmount ? parseFloat(actualAmount) : 0,
+      amount: amount || 0,
+      actualAmount: amount || 0,
       carNumber: carNumber || "",
       driverName: driverName || "",
       driverEmail: driverEmail || "",
       driverPhone: driverPhone || "",
-      popUrl: (result as any).secure_url,
-      popPublicId: (result as any).public_id,
+      popUrl,
+      popPublicId,
       popUploadedAt: new Date(),
       uploadedByAdmin: true,
       status: "completed",
       completedDate: new Date(),
-      hasReceipt: false,
-      receiptStatus: "pending",
+      hasReceipt: true,
+      receiptStatus: "verified",
+      receiptVerifiedAt: new Date(),
       requestDate: new Date(),
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -124,8 +165,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Receipt uploaded successfully for driver",
-      url: (result as any).secure_url,
+      message: "Receipt uploaded successfully",
+      url: popUrl,
       requestId: insertResult.insertedId.toString(),
     });
   } catch (error) {
