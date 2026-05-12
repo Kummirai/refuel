@@ -23,6 +23,11 @@ import {
   Calendar,
   ImageIcon,
   ArrowRight,
+  XCircle,
+  Edit3,
+  Upload,
+  X,
+  Save,
 } from "lucide-react";
 
 interface ReceiptRequest {
@@ -67,6 +72,40 @@ export default function AdminReceiptsPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [processing, setProcessing] = useState(false);
+
+  // Reject state
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [rejectLoading, setRejectLoading] = useState(false);
+
+  // Correct state
+  const [showCorrectModal, setShowCorrectModal] = useState(false);
+  const [correctedAmount, setCorrectedAmount] = useState("");
+  const [correctedDriverName, setCorrectedDriverName] = useState("");
+  const [correctedDriverEmail, setCorrectedDriverEmail] = useState("");
+  const [correctedDriverPhone, setCorrectedDriverPhone] = useState("");
+  const [correctedCarNumber, setCorrectedCarNumber] = useState("");
+  const [correctLoading, setCorrectLoading] = useState(false);
+
+  // Upload for driver state
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+
+  const [uploadDriverName, setUploadDriverName] = useState("");
+  const [uploadDriverEmail, setUploadDriverEmail] = useState("");
+  const [uploadDriverPhone, setUploadDriverPhone] = useState("");
+  const [uploadCarNumber, setUploadCarNumber] = useState("");
+  const [uploadAmount, setUploadAmount] = useState("");
+  const [uploadType, setUploadType] = useState("fuel");
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [showUploadSuccessModal, setShowUploadSuccessModal] = useState(false);
+  const [uploadSuccessMessage, setUploadSuccessMessage] = useState("");
+  const [drivers, setDrivers] = useState<any[]>([]);
+  const [driversLoading, setDriversLoading] = useState(false);
+  const [driverSearch, setDriverSearch] = useState("");
+  const [availableRequests, setAvailableRequests] = useState<any[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
+  const [selectedRequestId, setSelectedRequestId] = useState("");
 
   useEffect(() => {
     fetchReceipts();
@@ -128,6 +167,241 @@ export default function AdminReceiptsPage() {
     }
   };
 
+  const handleRejectReceipt = async () => {
+    if (!selectedReceipt || !rejectionReason.trim()) {
+      setErrorMessage("Please enter a reason for rejection");
+      setShowErrorModal(true);
+      return;
+    }
+
+    setRejectLoading(true);
+    try {
+      const response = await fetch("/api/admin/receipts/reject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: selectedReceipt.id,
+          reason: rejectionReason,
+        }),
+      });
+
+      if (response.ok) {
+        setSuccessMessage("Receipt rejected successfully");
+        setShowSuccessModal(true);
+        fetchReceipts();
+        setShowRejectModal(false);
+        setShowDetailsModal(false);
+        setSelectedReceipt(null);
+        setRejectionReason("");
+        window.dispatchEvent(new Event("refreshAdminCounts"));
+      } else {
+        const error = await response.json();
+        setErrorMessage(error.error || "Failed to reject receipt");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error rejecting receipt:", error);
+      setErrorMessage("Failed to reject receipt");
+      setShowErrorModal(true);
+    } finally {
+      setRejectLoading(false);
+    }
+  };
+
+  const handleCorrectReceipt = async () => {
+    if (!selectedReceipt) return;
+
+    setCorrectLoading(true);
+    try {
+      const updates: Record<string, any> = {};
+      if (correctedAmount && parseFloat(correctedAmount) !== selectedReceipt.actualAmount) {
+        updates.actualAmount = parseFloat(correctedAmount);
+      }
+      if (correctedDriverName && correctedDriverName !== selectedReceipt.driverName) {
+        updates.driverName = correctedDriverName;
+      }
+      if (correctedDriverEmail && correctedDriverEmail !== selectedReceipt.driverEmail) {
+        updates.driverEmail = correctedDriverEmail;
+      }
+      if (correctedDriverPhone && correctedDriverPhone !== selectedReceipt.driverPhone) {
+        updates.driverPhone = correctedDriverPhone;
+      }
+      if (correctedCarNumber && correctedCarNumber !== selectedReceipt.carRegistration) {
+        updates.carNumber = correctedCarNumber;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        setErrorMessage("No changes were made");
+        setShowErrorModal(true);
+        setCorrectLoading(false);
+        return;
+      }
+
+      const response = await fetch("/api/admin/receipts/correct", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: selectedReceipt.id,
+          updates,
+        }),
+      });
+
+      if (response.ok) {
+        setSuccessMessage("Receipt information corrected successfully!");
+        setShowSuccessModal(true);
+        fetchReceipts();
+        setShowCorrectModal(false);
+        setShowDetailsModal(false);
+        setSelectedReceipt(null);
+      } else {
+        const error = await response.json();
+        setErrorMessage(error.error || "Failed to correct receipt");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error correcting receipt:", error);
+      setErrorMessage("Failed to correct receipt");
+      setShowErrorModal(true);
+    } finally {
+      setCorrectLoading(false);
+    }
+  };
+
+  const fetchDrivers = async () => {
+    setDriversLoading(true);
+    try {
+      const res = await fetch("/api/admin/drivers");
+      if (res.ok) {
+        const data = await res.json();
+        setDrivers(data.drivers || []);
+      }
+    } catch (error) {
+      console.error("Error fetching drivers:", error);
+    } finally {
+      setDriversLoading(false);
+    }
+  };
+
+  const fetchAvailableRequests = async () => {
+    setRequestsLoading(true);
+    try {
+      const res = await fetch("/api/admin/requests");
+      if (res.ok) {
+        const data = await res.json();
+        const pendingReceipt = (data.requests || []).filter(
+          (r: any) =>
+            (r.status === "approved" || r.status === "sent" || r.status === "completed") &&
+            !r.hasReceipt
+        );
+        setAvailableRequests(pendingReceipt);
+      }
+    } catch (error) {
+      console.error("Error fetching requests:", error);
+    } finally {
+      setRequestsLoading(false);
+    }
+  };
+
+  const handleSelectDriver = (driver: any) => {
+    setUploadDriverName(driver.name || "");
+    setUploadDriverEmail(driver.email || "");
+    setUploadDriverPhone(driver.phone || "");
+    setUploadCarNumber(driver.carRegistration || "");
+  };
+
+  const handleSelectRequest = (requestId: string) => {
+    setSelectedRequestId(requestId);
+    if (!requestId) {
+      setUploadDriverName("");
+      setUploadDriverEmail("");
+      setUploadDriverPhone("");
+      setUploadCarNumber("");
+      setUploadAmount("");
+      setUploadType("fuel");
+      return;
+    }
+    const req = availableRequests.find((r: any) => r.id === requestId);
+    if (req) {
+      setUploadDriverName(req.driverName || "");
+      setUploadDriverEmail(req.driverEmail || "");
+      setUploadDriverPhone(req.driverPhone || "");
+      setUploadCarNumber(req.carNumber || "");
+      setUploadAmount(req.actualAmount?.toString() || req.amount?.toString() || "");
+      setUploadType(req.type || "fuel");
+    }
+  };
+
+  const handleOpenUploadModal = () => {
+    setShowUploadModal(true);
+    fetchDrivers();
+    fetchAvailableRequests();
+  };
+
+  const handleUploadForDriver = async () => {
+    if (!uploadFile) {
+      setErrorMessage("Please select a file to upload");
+      setShowErrorModal(true);
+      return;
+    }
+
+    setUploadLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", uploadFile);
+      formData.append("requestId", selectedRequestId);
+      formData.append("driverName", uploadDriverName);
+      formData.append("driverEmail", uploadDriverEmail);
+      formData.append("driverPhone", uploadDriverPhone);
+      formData.append("carNumber", uploadCarNumber);
+      formData.append("actualAmount", uploadAmount);
+      formData.append("type", uploadType);
+
+      const response = await fetch("/api/admin/receipts/upload-for-driver", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUploadSuccessMessage(data.message);
+        setShowUploadSuccessModal(true);
+        setShowUploadModal(false);
+        setUploadFile(null);
+        setSelectedRequestId("");
+        setUploadDriverName("");
+        setUploadDriverEmail("");
+        setUploadDriverPhone("");
+        setUploadCarNumber("");
+        setUploadAmount("");
+        setUploadType("fuel");
+        setDriverSearch("");
+        fetchReceipts();
+        window.dispatchEvent(new Event("refreshAdminCounts"));
+      } else {
+        const error = await response.json();
+        setErrorMessage(error.error || "Failed to upload receipt");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error uploading receipt:", error);
+      setErrorMessage("Failed to upload receipt");
+      setShowErrorModal(true);
+    } finally {
+      setUploadLoading(false);
+    }
+  };
+
+  const openCorrectModal = () => {
+    if (!selectedReceipt) return;
+    setCorrectedAmount(selectedReceipt.actualAmount?.toString() || selectedReceipt.amount.toString());
+    setCorrectedDriverName(selectedReceipt.driverName);
+    setCorrectedDriverEmail(selectedReceipt.driverEmail);
+    setCorrectedDriverPhone(selectedReceipt.driverPhone);
+    setCorrectedCarNumber(selectedReceipt.carRegistration);
+    setShowCorrectModal(true);
+    setShowDetailsModal(false);
+  };
+
   const getServiceTypeIcon = (type: string) => {
     switch (type) {
       case "fuel":
@@ -181,14 +455,23 @@ export default function AdminReceiptsPage() {
             Verify receipts uploaded by drivers for completed services
           </p>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all"
-        >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
-          Refresh
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleOpenUploadModal}
+            className="flex items-center gap-2 px-4 py-2 bg-[#3A7717] text-white rounded-xl font-semibold hover:bg-[#2d5a12] transition-all shadow-sm"
+          >
+            <Upload className="w-4 h-4" />
+            Upload Receipt
+          </button>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -472,34 +755,56 @@ export default function AdminReceiptsPage() {
               )}
             </div>
 
-            <div className="sticky bottom-0 bg-white/80 backdrop-blur-md border-t border-[#bff202]/20 p-4 sm:p-6 flex flex-col gap-4 sm:gap-4">
-              
-              
+            <div className="sticky bottom-0 bg-white/80 backdrop-blur-md border-t border-[#bff202]/20 p-4 sm:p-6 flex flex-col gap-3">
               {!selectedReceipt.hasReceipt ? (
-                <button
-                  onClick={() => handleVerifyReceipt(selectedReceipt.id)}
-                  disabled={processing}
-                  className="flex-[2] bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white px-4 py-3 sm:px-6 sm:py-4 rounded-xl sm:rounded-2xl text-sm sm:text-base font-black shadow-lg shadow-[#3A7717]/30 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:translate-y-0"
-                >
-                  {processing ? (
-                    <Loader2 className="w-4 h-4 sm:w-6 sm:h-6 animate-spin" />
-                  ) : (
-                    <CheckCircle className="w-4 h-4 sm:w-6 sm:h-6" />
-                  )}
-                  <span className="whitespace-nowrap">Verify & Approve</span>
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => handleVerifyReceipt(selectedReceipt.id)}
+                    disabled={processing}
+                    className="flex-[2] bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white px-4 py-3 sm:px-6 sm:py-3 rounded-xl sm:rounded-2xl text-sm sm:text-base font-black shadow-lg shadow-[#3A7717]/30 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:translate-y-0"
+                  >
+                    {processing ? (
+                      <Loader2 className="w-4 h-4 sm:w-6 sm:h-6 animate-spin" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4 sm:w-6 sm:h-6" />
+                    )}
+                    <span className="whitespace-nowrap">Verify & Approve</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      setTimeout(() => {
+                        setShowRejectModal(true);
+                      }, 200);
+                    }}
+                    disabled={processing}
+                    className="flex-1 bg-red-500 text-white px-4 py-3 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl text-sm sm:text-base font-bold hover:bg-red-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <XCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="whitespace-nowrap">Reject</span>
+                  </button>
+                </div>
               ) : (
-                <div className="flex-[2] bg-green-50 text-green-700 px-4 py-3 sm:px-6 sm:py-4 rounded-xl sm:rounded-2xl text-sm sm:text-base font-bold flex items-center justify-center gap-2">
+                <div className="bg-green-50 text-green-700 px-4 py-3 sm:px-6 sm:py-3 rounded-xl sm:rounded-2xl text-sm sm:text-base font-bold flex items-center justify-center gap-2">
                   <CheckCircle className="w-4 h-4 sm:w-6 sm:h-6" />
                   <span>Verified</span>
                 </div>
               )}
-              <button
-                onClick={() => setShowDetailsModal(false)}
-                className="flex-1 px-4 py-3 sm:px-6 sm:py-4 rounded-xl sm:rounded-2xl text-sm sm:text-base font-bold text-gray-500 hover:bg-gray-100 transition-all"
-              >
-                Cancel
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={openCorrectModal}
+                  className="flex-1 px-4 py-3 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl text-sm sm:text-base font-bold text-[#3A7717] bg-[#eafde7] hover:bg-[#d4f5cc] transition-all flex items-center justify-center gap-2"
+                >
+                  <Edit3 className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="whitespace-nowrap">Correct Info</span>
+                </button>
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="flex-1 px-4 py-3 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl text-sm sm:text-base font-bold text-gray-500 hover:bg-gray-100 transition-all"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -540,6 +845,361 @@ export default function AdminReceiptsPage() {
               className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold hover:bg-red-700 transition-all"
             >
               Try Again
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Modal */}
+      {showRejectModal && selectedReceipt && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !rejectLoading && setShowRejectModal(false)} />
+          <div className="relative bg-white rounded-[2rem] max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
+            <div className="bg-gradient-to-r from-red-500 to-red-600 p-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                  <XCircle className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">Reject Receipt</h2>
+                  <p className="text-white/80 text-sm">Provide a reason for rejection</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-[#eafde7] rounded-xl p-4">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Driver:</span>
+                    <span className="font-semibold text-[#01312D]">{selectedReceipt.driverName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Vehicle:</span>
+                    <span className="font-semibold text-[#01312D]">{selectedReceipt.carRegistration}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Amount:</span>
+                    <span className="font-bold text-[#3A7717]">R{(selectedReceipt.actualAmount || selectedReceipt.amount).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                  Rejection Reason <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Explain why this receipt is being rejected..."
+                  className="w-full px-4 py-3 bg-white border border-red-200 rounded-xl focus:outline-none focus:border-red-500 resize-none"
+                  rows={4}
+                />
+                <p className="text-xs text-gray-500 mt-1">This reason will be recorded with the rejection</p>
+              </div>
+              <div className="bg-red-50 rounded-xl p-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 mt-0.5" />
+                  <div>
+                    <p className="text-xs text-red-800 font-semibold">This action cannot be undone</p>
+                    <p className="text-xs text-red-700 mt-1">The driver may need to re-upload a corrected receipt.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="border-t border-gray-100 p-6 flex gap-3">
+              <button
+                onClick={() => { setShowRejectModal(false); setRejectionReason(""); }}
+                disabled={rejectLoading}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRejectReceipt}
+                disabled={rejectLoading}
+                className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                {rejectLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <XCircle className="w-4 h-4" />
+                )}
+                Confirm Rejection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Correct Information Modal */}
+      {showCorrectModal && selectedReceipt && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !correctLoading && setShowCorrectModal(false)} />
+          <div className="relative bg-white rounded-[2rem] max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
+            <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] p-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                  <Edit3 className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">Correct Information</h2>
+                  <p className="text-white/80 text-sm">Update receipt details</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Amount (R)</label>
+                <input
+                  type="number"
+                  value={correctedAmount}
+                  onChange={(e) => setCorrectedAmount(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-white border border-[#bff202]/40 rounded-xl focus:outline-none focus:border-[#3A7717] text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Driver Name</label>
+                <input
+                  type="text"
+                  value={correctedDriverName}
+                  onChange={(e) => setCorrectedDriverName(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-white border border-[#bff202]/40 rounded-xl focus:outline-none focus:border-[#3A7717] text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Driver Email</label>
+                <input
+                  type="email"
+                  value={correctedDriverEmail}
+                  onChange={(e) => setCorrectedDriverEmail(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-white border border-[#bff202]/40 rounded-xl focus:outline-none focus:border-[#3A7717] text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Driver Phone</label>
+                <input
+                  type="text"
+                  value={correctedDriverPhone}
+                  onChange={(e) => setCorrectedDriverPhone(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-white border border-[#bff202]/40 rounded-xl focus:outline-none focus:border-[#3A7717] text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Car Registration</label>
+                <input
+                  type="text"
+                  value={correctedCarNumber}
+                  onChange={(e) => setCorrectedCarNumber(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-white border border-[#bff202]/40 rounded-xl focus:outline-none focus:border-[#3A7717] text-sm"
+                />
+              </div>
+            </div>
+            <div className="border-t border-gray-100 p-6 flex gap-3">
+              <button
+                onClick={() => setShowCorrectModal(false)}
+                disabled={correctLoading}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCorrectReceipt}
+                disabled={correctLoading}
+                className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                {correctLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Receipt for Driver Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !uploadLoading && setShowUploadModal(false)} />
+          <div className="relative bg-white rounded-[2rem] max-w-lg w-full max-h-[95vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <Upload className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Upload Receipt</h2>
+                    <p className="text-white/80 text-sm">For elderly or disabled drivers</p>
+                  </div>
+                </div>
+                <button
+                onClick={() => { setShowUploadModal(false); setSelectedRequestId(""); }}
+                  className="p-1 hover:bg-white/20 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
+                <p className="text-xs text-yellow-800">Use this form to upload a receipt on behalf of a driver who is unable to do so themselves (e.g., elderly or disabled drivers).</p>
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Receipt Image *</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                  className="w-full px-4 py-2.5 bg-white border border-[#bff202]/40 rounded-xl focus:outline-none focus:border-[#3A7717] text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-[#eafde7] file:text-[#01312D] file:font-semibold file:text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Service Type</label>
+                <select
+                  value={uploadType}
+                  onChange={(e) => setUploadType(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-white border border-[#bff202]/40 rounded-xl focus:outline-none focus:border-[#3A7717] text-sm"
+                >
+                  <option value="fuel">Fuel</option>
+                  <option value="airtime">Airtime</option>
+                  <option value="cash">Cash Loan</option>
+                  <option value="carwash">Car Wash</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Amount (R) *</label>
+                <input
+                  type="number"
+                  value={uploadAmount}
+                  onChange={(e) => setUploadAmount(e.target.value)}
+                  placeholder="e.g. 500"
+                  className="w-full px-4 py-2.5 bg-white border border-[#bff202]/40 rounded-xl focus:outline-none focus:border-[#3A7717] text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">
+                  Link to Existing Request <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedRequestId}
+                  onChange={(e) => handleSelectRequest(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-white border border-[#bff202]/40 rounded-xl focus:outline-none focus:border-[#3A7717] text-sm"
+                >
+                  <option value="">-- Select a completed request --</option>
+                  {requestsLoading ? (
+                    <option disabled>Loading requests...</option>
+                  ) : availableRequests.length === 0 ? (
+                    <option disabled>No completed requests without receipts</option>
+                  ) : (
+                    availableRequests.map((req: any) => (
+                      <option key={req.id} value={req.id}>
+                        {req.driverName || "Unknown"} - {req.type} - R{(req.actualAmount || req.amount).toLocaleString()} ({req.id.slice(-6).toUpperCase()})
+                      </option>
+                    ))
+                  )}
+                </select>
+                {!requestsLoading && availableRequests.length > 0 && (
+                  <p className="text-xs text-gray-400 mt-1">{availableRequests.length} request{availableRequests.length !== 1 ? "s" : ""} awaiting receipt upload</p>
+                )}
+              </div>
+              <div className="bg-[#eafde7] rounded-xl p-3 space-y-3">
+                <p className="text-xs font-semibold text-[#01312D]">
+                  Driver Details
+                  {selectedRequestId ? (
+                    <span className="text-[#3A7717] font-normal"> (auto-filled from request)</span>
+                  ) : (
+                    <span className="text-gray-400 font-normal"> (or enter manually)</span>
+                  )}
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-gray-500 font-semibold uppercase mb-1">Name *</label>
+                    <input
+                      type="text"
+                      value={uploadDriverName}
+                      onChange={(e) => setUploadDriverName(e.target.value)}
+                      placeholder="Full name"
+                      className="w-full px-3 py-2 bg-white border border-[#bff202]/30 rounded-lg text-sm focus:outline-none focus:border-[#3A7717]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-500 font-semibold uppercase mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={uploadDriverEmail}
+                      onChange={(e) => setUploadDriverEmail(e.target.value)}
+                      placeholder="email@example.com"
+                      className="w-full px-3 py-2 bg-white border border-[#bff202]/30 rounded-lg text-sm focus:outline-none focus:border-[#3A7717]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-500 font-semibold uppercase mb-1">Phone</label>
+                    <input
+                      type="text"
+                      value={uploadDriverPhone}
+                      onChange={(e) => setUploadDriverPhone(e.target.value)}
+                      placeholder="+27 XX XXX XXXX"
+                      className="w-full px-3 py-2 bg-white border border-[#bff202]/30 rounded-lg text-sm focus:outline-none focus:border-[#3A7717]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-500 font-semibold uppercase mb-1">Vehicle</label>
+                    <input
+                      type="text"
+                      value={uploadCarNumber}
+                      onChange={(e) => setUploadCarNumber(e.target.value)}
+                      placeholder="e.g. CA 123-456"
+                      className="w-full px-3 py-2 bg-white border border-[#bff202]/30 rounded-lg text-sm focus:outline-none focus:border-[#3A7717]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+            <div className="border-t border-gray-100 p-6 flex gap-3">
+              <button
+                onClick={() => setShowUploadModal(false)}
+                disabled={uploadLoading}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUploadForDriver}
+                disabled={uploadLoading || !uploadFile}
+                className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                {uploadLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4" />
+                )}
+                Upload Receipt
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Success Modal */}
+      {showUploadSuccessModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative bg-white rounded-[2.5rem] max-w-sm w-full p-8 text-center shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle className="w-12 h-12 text-green-600" />
+            </div>
+            <h2 className="text-2xl font-black text-[#01312D] mb-2">Uploaded!</h2>
+            <p className="text-gray-500 mb-8">{uploadSuccessMessage}</p>
+            <button
+              onClick={() => setShowUploadSuccessModal(false)}
+              className="w-full bg-[#01312D] text-white py-4 rounded-2xl font-bold hover:bg-[#3A7717] transition-all"
+            >
+              Continue
             </button>
           </div>
         </div>

@@ -65,6 +65,10 @@ export async function GET(request: Request) {
           popUploadedAt: request.popUploadedAt,
           hasReceipt: request.hasReceipt || false,
           receiptVerifiedAt: request.receiptVerifiedAt || null,
+          receiptStatus: request.receiptStatus || (request.hasReceipt ? "verified" : "pending"),
+          receiptRejectionReason: request.receiptRejectionReason || null,
+          receiptRejectedAt: request.receiptRejectedAt || null,
+          correctedByAdmin: request.correctedByAdmin || false,
           totalRepayable: request.totalRepayable,
           remainingBalance: request.remainingBalance,
           dueDate: request.dueDate || request.completedDate, // Fallback for sorting/display
