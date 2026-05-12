@@ -156,6 +156,16 @@ export default function ProfilePage() {
         const requestsData = await requestsRes.json();
         setAllRequests(requestsData);
 
+        // Calculate total spent from fulfilled requests only
+        const totalSpent = requestsData
+          .filter(
+            (r: any) =>
+              r.status === "approved" ||
+              r.status === "sent" ||
+              r.status === "completed",
+          )
+          .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount || 0), 0);
+
         // Calculate total active loans (where balance > 0)
         const activeLoansCount = requestsData.filter(
           (r: any) =>
@@ -167,6 +177,7 @@ export default function ProfilePage() {
 
         setUserData((prev) => ({
           ...prev,
+          totalSpent,
           totalLoans: activeLoansCount,
           totalRequests: requestsData.length,
         }));
@@ -828,7 +839,7 @@ export default function ProfilePage() {
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-bold text-[#01312D]">
-                          R{req.amount.toLocaleString()}
+                          R{(req.actualAmount || req.amount).toLocaleString()}
                         </p>
                         <p
                           className={`text-[10px] font-bold uppercase ${

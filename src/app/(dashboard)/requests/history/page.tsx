@@ -356,14 +356,17 @@ export default function RequestHistoryPage() {
     ).length,
     completed: requests.filter((r) => r.status === "completed").length,
     rejected: requests.filter((r) => r.status === "rejected").length,
-    totalSpent: requests.reduce(
-      (sum: number, r: any) => sum + (r.actualAmount || r.amount),
-      0,
-    ),
-    totalOutstanding: requests.reduce(
-      (sum: number, r: any) => sum + (r.remainingBalance || 0),
-      0,
-    ),
+    totalSpent: requests
+      .filter(
+        (r) =>
+          r.status === "approved" ||
+          r.status === "sent" ||
+          r.status === "completed",
+      )
+      .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount), 0),
+    totalOutstanding: requests
+      .filter((r) => (r.totalRepayable || 0) > 0)
+      .reduce((sum: number, r: any) => sum + (r.totalRepayable || 0), 0),
   };
 
   // Helper function to check if request needs receipt upload
