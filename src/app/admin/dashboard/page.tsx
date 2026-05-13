@@ -14,16 +14,10 @@ import {
   Clock,
   XCircle,
   Eye,
-  ArrowUp,
-  ArrowDown,
   Search,
   Star,
-  Phone,
-  Mail,
   Car,
   Calendar,
-  AlertTriangle,
-  ThumbsUp,
   RefreshCw,
   Fuel,
   Smartphone,
@@ -42,10 +36,9 @@ import {
   Wallet,
   TrendingDown,
   PiggyBank,
-  Upload,
-  Download,
   Shield,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 type RequestType = "fuel" | "airtime" | "cash" | "carwash";
 type RequestStatus = "pending" | "approved" | "completed" | "rejected";
@@ -1576,15 +1569,19 @@ export default function AdminDashboard() {
     );
   };
 
-  const StatCard = ({ title, value, icon: Icon, color, prefix = "" }: any) => (
+  const StatCard = ({ title, value, icon: Icon, color, prefix = "", loading }: any) => (
     <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20 hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start">
         <div>
           <p className="text-gray-500 text-sm">{title}</p>
-          <p className="text-2xl font-bold text-[#01312D] mt-1">
-            {prefix}
-            {value.toLocaleString()}
-          </p>
+          {loading ? (
+            <Skeleton className="h-8 w-28 mt-1" />
+          ) : (
+            <p className="text-2xl font-bold text-[#01312D] mt-1">
+              {prefix}
+              {value.toLocaleString()}
+            </p>
+          )}
         </div>
         <div
           className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}
@@ -1595,17 +1592,7 @@ export default function AdminDashboard() {
     </div>
   );
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
-          <p className="text-[#01312D]">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
+  const isLoading = loading || refreshing;
   const filteredDrivers = drivers.filter(
     (driver) =>
       driver.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1700,6 +1687,7 @@ export default function AdminDashboard() {
             icon={Wallet}
             color="bg-[#01312D]"
             prefix="R"
+            loading={isLoading}
           />
           <StatCard
             title="Money Paid Back"
@@ -1707,6 +1695,7 @@ export default function AdminDashboard() {
             icon={PiggyBank}
             color="bg-[#3A7717]"
             prefix="R"
+            loading={isLoading}
           />
           <StatCard
             title="Interest Paid"
@@ -1714,6 +1703,7 @@ export default function AdminDashboard() {
             icon={TrendingUp}
             color="bg-[#72bf00]"
             prefix="R"
+            loading={isLoading}
           />
           <StatCard
             title="Unpaid Interest"
@@ -1721,6 +1711,7 @@ export default function AdminDashboard() {
             icon={TrendingDown}
             color="bg-amber-500"
             prefix="R"
+            loading={isLoading}
           />
         </div>
       </div>
@@ -1740,24 +1731,28 @@ export default function AdminDashboard() {
           value={stats.totalDrivers}
           icon={Users}
           color="bg-[#01312D]"
+          loading={isLoading}
         />
         <StatCard
           title="Pending Verifications"
           value={stats.pendingVerifications}
           icon={Clock}
           color="bg-yellow-500"
+          loading={isLoading}
         />
         <StatCard
           title="Pending Requests"
           value={stats.pendingRequests}
           icon={ClipboardList}
           color="bg-[#72bf00]"
+          loading={isLoading}
         />
         <StatCard
           title="Completed Requests"
           value={stats.completedRequests}
           icon={CheckCircle}
           color="bg-[#3A7717]"
+          loading={isLoading}
         />
       </div>
 
@@ -1791,7 +1786,17 @@ export default function AdminDashboard() {
               </p>
             </div>
             <div className="divide-y divide-[#bff202]/10">
-              {recentVerifications.length === 0 ? (
+              {loading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="p-4 flex items-center justify-between">
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                    <Skeleton className="h-8 w-20 rounded-lg" />
+                  </div>
+                ))
+              ) : recentVerifications.length === 0 ? (
                 <div className="p-8 text-center">
                   <p className="text-gray-500 text-sm">
                     No pending verifications
@@ -1834,7 +1839,17 @@ export default function AdminDashboard() {
               </p>
             </div>
             <div className="divide-y divide-[#bff202]/10">
-              {recentRequests.filter((r) => r.status === "pending").length ===
+              {loading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="p-4 flex items-center justify-between">
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                    <Skeleton className="h-8 w-20 rounded-lg" />
+                  </div>
+                ))
+              ) : recentRequests.filter((r) => r.status === "pending").length ===
               0 ? (
                 <div className="p-8 text-center">
                   <p className="text-gray-500 text-sm">No pending requests</p>
@@ -1914,57 +1929,71 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#bff202]/10">
-                  {filteredDrivers.map((driver) => (
-                    <tr
-                      key={driver.id}
-                      className="hover:bg-[#eafde7] transition-colors cursor-pointer"
-                      onClick={() => {
-                        setSelectedDriver(driver);
-                        setShowDriverModal(true);
-                      }}
-                    >
-                      <td className="p-4">
-                        <p className="font-semibold text-[#01312D]">
-                          {driver.name}
-                        </p>
-                        <p className="text-xs text-gray-500">{driver.email}</p>
-                      </td>
-                      <td className="p-4">
-                        <p className="text-sm font-medium text-[#01312D]">
-                          {driver.carModel}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {driver.carRegistration}
-                        </p>
-                      </td>
-                      <td className="p-4">
-                        {getStatusBadge(driver.verificationStatus)}
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-1">
-                          <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                          <span className="font-bold text-[#01312D]">
-                            {driver.rating ? driver.rating.toFixed(1) : "N/A"}
+                  {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i}>
+                        <td className="p-4"><Skeleton className="h-4 w-32" /></td>
+                        <td className="p-4"><Skeleton className="h-4 w-24" /></td>
+                        <td className="p-4"><Skeleton className="h-6 w-20 rounded-lg" /></td>
+                        <td className="p-4"><Skeleton className="h-4 w-12" /></td>
+                        <td className="p-4"><Skeleton className="h-4 w-8" /></td>
+                        <td className="p-4"><Skeleton className="h-4 w-16" /></td>
+                        <td className="p-4"><Skeleton className="h-8 w-16 rounded-lg" /></td>
+                      </tr>
+                    ))
+                  ) : (
+                    filteredDrivers.map((driver) => (
+                      <tr
+                        key={driver.id}
+                        className="hover:bg-[#eafde7] transition-colors cursor-pointer"
+                        onClick={() => {
+                          setSelectedDriver(driver);
+                          setShowDriverModal(true);
+                        }}
+                      >
+                        <td className="p-4">
+                          <p className="font-semibold text-[#01312D]">
+                            {driver.name}
+                          </p>
+                          <p className="text-xs text-gray-500">{driver.email}</p>
+                        </td>
+                        <td className="p-4">
+                          <p className="text-sm font-medium text-[#01312D]">
+                            {driver.carModel}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {driver.carRegistration}
+                          </p>
+                        </td>
+                        <td className="p-4">
+                          {getStatusBadge(driver.verificationStatus)}
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-1">
+                            <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                            <span className="font-bold text-[#01312D]">
+                              {driver.rating ? driver.rating.toFixed(1) : "N/A"}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <span className="font-semibold text-[#01312D]">
+                            {driver.totalRequests || 0}
                           </span>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <span className="font-semibold text-[#01312D]">
-                          {driver.totalRequests || 0}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <span className="font-semibold text-[#3A7717]">
-                          R{(driver.totalSpent || 0).toLocaleString()}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <button className="px-3 py-1.5 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center gap-1">
-                          <Eye className="w-4 h-4" /> View
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="p-4">
+                          <span className="font-semibold text-[#3A7717]">
+                            R{(driver.totalSpent || 0).toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <button className="px-3 py-1.5 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center gap-1">
+                            <Eye className="w-4 h-4" /> View
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
