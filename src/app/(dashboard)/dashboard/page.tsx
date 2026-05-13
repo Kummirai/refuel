@@ -27,6 +27,7 @@ import {
   ClipboardList,
   UserCircle,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function DriverDashboard() {
   const router = useRouter();
@@ -216,7 +217,7 @@ export default function DriverDashboard() {
     }
   };
 
-  if (isPending || loading) {
+  if (isPending) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -268,9 +269,13 @@ export default function DriverDashboard() {
                 <History className="w-4 h-4 text-[#3A7717]" />
               </div>
             </div>
-            <p className="text-xl font-bold text-[#01312D]">
-              {stats.totalRequests}
-            </p>
+            {(loading || refreshing) ? (
+              <Skeleton className="h-7 w-16" />
+            ) : (
+              <div className="text-xl font-bold text-[#01312D]">
+                {stats.totalRequests}
+              </div>
+            )}
             <p className="text-xs text-gray-500">Total Requests</p>
           </div>
 
@@ -280,9 +285,13 @@ export default function DriverDashboard() {
                 <Wallet className="w-4 h-4 text-[#3A7717]" />
               </div>
             </div>
-            <p className="text-xl font-bold text-[#01312D]">
-              R{stats.totalSpent.toLocaleString()}
-            </p>
+            {(loading || refreshing) ? (
+              <Skeleton className="h-7 w-16" />
+            ) : (
+              <div className="text-xl font-bold text-[#01312D]">
+                R{stats.totalSpent.toLocaleString()}
+              </div>
+            )}
             <p className="text-xs text-gray-500">Total Spent</p>
           </div>
 
@@ -292,9 +301,13 @@ export default function DriverDashboard() {
                 <TrendingUp className="w-4 h-4 text-[#3A7717]" />
               </div>
             </div>
-            <p className="text-xl font-bold text-[#01312D]">
-              {stats.activeLoans}
-            </p>
+            {(loading || refreshing) ? (
+              <Skeleton className="h-7 w-16" />
+            ) : (
+              <div className="text-xl font-bold text-[#01312D]">
+                {stats.activeLoans}
+              </div>
+            )}
             <p className="text-xs text-gray-500">Active Loans</p>
           </div>
 
@@ -304,9 +317,13 @@ export default function DriverDashboard() {
                 <Star className="w-4 h-4 text-[#3A7717]" />
               </div>
             </div>
-            <p className="text-xl font-bold text-[#01312D]">
-              {stats.rating || "N/A"}
-            </p>
+            {(loading || refreshing) ? (
+              <Skeleton className="h-7 w-16" />
+            ) : (
+              <div className="text-xl font-bold text-[#01312D]">
+                {stats.rating || "N/A"}
+              </div>
+            )}
             <p className="text-xs text-gray-500">Rating</p>
           </div>
         </div>
@@ -334,7 +351,7 @@ export default function DriverDashboard() {
         </div>
 
         {/* Active Loan Banner */}
-        {activeLoan && (
+        {activeLoan || loading ? (
           <div className="bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-2xl p-4 shadow-lg mb-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-bold text-[#01312D]">Active Loan</h3>
@@ -343,40 +360,63 @@ export default function DriverDashboard() {
               </span>
             </div>
             <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-[#01312D]">Loan Amount</span>
-                <span className="font-bold text-[#01312D]">
-                  R{activeLoan.amount?.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-[#01312D]">Remaining</span>
-                <span className="font-bold text-[#01312D]">
-                  R{activeLoan.remaining?.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-[#01312D]">Next Payment</span>
-                <span className="font-semibold text-[#01312D]">
-                  R{activeLoan.dailyPayment?.toLocaleString()}
-                </span>
-              </div>
-              <div className="mt-2">
-                <div className="bg-[#01312D]/20 rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-[#01312D] h-2 rounded-full"
-                    style={{
-                      width: `${((activeLoan.amount - activeLoan.remaining) / activeLoan.amount) * 100}%`,
-                    }}
-                  ></div>
-                </div>
-                <button className="w-full mt-3 bg-[#01312D] text-white py-2 rounded-xl font-semibold text-sm">
-                  Make Payment
-                </button>
-              </div>
+              {loading ? (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-[#01312D]">Loan Amount</span>
+                    <Skeleton className="h-5 w-20" />
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-[#01312D]">Remaining</span>
+                    <Skeleton className="h-5 w-20" />
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-[#01312D]">Next Payment</span>
+                    <Skeleton className="h-5 w-20" />
+                  </div>
+                  <div className="mt-2">
+                    <Skeleton className="h-2 w-full rounded-full" />
+                    <Skeleton className="h-10 w-full mt-3 rounded-xl" />
+                  </div>
+                </>
+              ) : activeLoan ? (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-[#01312D]">Loan Amount</span>
+                    <span className="font-bold text-[#01312D]">
+                      R{activeLoan.amount?.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-[#01312D]">Remaining</span>
+                    <span className="font-bold text-[#01312D]">
+                      R{activeLoan.remaining?.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-[#01312D]">Next Payment</span>
+                    <span className="font-semibold text-[#01312D]">
+                      R{activeLoan.dailyPayment?.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="mt-2">
+                    <div className="bg-[#01312D]/20 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-[#01312D] h-2 rounded-full"
+                        style={{
+                          width: `${((activeLoan.amount - activeLoan.remaining) / activeLoan.amount) * 100}%`,
+                        }}
+                      ></div>
+                    </div>
+                    <button className="w-full mt-3 bg-[#01312D] text-white py-2 rounded-xl font-semibold text-sm">
+                      Make Payment
+                    </button>
+                  </div>
+                </>
+              ) : null}
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Quick Actions - Only Fuel and Car Wash */}
         <div className="mb-6">
@@ -430,7 +470,27 @@ export default function DriverDashboard() {
             </button>
           </div>
 
-          {recentRequests.length === 0 ? (
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="w-10 h-10 rounded-xl" />
+                      <div>
+                        <Skeleton className="h-4 w-24 mb-1" />
+                        <Skeleton className="h-3 w-20" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-6 w-20 rounded-lg" />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <Skeleton className="h-6 w-16" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : recentRequests.length === 0 ? (
             <div className="bg-white rounded-2xl p-8 text-center shadow-sm border border-[#bff202]/20">
               <Activity className="w-12 h-12 text-gray-400 mx-auto mb-3" />
               <p className="text-gray-500">No requests yet</p>

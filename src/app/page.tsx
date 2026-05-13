@@ -15,7 +15,6 @@ import {
   Shield,
   ChevronRight,
   Zap,
-  ThumbsUp,
   Truck,
   Headphones,
   Sparkles,
@@ -31,8 +30,8 @@ import {
   History,
   UserCircle,
   Calendar,
-  CreditCard,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function HomePage() {
   const router = useRouter();
@@ -285,7 +284,7 @@ export default function HomePage() {
     );
   };
 
-  if (loading || isPending) {
+  if (isPending) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -298,6 +297,7 @@ export default function HomePage() {
 
   const isLoggedIn = !!session;
   const isAdmin = userRole === "admin";
+  const showSkeleton = loading && isLoggedIn;
 
   return (
     <div className="min-h-screen bg-[#eafde7] relative overflow-hidden">
@@ -359,17 +359,25 @@ export default function HomePage() {
             <div className="mt-4 bg-white/80 rounded-2xl p-4 shadow-sm border border-[#bff202]/20 backdrop-blur-sm">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm text-[#01312D] flex items-center gap-1">
+                  <div className="text-sm text-[#01312D] flex items-center gap-1">
                     Welcome back,{" "}
-                    <span className="font-bold text-lg">
-                      {session?.user?.name?.split(" ")[0] || "Driver"}!
-                    </span>
-                  </p>
+                    {showSkeleton ? (
+                      <Skeleton className="h-6 w-24 inline-block" />
+                    ) : (
+                      <span className="font-bold text-lg">
+                        {session?.user?.name?.split(" ")[0] || "Driver"}!
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-[#3A7717] font-medium mt-0.5 opacity-80">
                     Manage your services & track earnings
                   </p>
                 </div>
-                {userProfile?.rating !== undefined && (
+                {showSkeleton ? (
+                  <div className="bg-[#bff202]/20 px-3 py-2 rounded-xl flex flex-col items-center justify-center border border-[#bff202]/30 min-w-[70px]">
+                    <Skeleton className="h-5 w-16" />
+                  </div>
+                ) : userProfile?.rating !== undefined ? (
                   <div className="bg-[#bff202]/20 px-3 py-2 rounded-xl flex flex-col items-center justify-center border border-[#bff202]/30 min-w-[70px]">
                     <div className="flex items-center gap-1 mb-0.5">
                       <Star className="w-4 h-4 text-[#3A7717] fill-[#3A7717]" />
@@ -381,7 +389,7 @@ export default function HomePage() {
                       Reliability
                     </span>
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
           )}
@@ -460,7 +468,20 @@ export default function HomePage() {
         <DocumentsSubmittedBadge />
 
         {/* VERIFICATION STATUS BADGE */}
-        {isLoggedIn && !isAdmin && <VerificationStatusBadge />}
+        {isLoggedIn && !isAdmin && (showSkeleton ? (
+          <div className="rounded-2xl p-4 border border-[#bff202]/20 mb-6">
+            <div className="flex items-center gap-3">
+              <Skeleton className="w-10 h-10 rounded-full shrink-0" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-64" />
+              </div>
+              <Skeleton className="h-9 w-28 rounded-lg shrink-0" />
+            </div>
+          </div>
+        ) : (
+          <VerificationStatusBadge />
+        ))}
 
         {/* Available Services Section */}
         {(!isLoggedIn || (isLoggedIn && !isAdmin)) && (

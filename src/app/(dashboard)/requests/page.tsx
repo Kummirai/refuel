@@ -30,6 +30,7 @@ import {
   Calendar,
   Ban,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 type ServiceType = "fuel" | "carwash";
 
@@ -657,7 +658,9 @@ function RequestsPageContent() {
     }
   };
 
-  if (isPending || fetchingDetails || settingsLoading) {
+  const isLoadingInitial = fetchingDetails || settingsLoading;
+
+  if (isPending) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -673,6 +676,21 @@ function RequestsPageContent() {
   }
 
   const statusDisplay = getVerificationStatusDisplay();
+
+  if (isLoadingInitial) {
+    return (
+      <div className="min-h-screen bg-[#eafde7] px-5 py-8">
+        <div className="max-w-lg mx-auto space-y-6">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-40 w-full rounded-2xl" />
+          <Skeleton className="h-14 w-full rounded-xl" />
+          <Skeleton className="h-14 w-full rounded-xl" />
+          <Skeleton className="h-14 w-full rounded-xl" />
+          <Skeleton className="h-12 w-full rounded-xl" />
+        </div>
+      </div>
+    );
+  }
 
   if (driverDetails.verificationStatus !== "approved") {
     return (
@@ -1101,10 +1119,14 @@ export default function RequestsPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
-          <div className="text-center">
-            <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
-            <p className="text-[#01312D]">Loading...</p>
+        <div className="min-h-screen bg-[#eafde7] px-5 py-8">
+          <div className="max-w-lg mx-auto space-y-6">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-40 w-full rounded-2xl" />
+            <Skeleton className="h-14 w-full rounded-xl" />
+            <Skeleton className="h-14 w-full rounded-xl" />
+            <Skeleton className="h-14 w-full rounded-xl" />
+            <Skeleton className="h-12 w-full rounded-xl" />
           </div>
         </div>
       }
