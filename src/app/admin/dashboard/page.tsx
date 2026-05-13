@@ -177,8 +177,10 @@ export default function AdminDashboard() {
     const queryParams = new URLSearchParams();
     const effectiveFrom = from || appliedFrom;
     const effectiveTo = to || appliedTo;
-    if (effectiveFrom) queryParams.set("from", new Date(effectiveFrom).toISOString());
-    if (effectiveTo) queryParams.set("to", new Date(effectiveTo + "T23:59:59").toISOString());
+    if (effectiveFrom)
+      queryParams.set("from", new Date(effectiveFrom).toISOString());
+    if (effectiveTo)
+      queryParams.set("to", new Date(effectiveTo + "T23:59:59").toISOString());
     const queryString = queryParams.toString();
 
     try {
@@ -218,7 +220,8 @@ export default function AdminDashboard() {
           const interest = request.interest || Math.round(amount * 0.13);
           const totalRepayable = request.totalRepayable || amount + interest;
           const repaidAmount = request.repaidAmount || 0;
-          const remainingBalance = request.remainingBalance || (totalRepayable - repaidAmount);
+          const remainingBalance =
+            request.remainingBalance || totalRepayable - repaidAmount;
           const isPaid = request.isPaid || remainingBalance <= 0;
 
           if (isPaid) {
@@ -1636,7 +1639,7 @@ export default function AdminDashboard() {
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-[#3A7717] animate-pulse" />
           <span className="text-xs font-bold uppercase tracking-wider text-[#3A7717]">
-            Filtered Metrics
+            Set Dates to check financials
           </span>
         </div>
 
@@ -1651,10 +1654,10 @@ export default function AdminDashboard() {
                 type="date"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
-                className="px-3 py-2 border border-[#bff202]/30 rounded-lg text-sm focus:outline-none focus:border-[#72bf00] bg-white"
+                className="px-3 py-2 border border-[#bff202]/70 rounded-lg text-sm focus:outline-none focus:border-[#72bf00] bg-white"
               />
             </div>
-            <div>
+            <div className="grid">
               <label className="block text-xs font-semibold text-gray-500 mb-1">
                 To
               </label>
@@ -1662,28 +1665,30 @@ export default function AdminDashboard() {
                 type="date"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
-                className="px-3 py-2 border border-[#bff202]/30 rounded-lg text-sm focus:outline-none focus:border-[#72bf00] bg-white"
+                className="px-3 w-full py-2 border border-[#bff202]/70 rounded-lg text-sm focus:outline-none focus:border-[#72bf00] bg-white"
               />
             </div>
-            <button
-              onClick={handleApplyDateRange}
-              className="px-4 py-2 bg-[#01312D] text-white rounded-lg text-sm font-semibold hover:bg-[#3A7717] transition-colors"
-            >
-              Apply
-            </button>
-            <button
-              onClick={() => {
-                setFromDate("");
-                setToDate("");
-                setAppliedFrom("");
-                setAppliedTo("");
-                setLoading(true);
-                fetchDashboardData();
-              }}
-              className="px-4 py-2 bg-gray-200 text-[#01312D] rounded-lg text-sm font-semibold hover:bg-gray-300 transition-colors"
-            >
-              Clear
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={handleApplyDateRange}
+                className="px-5 py-2 bg-[#01312D] text-white rounded-lg text-sm font-semibold hover:bg-[#3A7717] transition-colors"
+              >
+                Apply
+              </button>
+              <button
+                onClick={() => {
+                  setFromDate("");
+                  setToDate("");
+                  setAppliedFrom("");
+                  setAppliedTo("");
+                  setLoading(true);
+                  fetchDashboardData();
+                }}
+                className="px-5 py-2 bg-gray-200 text-[#01312D] rounded-lg text-sm font-semibold hover:bg-gray-300 transition-colors"
+              >
+                Clear
+              </button>
+            </div>
           </div>
         </div>
 
