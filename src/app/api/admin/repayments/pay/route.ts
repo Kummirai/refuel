@@ -43,18 +43,37 @@ export async function POST(request: Request) {
     await loanPaymentsCollection.insertOne({
       _id: paymentId,
       loanId: repaymentId,
-      amount: amount,
-      paymentDate: paymentDate,
+      amount,
+      paymentDate,
       method: method || "cash",
       reference: reference || null,
       remainingBalance: Math.max(0, totalRepayable - newRepaid),
+      uploadedByAdmin: true,
       createdAt: new Date(),
       ...(proofUrl && { proofUrl, proofPublicId }),
     });
 
-    // 2. Update the repayment request status if it exists and is now fully paid
+    // 2. If proof was provided, also create a repaymentProofs record (so driver can see it)
+    if (proofUrl) {
+      const repaymentsCollection = db.collection("repaymentProofs");
+      await repaymentsCollection.insertOne({
+        requestId: repaymentId,
+        userId: loan.userId || "admin",
+        amount,
+        remainingBalance: Math.max(0, totalRepayable - newRepaid),
+        isFullyPaid,
+        proofUrl,
+        proofPublicId: proofPublicId || null,
+        status: "approved",
+        submittedAt: new Date(),
+        updatedAt: new Date(),
+        approvedAt: new Date(),
+        approvedBy: "admin",
+      });
+    }
+
+    // 3. Update the repayment request status if it exists and is now fully paid
     if (isFullyPaid) {
-      // Find and update any pending repayment request for this loan
       const repaymentRequest = await repaymentRequestsCollection.findOne({
         requestId: repaymentId,
         status: "pending",
@@ -96,11 +115,11 @@ export async function POST(request: Request) {
         $push: {
           payments: {
             id: paymentId.toString(),
-            amount: amount,
+            amount,
             date: paymentDate,
             method: method || "cash",
             reference: reference || null,
-            ...(proofUrl && { proofUrl }),
+            ...(proofUrl && { proofUrl, proofPublicId }),
           },
         },
       },

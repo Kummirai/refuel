@@ -1,8 +1,9 @@
 // src/app/admin/repayments/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { compressImage } from "@/lib/utils/image-compression";
 import {
   DollarSign,
   CheckCircle,
@@ -31,6 +32,8 @@ import {
   FileText,
   Hourglass,
   ArrowDown,
+  Upload,
+  X,
 } from "lucide-react";
 
 interface Repayment {
@@ -117,6 +120,135 @@ export default function LoanRepaymentsPage() {
   );
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+
+  // Admin submits repayment for driver states
+  const [showRepaymentUploadModal, setShowRepaymentUploadModal] = useState(false);
+  const [repaymentUploadRepayment, setRepaymentUploadRepayment] = useState<Repayment | null>(null);
+  const [repaymentUploadAmount, setRepaymentUploadAmount] = useState("");
+  const [repaymentUploadFile, setRepaymentUploadFile] = useState<File | null>(null);
+  const [repaymentUploadProofUrl, setRepaymentUploadProofUrl] = useState("");
+  const [repaymentUploadProofPublicId, setRepaymentUploadProofPublicId] = useState("");
+  const [repaymentUploadLoading, setRepaymentUploadLoading] = useState(false);
+  const [repaymentUploadMethod, setRepaymentUploadMethod] = useState("cash");
+  const repaymentFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleRepaymentFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setErrorMessage("Please upload an image file");
+      setShowErrorModal(true);
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMessage("File size must be less than 10MB");
+      setShowErrorModal(true);
+      return;
+    }
+
+    setRepaymentUploadLoading(true);
+
+    try {
+      const compressedBlob = await compressImage(file);
+      const compressedFile = new File([compressedBlob], file.name, {
+        type: compressedBlob.type || file.type,
+      });
+
+      const formData = new FormData();
+      formData.append("file", compressedFile);
+      formData.append("type", "repayment");
+      formData.append("requestId", repaymentUploadRepayment?.id || "");
+
+      const response = await fetch("/api/driver/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Upload failed");
+      }
+
+      setRepaymentUploadProofUrl(data.url);
+      setRepaymentUploadProofPublicId(data.publicId);
+    } catch (err: any) {
+      console.error("Upload error:", err);
+      setErrorMessage(err.message || "Upload failed. Please try again.");
+      setShowErrorModal(true);
+    } finally {
+      setRepaymentUploadLoading(false);
+      if (repaymentFileInputRef.current) {
+        repaymentFileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleSubmitRepaymentForDriver = async () => {
+    if (!repaymentUploadRepayment) return;
+
+    const amount = parseFloat(repaymentUploadAmount);
+    if (!amount || amount <= 0) {
+      setErrorMessage("Please enter a valid repayment amount");
+      setShowErrorModal(true);
+      return;
+    }
+
+    if (amount > repaymentUploadRepayment.remainingAmount) {
+      setErrorMessage(`Amount cannot exceed remaining balance of R${repaymentUploadRepayment.remainingAmount.toLocaleString()}`);
+      setShowErrorModal(true);
+      return;
+    }
+
+    if (!repaymentUploadProofUrl) {
+      setErrorMessage("Please upload proof of repayment");
+      setShowErrorModal(true);
+      return;
+    }
+
+    setRepaymentUploadLoading(true);
+
+    try {
+      const response = await fetch("/api/admin/repayments/pay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          repaymentId: repaymentUploadRepayment.id,
+          amount,
+          method: repaymentUploadMethod,
+          date: new Date().toISOString().split("T")[0],
+          proofUrl: repaymentUploadProofUrl,
+          proofPublicId: repaymentUploadProofPublicId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to record repayment");
+      }
+
+      setSuccessMessage(
+        `✅ Repayment of R${amount.toLocaleString()} recorded successfully for ${repaymentUploadRepayment.driverName}! Remaining: R${data.remainingBalance.toLocaleString()}`,
+      );
+      setShowSuccessModal(true);
+      fetchRepayments();
+      setShowRepaymentUploadModal(false);
+      setRepaymentUploadRepayment(null);
+      setRepaymentUploadAmount("");
+      setRepaymentUploadFile(null);
+      setRepaymentUploadProofUrl("");
+      setRepaymentUploadProofPublicId("");
+    } catch (err: any) {
+      console.error("Repayment error:", err);
+      setErrorMessage(err.message || "Failed to record repayment");
+      setShowErrorModal(true);
+    } finally {
+      setRepaymentUploadLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchRepayments();
@@ -1663,6 +1795,23 @@ export default function LoanRepaymentsPage() {
                         <Banknote className="w-4 h-4" />
                         {!isCompleted ? "Record Payment" : "View Details"}
                       </button>
+                      {!isCompleted && (
+                        <button
+                          onClick={() => {
+                            setRepaymentUploadRepayment(repayment);
+                            setRepaymentUploadAmount(repayment.dailyPayment.toString());
+                            setRepaymentUploadMethod("cash");
+                            setRepaymentUploadFile(null);
+                            setRepaymentUploadProofUrl("");
+                            setRepaymentUploadProofPublicId("");
+                            setShowRepaymentUploadModal(true);
+                          }}
+                          className="flex-1 py-2 bg-[#01312D] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-colors"
+                        >
+                          <Upload className="w-4 h-4" />
+                          Upload for Driver
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1671,6 +1820,204 @@ export default function LoanRepaymentsPage() {
           })
         )}
       </div>
+
+      {/* Submit Repayment for Driver Modal */}
+      {showRepaymentUploadModal && repaymentUploadRepayment && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !repaymentUploadLoading && setShowRepaymentUploadModal(false)} />
+          <div className="relative bg-white rounded-[2rem] max-w-lg w-full max-h-[95vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <Upload className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Submit Repayment for Driver</h2>
+                    <p className="text-white/80 text-sm">For elderly or disabled drivers</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowRepaymentUploadModal(false)}
+                  className="p-1 hover:bg-white/20 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
+                <p className="text-xs text-yellow-800">Use this form to submit a repayment on behalf of a driver who is unable to do so themselves (e.g., elderly or disabled drivers). The repayment proof will be recorded as admin-verified.</p>
+              </div>
+
+              {/* Driver Info */}
+              <div className="bg-[#eafde7] rounded-xl p-4">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Driver:</span>
+                    <span className="font-semibold text-[#01312D]">{repaymentUploadRepayment.driverName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Vehicle:</span>
+                    <span className="font-semibold text-[#01312D]">{repaymentUploadRepayment.carRegistration}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Service:</span>
+                    <span className="font-semibold text-[#01312D]">{repaymentUploadRepayment.serviceTypeLabel}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Outstanding:</span>
+                    <span className="font-bold text-red-600">R{repaymentUploadRepayment.remainingAmount.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Repayment Amount */}
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                  Repayment Amount (R) <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#72bf00]" />
+                  <input
+                    type="number"
+                    value={repaymentUploadAmount}
+                    onChange={(e) => setRepaymentUploadAmount(e.target.value)}
+                    placeholder="Enter repayment amount"
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] text-base"
+                    max={repaymentUploadRepayment.remainingAmount}
+                  />
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => setRepaymentUploadAmount(repaymentUploadRepayment.dailyPayment.toString())}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${
+                      parseFloat(repaymentUploadAmount) === repaymentUploadRepayment.dailyPayment
+                        ? "bg-[#bff202] border-[#bff202] text-[#01312D]"
+                        : "bg-white border-gray-200 text-gray-500"
+                    }`}
+                  >
+                    Daily (R{repaymentUploadRepayment.dailyPayment})
+                  </button>
+                  <button
+                    onClick={() => setRepaymentUploadAmount((repaymentUploadRepayment.dailyPayment * 7).toString())}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${
+                      parseFloat(repaymentUploadAmount) === repaymentUploadRepayment.dailyPayment * 7
+                        ? "bg-[#bff202] border-[#bff202] text-[#01312D]"
+                        : "bg-white border-gray-200 text-gray-500"
+                    }`}
+                  >
+                    Weekly
+                  </button>
+                  <button
+                    onClick={() => setRepaymentUploadAmount(repaymentUploadRepayment.remainingAmount.toString())}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${
+                      parseFloat(repaymentUploadAmount) === repaymentUploadRepayment.remainingAmount
+                        ? "bg-[#bff202] border-[#bff202] text-[#01312D]"
+                        : "bg-white border-gray-200 text-gray-500"
+                    }`}
+                  >
+                    Full Balance
+                  </button>
+                </div>
+              </div>
+
+              {/* Payment Method */}
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-2 text-sm">Payment Method</label>
+                <select
+                  value={repaymentUploadMethod}
+                  onChange={(e) => setRepaymentUploadMethod(e.target.value)}
+                  className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] text-base"
+                >
+                  <option value="cash">Cash</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="mobile_money">Mobile Money</option>
+                  <option value="card">Card</option>
+                </select>
+              </div>
+
+              {/* Proof Upload */}
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                  Proof of Repayment <span className="text-red-500">*</span>
+                </label>
+
+                <input
+                  ref={repaymentFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleRepaymentFileSelect}
+                  className="hidden"
+                />
+
+                {!repaymentUploadProofUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => repaymentFileInputRef.current?.click()}
+                    disabled={repaymentUploadLoading}
+                    className="w-full border-2 border-dashed border-[#bff202]/30 rounded-xl p-8 text-center hover:border-[#72bf00] transition-colors disabled:opacity-50"
+                  >
+                    {repaymentUploadLoading ? (
+                      <>
+                        <Loader2 className="w-12 h-12 text-[#72bf00] mx-auto mb-3 animate-spin" />
+                        <p className="text-sm text-[#01312D] font-semibold">Compressing & uploading...</p>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-12 h-12 text-[#72bf00] mx-auto mb-3" />
+                        <p className="text-sm text-[#01312D] font-semibold">Click to upload proof of repayment</p>
+                        <p className="text-xs text-gray-500 mt-1">JPG or PNG (automatically compressed)</p>
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <div className="relative bg-[#eafde7] rounded-xl p-4">
+                    <img
+                      src={repaymentUploadProofUrl}
+                      alt="Proof Preview"
+                      className="w-full h-40 object-cover rounded-lg"
+                    />
+                    <button
+                      onClick={() => {
+                        setRepaymentUploadProofUrl("");
+                        setRepaymentUploadProofPublicId("");
+                      }}
+                      className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-gray-100 p-6 flex gap-3">
+              <button
+                onClick={() => setShowRepaymentUploadModal(false)}
+                disabled={repaymentUploadLoading}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitRepaymentForDriver}
+                disabled={repaymentUploadLoading || !repaymentUploadProofUrl || !repaymentUploadAmount}
+                className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                {repaymentUploadLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CheckCircle className="w-4 h-4" />
+                )}
+                Submit Repayment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       {showDetailsModal && selectedRepayment && (

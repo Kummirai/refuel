@@ -1700,14 +1700,14 @@ export default function AdminDashboard() {
             prefix="R"
           />
           <StatCard
-            title="Actual Interest"
+            title="Interest Paid"
             value={financialStats.actualInterest}
             icon={TrendingUp}
             color="bg-[#72bf00]"
             prefix="R"
           />
           <StatCard
-            title="Potential Interest"
+            title="Unpaid Interest"
             value={financialStats.potentialInterest}
             icon={TrendingDown}
             color="bg-amber-500"
