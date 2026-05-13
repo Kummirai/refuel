@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toPng } from "html-to-image";
+import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import {
   Users,
   ClipboardList,
@@ -125,6 +126,9 @@ export default function AdminDashboard() {
   const [rejectType, setRejectType] = useState<"request" | "verification">(
     "request",
   );
+
+  const isAnyModalOpen = showSuccessModal || showErrorModal || showRejectModal;
+  useBodyScrollLock(isAnyModalOpen);
 
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -1700,14 +1704,14 @@ export default function AdminDashboard() {
             prefix="R"
           />
           <StatCard
-            title="Actual Interest"
+            title="Interest Paid"
             value={financialStats.actualInterest}
             icon={TrendingUp}
             color="bg-[#72bf00]"
             prefix="R"
           />
           <StatCard
-            title="Potential Interest"
+            title="Unpaid Interest"
             value={financialStats.potentialInterest}
             icon={TrendingDown}
             color="bg-amber-500"

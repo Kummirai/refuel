@@ -11,9 +11,6 @@
   "dependencies": {
     "@auth/mongodb-adapter": "^3.11.2",
     "@hookform/resolvers": "^5.2.2",
-    "@supabase/auth-helpers-nextjs": "^0.8.7",
-    "@supabase/ssr": "^0.10.2",
-    "@supabase/supabase-js": "^2.105.1",
     "bcryptjs": "^3.0.3",
     "better-auth": "^1.6.9",
     "cloudinary": "^2.10.0",

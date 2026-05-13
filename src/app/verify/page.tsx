@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { compressImage } from "@/lib/utils/image-compression";
 import {
   ArrowLeft,
   CheckCircle,
@@ -40,15 +41,22 @@ function UploadSection({
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const localObjectUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (localObjectUrlRef.current) {
+        URL.revokeObjectURL(localObjectUrlRef.current);
+      }
+    };
+  }, []);
 
   const handleFile = async (file: File) => {
-    // Validate file type
     if (!file.type.startsWith("image/")) {
       setError("Please upload an image file (JPEG, PNG, etc.)");
       return;
     }
 
-    // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       setError("File size must be less than 10MB");
       return;
@@ -57,13 +65,21 @@ function UploadSection({
     setError(null);
     setUploading(true);
 
-    // Create local preview immediately
-    const localPreview = URL.createObjectURL(file);
+    const compressedBlob = await compressImage(file);
+    const compressedFile = new File([compressedBlob], file.name, {
+      type: compressedBlob.type || file.type,
+    });
+
+    if (localObjectUrlRef.current) {
+      URL.revokeObjectURL(localObjectUrlRef.current);
+    }
+    const localPreview = URL.createObjectURL(compressedFile);
+    localObjectUrlRef.current = localPreview;
     setPreviewUrl(localPreview);
 
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", compressedFile);
       formData.append("type", type);
 
       const response = await fetch("/api/driver/upload", {
@@ -77,16 +93,20 @@ function UploadSection({
         throw new Error(data.error || "Upload failed");
       }
 
-      // Use data.url from the response
+      if (localObjectUrlRef.current) {
+        URL.revokeObjectURL(localObjectUrlRef.current);
+        localObjectUrlRef.current = null;
+      }
       setPreviewUrl(data.url);
       onUploadComplete(data.url, data.publicId);
     } catch (err: any) {
       console.error("Upload error:", err);
       setError(err.message || "Upload failed. Please try again.");
-      if (localPreview) {
-        URL.revokeObjectURL(localPreview);
-        setPreviewUrl(currentUrl || null);
+      if (localObjectUrlRef.current) {
+        URL.revokeObjectURL(localObjectUrlRef.current);
+        localObjectUrlRef.current = null;
       }
+      setPreviewUrl(currentUrl || null);
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -122,6 +142,10 @@ function UploadSection({
   };
 
   const handleRemove = () => {
+    if (localObjectUrlRef.current) {
+      URL.revokeObjectURL(localObjectUrlRef.current);
+      localObjectUrlRef.current = null;
+    }
     setPreviewUrl(null);
     onUploadComplete("", "");
     if (fileInputRef.current) {
@@ -425,7 +449,7 @@ export default function VerifyPage() {
       if (response.ok) {
         setSubmitSuccess(true);
         // Scroll to top to show success message
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        window.scrollTo({ top: 0 });
       } else {
         alert(data.error || "Failed to submit verification");
       }
@@ -440,10 +464,10 @@ export default function VerifyPage() {
   const nextStep = () => {
     if (step === 1 && isStep1Completed()) {
       setStep(2);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({ top: 0 });
     } else if (step === 2 && isStep2Completed()) {
       setStep(3);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({ top: 0 });
     } else if (step === 1 && !isStep1Completed()) {
       alert("Please fill in all required fields");
     } else if (step === 2 && !isStep2Completed()) {
@@ -453,7 +477,7 @@ export default function VerifyPage() {
 
   const prevStep = () => {
     setStep(step - 1);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0 });
   };
 
   // PENDING STATUS
@@ -473,12 +497,14 @@ export default function VerifyPage() {
           </p>
           <div className="flex gap-3">
             <button
+              type="button"
               onClick={() => router.push("/verify/status")}
               className="flex-1 bg-[#72bf00] text-white px-4 py-2 rounded-lg font-semibold"
             >
               Check Status
             </button>
             <button
+              type="button"
               onClick={() => router.push("/")}
               className="flex-1 bg-[#01312D] text-white px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2"
             >
@@ -534,6 +560,7 @@ export default function VerifyPage() {
             review your application within 24-48 hours.
           </p>
           <button
+            type="button"
             onClick={() => router.push("/")}
             className="bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white px-6 py-3 rounded-xl font-semibold"
           >
@@ -551,12 +578,13 @@ export default function VerifyPage() {
       <div className="bg-white border-b border-[#bff202]/20 sticky top-0 z-10">
         <div className="px-5 py-4">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.back()}
-              className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center"
-            >
-              <ArrowLeft className="w-5 h-5 text-[#01312D]" />
-            </button>
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center"
+              >
+                <ArrowLeft className="w-5 h-5 text-[#01312D]" />
+              </button>
             <div>
               <h1 className="text-xl font-bold text-[#01312D]">
                 Driver Verification
@@ -736,6 +764,7 @@ export default function VerifyPage() {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={nextStep}
                 disabled={!isStep1Completed()}
                 className="w-full bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50"
@@ -832,12 +861,14 @@ export default function VerifyPage() {
               </div>
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={prevStep}
                   className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold"
                 >
                   ← Back
                 </button>
                 <button
+                  type="button"
                   onClick={nextStep}
                   disabled={!isStep2Completed()}
                   className="flex-1 bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50"
@@ -906,12 +937,14 @@ export default function VerifyPage() {
 
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={prevStep}
                   className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold"
                 >
                   ← Back
                 </button>
                 <button
+                  type="button"
                   onClick={handleSubmit}
                   disabled={loading || !isStep3Completed()}
                   className="flex-1 bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-2"

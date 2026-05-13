@@ -52,6 +52,7 @@ export default function BottomNavigation({
           return (
             <button
               key={item.path}
+              type="button"
               onClick={() => router.push(item.path)}
               className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all duration-200 active:scale-95 active:bg-[#bff202]/20 touch-manipulation group relative"
               style={{ WebkitTapHighlightColor: "transparent" }}

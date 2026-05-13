@@ -1,8 +1,7 @@
 // src/components/RepaymentProofModal.tsx
 "use client";
 
-import { useState, useEffect } from "react";
-import { CldUploadWidget } from "next-cloudinary";
+import { useState, useEffect, useRef } from "react";
 import {
   DollarSign,
   Upload,
@@ -13,7 +12,8 @@ import {
   CheckCircle,
   X,
 } from "lucide-react";
-import type { CloudinaryUploadWidgetInfo } from "next-cloudinary";
+import { compressImage } from "@/lib/utils/image-compression";
+import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 
 interface RepaymentProofModalProps {
   isOpen: boolean;
@@ -24,8 +24,6 @@ interface RepaymentProofModalProps {
   totalRepayable: number;
   onSuccess: () => void;
 }
-
-const UPLOAD_PRESET = "driver_documents";
 
 export function RepaymentProofModal({
   isOpen,
@@ -44,6 +42,59 @@ export function RepaymentProofModal({
   const [error, setError] = useState("");
   const [newRemainingBalance, setNewRemainingBalance] =
     useState(remainingBalance);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setError("Please upload an image file");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError("File size must be less than 10MB");
+      return;
+    }
+
+    setUploading(true);
+    setError("");
+
+    try {
+      const compressedBlob = await compressImage(file);
+      const compressedFile = new File([compressedBlob], file.name, {
+        type: compressedBlob.type || file.type,
+      });
+
+      const formData = new FormData();
+      formData.append("file", compressedFile);
+      formData.append("type", "repayment");
+      formData.append("requestId", requestId);
+
+      const response = await fetch("/api/driver/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Upload failed");
+      }
+
+      setProofUrl(data.url);
+      setProofPublicId(data.publicId);
+    } catch (err: any) {
+      console.error("Upload error:", err);
+      setError(err.message || "Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
 
   useEffect(() => {
     const amountNum = parseFloat(repaymentAmount);
@@ -54,6 +105,8 @@ export function RepaymentProofModal({
       setNewRemainingBalance(remainingBalance);
     }
   }, [repaymentAmount, remainingBalance]);
+
+  useBodyScrollLock(isOpen);
 
   if (!isOpen) return null;
 
@@ -227,53 +280,41 @@ export function RepaymentProofModal({
             Upload Proof of Repayment <span className="text-red-500">*</span>
           </label>
 
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
           {!proofUrl ? (
-            <CldUploadWidget
-              uploadPreset={UPLOAD_PRESET}
-              onSuccess={(result) => {
-                const info = result.info as CloudinaryUploadWidgetInfo;
-                if (info) {
-                  setProofUrl(info.secure_url);
-                  setProofPublicId(info.public_id);
-                }
-                setUploading(false);
-              }}
-              onQueuesStart={() => setUploading(true)}
-              onError={() => {
-                setUploading(false);
-                setError("Upload failed. Please try again.");
-              }}
-              options={{
-                maxFileSize: 10485760,
-                clientAllowedFormats: ["jpg", "jpeg", "png", "pdf"],
-                folder: `Kapuka/repayments/${requestId}`,
-                resourceType: "auto",
-              }}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="w-full border-2 border-dashed border-[#BFF202]/30 rounded-xl p-8 text-center hover:border-[#72BF00] transition-colors disabled:opacity-50"
             >
-              {({ open }) => (
-                <button
-                  type="button"
-                  onClick={() => open()}
-                  disabled={uploading}
-                  className="w-full border-2 border-dashed border-[#BFF202]/30 rounded-xl p-8 text-center hover:border-[#72BF00] transition-colors disabled:opacity-50"
-                >
-                  {uploading ? (
-                    <Loader2 className="w-12 h-12 text-[#72BF00] mx-auto mb-3 animate-spin" />
-                  ) : (
-                    <Upload className="w-12 h-12 text-[#72BF00] mx-auto mb-3" />
-                  )}
+              {uploading ? (
+                <>
+                  <Loader2 className="w-12 h-12 text-[#72BF00] mx-auto mb-3 animate-spin" />
                   <p className="text-sm text-[#01312D] font-semibold">
-                    {uploading
-                      ? "Uploading..."
-                      : "Click to upload proof of repayment"}
+                    Compressing & uploading...
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Upload className="w-12 h-12 text-[#72BF00] mx-auto mb-3" />
+                  <p className="text-sm text-[#01312D] font-semibold">
+                    Click to upload proof of repayment
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
                     Bank transfer receipt, cash deposit slip, or payment
-                    confirmation (JPG, PNG, PDF, Max 5MB)
+                    confirmation (JPG or PNG, automatically compressed)
                   </p>
-                </button>
+                </>
               )}
-            </CldUploadWidget>
+            </button>
           ) : (
             <div className="relative bg-[#EAFDE7] rounded-xl p-4">
               {proofUrl.includes(".pdf") ? (

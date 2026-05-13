@@ -15,7 +15,7 @@ export default function PopularBrands() {
     <div className="mb-8">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold text-primary">Popular Brands</h2>
-        <button className="text-accent text-sm">See All</button>
+        <span className="text-accent text-sm">See All</span>
       </div>
 
       <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
