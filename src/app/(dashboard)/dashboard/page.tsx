@@ -79,17 +79,11 @@ export default function DriverDashboard() {
       const profileRes = await fetch(
         `/api/driver/profile?userId=${session?.user?.id}`,
       );
+      let profileRating = 0;
       if (profileRes.ok) {
         const profileData = await profileRes.json();
         setProfile(profileData);
-
-        // Update stats from profile
-        setStats((prev) => ({
-          ...prev,
-          totalRequests: profileData.totalRequests || 0,
-          totalSpent: profileData.totalSpent || 0,
-          rating: profileData.rating || 0,
-        }));
+        profileRating = profileData.rating || 0;
       }
 
       // Fetch user's service requests
@@ -100,7 +94,11 @@ export default function DriverDashboard() {
         const requestsData = await requestsRes.json();
         setRecentRequests(requestsData.slice(0, 5) || []);
 
-        // Calculate stats from requests
+        // Calculate stats from actual request data (not from profile)
+        const total = requestsData.length;
+        const totalSpent = requestsData
+          .filter((r: any) => r.status === "approved" || r.status === "sent" || r.status === "completed")
+          .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount), 0);
         const pending = requestsData.filter(
           (r: any) => r.status === "pending",
         ).length;
@@ -111,12 +109,14 @@ export default function DriverDashboard() {
           (r: any) => r.type === "cash" && r.status === "approved",
         ).length;
 
-        setStats((prev) => ({
-          ...prev,
+        setStats({
+          totalRequests: total,
+          totalSpent,
           pendingRequests: pending,
           completedRequests: completed,
           activeLoans: activeLoans,
-        }));
+          rating: profileRating,
+        });
       }
 
       // Fetch active loan
