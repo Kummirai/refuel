@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
+import { Readable } from "stream";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -43,22 +44,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
     const result = await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           folder: "kapuka/receipts/admin-upload",
           resource_type: "image",
-          transformation: [{ quality: "auto" }, { fetch_format: "auto" }],
+          transformation: [
+            { quality: "auto" },
+            { fetch_format: "auto" },
+            { width: 1920, crop: "limit" },
+          ],
         },
         (error, result) => {
           if (error) reject(error);
           else resolve(result);
         },
       );
-      uploadStream.end(buffer);
+      Readable.fromWeb(file.stream() as any).pipe(uploadStream);
     });
 
     const { db } = await connectToDatabase();

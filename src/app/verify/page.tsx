@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { compressImage } from "@/lib/utils/image-compression";
 import {
   ArrowLeft,
   CheckCircle,
@@ -40,15 +41,22 @@ function UploadSection({
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const localObjectUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (localObjectUrlRef.current) {
+        URL.revokeObjectURL(localObjectUrlRef.current);
+      }
+    };
+  }, []);
 
   const handleFile = async (file: File) => {
-    // Validate file type
     if (!file.type.startsWith("image/")) {
       setError("Please upload an image file (JPEG, PNG, etc.)");
       return;
     }
 
-    // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       setError("File size must be less than 10MB");
       return;
@@ -57,13 +65,21 @@ function UploadSection({
     setError(null);
     setUploading(true);
 
-    // Create local preview immediately
-    const localPreview = URL.createObjectURL(file);
+    const compressedBlob = await compressImage(file);
+    const compressedFile = new File([compressedBlob], file.name, {
+      type: compressedBlob.type || file.type,
+    });
+
+    if (localObjectUrlRef.current) {
+      URL.revokeObjectURL(localObjectUrlRef.current);
+    }
+    const localPreview = URL.createObjectURL(compressedFile);
+    localObjectUrlRef.current = localPreview;
     setPreviewUrl(localPreview);
 
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", compressedFile);
       formData.append("type", type);
 
       const response = await fetch("/api/driver/upload", {
@@ -77,16 +93,20 @@ function UploadSection({
         throw new Error(data.error || "Upload failed");
       }
 
-      // Use data.url from the response
+      if (localObjectUrlRef.current) {
+        URL.revokeObjectURL(localObjectUrlRef.current);
+        localObjectUrlRef.current = null;
+      }
       setPreviewUrl(data.url);
       onUploadComplete(data.url, data.publicId);
     } catch (err: any) {
       console.error("Upload error:", err);
       setError(err.message || "Upload failed. Please try again.");
-      if (localPreview) {
-        URL.revokeObjectURL(localPreview);
-        setPreviewUrl(currentUrl || null);
+      if (localObjectUrlRef.current) {
+        URL.revokeObjectURL(localObjectUrlRef.current);
+        localObjectUrlRef.current = null;
       }
+      setPreviewUrl(currentUrl || null);
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -122,6 +142,10 @@ function UploadSection({
   };
 
   const handleRemove = () => {
+    if (localObjectUrlRef.current) {
+      URL.revokeObjectURL(localObjectUrlRef.current);
+      localObjectUrlRef.current = null;
+    }
     setPreviewUrl(null);
     onUploadComplete("", "");
     if (fileInputRef.current) {

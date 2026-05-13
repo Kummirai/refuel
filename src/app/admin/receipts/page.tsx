@@ -1,8 +1,9 @@
 // src/app/admin/receipts/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { compressImage } from "@/lib/utils/image-compression";
 import {
   FileText,
   CheckCircle,
@@ -361,8 +362,13 @@ export default function AdminReceiptsPage() {
 
     setUploadLoading(true);
     try {
+      const compressedBlob = await compressImage(uploadFile);
+      const compressedFile = new File([compressedBlob], uploadFile.name, {
+        type: compressedBlob.type || uploadFile.type,
+      });
+
       const formData = new FormData();
-      formData.append("file", uploadFile);
+      formData.append("file", compressedFile);
       formData.append("requestId", selectedRequestId);
       formData.append("driverName", uploadDriverName);
       formData.append("driverEmail", uploadDriverEmail);

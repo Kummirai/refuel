@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const enrichedProofs = await Promise.all(
       proofs.map(async (proof: any) => {
         const serviceRequest = await serviceRequestsCollection.findOne({
-          id: proof.requestId,
+          _id: new ObjectId(proof.requestId),
         });
 
         let driver = null;
@@ -125,7 +125,7 @@ export async function PUT(request: NextRequest) {
 
     // Get service request and driver details for emails
     const serviceRequest = await serviceRequestsCollection.findOne({
-      id: proof.requestId,
+      _id: new ObjectId(proof.requestId),
     });
 
     let driver = null;
@@ -154,34 +154,15 @@ export async function PUT(request: NextRequest) {
       },
     );
 
-    // If approved, update the service request's repaid amount
+    // If approved, send email notification (financial updates handled by pay API)
     if (status === "approved") {
-      const currentRepaid = serviceRequest?.repaidAmount || 0;
-      const newRepaid = currentRepaid + proof.amount;
-      const totalRepayable =
-        serviceRequest?.totalRepayable || serviceRequest?.amount * 1.13;
-      const isFullyPaid = newRepaid >= totalRepayable;
-
-      await serviceRequestsCollection.updateOne(
-        { id: proof.requestId },
-        {
-          $set: {
-            repaidAmount: newRepaid,
-            remainingBalance: totalRepayable - newRepaid,
-            isPaid: isFullyPaid,
-            lastPaymentDate: new Date(),
-            ...(isFullyPaid && { paidDate: new Date() }),
-          },
-          $unset: {
-            hasPendingRepayment: "",
-            pendingRepaymentAmount: "",
-            pendingRepaymentId: "",
-          },
-        },
-      );
-
-      // Send approval email to driver
       if (driver?.email) {
+        const totalRepayable =
+          serviceRequest?.totalRepayable || serviceRequest?.amount * 1.13;
+        const currentRepaid = serviceRequest?.repaidAmount || 0;
+        const newRepaid = currentRepaid + proof.amount;
+        const isFullyPaid = newRepaid >= totalRepayable;
+
         await sendDriverRepaymentApprovalEmail({
           driverEmail: driver.email,
           driverName: driver.name || serviceRequest?.driverName || "Driver",
@@ -194,7 +175,6 @@ export async function PUT(request: NextRequest) {
           isFullyPaid: isFullyPaid,
         }).catch((err) => console.error("Failed to send approval email:", err));
 
-        // If fully paid, send completion email
         if (isFullyPaid) {
           await sendRepaymentCompletedEmail({
             driverEmail: driver.email,
@@ -230,7 +210,7 @@ export async function PUT(request: NextRequest) {
 
     // Clear pending repayment flag on the service request (if not already cleared)
     await serviceRequestsCollection.updateOne(
-      { id: proof.requestId },
+      { _id: new ObjectId(proof.requestId) },
       {
         $unset: {
           hasPendingRepayment: "",

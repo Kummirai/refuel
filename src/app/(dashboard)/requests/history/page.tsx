@@ -365,8 +365,8 @@ export default function RequestHistoryPage() {
       )
       .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount), 0),
     totalOutstanding: requests
-      .filter((r) => (r.totalRepayable || 0) > 0)
-      .reduce((sum: number, r: any) => sum + (r.totalRepayable || 0), 0),
+      .filter((r) => (r.remainingBalance || 0) > 0)
+      .reduce((sum: number, r: any) => sum + (r.remainingBalance || 0), 0),
   };
 
   // Helper function to check if request needs receipt upload

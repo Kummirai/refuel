@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       paymentDate: paymentDate,
       method: method || "cash",
       reference: reference || null,
-      remainingBalance: totalRepayable - newRepaid,
+      remainingBalance: Math.max(0, totalRepayable - newRepaid),
       createdAt: new Date(),
       ...(proofUrl && { proofUrl, proofPublicId }),
     });
@@ -78,6 +78,7 @@ export async function POST(request: Request) {
     // 3. Update loan with new repaid amount
     const updateFields: any = {
       repaidAmount: newRepaid,
+      remainingBalance: Math.max(0, totalRepayable - newRepaid),
       lastPaymentDate: paymentDate,
     };
 

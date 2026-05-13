@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { compressImage } from "@/lib/utils/image-compression";
 import {
   User,
   Car,
@@ -210,12 +211,16 @@ export default function ProfilePage() {
     setUploadingPhoto(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("type", "profile");
-      formData.append("userId", session?.user?.id || "");
+      const compressedBlob = await compressImage(file);
+      const compressedFile = new File([compressedBlob], file.name, {
+        type: compressedBlob.type || file.type,
+      });
 
-      const response = await fetch("/api/upload", {
+      const formData = new FormData();
+      formData.append("file", compressedFile);
+      formData.append("type", "profilePhoto");
+
+      const response = await fetch("/api/driver/upload", {
         method: "POST",
         body: formData,
       });

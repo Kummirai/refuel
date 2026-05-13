@@ -9,7 +9,6 @@ import {
   Clock,
   XCircle,
   Search,
-  Eye,
   RefreshCw,
   TrendingUp,
   Wallet,
@@ -30,7 +29,6 @@ import {
   Smartphone,
   SprayCan,
   FileText,
-  ImageIcon,
   Hourglass,
   ArrowDown,
 } from "lucide-react";
@@ -93,9 +91,9 @@ interface RepaymentProof {
 
 export default function LoanRepaymentsPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"outstanding" | "paid" | "all">(
-    "outstanding",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "outstanding" | "paid" | "all" | "pendingProofs"
+  >("outstanding");
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -103,24 +101,17 @@ export default function LoanRepaymentsPage() {
   const [selectedRepayment, setSelectedRepayment] = useState<Repayment | null>(
     null,
   );
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const [paymentAmount, setPaymentAmount] = useState("");
   const [processing, setProcessing] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<
-    "cash" | "bank_transfer" | "card"
-  >("cash");
-  const [paymentReference, setPaymentReference] = useState("");
 
   // Bulk selection states
   const [selectedRepayments, setSelectedRepayments] = useState<string[]>([]);
 
   // Repayment Proof approval states
-  const [showProofModal, setShowProofModal] = useState(false);
   const [selectedProof, setSelectedProof] = useState<RepaymentProof | null>(
     null,
   );
@@ -187,10 +178,7 @@ export default function LoanRepaymentsPage() {
         );
         setShowSuccessModal(true);
         fetchRepayments();
-        setShowPaymentModal(false);
-        setPaymentAmount("");
-        setPaymentMethod("cash");
-        setPaymentReference("");
+        setShowDetailsModal(false);
         setSelectedRepayment(null);
       } else {
         const error = await response.json();
@@ -414,7 +402,8 @@ export default function LoanRepaymentsPage() {
         );
         setShowSuccessModal(true);
         fetchRepayments();
-        setShowProofModal(false);
+        setShowDetailsModal(false);
+        setSelectedRepayment(null);
         setSelectedProof(null);
       } else {
         const error = await response.json();
@@ -424,6 +413,73 @@ export default function LoanRepaymentsPage() {
     } catch (error) {
       console.error("Error approving repayment:", error);
       setErrorMessage("Failed to approve repayment");
+      setShowErrorModal(true);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleApproveAndPay = async (
+    proof: RepaymentProof,
+    repayment: Repayment,
+    amount: number,
+  ) => {
+    if (amount <= 0 || amount > repayment.remainingAmount) {
+      setErrorMessage(
+        `Amount must be between 1 and ${repayment.remainingAmount}`,
+      );
+      setShowErrorModal(true);
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      const approveRes = await fetch("/api/admin/repayment-proofs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          proofId: proof.id,
+          status: "approved",
+        }),
+      });
+
+      if (!approveRes.ok) {
+        const err = await approveRes.json();
+        setErrorMessage(err.error || "Failed to approve proof");
+        setShowErrorModal(true);
+        setProcessing(false);
+        return;
+      }
+
+      const payRes = await fetch("/api/admin/repayments/pay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          repaymentId: repayment.id,
+          amount: amount,
+          method: "cash",
+          date: new Date().toISOString().split("T")[0],
+        }),
+      });
+
+      if (payRes.ok) {
+        const result = await payRes.json();
+        setSuccessMessage(
+          `✅ Approved & paid R${amount.toLocaleString()}! Remaining: R${result.remainingBalance.toLocaleString()}`,
+        );
+        setShowSuccessModal(true);
+        fetchRepayments();
+        setShowDetailsModal(false);
+        setSelectedRepayment(null);
+        setSelectedProof(null);
+      } else {
+        const error = await payRes.json();
+        setErrorMessage(error.error || "Failed to record payment");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error in approve and pay:", error);
+      setErrorMessage("Failed to approve and pay");
       setShowErrorModal(true);
     } finally {
       setProcessing(false);
@@ -458,7 +514,8 @@ export default function LoanRepaymentsPage() {
         setShowSuccessModal(true);
         fetchRepayments();
         setShowRejectModal(false);
-        setShowProofModal(false);
+        setShowDetailsModal(false);
+        setSelectedRepayment(null);
         setSelectedProof(null);
         setRejectionReason("");
       } else {
@@ -572,10 +629,16 @@ export default function LoanRepaymentsPage() {
 
   const filteredRepayments = repayments
     .filter((r) => {
+      const hasPendingProofs = r.pendingRepaymentProofs?.some(
+        (p) => p.status === "pending",
+      );
       if (activeTab === "outstanding")
-        return r.status !== "paid" && r.status !== "completed";
+        return (
+          r.status !== "paid" && r.status !== "completed" && !hasPendingProofs
+        );
       if (activeTab === "paid")
         return r.status === "paid" || r.status === "completed";
+      if (activeTab === "pendingProofs") return !!hasPendingProofs;
       return true;
     })
     .filter(
@@ -696,156 +759,6 @@ export default function LoanRepaymentsPage() {
     );
   };
 
-  // Repayment Proof Approval Modal
-  const RepaymentProofModal = () => {
-    if (!selectedProof || !selectedRepayment) return null;
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div
-          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-          onClick={() => setShowProofModal(false)}
-        ></div>
-        <div className="relative bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-          <div className="sticky top-0 bg-white border-b border-[#bff202]/20 p-5 flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center">
-                <FileText className="w-5 h-5 text-[#3A7717]" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-[#01312D]">
-                  Repayment Proof Review
-                </h2>
-                <p className="text-xs text-gray-500">
-                  {selectedRepayment.driverName} -{" "}
-                  {selectedRepayment.carRegistration}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowProofModal(false)}
-              className="p-1 hover:bg-[#eafde7] rounded-lg"
-            >
-              <XCircle className="w-6 h-6 text-gray-500" />
-            </button>
-          </div>
-
-          <div className="p-5 space-y-4">
-            {/* Amount Info */}
-            <div className="bg-[#eafde7] rounded-xl p-4">
-              <div className="flex justify-between mb-2">
-                <span className="text-gray-600">Repayment Amount:</span>
-                <span className="font-bold text-[#3A7717]">
-                  R{selectedProof.amount.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Submitted:</span>
-                <span className="font-semibold">
-                  {new Date(selectedProof.submittedAt).toLocaleString()}
-                </span>
-              </div>
-              {selectedProof.remainingBalance !== undefined && (
-                <div className="flex justify-between mt-2 pt-2 border-t border-[#bff202]/20">
-                  <span className="text-gray-600">Remaining Balance:</span>
-                  <span className="font-semibold text-red-600">
-                    R{selectedProof.remainingBalance.toLocaleString()}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Proof Document */}
-            <div>
-              <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-                Proof of Repayment
-              </label>
-              {selectedProof.proofUrl && (
-                <div className="border border-[#BFF202]/20 rounded-lg overflow-hidden bg-white p-2">
-                  {selectedProof.proofUrl.includes(".pdf") ? (
-                    <div className="text-center py-8">
-                      <FileText className="w-16 h-16 text-[#3A7717] mx-auto" />
-                      <a
-                        href={selectedProof.proofUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-block mt-2 text-[#3A7717] hover:underline"
-                      >
-                        View PDF Document
-                      </a>
-                    </div>
-                  ) : (
-                    <img
-                      src={selectedProof.proofUrl}
-                      alt="Proof of Repayment"
-                      className="max-w-full h-auto max-h-64 object-contain mx-auto"
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Driver Info */}
-            <div className="bg-gray-50 rounded-xl p-4">
-              <h3 className="font-semibold text-[#01312D] mb-2">
-                Driver Information
-              </h3>
-              <div className="space-y-1 text-sm">
-                <p className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-gray-500" />
-                  {selectedRepayment.driverName}
-                </p>
-                <p className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-gray-500" />
-                  {selectedRepayment.driverEmail}
-                </p>
-                <p className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-gray-500" />
-                  {selectedRepayment.driverPhone}
-                </p>
-                <p className="flex items-center gap-2">
-                  <Car className="w-4 h-4 text-gray-500" />
-                  {selectedRepayment.carRegistration}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
-            <button
-              onClick={() => setShowProofModal(false)}
-              className="flex-1 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => setShowRejectModal(true)}
-              disabled={processing}
-              className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600"
-            >
-              <XCircle className="w-4 h-4" />
-              Reject
-            </button>
-            <button
-              onClick={() =>
-                handleApproveRepaymentProof(selectedProof, selectedRepayment.id)
-              }
-              disabled={processing}
-              className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12]"
-            >
-              {processing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <CheckCircle className="w-4 h-4" />
-              )}
-              Approve
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   // Rejection Modal
   const renderRejectionModal = () => {
     return (
@@ -918,209 +831,6 @@ export default function LoanRepaymentsPage() {
     );
   };
 
-  const PaymentModal = ({
-    repayment,
-    onClose,
-  }: {
-    repayment: Repayment;
-    onClose: () => void;
-  }) => {
-    const [amount, setAmount] = useState(repayment.dailyPayment.toString());
-    const [paymentDate, setLocalPaymentDate] = useState(
-      new Date().toISOString().split("T")[0],
-    );
-    const [localMethod, setLocalMethod] = useState<"cash" | "bank_transfer">(
-      "cash",
-    );
-    const [localReference, setLocalReference] = useState("");
-    const maxAmount = repayment.remainingAmount;
-
-    const suggestedPayments = [
-      { label: "Daily", amount: repayment.dailyPayment },
-      { label: "Weekly", amount: repayment.dailyPayment * 7 },
-      { label: "Monthly", amount: repayment.dailyPayment * 30 },
-      { label: "Full", amount: repayment.remainingAmount },
-    ].filter((s) => s.amount > 0 && s.amount <= maxAmount);
-
-    const balanceAfter = Math.max(0, maxAmount - (parseFloat(amount) || 0));
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div
-          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-          onClick={onClose}
-        ></div>
-        <div className="relative bg-white rounded-2xl max-w-md w-full max-h-[95vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
-          {/* Header */}
-          <div className="sticky top-0 bg-white border-b border-[#bff202]/20 p-5 flex justify-between items-center z-10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-[#3A7717]" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-[#01312D]">
-                  Record Payment
-                </h2>
-                <p className="text-xs text-gray-500">
-                  {repayment.driverName} - {repayment.carRegistration}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <XCircle className="w-6 h-6 text-gray-400" />
-            </button>
-          </div>
-
-          <div className="p-5 space-y-6 overflow-y-auto">
-            {/* Quick Balance Card */}
-            <div className="bg-[#01312D] text-white rounded-2xl p-5 shadow-lg relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[#bff202]/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-              <div className="relative z-10 flex justify-between items-end">
-                <div>
-                  <p className="text-white/60 text-xs font-bold uppercase tracking-wider">
-                    Outstanding Balance
-                  </p>
-                  <p className="text-3xl font-black mt-1">
-                    R{maxAmount.toLocaleString()}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-white/60 text-[10px] font-bold uppercase">
-                    After Payment
-                  </p>
-                  <p
-                    className={`text-xl font-bold ${balanceAfter === 0 ? "text-[#bff202]" : "text-white"}`}
-                  >
-                    R{balanceAfter.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Amount Section */}
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <label className="text-[#01312D] font-bold text-sm">
-                  Payment Amount
-                </label>
-                <span className="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-bold">
-                  Daily: R{repayment.dailyPayment}
-                </span>
-              </div>
-
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-[#01312D]">
-                  R
-                </span>
-                <input
-                  type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="w-full pl-8 pr-4 py-4 bg-gray-50 border-2 border-transparent rounded-2xl focus:border-[#bff202] focus:bg-white outline-none transition-all text-xl font-black text-[#01312D]"
-                  placeholder="0.00"
-                  max={maxAmount}
-                />
-              </div>
-
-              {/* Suggestions Chips */}
-              <div className="flex flex-wrap gap-2">
-                {suggestedPayments.map((suggestion) => (
-                  <button
-                    key={suggestion.label}
-                    onClick={() => setAmount(suggestion.amount.toString())}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border-2 ${
-                      parseFloat(amount) === suggestion.amount
-                        ? "bg-[#bff202] border-[#bff202] text-[#01312D]"
-                        : "bg-white border-gray-100 text-gray-500 hover:border-[#bff202]/30"
-                    }`}
-                  >
-                    {suggestion.label} (R{suggestion.amount})
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Payment Details Grid */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-[#01312D] font-bold text-sm flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5" /> Date
-                </label>
-                <input
-                  type="date"
-                  value={paymentDate}
-                  onChange={(e) => setLocalPaymentDate(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl focus:border-[#bff202] focus:bg-white outline-none transition-all text-sm font-semibold"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[#01312D] font-bold text-sm flex items-center gap-1">
-                  <CreditCard className="w-3.5 h-3.5" /> Method
-                </label>
-                <select
-                  value={localMethod}
-                  onChange={(e) =>
-                    setLocalMethod(e.target.value as "cash" | "bank_transfer")
-                  }
-                  className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl focus:border-[#bff202] focus:bg-white outline-none transition-all text-sm font-semibold appearance-none"
-                >
-                  <option value="cash">Cash</option>
-                  <option value="bank_transfer">Transfer</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Reference */}
-            <div className="space-y-2">
-              <label className="text-[#01312D] font-bold text-sm flex items-center gap-1">
-                <FileText className="w-3.5 h-3.5" /> Reference (Optional)
-              </label>
-              <input
-                type="text"
-                value={localReference}
-                onChange={(e) => setLocalReference(e.target.value)}
-                placeholder="Receipt number or notes"
-                className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl focus:border-[#bff202] focus:bg-white outline-none transition-all text-sm"
-              />
-            </div>
-          </div>
-
-          <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex flex-col gap-3">
-            <button
-              onClick={() =>
-                handleMarkAsPaid(
-                  repayment,
-                  parseFloat(amount),
-                  localMethod,
-                  localReference,
-                  paymentDate,
-                )
-              }
-              disabled={processing || !amount || parseFloat(amount) <= 0}
-              className="w-full bg-gradient-to-r from-[#3A7717] to-[#72bf00] text-white py-4 rounded-2xl font-black shadow-lg shadow-[#3A7717]/30 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:translate-y-0"
-            >
-              {processing ? (
-                <Loader2 className="w-6 h-6 animate-spin" />
-              ) : (
-                <CheckCircle className="w-6 h-6" />
-              )}
-              Confirm & Record Payment
-            </button>
-            <button
-              onClick={onClose}
-              className="w-full py-3 rounded-xl font-bold text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   const DetailsModal = ({
     repayment,
     onClose,
@@ -1139,6 +849,15 @@ export default function LoanRepaymentsPage() {
     const progress = Math.round(
       (repayment.repaidAmount / repayment.totalRepayable) * 100,
     );
+    const [payAmount, setPayAmount] = useState(repayment.dailyPayment.toString());
+    const payMax = repayment.remainingAmount;
+    const paySuggestions = [
+      { label: "Daily", amount: repayment.dailyPayment },
+      { label: "Weekly", amount: repayment.dailyPayment * 7 },
+      { label: "Monthly", amount: repayment.dailyPayment * 30 },
+      { label: "Full", amount: repayment.remainingAmount },
+    ].filter((s) => s.amount > 0 && s.amount <= payMax);
+    const balanceAfter = Math.max(0, payMax - (parseFloat(payAmount) || 0));
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
@@ -1146,9 +865,9 @@ export default function LoanRepaymentsPage() {
           className="absolute inset-0 bg-black/50 backdrop-blur-sm"
           onClick={onClose}
         ></div>
-        <div className="relative bg-white rounded-2xl sm:rounded-[2rem] max-w-2xl w-full max-h-[95vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+        <div className="relative bg-white rounded-2xl sm:rounded-[2rem] max-w-2xl w-full max-h-[95vh] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-200">
           {/* Header */}
-          <div className="sticky top-0 bg-white border-b border-[#bff202]/20 p-4 sm:p-6 flex justify-between items-center z-10">
+          <div className="bg-white border-b border-[#bff202]/20 p-4 sm:p-6 flex justify-between items-center">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#eafde7] rounded-xl sm:rounded-2xl flex items-center justify-center">
                 {repayment.serviceType === "fuel" && (
@@ -1181,7 +900,7 @@ export default function LoanRepaymentsPage() {
             </button>
           </div>
 
-          <div className="p-4 sm:p-8 space-y-6 overflow-y-auto">
+          <div className="p-4 sm:p-8 space-y-6">
             {/* Summary Banner */}
             <div className="bg-gradient-to-br from-[#01312D] to-[#3A7717] rounded-2xl sm:rounded-3xl p-5 sm:p-6 text-white shadow-xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-40 h-40 bg-[#bff202]/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
@@ -1224,65 +943,54 @@ export default function LoanRepaymentsPage() {
               </div>
             </div>
 
-            {/* Pending Proofs Alert */}
+            {/* Pending Proofs Section - Inline Review */}
             {pendingProofs.length > 0 && (
-              <div className="bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-4 animate-pulse">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                      <Hourglass className="w-5 h-5 text-yellow-600" />
+              <div className="space-y-4">
+                <h3 className="font-bold text-[#01312D] flex items-center gap-2">
+                  <Hourglass className="w-5 h-5 text-yellow-600" /> Pending Proof Review
+                </h3>
+                {pendingProofs.map((proof) => (
+                  <div key={proof.id} className="bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-4 space-y-4">
+                    {/* Amount Info */}
+                    <div className="bg-white rounded-xl p-4">
+                      <div className="flex justify-between mb-2">
+                        <span className="text-gray-600">Repayment Amount:</span>
+                        <span className="font-bold text-[#3A7717]">
+                          R{proof.amount.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Submitted:</span>
+                        <span className="font-semibold">
+                          {new Date(proof.submittedAt).toLocaleString()}
+                        </span>
+                      </div>
+                      {proof.remainingBalance !== undefined && (
+                        <div className="flex justify-between mt-2 pt-2 border-t border-gray-200">
+                          <span className="text-gray-600">Remaining Balance:</span>
+                          <span className="font-semibold text-red-600">
+                            R{proof.remainingBalance.toLocaleString()}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <p className="font-bold text-yellow-800 text-sm">
-                        Pending Proof Submission
-                      </p>
-                      <p className="text-xs text-yellow-700">
-                        {pendingProofs.length} proof
-                        {pendingProofs.length > 1 ? "s" : ""} awaiting review
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setSelectedProof(pendingProofs[0]);
-                      setSelectedRepayment(repayment);
-                      setShowProofModal(true);
-                      setShowDetailsModal(false);
-                    }}
-                    className="bg-yellow-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg shadow-yellow-600/20"
-                  >
-                    Review Now
-                  </button>
-                </div>
-              </div>
-            )}
 
-            {/* Service POP Section - Highly Prominent */}
-            {repayment.popUrl && (
-              <div className="bg-[#eafde7] rounded-2xl sm:rounded-3xl p-5 space-y-4 border border-[#bff202]/30 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-[#01312D] flex items-center gap-2 text-sm sm:text-base">
-                    <ImageIcon className="w-4 h-4 text-[#3A7717]" /> Service Receipt (POP)
-                  </h3>
-                  <a
-                    href={repayment.popUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[10px] font-black text-[#3A7717] hover:underline flex items-center gap-1 uppercase tracking-tighter"
-                  >
-                    Open Full <Download className="w-3 h-3" />
-                  </a>
-                </div>
-                <div className="bg-white rounded-2xl p-2 border border-[#bff202]/10 overflow-hidden group cursor-pointer relative shadow-inner">
-                  <img
-                    src={repayment.popUrl}
-                    alt="Service POP"
-                    className="w-full h-auto max-h-48 object-cover rounded-xl transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span className="text-white font-bold text-xs bg-[#01312D] px-3 py-1.5 rounded-full shadow-lg">Click Open Full to View Full</span>
+                    {/* Proof of Payment Link */}
+                    {proof.proofUrl && (
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-[#3A7717]" />
+                        <a
+                          href={proof.proofUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-semibold text-[#3A7717] hover:underline"
+                        >
+                          View Proof of Payment
+                        </a>
+                      </div>
+                    )}
                   </div>
-                </div>
+                ))}
               </div>
             )}
 
@@ -1416,38 +1124,134 @@ export default function LoanRepaymentsPage() {
             </div>
           </div>
 
-          <div className="sticky bottom-0 bg-white/80 backdrop-blur-md border-t border-[#bff202]/20 p-4 sm:p-6 flex flex-col gap-3">
+          <div className="bg-white border-t border-[#bff202]/20 p-4 sm:p-6 flex flex-col gap-3">
             {!isCompleted ? (
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  onClick={() => {
-                    setSelectedRepayment(repayment);
-                    setShowPaymentModal(true);
-                    setShowDetailsModal(false);
-                  }}
-                  className="flex-[2] bg-[#01312D] text-white py-4 rounded-2xl font-black shadow-lg shadow-[#01312D]/20 hover:shadow-xl transition-all flex items-center justify-center gap-2"
-                >
-                  <Banknote className="w-5 h-5 text-[#bff202]" />
-                  Record New Payment
-                </button>
+              <>
+                {/* Payment Input */}
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="bg-[#01312D] text-white rounded-xl px-4 py-2 flex-1">
+                    <p className="text-white/60 text-[10px] font-bold uppercase">Outstanding</p>
+                    <p className="text-xl font-black">R{payMax.toLocaleString()}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-gray-500 font-bold uppercase">After</p>
+                    <p className={`text-lg font-black ${balanceAfter === 0 ? "text-[#3A7717]" : "text-[#01312D]"}`}>
+                      R{balanceAfter.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="relative mb-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-[#01312D]">R</span>
+                  <input
+                    type="number"
+                    value={payAmount}
+                    onChange={(e) => setPayAmount(e.target.value)}
+                    className="w-full pl-7 pr-3 py-2.5 bg-[#eafde7] border-2 border-transparent rounded-xl focus:border-[#bff202] outline-none transition-all text-base font-black text-[#01312D]"
+                    placeholder="0.00"
+                    max={payMax}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-1.5 mb-1">
+                  {paySuggestions.map((s) => (
+                    <button
+                      key={s.label}
+                      onClick={() => setPayAmount(s.amount.toString())}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border ${
+                        parseFloat(payAmount) === s.amount
+                          ? "bg-[#bff202] border-[#bff202] text-[#01312D]"
+                          : "bg-white border-gray-200 text-gray-500 hover:border-[#bff202]/30"
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
 
-                <button
-                  onClick={() => handleMarkAsCompleted(repayment)}
-                  disabled={processing}
-                  className={`flex-1 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${
-                    repayment.remainingAmount === 0
-                      ? "bg-[#bff202] text-[#01312D] hover:bg-[#d4e84a]"
-                      : "bg-orange-50 text-orange-600 hover:bg-orange-100"
-                  }`}
-                >
-                  {processing ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <CheckCircle className="w-5 h-5" />
-                  )}
-                  {repayment.remainingAmount === 0 ? "Complete" : "Settle"}
-                </button>
-              </div>
+                {pendingProofs.length > 0 ? (
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={() =>
+                        handleApproveAndPay(pendingProofs[0], repayment, parseFloat(payAmount))
+                      }
+                      disabled={processing || !payAmount || parseFloat(payAmount) <= 0}
+                      className="flex-1 bg-[#3A7717] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all disabled:opacity-50"
+                    >
+                      {processing ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-5 h-5" />
+                      )}
+                      Approve & Pay — R{parseFloat(payAmount || "0").toLocaleString()}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedProof(pendingProofs[0]);
+                        setShowRejectModal(true);
+                      }}
+                      disabled={processing}
+                      className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-600 transition-all"
+                    >
+                      <XCircle className="w-5 h-5" />
+                      Reject
+                    </button>
+                    <button
+                      onClick={() => handleMarkAsCompleted(repayment)}
+                      disabled={processing}
+                      className={`flex-1 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${
+                        repayment.remainingAmount === 0
+                          ? "bg-[#bff202] text-[#01312D] hover:bg-[#d4e84a]"
+                          : "bg-orange-50 text-orange-600 hover:bg-orange-100"
+                      }`}
+                    >
+                      {processing ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-5 h-5" />
+                      )}
+                      {repayment.remainingAmount === 0 ? "Settle" : "Settle & Write Off"}
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      onClick={() =>
+                        handleMarkAsPaid(
+                          repayment,
+                          parseFloat(payAmount),
+                          "cash",
+                          undefined,
+                          new Date().toISOString().split("T")[0],
+                        )
+                      }
+                      disabled={processing || !payAmount || parseFloat(payAmount) <= 0}
+                      className="w-full bg-[#3A7717] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all disabled:opacity-50"
+                    >
+                      {processing ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-5 h-5" />
+                      )}
+                      Confirm Payment — R{parseFloat(payAmount || "0").toLocaleString()}
+                    </button>
+                    <button
+                      onClick={() => handleMarkAsCompleted(repayment)}
+                      disabled={processing}
+                      className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${
+                        repayment.remainingAmount === 0
+                          ? "bg-[#bff202] text-[#01312D] hover:bg-[#d4e84a]"
+                          : "bg-orange-50 text-orange-600 hover:bg-orange-100"
+                      }`}
+                    >
+                      {processing ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-5 h-5" />
+                      )}
+                      {repayment.remainingAmount === 0 ? "Mark as Complete" : "Settle & Write Off"}
+                    </button>
+                  </>
+                )}
+              </>
             ) : (
               <div className="bg-green-50 text-green-700 py-4 rounded-2xl font-black flex items-center justify-center gap-2 border border-green-200">
                 <CheckCircle className="w-6 h-6" />
@@ -1638,13 +1442,29 @@ export default function LoanRepaymentsPage() {
               : "text-gray-500"
           }`}
         >
-          Outstanding
+          UnPaid
           <span className="ml-1 px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">
             {
               repayments.filter(
-                (r) => r.status !== "paid" && r.status !== "completed",
+                (r) =>
+                  r.status !== "paid" &&
+                  r.status !== "completed" &&
+                  !r.pendingRepaymentProofs?.some((p) => p.status === "pending"),
               ).length
             }
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab("pendingProofs")}
+          className={`px-4 py-2 font-semibold transition-all ${
+            activeTab === "pendingProofs"
+              ? "text-[#3A7717] border-b-2 border-[#3A7717]"
+              : "text-yellow-600"
+          }`}
+        >
+          Review
+          <span className="ml-1 px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">
+            {stats.pendingProofs}
           </span>
         </button>
         <button
@@ -1655,7 +1475,7 @@ export default function LoanRepaymentsPage() {
               : "text-gray-500"
           }`}
         >
-          Completed
+          Paid
           <span className="ml-1 px-1.5 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
             {
               repayments.filter(
@@ -1833,42 +1653,16 @@ export default function LoanRepaymentsPage() {
                     </div>
 
                     <div className="flex gap-2 mt-4">
-                      {!isCompleted && (
-                        <>
-                          <button
-                            onClick={() => {
-                              setSelectedRepayment(repayment);
-                              setShowPaymentModal(true);
-                            }}
-                            className="flex-1 py-2 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors"
-                          >
-                            <Banknote className="w-4 h-4" />
-                            Record Payment
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedRepayment(repayment);
-                              setShowDetailsModal(true);
-                            }}
-                            className="flex-1 py-2 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#bff202]/30 transition-colors"
-                          >
-                            <Eye className="w-4 h-4" />
-                            View Details
-                          </button>
-                        </>
-                      )}
-                      {isCompleted && (
-                        <button
-                          onClick={() => {
-                            setSelectedRepayment(repayment);
-                            setShowDetailsModal(true);
-                          }}
-                          className="w-full py-2 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#bff202]/30 transition-colors"
-                        >
-                          <Eye className="w-4 h-4" />
-                          View Details
-                        </button>
-                      )}
+                      <button
+                        onClick={() => {
+                          setSelectedRepayment(repayment);
+                          setShowDetailsModal(true);
+                        }}
+                        className="flex-1 py-2 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors"
+                      >
+                        <Banknote className="w-4 h-4" />
+                        {!isCompleted ? "Record Payment" : "View Details"}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1879,15 +1673,6 @@ export default function LoanRepaymentsPage() {
       </div>
 
       {/* Modals */}
-      {showPaymentModal && selectedRepayment && (
-        <PaymentModal
-          repayment={selectedRepayment}
-          onClose={() => {
-            setShowPaymentModal(false);
-            setSelectedRepayment(null);
-          }}
-        />
-      )}
       {showDetailsModal && selectedRepayment && (
         <DetailsModal
           repayment={selectedRepayment}
@@ -1896,9 +1681,6 @@ export default function LoanRepaymentsPage() {
             setSelectedRepayment(null);
           }}
         />
-      )}
-      {showProofModal && selectedProof && selectedRepayment && (
-        <RepaymentProofModal />
       )}
       {showRejectModal && renderRejectionModal()}
       <SuccessModal />
