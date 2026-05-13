@@ -36,6 +36,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 interface Repayment {
   id: string;
@@ -1411,17 +1412,6 @@ export default function LoanRepaymentsPage() {
     );
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
-          <p className="text-[#01312D]">Loading repayments...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -1463,9 +1453,13 @@ export default function LoanRepaymentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">Outstanding Amount</p>
-              <p className="text-2xl font-bold text-[#01312D]">
-                R{stats.totalOutstanding.toLocaleString()}
-              </p>
+              <div className="text-2xl font-bold text-[#01312D]">
+                {loading || refreshing ? (
+                  <Skeleton className="h-8 w-28 inline-block" />
+                ) : (
+                  <>R{stats.totalOutstanding.toLocaleString()}</>
+                )}
+              </div>
             </div>
             <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
               <Wallet className="w-5 h-5 text-yellow-600" />
@@ -1476,9 +1470,13 @@ export default function LoanRepaymentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">Total Repaid</p>
-              <p className="text-2xl font-bold text-[#3A7717]">
-                R{stats.totalPaid.toLocaleString()}
-              </p>
+              <div className="text-2xl font-bold text-[#3A7717]">
+                {loading || refreshing ? (
+                  <Skeleton className="h-8 w-28 inline-block" />
+                ) : (
+                  <>R{stats.totalPaid.toLocaleString()}</>
+                )}
+              </div>
             </div>
             <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
               <CheckCircle className="w-5 h-5 text-green-600" />
@@ -1489,9 +1487,13 @@ export default function LoanRepaymentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">Active Repayments</p>
-              <p className="text-2xl font-bold text-[#01312D]">
-                {stats.activeLoans}
-              </p>
+              <div className="text-2xl font-bold text-[#01312D]">
+                {loading || refreshing ? (
+                  <Skeleton className="h-8 w-28 inline-block" />
+                ) : (
+                  <>{stats.activeLoans}</>
+                )}
+              </div>
             </div>
             <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
               <TrendingUp className="w-5 h-5 text-blue-600" />
@@ -1502,9 +1504,13 @@ export default function LoanRepaymentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">Overdue</p>
-              <p className="text-2xl font-bold text-red-600">
-                {stats.overdueCount}
-              </p>
+              <div className="text-2xl font-bold text-red-600">
+                {loading || refreshing ? (
+                  <Skeleton className="h-8 w-28 inline-block" />
+                ) : (
+                  <>{stats.overdueCount}</>
+                )}
+              </div>
             </div>
             <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
               <XCircle className="w-5 h-5 text-red-600" />
@@ -1515,9 +1521,13 @@ export default function LoanRepaymentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">Pending Proofs</p>
-              <p className="text-2xl font-bold text-yellow-600">
-                {stats.pendingProofs}
-              </p>
+              <div className="text-2xl font-bold text-yellow-600">
+                {loading || refreshing ? (
+                  <Skeleton className="h-8 w-28 inline-block" />
+                ) : (
+                  <>{stats.pendingProofs}</>
+                )}
+              </div>
             </div>
             <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
               <FileText className="w-5 h-5 text-yellow-600" />
@@ -1638,7 +1648,66 @@ export default function LoanRepaymentsPage() {
 
       {/* Repayments List */}
       <div className="space-y-3">
-        {filteredRepayments.length === 0 ? (
+        {loading ? (
+          [1, 2, 3, 4, 5].map((i) => (
+            <div
+              key={i}
+              className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20"
+            >
+              <div className="flex items-start gap-3">
+                <Skeleton className="w-4 h-4 mt-3 shrink-0" />
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-start justify-between flex-wrap gap-3">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="w-12 h-12 rounded-full shrink-0" />
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <Skeleton className="h-5 w-16 rounded-full" />
+                          <Skeleton className="h-5 w-20 rounded-full" />
+                        </div>
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                    </div>
+                    <div className="text-right space-y-2">
+                      <Skeleton className="h-7 w-28" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-3 border-t border-gray-100">
+                    <div className="space-y-1">
+                      <Skeleton className="h-3 w-16" />
+                      <Skeleton className="h-5 w-20" />
+                    </div>
+                    <div className="space-y-1">
+                      <Skeleton className="h-3 w-16" />
+                      <Skeleton className="h-5 w-20" />
+                    </div>
+                    <div className="space-y-1">
+                      <Skeleton className="h-3 w-16" />
+                      <Skeleton className="h-5 w-20" />
+                    </div>
+                    <div className="space-y-1">
+                      <Skeleton className="h-3 w-16" />
+                      <Skeleton className="h-5 w-20" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between">
+                      <Skeleton className="h-3 w-28" />
+                      <Skeleton className="h-3 w-8" />
+                    </div>
+                    <Skeleton className="h-2 w-full rounded-full" />
+                  </div>
+                  <div className="flex gap-2">
+                    <Skeleton className="h-10 flex-1 rounded-lg" />
+                    <Skeleton className="h-10 flex-1 rounded-lg" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : filteredRepayments.length === 0 ? (
           <div className="bg-white rounded-2xl p-12 text-center border border-[#bff202]/20">
             <div className="w-20 h-20 bg-[#eafde7] rounded-full flex items-center justify-center mx-auto mb-4">
               <Wallet className="w-10 h-10 text-gray-400" />

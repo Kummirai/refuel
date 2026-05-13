@@ -36,6 +36,7 @@ import {
   Truck,
 } from "lucide-react";
 import { toPng } from "html-to-image";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 type RequestType = "fuel" | "airtime" | "cash" | "carwash";
 type RequestStatus = "pending" | "approved" | "sent" | "completed" | "rejected";
@@ -2320,17 +2321,6 @@ Kapuka Tradings`;
     );
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
-          <p className="text-[#01312D]">Loading service requests...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -2358,35 +2348,63 @@ Kapuka Tradings`;
       <div className="grid grid-cols-2 lg:grid-cols-7 gap-3">
         <div className="bg-white rounded-xl p-3 shadow-sm border border-[#BFF202]/20">
           <p className="text-xs text-gray-500">Total</p>
-          <p className="text-xl font-bold text-[#01312D]">{stats.total}</p>
+          {loading || refreshing ? (
+            <Skeleton className="h-8 w-28" />
+          ) : (
+            <p className="text-xl font-bold text-[#01312D]">{stats.total}</p>
+          )}
         </div>
         <div className="bg-white rounded-xl p-3 shadow-sm border border-[#BFF202]/20">
           <p className="text-xs text-gray-500">Pending</p>
-          <p className="text-xl font-bold text-yellow-600">{stats.pending}</p>
+          {loading || refreshing ? (
+            <Skeleton className="h-8 w-28" />
+          ) : (
+            <p className="text-xl font-bold text-yellow-600">{stats.pending}</p>
+          )}
         </div>
         <div className="bg-white rounded-xl p-3 shadow-sm border border-[#BFF202]/20">
           <p className="text-xs text-gray-500">Approved</p>
-          <p className="text-xl font-bold text-blue-600">{stats.approved}</p>
+          {loading || refreshing ? (
+            <Skeleton className="h-8 w-28" />
+          ) : (
+            <p className="text-xl font-bold text-blue-600">{stats.approved}</p>
+          )}
         </div>
         <div className="bg-white rounded-xl p-3 shadow-sm border border-[#BFF202]/20">
           <p className="text-xs text-gray-500">Sent</p>
-          <p className="text-xl font-bold text-purple-600">{stats.sent}</p>
+          {loading || refreshing ? (
+            <Skeleton className="h-8 w-28" />
+          ) : (
+            <p className="text-xl font-bold text-purple-600">{stats.sent}</p>
+          )}
         </div>
         <div className="bg-white rounded-xl p-3 shadow-sm border border-[#BFF202]/20">
           <p className="text-xs text-gray-500">Completed</p>
-          <p className="text-xl font-bold text-[#3A7717]">{stats.completed}</p>
+          {loading || refreshing ? (
+            <Skeleton className="h-8 w-28" />
+          ) : (
+            <p className="text-xl font-bold text-[#3A7717]">{stats.completed}</p>
+          )}
         </div>
         <div className="bg-white rounded-xl p-3 shadow-sm border border-[#BFF202]/20">
           <p className="text-xs text-gray-500">Requested</p>
-          <p className="text-xl font-bold text-[#01312D]">
-            R{stats.totalRequestedAmount.toLocaleString()}
-          </p>
+          {loading || refreshing ? (
+            <Skeleton className="h-8 w-28" />
+          ) : (
+            <p className="text-xl font-bold text-[#01312D]">
+              R{stats.totalRequestedAmount.toLocaleString()}
+            </p>
+          )}
         </div>
         <div className="bg-white rounded-xl p-3 shadow-sm border border-[#BFF202]/20">
           <p className="text-xs text-gray-500">Actual</p>
-          <p className="text-xl font-bold text-[#3A7717]">
-            R{stats.totalActualAmount.toLocaleString()}
-          </p>
+          {loading || refreshing ? (
+            <Skeleton className="h-8 w-28" />
+          ) : (
+            <p className="text-xl font-bold text-[#3A7717]">
+              R{stats.totalActualAmount.toLocaleString()}
+            </p>
+          )}
         </div>
       </div>
 
@@ -2453,7 +2471,36 @@ Kapuka Tradings`;
       </div>
 
       <div className="space-y-3">
-        {filteredRequests.length === 0 ? (
+        {loading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="bg-white rounded-2xl p-4 shadow-sm border border-[#BFF202]/20"
+            >
+              <div className="flex items-start justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="w-12 h-12 rounded-xl shrink-0" />
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-5 w-16 rounded-lg" />
+                    </div>
+                    <Skeleton className="h-4 w-36" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                </div>
+                <div className="text-right space-y-1">
+                  <Skeleton className="h-7 w-24 ml-auto" />
+                  <Skeleton className="h-3 w-16 ml-auto" />
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
+                <Skeleton className="flex-1 h-9 rounded-lg" />
+                <Skeleton className="flex-1 h-9 rounded-lg" />
+              </div>
+            </div>
+          ))
+        ) : filteredRequests.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-2xl border border-[#BFF202]/20">
             <div className="w-20 h-20 bg-[#EAFDE7] rounded-full flex items-center justify-center mx-auto mb-4">
               <Clock className="w-10 h-10 text-gray-400" />

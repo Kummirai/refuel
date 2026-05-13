@@ -32,6 +32,7 @@ import {
   Save,
   Send,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 interface ReceiptRequest {
   id: string;
@@ -493,6 +494,8 @@ Kapuka Tradings Team`;
       r.driverEmail.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
+  const isLoading = loading || refreshing;
+
   // Stats
   const stats = {
     pending: receipts.filter((r) => !r.hasReceipt).length,
@@ -537,7 +540,7 @@ Kapuka Tradings Team`;
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">Pending Verification</p>
-              <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
+              <div className="text-2xl font-bold text-yellow-600">{isLoading ? <Skeleton className="h-8 w-20" /> : stats.pending}</div>
             </div>
             <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
               <Clock className="w-5 h-5 text-yellow-600" />
@@ -548,7 +551,7 @@ Kapuka Tradings Team`;
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">Verified Receipts</p>
-              <p className="text-2xl font-bold text-[#3A7717]">{stats.verified}</p>
+              <div className="text-2xl font-bold text-[#3A7717]">{isLoading ? <Skeleton className="h-8 w-20" /> : stats.verified}</div>
             </div>
             <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
               <CheckCircle className="w-5 h-5 text-green-600" />
@@ -559,7 +562,7 @@ Kapuka Tradings Team`;
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">Total Value</p>
-              <p className="text-2xl font-bold text-[#01312D]">R{stats.totalAmount.toLocaleString()}</p>
+              <div className="text-2xl font-bold text-[#01312D]">{isLoading ? <Skeleton className="h-8 w-28" /> : `R${stats.totalAmount.toLocaleString()}`}</div>
             </div>
             <div className="w-10 h-10 bg-[#eafde7] rounded-xl flex items-center justify-center">
               <FileText className="w-5 h-5 text-[#3A7717]" />
@@ -570,7 +573,7 @@ Kapuka Tradings Team`;
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">Awaiting Receipt Upload</p>
-              <p className="text-2xl font-bold text-orange-600">{noReceiptStats.count}</p>
+              <div className="text-2xl font-bold text-orange-600">{isLoading ? <Skeleton className="h-8 w-20" /> : noReceiptStats.count}</div>
             </div>
             <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
               <Upload className="w-5 h-5 text-orange-600" />
@@ -637,10 +640,28 @@ Kapuka Tradings Team`;
       </div>
 
       {/* Content */}
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-[#bff202]/20">
-          <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mb-4" />
-          <p className="text-[#01312D] font-medium">Loading receipts...</p>
+      {isLoading ? (
+        <div className="grid grid-cols-1 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/10">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div className="flex items-start gap-4">
+                  <Skeleton className="w-14 h-14 rounded-2xl shrink-0" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-5 w-48" />
+                    <Skeleton className="h-4 w-64" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between lg:justify-end gap-8 border-t lg:border-t-0 pt-4 lg:pt-0">
+                  <div className="text-right space-y-2">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-8 w-28" />
+                  </div>
+                  <Skeleton className="h-12 w-28 rounded-xl" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : activeTab === "noreceipt" && noReceiptRequests.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-3xl border border-[#bff202]/20">

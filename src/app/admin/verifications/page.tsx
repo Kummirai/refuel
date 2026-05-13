@@ -28,6 +28,7 @@ import {
   AlertCircle,
   Image as ImageIcon,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function VerificationsPage() {
   const router = useRouter();
@@ -788,16 +789,7 @@ export default function VerificationsPage() {
     return matchesTab && matchesSearch;
   });
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
-          <p className="text-[#01312D]">Loading verifications...</p>
-        </div>
-      </div>
-    );
-  }
+  const isLoading = loading || refreshing;
 
   return (
     <div className="space-y-6">
@@ -827,19 +819,35 @@ export default function VerificationsPage() {
       <div className="grid grid-cols-4 gap-3">
         <div className="bg-white rounded-xl p-3 text-center shadow-sm border border-[#bff202]/20">
           <p className="text-xs text-gray-500">Total</p>
-          <p className="text-xl font-bold text-[#01312D]">{stats.total}</p>
+          {isLoading ? (
+            <Skeleton className="h-7 w-16 mx-auto mt-1" />
+          ) : (
+            <p className="text-xl font-bold text-[#01312D]">{stats.total}</p>
+          )}
         </div>
         <div className="bg-white rounded-xl p-3 text-center shadow-sm border border-[#bff202]/20">
           <p className="text-xs text-gray-500">Pending</p>
-          <p className="text-xl font-bold text-yellow-600">{stats.pending}</p>
+          {isLoading ? (
+            <Skeleton className="h-7 w-16 mx-auto mt-1" />
+          ) : (
+            <p className="text-xl font-bold text-yellow-600">{stats.pending}</p>
+          )}
         </div>
         <div className="bg-white rounded-xl p-3 text-center shadow-sm border border-[#bff202]/20">
           <p className="text-xs text-gray-500">Approved</p>
-          <p className="text-xl font-bold text-green-600">{stats.approved}</p>
+          {isLoading ? (
+            <Skeleton className="h-7 w-16 mx-auto mt-1" />
+          ) : (
+            <p className="text-xl font-bold text-green-600">{stats.approved}</p>
+          )}
         </div>
         <div className="bg-white rounded-xl p-3 text-center shadow-sm border border-[#bff202]/20">
           <p className="text-xs text-gray-500">Rejected</p>
-          <p className="text-xl font-bold text-red-600">{stats.rejected}</p>
+          {isLoading ? (
+            <Skeleton className="h-7 w-16 mx-auto mt-1" />
+          ) : (
+            <p className="text-xl font-bold text-red-600">{stats.rejected}</p>
+          )}
         </div>
       </div>
 
@@ -870,20 +878,32 @@ export default function VerificationsPage() {
             }`}
           >
             {tab}
-            {tab === "pending" && stats.pending > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 bg-yellow-500 text-white text-xs rounded-full">
-                {stats.pending}
-              </span>
+            {tab === "pending" && (isLoading || stats.pending > 0) && (
+              isLoading ? (
+                <Skeleton className="ml-1 inline-block w-6 h-5 rounded-full align-middle" />
+              ) : (
+                <span className="ml-1 px-1.5 py-0.5 bg-yellow-500 text-white text-xs rounded-full">
+                  {stats.pending}
+                </span>
+              )
             )}
-            {tab === "approved" && stats.approved > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 bg-green-500 text-white text-xs rounded-full">
-                {stats.approved}
-              </span>
+            {tab === "approved" && (isLoading || stats.approved > 0) && (
+              isLoading ? (
+                <Skeleton className="ml-1 inline-block w-6 h-5 rounded-full align-middle" />
+              ) : (
+                <span className="ml-1 px-1.5 py-0.5 bg-green-500 text-white text-xs rounded-full">
+                  {stats.approved}
+                </span>
+              )
             )}
-            {tab === "rejected" && stats.rejected > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">
-                {stats.rejected}
-              </span>
+            {tab === "rejected" && (isLoading || stats.rejected > 0) && (
+              isLoading ? (
+                <Skeleton className="ml-1 inline-block w-6 h-5 rounded-full align-middle" />
+              ) : (
+                <span className="ml-1 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">
+                  {stats.rejected}
+                </span>
+              )
             )}
           </button>
         ))}
@@ -891,7 +911,29 @@ export default function VerificationsPage() {
 
       {/* Verifications List */}
       <div className="space-y-3">
-        {filteredVerifications.length === 0 ? (
+        {loading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20"
+            >
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="w-12 h-12 rounded-full" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-48" />
+                    <Skeleton className="h-3 w-28" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-6 w-20 rounded-lg" />
+                  <Skeleton className="h-8 w-24 rounded-lg" />
+                </div>
+              </div>
+            </div>
+          ))
+        ) : filteredVerifications.length === 0 ? (
           <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-[#bff202]/20">
             <div className="w-20 h-20 bg-[#eafde7] rounded-full flex items-center justify-center mx-auto mb-4">
               <Clock className="w-10 h-10 text-gray-400" />
