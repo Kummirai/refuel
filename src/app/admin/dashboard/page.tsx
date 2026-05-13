@@ -126,10 +126,17 @@ export default function AdminDashboard() {
     "request",
   );
 
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [appliedFrom, setAppliedFrom] = useState("");
+  const [appliedTo, setAppliedTo] = useState("");
+
   // Financial stats
   const [financialStats, setFinancialStats] = useState({
     moneyRequested: 0,
-    interestGained: 0,
+    actualInterest: 0,
+    potentialInterest: 0,
+    totalRepaid: 0,
   });
 
   const [stats, setStats] = useState({
@@ -162,7 +169,14 @@ export default function AdminDashboard() {
     fetchDashboardData();
   }, []);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (from?: string, to?: string) => {
+    const queryParams = new URLSearchParams();
+    const effectiveFrom = from || appliedFrom;
+    const effectiveTo = to || appliedTo;
+    if (effectiveFrom) queryParams.set("from", new Date(effectiveFrom).toISOString());
+    if (effectiveTo) queryParams.set("to", new Date(effectiveTo + "T23:59:59").toISOString());
+    const queryString = queryParams.toString();
+
     try {
       const statsRes = await fetch("/api/admin/stats");
       if (statsRes.ok) {
@@ -180,7 +194,7 @@ export default function AdminDashboard() {
         setRecentVerifications(driversData.recent || []);
       }
 
-      const requestsRes = await fetch("/api/admin/requests");
+      const requestsRes = await fetch(`/api/admin/requests?${queryString}`);
       if (requestsRes.ok) {
         const requestsData = await requestsRes.json();
         const allRequests = requestsData.requests || [];
@@ -188,24 +202,37 @@ export default function AdminDashboard() {
 
         // Calculate financial stats from all requests
         let totalMoneyRequested = 0;
-        let totalInterestGained = 0;
+        let totalActualInterest = 0;
+        let totalPotentialInterest = 0;
+        let totalRepaid = 0;
 
         allRequests.forEach((request: any) => {
           const amount = request.actualAmount || request.amount || 0;
           totalMoneyRequested += amount;
-          if (request.interest) {
-            totalInterestGained += request.interest;
-          } else if (
-            request.status === "completed" ||
-            request.status === "approved"
-          ) {
-            totalInterestGained += amount * 0.13;
+          totalRepaid += request.repaidAmount || 0;
+
+          const interest = request.interest || Math.round(amount * 0.13);
+          const totalRepayable = request.totalRepayable || amount + interest;
+          const repaidAmount = request.repaidAmount || 0;
+          const remainingBalance = request.remainingBalance || (totalRepayable - repaidAmount);
+          const isPaid = request.isPaid || remainingBalance <= 0;
+
+          if (isPaid) {
+            totalActualInterest += interest;
+          } else if (repaidAmount > 0) {
+            const paidRatio = repaidAmount / totalRepayable;
+            totalActualInterest += Math.round(interest * paidRatio);
+            totalPotentialInterest += Math.round(interest * (1 - paidRatio));
+          } else {
+            totalPotentialInterest += interest;
           }
         });
 
         setFinancialStats({
           moneyRequested: totalMoneyRequested,
-          interestGained: totalInterestGained,
+          actualInterest: totalActualInterest,
+          potentialInterest: totalPotentialInterest,
+          totalRepaid: totalRepaid,
         });
       }
     } catch (error) {
@@ -214,6 +241,13 @@ export default function AdminDashboard() {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  const handleApplyDateRange = () => {
+    setAppliedFrom(fromDate);
+    setAppliedTo(toDate);
+    setLoading(true);
+    fetchDashboardData(fromDate, toDate);
   };
 
   const handleRefresh = async () => {
@@ -1593,22 +1627,101 @@ export default function AdminDashboard() {
         </button>
       </div>
 
-      {/* Financial Stats Row - 2 Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <StatCard
-          title="Money Requested"
-          value={financialStats.moneyRequested}
-          icon={Wallet}
-          color="bg-[#01312D]"
-          prefix="R"
-        />
-        <StatCard
-          title="Interest Gained"
-          value={financialStats.interestGained}
-          icon={TrendingUp}
-          color="bg-[#72bf00]"
-          prefix="R"
-        />
+      {/* ===== FILTERED SECTION ===== */}
+      <div className="bg-[#eafde7]/40 rounded-2xl p-5 border-2 border-[#bff202]/30 space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-[#3A7717] animate-pulse" />
+          <span className="text-xs font-bold uppercase tracking-wider text-[#3A7717]">
+            Filtered Metrics
+          </span>
+        </div>
+
+        {/* Date Range Filter */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">
+                From
+              </label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="px-3 py-2 border border-[#bff202]/30 rounded-lg text-sm focus:outline-none focus:border-[#72bf00] bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">
+                To
+              </label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="px-3 py-2 border border-[#bff202]/30 rounded-lg text-sm focus:outline-none focus:border-[#72bf00] bg-white"
+              />
+            </div>
+            <button
+              onClick={handleApplyDateRange}
+              className="px-4 py-2 bg-[#01312D] text-white rounded-lg text-sm font-semibold hover:bg-[#3A7717] transition-colors"
+            >
+              Apply
+            </button>
+            <button
+              onClick={() => {
+                setFromDate("");
+                setToDate("");
+                setAppliedFrom("");
+                setAppliedTo("");
+                setLoading(true);
+                fetchDashboardData();
+              }}
+              className="px-4 py-2 bg-gray-200 text-[#01312D] rounded-lg text-sm font-semibold hover:bg-gray-300 transition-colors"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+
+        {/* Financial Stats Row - 4 Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            title="Money Requested"
+            value={financialStats.moneyRequested}
+            icon={Wallet}
+            color="bg-[#01312D]"
+            prefix="R"
+          />
+          <StatCard
+            title="Money Paid Back"
+            value={financialStats.totalRepaid}
+            icon={PiggyBank}
+            color="bg-[#3A7717]"
+            prefix="R"
+          />
+          <StatCard
+            title="Actual Interest"
+            value={financialStats.actualInterest}
+            icon={TrendingUp}
+            color="bg-[#72bf00]"
+            prefix="R"
+          />
+          <StatCard
+            title="Potential Interest"
+            value={financialStats.potentialInterest}
+            icon={TrendingDown}
+            color="bg-amber-500"
+            prefix="R"
+          />
+        </div>
+      </div>
+
+      {/* ===== UNFILTERED STATS ===== */}
+      <div className="flex items-center gap-2">
+        <div className="w-2 h-2 rounded-full bg-gray-400" />
+        <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
+          Overall Stats
+        </span>
       </div>
 
       {/* Second Row - Other Stats */}
