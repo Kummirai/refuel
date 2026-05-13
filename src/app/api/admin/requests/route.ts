@@ -1,11 +1,22 @@
 // src/app/api/admin/requests/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
+    const { searchParams } = new URL(request.url);
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
+
+    const query: any = {};
+    if (from || to) {
+      const dateQuery: any = {};
+      if (from) dateQuery.$gte = new Date(from);
+      if (to) dateQuery.$lte = new Date(to);
+      query.requestDate = dateQuery;
+    }
 
     const serviceRequestsCollection = db.collection("serviceRequests");
     const usersCollection = db.collection("user");
@@ -13,7 +24,7 @@ export async function GET() {
 
     // Get all service requests sorted by date
     const requests = await serviceRequestsCollection
-      .find({})
+      .find(query)
       .sort({ requestDate: -1 })
       .toArray();
 
@@ -88,6 +99,9 @@ export async function GET() {
           popPublicId: request.popPublicId,
           popUploadedAt: request.popUploadedAt,
           updatedAt: request.updatedAt,
+          repaidAmount: request.repaidAmount || 0,
+          remainingBalance: request.remainingBalance || 0,
+          isPaid: request.isPaid || false,
           // Additional fields for display
           location:
             request.location || driverProfile?.address || "Not provided",
@@ -129,6 +143,12 @@ export async function GET() {
       .filter((r) => r.status === "completed")
       .reduce((sum, r) => sum + (r.totalRepayable || r.amount || 0), 0);
 
+    // Calculate total repaid amount
+    const totalRepaid = requestsWithDetails.reduce(
+      (sum, r) => sum + (r.repaidAmount || 0),
+      0,
+    );
+
     return NextResponse.json({
       requests: requestsWithDetails,
       recent: requestsWithDetails
@@ -141,6 +161,7 @@ export async function GET() {
       rejected,
       totalRevenue,
       totalRepayable,
+      totalRepaid,
     });
   } catch (error) {
     console.error("Error fetching requests:", error);
