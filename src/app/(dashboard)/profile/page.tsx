@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { compressImage } from "@/lib/utils/image-compression";
+import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import {
   User,
   Car,
@@ -78,6 +79,7 @@ export default function ProfilePage() {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showChangePhone, setShowChangePhone] = useState(false);
   const [showUpdateVehicle, setShowUpdateVehicle] = useState(false);
+  useBodyScrollLock(showChangePassword || showChangePhone || showUpdateVehicle);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",

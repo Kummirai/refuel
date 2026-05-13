@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import {
   Search,
   Filter,
@@ -52,6 +53,9 @@ export default function VerificationsPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [selectedForAction, setSelectedForAction] = useState<any>(null);
   const [fetchingProfile, setFetchingProfile] = useState(false);
+
+  const isAnyModalOpen = showModal || showApproveModal || showRejectModal;
+  useBodyScrollLock(isAnyModalOpen);
 
   useEffect(() => {
     fetchVerifications();

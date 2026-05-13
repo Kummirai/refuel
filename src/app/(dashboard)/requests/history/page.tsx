@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { PopUploadModal } from "@/components/PopUploadModal";
 import { RepaymentProofModal } from "@/components/RepaymentProofModal";
+import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 
 type RequestStatus = "pending" | "approved" | "sent" | "completed" | "rejected";
 type RepaymentStatus = "pending" | "approved" | "rejected";
@@ -455,6 +456,7 @@ export default function RequestHistoryPage() {
 
           <div className="border-t border-gray-100 p-5">
             <button
+              type="button"
               onClick={() => setShowSuccessModal(false)}
               className="w-full bg-[#01312D] text-white py-2 rounded-xl font-semibold hover:bg-[#3A7717] transition-colors"
             >
@@ -498,6 +500,7 @@ export default function RequestHistoryPage() {
 
           <div className="border-t border-gray-100 p-5">
             <button
+              type="button"
               onClick={() => setShowErrorModal(false)}
               className="w-full bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors"
             >
@@ -531,6 +534,8 @@ export default function RequestHistoryPage() {
       ? Math.round((repaidAmount / request.totalRepayable) * 100)
       : 0;
 
+    useBodyScrollLock(true);
+
     if (!IconComponent) {
       return null;
     }
@@ -557,6 +562,7 @@ export default function RequestHistoryPage() {
               </div>
             </div>
             <button
+              type="button"
               onClick={onClose}
               className="p-1 hover:bg-[#eafde7] rounded-lg"
             >
@@ -888,6 +894,7 @@ export default function RequestHistoryPage() {
             {/* Upload POP Button - For service completion (Fuel & Car Wash) */}
             {needsPopUpload && (
               <button
+                type="button"
                 onClick={() => {
                   onClose();
                   setSelectedRequestForPop(request);
@@ -903,6 +910,7 @@ export default function RequestHistoryPage() {
             {/* Upload Repayment Button - For loan repayments */}
             {needsRepayment && !request.hasPendingRepayment && (
               <button
+                type="button"
                 onClick={() => {
                   onClose();
                   setSelectedRequestForRepayment(request);
@@ -926,6 +934,7 @@ export default function RequestHistoryPage() {
             {/* Download Receipt Button */}
             {(request.popUrl || request.status === "completed") && (
               <button
+                type="button"
                 onClick={() => {
                   if (request.popUrl) {
                     window.open(request.popUrl, "_blank");
@@ -966,6 +975,7 @@ export default function RequestHistoryPage() {
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
               <button
+                type="button"
                 onClick={() => router.back()}
                 className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center active:scale-95 transition-transform"
               >
@@ -976,6 +986,7 @@ export default function RequestHistoryPage() {
               </h1>
             </div>
             <button
+              type="button"
               onClick={handleRefresh}
               disabled={refreshing}
               className="p-2 bg-[#eafde7] rounded-full active:scale-95 transition-transform"
@@ -1026,6 +1037,7 @@ export default function RequestHistoryPage() {
             (filter) => (
               <button
                 key={filter}
+                type="button"
                 onClick={() => setSelectedFilter(filter as any)}
                 className={`px-7 py-1.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap  ${
                   selectedFilter === filter
@@ -1067,6 +1079,7 @@ export default function RequestHistoryPage() {
                 : "Your request history will appear here"}
             </p>
             <button
+              type="button"
               onClick={() => router.push("/requests")}
               className="mt-4 bg-linear-to-r from-[#01312D] to-[#3A7717] text-white px-6 py-2 rounded-lg font-semibold text-sm"
             >
@@ -1168,6 +1181,7 @@ export default function RequestHistoryPage() {
 
                   <div className="flex gap-2 pt-3 border-t border-gray-100">
                     <button
+                      type="button"
                       className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-sm font-semibold flex items-center justify-center gap-2"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1180,6 +1194,7 @@ export default function RequestHistoryPage() {
                     </button>
                     {needsPopUpload && (
                       <button
+                        type="button"
                         className="flex-1 py-2 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1193,6 +1208,7 @@ export default function RequestHistoryPage() {
                     )}
                     {needsRepayment && (
                       <button
+                        type="button"
                         className="flex-1 py-2 bg-[#01312D] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-all"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1206,6 +1222,7 @@ export default function RequestHistoryPage() {
                     )}
                     {(request.popUrl || request.status === "completed") && (
                       <button
+                        type="button"
                         className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-sm font-semibold flex items-center justify-center gap-2"
                         onClick={(e) => e.stopPropagation()}
                       >

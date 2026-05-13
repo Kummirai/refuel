@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { compressImage } from "@/lib/utils/image-compression";
+import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import {
   DollarSign,
   CheckCircle,
@@ -131,6 +132,9 @@ export default function LoanRepaymentsPage() {
   const [repaymentUploadLoading, setRepaymentUploadLoading] = useState(false);
   const [repaymentUploadMethod, setRepaymentUploadMethod] = useState("cash");
   const repaymentFileInputRef = useRef<HTMLInputElement>(null);
+
+  const isAnyModalOpen = showDetailsModal || showSuccessModal || showErrorModal || showRejectModal || showRepaymentUploadModal;
+  useBodyScrollLock(isAnyModalOpen);
 
   const handleRepaymentFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -835,6 +839,7 @@ export default function LoanRepaymentsPage() {
 
           <div className="border-t border-gray-100 p-5">
             <button
+              type="button"
               onClick={() => setShowSuccessModal(false)}
               className="w-full bg-[#01312D] text-white py-2 rounded-xl font-semibold hover:bg-[#3A7717] transition-colors"
             >
@@ -880,6 +885,7 @@ export default function LoanRepaymentsPage() {
 
           <div className="border-t border-gray-100 p-5">
             <button
+              type="button"
               onClick={() => setShowErrorModal(false)}
               className="w-full bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors"
             >
@@ -937,6 +943,7 @@ export default function LoanRepaymentsPage() {
 
           <div className="border-t border-gray-100 p-5 flex gap-3">
             <button
+              type="button"
               onClick={() => {
                 setShowRejectModal(false);
                 setRejectionReason("");
@@ -946,6 +953,7 @@ export default function LoanRepaymentsPage() {
               Cancel
             </button>
             <button
+              type="button"
               onClick={handleRejectRepaymentProof}
               disabled={processing}
               className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
@@ -1838,6 +1846,7 @@ export default function LoanRepaymentsPage() {
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setShowRepaymentUploadModal(false)}
                   className="p-1 hover:bg-white/20 rounded-full transition-colors"
                 >
@@ -1995,13 +2004,27 @@ export default function LoanRepaymentsPage() {
             </div>
 
             <div className="border-t border-gray-100 p-6 flex gap-3">
-              <button
-                onClick={() => setShowRepaymentUploadModal(false)}
-                disabled={repaymentUploadLoading}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
-              >
-                Cancel
-              </button>
+                <button
+                  type="button"
+                  onClick={() => !repaymentUploadLoading && setShowRepaymentUploadModal(false)}
+                  disabled={repaymentUploadLoading}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmitRepaymentForDriver}
+                  disabled={repaymentUploadLoading || !repaymentUploadProofUrl || !repaymentUploadAmount}
+                  className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+                >
+                  {repaymentUploadLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-4 h-4" />
+                  )}
+                  Submit Repayment
+                </button>
               <button
                 onClick={handleSubmitRepaymentForDriver}
                 disabled={repaymentUploadLoading || !repaymentUploadProofUrl || !repaymentUploadAmount}

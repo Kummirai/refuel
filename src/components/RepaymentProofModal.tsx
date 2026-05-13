@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { compressImage } from "@/lib/utils/image-compression";
+import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 
 interface RepaymentProofModalProps {
   isOpen: boolean;
@@ -104,6 +105,8 @@ export function RepaymentProofModal({
       setNewRemainingBalance(remainingBalance);
     }
   }, [repaymentAmount, remainingBalance]);
+
+  useBodyScrollLock(isOpen);
 
   if (!isOpen) return null;
 

@@ -449,7 +449,7 @@ export default function VerifyPage() {
       if (response.ok) {
         setSubmitSuccess(true);
         // Scroll to top to show success message
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        window.scrollTo({ top: 0 });
       } else {
         alert(data.error || "Failed to submit verification");
       }
@@ -464,10 +464,10 @@ export default function VerifyPage() {
   const nextStep = () => {
     if (step === 1 && isStep1Completed()) {
       setStep(2);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({ top: 0 });
     } else if (step === 2 && isStep2Completed()) {
       setStep(3);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({ top: 0 });
     } else if (step === 1 && !isStep1Completed()) {
       alert("Please fill in all required fields");
     } else if (step === 2 && !isStep2Completed()) {
@@ -477,7 +477,7 @@ export default function VerifyPage() {
 
   const prevStep = () => {
     setStep(step - 1);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0 });
   };
 
   // PENDING STATUS
@@ -497,12 +497,14 @@ export default function VerifyPage() {
           </p>
           <div className="flex gap-3">
             <button
+              type="button"
               onClick={() => router.push("/verify/status")}
               className="flex-1 bg-[#72bf00] text-white px-4 py-2 rounded-lg font-semibold"
             >
               Check Status
             </button>
             <button
+              type="button"
               onClick={() => router.push("/")}
               className="flex-1 bg-[#01312D] text-white px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2"
             >
@@ -558,6 +560,7 @@ export default function VerifyPage() {
             review your application within 24-48 hours.
           </p>
           <button
+            type="button"
             onClick={() => router.push("/")}
             className="bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white px-6 py-3 rounded-xl font-semibold"
           >
@@ -575,12 +578,13 @@ export default function VerifyPage() {
       <div className="bg-white border-b border-[#bff202]/20 sticky top-0 z-10">
         <div className="px-5 py-4">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.back()}
-              className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center"
-            >
-              <ArrowLeft className="w-5 h-5 text-[#01312D]" />
-            </button>
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center"
+              >
+                <ArrowLeft className="w-5 h-5 text-[#01312D]" />
+              </button>
             <div>
               <h1 className="text-xl font-bold text-[#01312D]">
                 Driver Verification
@@ -760,6 +764,7 @@ export default function VerifyPage() {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={nextStep}
                 disabled={!isStep1Completed()}
                 className="w-full bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50"
@@ -856,12 +861,14 @@ export default function VerifyPage() {
               </div>
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={prevStep}
                   className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold"
                 >
                   ← Back
                 </button>
                 <button
+                  type="button"
                   onClick={nextStep}
                   disabled={!isStep2Completed()}
                   className="flex-1 bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50"
@@ -930,12 +937,14 @@ export default function VerifyPage() {
 
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={prevStep}
                   className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold"
                 >
                   ← Back
                 </button>
                 <button
+                  type="button"
                   onClick={handleSubmit}
                   disabled={loading || !isStep3Completed()}
                   className="flex-1 bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-2"

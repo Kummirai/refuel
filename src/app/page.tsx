@@ -446,6 +446,7 @@ export default function HomePage() {
         {/* Get Started Button */}
         <div className="flex justify-center mb-12">
           <button
+            type="button"
             onClick={handleGetStarted}
             className="group relative bg-linear-to-r from-[#01312D] to-[#3A7717] text-white px-10 py-3.5 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
           >

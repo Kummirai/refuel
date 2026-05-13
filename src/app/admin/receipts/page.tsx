@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { compressImage } from "@/lib/utils/image-compression";
+import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import {
   FileText,
   CheckCircle,
@@ -109,6 +110,9 @@ export default function AdminReceiptsPage() {
   const [availableRequests, setAvailableRequests] = useState<any[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState("");
+
+  const isAnyModalOpen = showDetailsModal || showSuccessModal || showErrorModal || showRejectModal || showCorrectModal || showUploadModal || showUploadSuccessModal;
+  useBodyScrollLock(isAnyModalOpen);
 
   useEffect(() => {
     fetchReceipts();
@@ -800,6 +804,7 @@ Kapuka Tradings Team`;
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setShowDetailsModal(false)}
                 className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full transition-colors"
               >
@@ -899,6 +904,7 @@ Kapuka Tradings Team`;
               {!selectedReceipt.hasReceipt ? (
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
+                    type="button"
                     onClick={() => handleVerifyReceipt(selectedReceipt.id)}
                     disabled={processing}
                     className="flex-[2] bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white px-4 py-3 sm:px-6 sm:py-3 rounded-xl sm:rounded-2xl text-sm sm:text-base font-black shadow-lg shadow-[#3A7717]/30 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:translate-y-0"
@@ -911,6 +917,7 @@ Kapuka Tradings Team`;
                     <span className="whitespace-nowrap">Verify & Approve</span>
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       setShowDetailsModal(false);
                       setTimeout(() => {
@@ -932,6 +939,7 @@ Kapuka Tradings Team`;
               )}
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={openCorrectModal}
                   className="flex-1 px-4 py-3 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl text-sm sm:text-base font-bold text-[#3A7717] bg-[#eafde7] hover:bg-[#d4f5cc] transition-all flex items-center justify-center gap-2"
                 >
@@ -939,6 +947,7 @@ Kapuka Tradings Team`;
                   <span className="whitespace-nowrap">Correct Info</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => setShowDetailsModal(false)}
                   className="flex-1 px-4 py-3 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl text-sm sm:text-base font-bold text-gray-500 hover:bg-gray-100 transition-all"
                 >
@@ -961,6 +970,7 @@ Kapuka Tradings Team`;
             <h2 className="text-2xl font-black text-[#01312D] mb-2">Success!</h2>
             <p className="text-gray-500 mb-8">{successMessage}</p>
             <button
+              type="button"
               onClick={() => setShowSuccessModal(false)}
               className="w-full bg-[#01312D] text-white py-4 rounded-2xl font-bold hover:bg-[#3A7717] transition-all"
             >
@@ -981,6 +991,7 @@ Kapuka Tradings Team`;
             <h2 className="text-2xl font-black text-red-600 mb-2">Oops!</h2>
             <p className="text-gray-500 mb-8">{errorMessage}</p>
             <button
+              type="button"
               onClick={() => setShowErrorModal(false)}
               className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold hover:bg-red-700 transition-all"
             >
@@ -1047,25 +1058,27 @@ Kapuka Tradings Team`;
               </div>
             </div>
             <div className="border-t border-gray-100 p-6 flex gap-3">
-              <button
-                onClick={() => { setShowRejectModal(false); setRejectionReason(""); }}
-                disabled={rejectLoading}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleRejectReceipt}
-                disabled={rejectLoading}
-                className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
-              >
-                {rejectLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <XCircle className="w-4 h-4" />
-                )}
-                Confirm Rejection
-              </button>
+            <button
+              type="button"
+              onClick={() => { setShowRejectModal(false); setRejectionReason(""); }}
+              disabled={rejectLoading}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleRejectReceipt}
+              disabled={rejectLoading}
+              className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+            >
+              {rejectLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <XCircle className="w-4 h-4" />
+              )}
+              Confirm Rejection
+            </button>
             </div>
           </div>
         </div>
@@ -1135,25 +1148,27 @@ Kapuka Tradings Team`;
               </div>
             </div>
             <div className="border-t border-gray-100 p-6 flex gap-3">
-              <button
-                onClick={() => setShowCorrectModal(false)}
-                disabled={correctLoading}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCorrectReceipt}
-                disabled={correctLoading}
-                className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
-              >
-                {correctLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-                Save Changes
-              </button>
+            <button
+              type="button"
+              onClick={() => setShowCorrectModal(false)}
+              disabled={correctLoading}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleCorrectReceipt}
+              disabled={correctLoading}
+              className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+            >
+              {correctLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              Save Changes
+            </button>
             </div>
           </div>
         </div>
@@ -1176,6 +1191,7 @@ Kapuka Tradings Team`;
                   </div>
                 </div>
                 <button
+                  type="button"
                 onClick={() => { setShowUploadModal(false); setSelectedRequestId(""); }}
                   className="p-1 hover:bg-white/20 rounded-full transition-colors"
                 >
@@ -1301,25 +1317,27 @@ Kapuka Tradings Team`;
 
             </div>
             <div className="border-t border-gray-100 p-6 flex gap-3">
-              <button
-                onClick={() => setShowUploadModal(false)}
-                disabled={uploadLoading}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleUploadForDriver}
-                disabled={uploadLoading || !uploadFile}
-                className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
-              >
-                {uploadLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Upload className="w-4 h-4" />
-                )}
-                Upload Receipt
-              </button>
+            <button
+              type="button"
+              onClick={() => setShowUploadModal(false)}
+              disabled={uploadLoading}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleUploadForDriver}
+              disabled={uploadLoading || !uploadFile}
+              className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+            >
+              {uploadLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4" />
+              )}
+              Upload Receipt
+            </button>
             </div>
           </div>
         </div>
@@ -1336,6 +1354,7 @@ Kapuka Tradings Team`;
             <h2 className="text-2xl font-black text-[#01312D] mb-2">Uploaded!</h2>
             <p className="text-gray-500 mb-8">{uploadSuccessMessage}</p>
             <button
+              type="button"
               onClick={() => setShowUploadSuccessModal(false)}
               className="w-full bg-[#01312D] text-white py-4 rounded-2xl font-bold hover:bg-[#3A7717] transition-all"
             >

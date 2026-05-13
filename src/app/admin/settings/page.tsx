@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import {
   Settings,
   Bell,
@@ -52,6 +53,7 @@ function PackageModal({
   onSave: (pkg: Omit<CarWashPackage, "id">) => void;
   onClose: () => void;
 }) {
+  useBodyScrollLock(true);
   const [name, setName] = useState(editingPackage?.name || "");
   const [description, setDescription] = useState(
     editingPackage?.description || "",

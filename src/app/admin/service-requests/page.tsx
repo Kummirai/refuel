@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import {
   Search,
   Filter,
@@ -124,6 +125,9 @@ export default function AdminServiceRequestsPage() {
     useState<ServiceRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [rejectLoading, setRejectLoading] = useState(false);
+
+  const isAnyModalOpen = showSuccessModal || showErrorModal || showRejectModal;
+  useBodyScrollLock(isAnyModalOpen);
 
   useEffect(() => {
     fetchRequests();
