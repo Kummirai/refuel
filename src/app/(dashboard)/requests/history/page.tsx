@@ -819,7 +819,8 @@ export default function RequestHistoryPage() {
                         </p>
                         {repayment.remainingBalance !== undefined && (
                           <p className="text-xs text-gray-400">
-                            Remaining Loan: {formatMoney(repayment.remainingBalance)}
+                            Remaining Loan:{" "}
+                            {formatMoney(repayment.remainingBalance)}
                           </p>
                         )}
                       </div>
@@ -1006,17 +1007,19 @@ export default function RequestHistoryPage() {
           <div className="grid grid-cols-3 gap-2 mt-4">
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
               <p className="text-xs text-gray-500">Total</p>
-              {(loading || refreshing) ? (
+              {loading || refreshing ? (
                 <div className="flex justify-center">
                   <Skeleton className="h-8 w-20" />
                 </div>
               ) : (
-                <p className="text-lg font-bold text-[#01312D]">{stats.total}</p>
+                <p className="text-lg font-bold text-[#01312D]">
+                  {stats.total}
+                </p>
               )}
             </div>
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
               <p className="text-xs text-gray-500">Pending</p>
-              {(loading || refreshing) ? (
+              {loading || refreshing ? (
                 <div className="flex justify-center">
                   <Skeleton className="h-8 w-20" />
                 </div>
@@ -1028,7 +1031,7 @@ export default function RequestHistoryPage() {
             </div>
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
               <p className="text-xs text-gray-500">Approved</p>
-              {(loading || refreshing) ? (
+              {loading || refreshing ? (
                 <div className="flex justify-center">
                   <Skeleton className="h-8 w-20" />
                 </div>
@@ -1040,7 +1043,7 @@ export default function RequestHistoryPage() {
             </div>
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
               <p className="text-xs text-gray-500">Completed</p>
-              {(loading || refreshing) ? (
+              {loading || refreshing ? (
                 <div className="flex justify-center">
                   <Skeleton className="h-8 w-20" />
                 </div>
@@ -1052,7 +1055,7 @@ export default function RequestHistoryPage() {
             </div>
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
               <p className="text-xs text-gray-500">Outstanding</p>
-              {(loading || refreshing) ? (
+              {loading || refreshing ? (
                 <div className="flex justify-center">
                   <Skeleton className="h-8 w-20" />
                 </div>
@@ -1105,7 +1108,10 @@ export default function RequestHistoryPage() {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
+              <div
+                key={i}
+                className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20"
+              >
                 <div className="flex flex-col items-start gap-3 justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <Skeleton className="w-10 h-10 rounded-xl" />
@@ -1205,19 +1211,22 @@ export default function RequestHistoryPage() {
                       </p>
                       {hasOutstanding && request.type !== "carwash" && (
                         <p className="text-xs text-red-600 mt-1">
-                          Outstanding Loan: {formatMoney(request.remainingBalance || 0)}
+                          Outstanding Loan:{" "}
+                          {formatMoney(request.remainingBalance || 0)}
                         </p>
                       )}
                       {request.type === "carwash" &&
                         (request.serviceCharge ?? 0) > 0 && (
                           <p className="text-xs text-[#3A7717] mt-1">
-                            Total due: {formatMoney(request.totalDue ?? request.amount)}
+                            Total due:{" "}
+                            {formatMoney(request.totalDue ?? request.amount)}
                           </p>
                         )}
                       {request.hasPendingRepayment && (
                         <p className="text-xs text-yellow-600 mt-1 flex items-center gap-1">
                           <Hourglass className="w-3 h-3" />
-                          Repayment pending verification: {formatMoney(request.pendingRepaymentAmount ?? 0)}
+                          Repayment pending verification:{" "}
+                          {formatMoney(request.pendingRepaymentAmount ?? 0)}
                         </p>
                       )}
                       {/* <p className="text-xs text-gray-500">
@@ -1239,7 +1248,7 @@ export default function RequestHistoryPage() {
                   <div className="flex gap-2 pt-3 border-t border-gray-100">
                     <button
                       type="button"
-                      className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-sm font-semibold flex items-center justify-center gap-2"
+                      className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-xs font-semibold flex items-center justify-center gap-2"
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedRequest(request);
@@ -1252,38 +1261,38 @@ export default function RequestHistoryPage() {
                     {needsPopUpload && (
                       <button
                         type="button"
-                        className="flex-1 py-2 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all"
+                        className="flex-1 py-2 bg-[#3A7717] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all"
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedRequestForPop(request);
                           setShowPopModal(true);
                         }}
                       >
-                        <Receipt className="w-4 h-4" />
+                        {/*<Receipt className="w-4 h-4" />*/}
                         Upload Receipt
                       </button>
                     )}
                     {needsRepayment && (
                       <button
                         type="button"
-                        className="flex-1 py-2 bg-[#01312D] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-all"
+                        className="flex-1 py-2 bg-[#01312D] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-all"
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedRequestForRepayment(request);
                           setShowRepaymentModal(true);
                         }}
                       >
-                        <Banknote className="w-4 h-4" />
+                        {/*<Banknote className="w-4 h-4" />*/}
                         Repay Loan
                       </button>
                     )}
                     {(request.popUrl || request.status === "completed") && (
                       <button
                         type="button"
-                        className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-sm font-semibold flex items-center justify-center gap-2"
+                        className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-xs font-semibold flex items-center justify-center gap-2"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <Download className="w-4 h-4" />
+                        {/*<Download className="w-4 h-4" />*/}
                         Receipt
                       </button>
                     )}
