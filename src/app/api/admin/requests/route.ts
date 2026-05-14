@@ -127,6 +127,9 @@ export async function GET(request: NextRequest) {
     const approved = requestsWithDetails.filter(
       (r) => r.status === "approved",
     ).length;
+    const sent = requestsWithDetails.filter(
+      (r) => r.status === "sent",
+    ).length;
     const completed = requestsWithDetails.filter(
       (r) => r.status === "completed",
     ).length;
@@ -164,6 +167,7 @@ export async function GET(request: NextRequest) {
       total,
       pending,
       approved,
+      sent,
       completed,
       rejected,
       totalRevenue,
