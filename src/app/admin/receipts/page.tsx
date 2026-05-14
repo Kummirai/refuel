@@ -907,7 +907,7 @@ Kapuka Tradings Team`;
                       setShowDetailsModal(true);
                     }}
                     className="flex items-center gap-2 bg-[#01312D] text-white px-6 py-2.5 rounded-lg 
-                     hover:bg-[#3A7717] transition-all shadow-md active:scale-95 text-xs"
+                     hover:bg-[#3A7717] transition-all shadow-md active:scale-95 text-sm"
                   >
                     <Eye className="w-4 h-4" />
                     Review
