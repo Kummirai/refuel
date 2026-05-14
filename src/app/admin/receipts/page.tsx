@@ -781,7 +781,7 @@ Kapuka Tradings Team`;
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-[#01312D] text-lg">
+                      <h3 className="font-bold text-[#01312D] text-md">
                         {req.driverName}
                       </h3>
                       {getServiceTypeBadge(req.type)}
@@ -789,7 +789,7 @@ Kapuka Tradings Team`;
                         <Clock className="w-3 h-3" /> NO RECEIPT
                       </span>
                     </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
                       <span className="flex items-center gap-1">
                         <Car className="w-4 h-4" /> {req.carNumber}
                       </span>
@@ -808,19 +808,17 @@ Kapuka Tradings Team`;
                   </div>
                 </div>
                 <div className="flex items-center justify-between lg:justify-end gap-8 border-t lg:border-t-0 pt-4 lg:pt-0">
-                  <div className="text-right">
-                    <p className="text-xs text-gray-400 uppercase font-bold tracking-wider">
-                      Amount
-                    </p>
+                  <div className="text-left">
+                    <p className="text-xs text-gray-400 uppercase">Amount</p>
                     <p className="text-2xl font-black text-[#01312D]">
                       {formatMoney(req.actualAmount || req.amount)}
                     </p>
                   </div>
                   <button
                     onClick={() => handleWhatsAppReminder(req)}
-                    className="flex items-center gap-2 bg-[#25D366] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#1da851] transition-all shadow-md active:scale-95"
+                    className="flex items-center gap-2 bg-[#25D366] text-white px-6 py-3 rounded-xl hover:bg-[#1da851] transition-all shadow-md active:scale-95 text-sm"
                   >
-                    <Send className="w-5 h-5" />
+                    <Send className="w-4 h-4" />
                     Send WhatsApp
                   </button>
                 </div>
@@ -1056,7 +1054,10 @@ Kapuka Tradings Team`;
                         Amount
                       </span>
                       <span className="text-base sm:text-xl font-black text-[#3A7717]">
-                        {formatMoney(selectedReceipt.actualAmount || selectedReceipt.amount)}
+                        {formatMoney(
+                          selectedReceipt.actualAmount ||
+                            selectedReceipt.amount,
+                        )}
                       </span>
                     </div>
                   </div>
@@ -1221,7 +1222,9 @@ Kapuka Tradings Team`;
                   <div className="flex justify-between">
                     <span className="text-gray-500">Amount:</span>
                     <span className="font-bold text-[#3A7717]">
-                      {formatMoney(selectedReceipt.actualAmount || selectedReceipt.amount)}
+                      {formatMoney(
+                        selectedReceipt.actualAmount || selectedReceipt.amount,
+                      )}
                     </span>
                   </div>
                 </div>
@@ -1494,7 +1497,8 @@ Kapuka Tradings Team`;
                   ) : (
                     availableRequests.map((req: any) => (
                       <option key={req.id} value={req.id}>
-                        {req.driverName || "Unknown"} - {req.type} - {formatMoney(req.actualAmount || req.amount)} (
+                        {req.driverName || "Unknown"} - {req.type} -{" "}
+                        {formatMoney(req.actualAmount || req.amount)} (
                         {req.id.slice(-6).toUpperCase()})
                       </option>
                     ))
