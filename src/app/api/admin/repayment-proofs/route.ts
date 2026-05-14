@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
+import { toMoney } from "@/lib/money";
 import {
   sendDriverRepaymentApprovalEmail,
   sendDriverRepaymentRejectionEmail,
@@ -158,9 +159,9 @@ export async function PUT(request: NextRequest) {
     if (status === "approved") {
       if (driver?.email) {
         const totalRepayable =
-          serviceRequest?.totalRepayable || serviceRequest?.amount * 1.13;
+          serviceRequest?.totalRepayable || toMoney(serviceRequest?.amount * 1.13);
         const currentRepaid = serviceRequest?.repaidAmount || 0;
-        const newRepaid = currentRepaid + proof.amount;
+        const newRepaid = toMoney(currentRepaid + proof.amount);
         const isFullyPaid = newRepaid >= totalRepayable;
 
         await sendDriverRepaymentApprovalEmail({
@@ -171,7 +172,7 @@ export async function PUT(request: NextRequest) {
             serviceRequest?.type || "service",
           ),
           amount: proof.amount,
-          remainingBalance: Math.max(0, totalRepayable - newRepaid),
+          remainingBalance: toMoney(Math.max(0, totalRepayable - newRepaid)),
           isFullyPaid: isFullyPaid,
         }).catch((err) => console.error("Failed to send approval email:", err));
 

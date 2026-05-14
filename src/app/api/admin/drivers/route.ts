@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
+import { toMoney } from "@/lib/money";
 import { calculateDriverRating } from "@/lib/utils/rating";
 
 interface User {
@@ -72,7 +73,7 @@ export async function GET() {
               .reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
             
             const totalRepayable = req.totalRepayable || req.amount;
-            const remainingBalance = Math.max(0, totalRepayable - totalRepaid);
+            const remainingBalance = toMoney(Math.max(0, totalRepayable - totalRepaid));
 
             return {
               ...req,
@@ -83,9 +84,11 @@ export async function GET() {
           })
         );
 
-        const totalSpent = requests.reduce(
-          (sum: number, req: any) => sum + (req.amount || 0),
-          0,
+        const totalSpent = toMoney(
+          requests.reduce(
+            (sum: number, req: any) => sum + (req.amount || 0),
+            0,
+          )
         );
 
         const rating = calculateDriverRating(profile, enhancedRequests);

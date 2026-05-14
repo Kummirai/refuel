@@ -16,6 +16,7 @@ import {
   Percent,
 } from "lucide-react";
 import { compressImage } from "@/lib/utils/image-compression";
+import { formatMoney, toMoney } from "@/lib/money";
 
 interface PopUploadModalProps {
   isOpen: boolean;
@@ -55,7 +56,7 @@ export function PopUploadModal({
   const [settingsLoading, setSettingsLoading] = useState(true);
 
   const isCarWash = requestType === "carwash";
-  const carWashTotalDue = totalDue || requestedAmount + serviceCharge;
+  const carWashTotalDue = totalDue || toMoney(requestedAmount + serviceCharge);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -170,10 +171,10 @@ export function PopUploadModal({
   // Calculate repayment based on actual amount (only for non-carwash services)
   const calculateRepayment = (amount: number) => {
     const rate = interestRate / 100;
-    const interest = amount * rate;
-    const totalRepayable = amount + interest;
-    const dailyPayment = totalRepayable / 7; // 7 days default
-    return { interest, totalRepayable, dailyPayment: Math.ceil(dailyPayment) };
+    const interest = toMoney(amount * rate);
+    const totalRepayable = toMoney(amount + interest);
+    const dailyPayment = toMoney(totalRepayable / 7);
+    return { interest, totalRepayable, dailyPayment };
   };
 
   const handleAmountChange = (value: string) => {
@@ -348,15 +349,15 @@ export function PopUploadModal({
                     Car Wash Package: {packageName || "Standard"}
                   </p>
                   <p className="text-sm text-blue-800">
-                    Package Price: R{requestedAmount.toLocaleString()}
+                    Package Price: {formatMoney(requestedAmount)}
                   </p>
                   {serviceCharge > 0 && (
                     <p className="text-sm text-blue-800">
-                      Service Charge: + R{serviceCharge.toLocaleString()}
+                      Service Charge: + {formatMoney(serviceCharge)}
                     </p>
                   )}
                   <p className="text-base font-bold text-blue-900 mt-2">
-                    Total Due: R{carWashTotalDue.toLocaleString()}
+                    Total Due: {formatMoney(carWashTotalDue)}
                   </p>
                   <p className="text-xs text-blue-700 mt-1">
                     <strong>No interest applies to car wash services.</strong>{" "}
@@ -369,7 +370,7 @@ export function PopUploadModal({
                     {getServiceDisplayName()} Request
                   </p>
                   <p className="text-sm text-blue-800">
-                    Requested Amount: R{requestedAmount.toLocaleString()}
+                    Requested Amount: {formatMoney(requestedAmount)}
                   </p>
                   <div className="mt-2 p-2 bg-blue-100 rounded-lg">
                     <div className="flex items-center gap-2">
@@ -431,14 +432,14 @@ export function PopUploadModal({
               <div className="flex justify-between">
                 <span className="text-gray-600">Package Price:</span>
                 <span className="font-semibold text-[#01312D]">
-                  R{requestedAmount.toLocaleString()}
+                  {formatMoney(requestedAmount)}
                 </span>
               </div>
               {serviceCharge > 0 && (
                 <div className="flex justify-between">
                   <span className="text-gray-600">Service Charge:</span>
                   <span className="font-semibold text-[#3A7717]">
-                    + R{serviceCharge.toLocaleString()}
+                    + {formatMoney(serviceCharge)}
                   </span>
                 </div>
               )}
@@ -447,7 +448,7 @@ export function PopUploadModal({
                   Total Due (No Interest):
                 </span>
                 <span className="font-bold text-[#3A7717] text-xl">
-                  R{carWashTotalDue.toLocaleString()}
+                  {formatMoney(carWashTotalDue)}
                 </span>
               </div>
               <div className="bg-green-50 rounded-lg p-2 mt-2 -mx-2">
@@ -473,7 +474,7 @@ export function PopUploadModal({
               <div className="flex justify-between">
                 <span className="text-gray-600">Actual Amount:</span>
                 <span className="font-semibold text-[#01312D]">
-                  R{parseFloat(actualAmount).toLocaleString()}
+                  {formatMoney(parseFloat(actualAmount))}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -481,7 +482,7 @@ export function PopUploadModal({
                   Interest ({interestRate}%):
                 </span>
                 <span className="font-semibold text-[#3A7717]">
-                  + R{calculatedRepayment.interest.toLocaleString()}
+                  + {formatMoney(calculatedRepayment.interest)}
                 </span>
               </div>
               <div className="flex justify-between pt-2 border-t border-[#bff202]/20">
@@ -489,7 +490,7 @@ export function PopUploadModal({
                   Total Repayable:
                 </span>
                 <span className="font-bold text-[#01312D]">
-                  R{calculatedRepayment.totalRepayable.toLocaleString()}
+                  {formatMoney(calculatedRepayment.totalRepayable)}
                 </span>
               </div>
               <div className="flex justify-between bg-white/50 rounded-lg p-2">
@@ -497,7 +498,7 @@ export function PopUploadModal({
                   Daily Payment (7 days):
                 </span>
                 <span className="font-bold text-[#3A7717]">
-                  R{calculatedRepayment.dailyPayment.toLocaleString()}/day
+                  {formatMoney(calculatedRepayment.dailyPayment)}/day
                 </span>
               </div>
             </div>

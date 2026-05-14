@@ -33,6 +33,7 @@ import {
   Send,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { formatMoney } from "@/lib/money";
 
 interface ReceiptRequest {
   id: string;
@@ -480,7 +481,7 @@ export default function AdminReceiptsPage() {
   const handleWhatsAppReminder = (req: any) => {
     const message = `Hi ${req.driverName || "Driver"},
 
-This is a reminder from Kapuka Tradings to please upload your receipt for your recent ${req.type || "service"} request of R${(req.actualAmount || req.amount || 0).toLocaleString()}.
+This is a reminder from Kapuka Tradings to please upload your receipt for your recent ${req.type || "service"} request of ${formatMoney(req.actualAmount || req.amount || 0)}.
 
 Vehicle: ${req.carNumber || "N/A"}
 Request ID: ${(req.id || req._id || "").slice(-6).toUpperCase()}
@@ -632,7 +633,7 @@ Kapuka Tradings Team`;
                 {isLoading ? (
                   <Skeleton className="h-8 w-28" />
                 ) : (
-                  `R${stats.totalAmount.toLocaleString()}`
+                  formatMoney(stats.totalAmount)
                 )}
               </div>
             </div>
@@ -812,7 +813,7 @@ Kapuka Tradings Team`;
                       Amount
                     </p>
                     <p className="text-2xl font-black text-[#01312D]">
-                      R{(req.actualAmount || req.amount).toLocaleString()}
+                      {formatMoney(req.actualAmount || req.amount)}
                     </p>
                   </div>
                   <button
@@ -890,15 +891,12 @@ Kapuka Tradings Team`;
                 </div>
 
                 <div className="flex items-center justify-between lg:justify-end gap-8 border-t lg:border-t-0 pt-4 lg:pt-0">
-                  <div className="text-right">
+                  <div className="text-left">
                     <p className="text-[11px] text-gray-400 uppercase font-bold tracking-wider">
                       Amount
                     </p>
                     <p className="text-2xl font-black text-[#01312D]">
-                      R
-                      {(
-                        receipt.actualAmount || receipt.amount
-                      ).toLocaleString()}
+                      {formatMoney(receipt.actualAmount || receipt.amount)}
                     </p>
                   </div>
                   <button
@@ -1058,10 +1056,7 @@ Kapuka Tradings Team`;
                         Amount
                       </span>
                       <span className="text-base sm:text-xl font-black text-[#3A7717]">
-                        R
-                        {(
-                          selectedReceipt.actualAmount || selectedReceipt.amount
-                        ).toLocaleString()}
+                        {formatMoney(selectedReceipt.actualAmount || selectedReceipt.amount)}
                       </span>
                     </div>
                   </div>
@@ -1226,10 +1221,7 @@ Kapuka Tradings Team`;
                   <div className="flex justify-between">
                     <span className="text-gray-500">Amount:</span>
                     <span className="font-bold text-[#3A7717]">
-                      R
-                      {(
-                        selectedReceipt.actualAmount || selectedReceipt.amount
-                      ).toLocaleString()}
+                      {formatMoney(selectedReceipt.actualAmount || selectedReceipt.amount)}
                     </span>
                   </div>
                 </div>
@@ -1502,8 +1494,7 @@ Kapuka Tradings Team`;
                   ) : (
                     availableRequests.map((req: any) => (
                       <option key={req.id} value={req.id}>
-                        {req.driverName || "Unknown"} - {req.type} - R
-                        {(req.actualAmount || req.amount).toLocaleString()} (
+                        {req.driverName || "Unknown"} - {req.type} - {formatMoney(req.actualAmount || req.amount)} (
                         {req.id.slice(-6).toUpperCase()})
                       </option>
                     ))

@@ -41,6 +41,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { formatMoney, toMoney } from "@/lib/money";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -161,14 +162,14 @@ export default function ProfilePage() {
         setAllRequests(requestsData);
 
         // Calculate total spent from fulfilled requests only
-        const totalSpent = requestsData
+        const totalSpent = toMoney(requestsData
           .filter(
             (r: any) =>
               r.status === "approved" ||
               r.status === "sent" ||
               r.status === "completed",
           )
-          .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount || 0), 0);
+          .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount || 0), 0));
 
         // Calculate total active loans (where balance > 0)
         const activeLoansCount = requestsData.filter(
@@ -571,36 +572,36 @@ export default function ProfilePage() {
           <div className="w-8 h-8 bg-[#eafde7] rounded-full flex items-center justify-center mx-auto mb-1">
             <History className="w-4 h-4 text-[#3A7717]" />
           </div>
-          <p className="text-lg font-bold text-[#01312D]">
+          <div className="text-lg font-bold text-[#01312D]">
             {loading ? <Skeleton className="h-6 w-10 mx-auto" /> : userData.totalRequests}
-          </p>
+          </div>
           <p className="text-xs text-gray-500">Requests</p>
         </div>
         <div className="bg-white rounded-xl p-3 text-center shadow-sm border border-[#bff202]/20">
           <div className="w-8 h-8 bg-[#eafde7] rounded-full flex items-center justify-center mx-auto mb-1">
             <Wallet className="w-4 h-4 text-[#3A7717]" />
           </div>
-          <p className="text-lg font-bold text-[#01312D]">
-            {loading ? <Skeleton className="h-6 w-20 mx-auto" /> : <>R{userData.totalSpent.toLocaleString()}</>}
-          </p>
+          <div className="text-lg font-bold text-[#01312D]">
+            {loading ? <Skeleton className="h-6 w-20 mx-auto" /> : <>{formatMoney(userData.totalSpent)}</>}
+          </div>
           <p className="text-xs text-gray-500">Spent</p>
         </div>
         <div className="bg-white rounded-xl p-3 text-center shadow-sm border border-[#bff202]/20">
           <div className="w-8 h-8 bg-[#eafde7] rounded-full flex items-center justify-center mx-auto mb-1">
             <TrendingUp className="w-4 h-4 text-[#3A7717]" />
           </div>
-          <p className="text-lg font-bold text-[#01312D]">
+          <div className="text-lg font-bold text-[#01312D]">
             {loading ? <Skeleton className="h-6 w-10 mx-auto" /> : userData.totalLoans}
-          </p>
+          </div>
           <p className="text-xs text-gray-500">Loans</p>
         </div>
         <div className="bg-white rounded-xl p-3 text-center shadow-sm border border-[#bff202]/20">
           <div className="w-8 h-8 bg-[#eafde7] rounded-full flex items-center justify-center mx-auto mb-1">
             <Star className="w-4 h-4 text-[#3A7717]" />
           </div>
-          <p className="text-lg font-bold text-[#01312D]">
+          <div className="text-lg font-bold text-[#01312D]">
             {loading ? <Skeleton className="h-6 w-10 mx-auto" /> : (userData.rating || "N/A")}
-          </p>
+          </div>
           <p className="text-xs text-gray-500">Rating</p>
         </div>
       </div>
@@ -857,7 +858,7 @@ export default function ProfilePage() {
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-bold text-[#01312D]">
-                          R{(req.actualAmount || req.amount).toLocaleString()}
+                          {formatMoney(req.actualAmount || req.amount)}
                         </p>
                         <p
                           className={`text-[10px] font-bold uppercase ${
@@ -933,7 +934,7 @@ export default function ProfilePage() {
                         <div className="text-right">
                           <p className="text-xs text-gray-500">Balance</p>
                           <p className="text-sm font-black text-[#01312D]">
-                            R{loan.remainingBalance.toLocaleString()}
+                            {formatMoney(loan.remainingBalance)}
                           </p>
                         </div>
                       </div>
@@ -947,7 +948,7 @@ export default function ProfilePage() {
                       </div>
                       <div className="flex justify-between items-center text-[10px]">
                         <span className="text-gray-500">
-                          Total: R{loan.totalRepayable?.toLocaleString() || loan.amount.toLocaleString()}
+                            Total: {formatMoney(loan.totalRepayable || loan.amount)}
                         </span>
                         <button
                           onClick={() => router.push("/requests/history")}

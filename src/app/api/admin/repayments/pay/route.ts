@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
+import { toMoney } from "@/lib/money";
 
 export async function POST(request: Request) {
   try {
@@ -31,9 +32,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Loan not found" }, { status: 404 });
     }
 
-    const totalRepayable = loan.totalRepayable || loan.amount * 1.13;
+    const totalRepayable = loan.totalRepayable || toMoney(loan.amount * 1.13);
     const currentRepaid = loan.repaidAmount || 0;
-    const newRepaid = currentRepaid + amount;
+    const newRepaid = toMoney(currentRepaid + amount);
     const isFullyPaid = newRepaid >= totalRepayable;
 
     // Generate payment ID
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
       paymentDate,
       method: method || "cash",
       reference: reference || null,
-      remainingBalance: Math.max(0, totalRepayable - newRepaid),
+      remainingBalance: toMoney(Math.max(0, totalRepayable - newRepaid)),
       uploadedByAdmin: true,
       createdAt: new Date(),
       ...(proofUrl && { proofUrl, proofPublicId }),
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
         requestId: repaymentId,
         userId: loan.userId || "admin",
         amount,
-        remainingBalance: Math.max(0, totalRepayable - newRepaid),
+        remainingBalance: toMoney(Math.max(0, totalRepayable - newRepaid)),
         isFullyPaid,
         proofUrl,
         proofPublicId: proofPublicId || null,
@@ -97,7 +98,7 @@ export async function POST(request: Request) {
     // 3. Update loan with new repaid amount
     const updateFields: any = {
       repaidAmount: newRepaid,
-      remainingBalance: Math.max(0, totalRepayable - newRepaid),
+      remainingBalance: toMoney(Math.max(0, totalRepayable - newRepaid)),
       lastPaymentDate: paymentDate,
     };
 

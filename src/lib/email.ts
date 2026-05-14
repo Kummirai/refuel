@@ -1,5 +1,6 @@
 // src/lib/email.ts
 import nodemailer from "nodemailer";
+import { formatMoney, toMoney } from "@/lib/money";
 
 // Validate environment variables
 const requiredEnvVars = [
@@ -429,7 +430,7 @@ const generateAdminEmailHtml = (data: ServiceRequestEmailData): string => {
             <div class="info-row"><span class="label">Request ID:</span><span class="value">${data.requestId.slice(-8).toUpperCase()}</span></div>
             <div class="amount-card" style="margin: 16px 0;">
               <div class="amount-label"> Request Amount</div>
-              <div class="amount-value">R ${data.amount.toLocaleString()}</div>
+              <div class="amount-value">${formatMoney(data.amount)}</div>
             </div>
             <div class="info-row"><span class="label">Request Date:</span><span class="value">${formatDateTime(data.requestDate)}</span></div>
           </div>
@@ -518,7 +519,7 @@ const generateDriverApprovalHtml = (data: {
             <div class="info-row"><span class="label">Service Type:</span><span class="value">${serviceTypeMap[data.serviceType] || data.serviceType}</span></div>
             <div class="amount-card" style="margin: 16px 0;">
               <div class="amount-label"> Approved Amount</div>
-              <div class="amount-value">R ${data.amount.toLocaleString()}</div>
+              <div class="amount-value">${formatMoney(data.amount)}</div>
             </div>
           </div>
           
@@ -624,7 +625,7 @@ const generateDriverRejectionHtml = (data: {
           <div class="card">
             <div class="card-title">Request Information</div>
             <div class="info-row"><span class="label">Service Type:</span><span class="value">${serviceTypeMap[data.serviceType] || data.serviceType}</span></div>
-            <div class="info-row"><span class="label">Amount:</span><span class="value">R ${data.amount.toLocaleString()}</span></div>
+            <div class="info-row"><span class="label">Amount:</span><span class="value">${formatMoney(data.amount)}</span></div>
           </div>
           
           <div class="reason-box">
@@ -906,13 +907,13 @@ export async function sendAdminRepaymentProofEmail(data: {
           
           <div class="amount-card">
             <div class="amount-label"> Repayment Amount</div>
-            <div class="amount-value">R ${data.amount.toLocaleString()}</div>
+            <div class="amount-value">${formatMoney(data.amount)}</div>
             <div style="margin-top: 8px; font-size: 14px; color: #2d6a4f;">${data.serviceTypeLabel}</div>
           </div>
           
           <div class="remaining-box">
             <div style="font-weight: bold; margin-bottom: 8px;"> Remaining Balance After This Payment</div>
-            <div class="remaining-value">R ${data.remainingBalance.toLocaleString()}</div>
+            <div class="remaining-value">${formatMoney(data.remainingBalance)}</div>
           </div>
           
           <div class="card">
@@ -948,9 +949,9 @@ export async function sendAdminRepaymentProofEmail(data: {
     const info = await transporter.sendMail({
       from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
       to: adminEmails,
-      subject: `New Repayment Proof - ${data.driverName} - R${data.amount.toLocaleString()}`,
+      subject: `New Repayment Proof - ${data.driverName} - ${formatMoney(data.amount)}`,
       html: html,
-      text: `New repayment proof submitted by ${data.driverName} for R${data.amount.toLocaleString()}. Remaining balance: R${data.remainingBalance.toLocaleString()}`,
+      text: `New repayment proof submitted by ${data.driverName} for ${formatMoney(data.amount)}. Remaining balance: ${formatMoney(data.remainingBalance)}`,
     });
     console.log("Admin repayment proof email sent to:", adminEmails.join(", "));
     console.log("Email ID:", info.messageId);
@@ -998,7 +999,7 @@ export async function sendDriverRepaymentApprovalEmail(data: {
           
           <div class="amount-card">
             <div class="amount-label"> Payment Amount</div>
-            <div class="amount-value">R ${data.amount.toLocaleString()}</div>
+            <div class="amount-value">${formatMoney(data.amount)}</div>
             <div style="margin-top: 8px;">${data.serviceTypeLabel}</div>
           </div>
           
@@ -1015,7 +1016,7 @@ export async function sendDriverRepaymentApprovalEmail(data: {
               : `
             <div class="remaining-box">
               <div style="font-weight: bold; margin-bottom: 8px;"> Remaining Balance</div>
-              <div class="remaining-value">R ${data.remainingBalance.toLocaleString()}</div>
+              <div class="remaining-value">${formatMoney(data.remainingBalance)}</div>
               <div style="margin-top: 8px; font-size: 12px; color: #92400e;">Continue making payments to clear your balance</div>
             </div>
           `
@@ -1040,9 +1041,9 @@ export async function sendDriverRepaymentApprovalEmail(data: {
       to: data.driverEmail,
       subject: data.isFullyPaid
         ? ` ${data.serviceTypeLabel} Fully Paid - Kapuka`
-        : ` Repayment of R${data.amount.toLocaleString()} Approved - Kapuka`,
+        : ` Repayment of ${formatMoney(data.amount)} Approved - Kapuka`,
       html: html,
-      text: `Your repayment of R${data.amount.toLocaleString()} has been approved. Remaining balance: R${data.remainingBalance.toLocaleString()}`,
+      text: `Your repayment of ${formatMoney(data.amount)} has been approved. Remaining balance: ${formatMoney(data.remainingBalance)}`,
     });
     console.log("Driver repayment approval email sent:", info.messageId);
     return info;
@@ -1088,7 +1089,7 @@ export async function sendDriverRepaymentRejectionEmail(data: {
           
           <div class="amount-card" style="background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);">
             <div class="amount-label"> Affected Payment</div>
-            <div class="amount-value" style="color: #b91c1c;">R ${data.amount.toLocaleString()}</div>
+            <div class="amount-value" style="color: #b91c1c;">${formatMoney(data.amount)}</div>
             <div style="margin-top: 8px;">${data.serviceTypeLabel}</div>
           </div>
           
@@ -1119,7 +1120,7 @@ export async function sendDriverRepaymentRejectionEmail(data: {
       to: data.driverEmail,
       subject: ` Repayment Proof Rejected - Kapuka`,
       html: html,
-      text: `Your repayment proof of R${data.amount.toLocaleString()} was rejected. Reason: ${data.reason}`,
+      text: `Your repayment proof of ${formatMoney(data.amount)} was rejected. Reason: ${data.reason}`,
     });
     console.log("Driver repayment rejection email sent:", info.messageId);
     return info;
@@ -1180,12 +1181,12 @@ export async function sendAdminReceiptUploadEmail(data: {
             <div class="card-title">Service Details</div>
             <div class="info-row"><span class="label">Service Type:</span><span class="value">${data.serviceTypeLabel}</span></div>
             <div class="info-row"><span class="label">Request ID:</span><span class="value">${data.requestId.slice(-8).toUpperCase()}</span></div>
-            <div class="info-row"><span class="label">Requested Amount:</span><span class="value amount-value">R ${data.amount.toLocaleString()}</span></div>
-            <div class="info-row"><span class="label">Actual Amount Used:</span><span class="value actual-amount-value">R ${data.actualAmount.toLocaleString()}</span></div>
+            <div class="info-row"><span class="label">Requested Amount:</span><span class="value amount-value">${formatMoney(data.amount)}</span></div>
+            <div class="info-row"><span class="label">Actual Amount Used:</span><span class="value actual-amount-value">${formatMoney(data.actualAmount)}</span></div>
             ${
               data.totalRepayable
                 ? `
-            <div class="info-row"><span class="label">Total Repayable (with interest):</span><span class="value">R ${data.totalRepayable.toLocaleString()}</span></div>
+            <div class="info-row"><span class="label">Total Repayable (with interest):</span><span class="value">${formatMoney(data.totalRepayable)}</span></div>
             `
                 : ""
             }
@@ -1197,8 +1198,8 @@ export async function sendAdminReceiptUploadEmail(data: {
               ? `
           <div class="loan-details">
             <div style="font-weight: bold; margin-bottom: 12px; color: #1a4d2a;"> Loan Information</div>
-            <div class="info-row"><span class="label">Interest Amount:</span><span class="value">R ${(data.totalRepayable - data.actualAmount).toLocaleString()}</span></div>
-            <div class="info-row"><span class="label">Repayment Schedule:</span><span class="value">Daily payments of R ${((data.totalRepayable || 0) / 7).toFixed(2)} for 7 days</span></div>
+            <div class="info-row"><span class="label">Interest Amount:</span><span class="value">${formatMoney(toMoney(data.totalRepayable - data.actualAmount))}</span></div>
+            <div class="info-row"><span class="label">Repayment Schedule:</span><span class="value">Daily payments of ${formatMoney(toMoney((data.totalRepayable || 0) / 7))} for 7 days</span></div>
           </div>
           `
               : ""
@@ -1234,7 +1235,7 @@ export async function sendAdminReceiptUploadEmail(data: {
       to: adminEmails,
       subject: `New Receipt Uploaded - ${data.driverName} (${data.serviceTypeLabel})`,
       html: html,
-      text: `${data.driverName} has uploaded a receipt for their ${data.serviceTypeLabel} request. Amount: R${data.actualAmount.toLocaleString()}. Please verify the receipt.`,
+      text: `${data.driverName} has uploaded a receipt for their ${data.serviceTypeLabel} request. Amount: ${formatMoney(data.actualAmount)}. Please verify the receipt.`,
     });
     console.log("Admin receipt upload email sent to:", adminEmails.join(", "));
     console.log("Email ID:", info.messageId);
@@ -1281,7 +1282,7 @@ export async function sendDriverReceiptUploadConfirmation(data: {
           
           <div class="amount-card">
             <div class="amount-label">Actual Amount Used</div>
-            <div class="amount-value">R ${data.actualAmount.toLocaleString()}</div>
+            <div class="amount-value">${formatMoney(data.actualAmount)}</div>
             <div style="margin-top: 10px; color: #64748b; font-size: 14px;">${data.serviceTypeLabel}  -  ${data.carRegistration}</div>
           </div>
           
@@ -1290,9 +1291,9 @@ export async function sendDriverReceiptUploadConfirmation(data: {
               ? `
           <div class="loan-box">
             <div style="font-weight: bold; margin-bottom: 12px; color: #0d4a2a;"> Loan Summary</div>
-            <div class="info-row"><span class="label">Original Amount:</span><span class="value">R ${data.actualAmount.toLocaleString()}</span></div>
-            <div class="info-row"><span class="label">Total Repayable:</span><span class="value">R ${data.totalRepayable.toLocaleString()}</span></div>
-            <div class="info-row"><span class="label">Interest (15%):</span><span class="value">R ${(data.totalRepayable - data.actualAmount).toLocaleString()}</span></div>
+            <div class="info-row"><span class="label">Original Amount:</span><span class="value">${formatMoney(data.actualAmount)}</span></div>
+            <div class="info-row"><span class="label">Total Repayable:</span><span class="value">${formatMoney(data.totalRepayable)}</span></div>
+            <div class="info-row"><span class="label">Interest (15%):</span><span class="value">${formatMoney(toMoney(data.totalRepayable - data.actualAmount))}</span></div>
             <div class="info-row"><span class="label">Repayment Period:</span><span class="value">7 days (daily installments)</span></div>
           </div>
           `
@@ -1309,7 +1310,7 @@ export async function sendDriverReceiptUploadConfirmation(data: {
               ? `
           <div class="info-highlight">
             <strong style="color: #1e40af;"> Next Steps:</strong>
-            <div style="margin-top: 6px; color: #1e3a5f; font-size: 14px;">Once verified, you'll need to make daily repayments of <strong>R ${(data.totalRepayable / 7).toFixed(2)}</strong> for 7 days.</div>
+            <div style="margin-top: 6px; color: #1e3a5f; font-size: 14px;">Once verified, you'll need to make daily repayments of <strong>${formatMoney(toMoney(data.totalRepayable / 7))}</strong> for 7 days.</div>
           </div>
           `
               : ""
@@ -1334,7 +1335,7 @@ export async function sendDriverReceiptUploadConfirmation(data: {
       to: data.driverEmail,
       subject: `Receipt Uploaded - ${data.serviceTypeLabel} Request`,
       html: html,
-      text: `Your receipt for R${data.actualAmount.toLocaleString()} has been uploaded and is pending verification.`,
+      text: `Your receipt for ${formatMoney(data.actualAmount)} has been uploaded and is pending verification.`,
     });
     console.log(
       "Driver receipt upload confirmation email sent:",
@@ -1392,7 +1393,7 @@ export async function sendRepaymentCompletedEmail(data: {
           
           <div class="amount-card">
             <div class="amount-label"> Total Amount Repaid</div>
-            <div class="amount-value">R ${data.totalPaid.toLocaleString()}</div>
+            <div class="amount-value">${formatMoney(data.totalPaid)}</div>
             <div style="margin-top: 8px;">${data.serviceTypeLabel}</div>
           </div>
           
@@ -1429,7 +1430,7 @@ export async function sendRepaymentCompletedEmail(data: {
       to: data.driverEmail,
       subject: ` ${data.serviceTypeLabel} Fully Paid - Kapuka`,
       html: html,
-      text: `Congratulations! Your ${data.serviceTypeLabel} has been fully paid off. Total paid: R${data.totalPaid.toLocaleString()}`,
+      text: `Congratulations! Your ${data.serviceTypeLabel} has been fully paid off. Total paid: ${formatMoney(data.totalPaid)}`,
     });
     console.log("Repayment completed email sent:", info.messageId);
     return info;

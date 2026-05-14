@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { compressImage } from "@/lib/utils/image-compression";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
+import { formatMoney, toMoney } from "@/lib/money";
 
 interface RepaymentProofModalProps {
   isOpen: boolean;
@@ -99,7 +100,7 @@ export function RepaymentProofModal({
   useEffect(() => {
     const amountNum = parseFloat(repaymentAmount);
     if (!isNaN(amountNum) && amountNum > 0) {
-      const newBalance = remainingBalance - amountNum;
+      const newBalance = toMoney(remainingBalance - amountNum);
       setNewRemainingBalance(newBalance > 0 ? newBalance : 0);
     } else {
       setNewRemainingBalance(remainingBalance);
@@ -118,7 +119,7 @@ export function RepaymentProofModal({
 
     if (parseFloat(repaymentAmount) > remainingBalance) {
       setError(
-        `Amount cannot exceed remaining balance of R${remainingBalance.toLocaleString()}`,
+        `Amount cannot exceed remaining balance of ${formatMoney(remainingBalance)}`,
       );
       return;
     }
@@ -133,7 +134,7 @@ export function RepaymentProofModal({
 
     try {
       const amountNum = parseFloat(repaymentAmount);
-      const newBalance = remainingBalance - amountNum;
+      const newBalance = toMoney(remainingBalance - amountNum);
       const isFullyPaid = newBalance <= 0;
 
       const response = await fetch("/api/driver/repayment-proof", {
@@ -206,13 +207,13 @@ export function RepaymentProofModal({
           <div className="flex items-center justify-between mb-2">
             <span className="text-gray-600 text-sm">Requested Amount:</span>
             <span className="font-semibold text-[#01312D]">
-              R{requestedAmount.toLocaleString()}
+              {formatMoney(requestedAmount)}
             </span>
           </div>
           <div className="flex items-center justify-between mb-2">
             <span className="text-gray-600 text-sm">Total Repayable:</span>
             <span className="font-semibold text-[#01312D]">
-              R{totalRepayable.toLocaleString()}
+              {formatMoney(totalRepayable)}
             </span>
           </div>
           <div className="flex items-center justify-between pt-2 border-t border-[#BFF202]/20">
@@ -220,7 +221,7 @@ export function RepaymentProofModal({
               Outstanding Balance:
             </span>
             <span className="text-2xl font-bold text-[#3A7717]">
-              R{remainingBalance.toLocaleString()}
+              {formatMoney(remainingBalance)}
             </span>
           </div>
         </div>
@@ -241,7 +242,7 @@ export function RepaymentProofModal({
             />
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Max: R{remainingBalance.toLocaleString()}
+            Max: {formatMoney(remainingBalance)}
           </p>
         </div>
 
@@ -252,13 +253,13 @@ export function RepaymentProofModal({
               <div className="flex justify-between">
                 <span className="text-gray-600">Current Balance:</span>
                 <span className="font-semibold text-red-600">
-                  R{remainingBalance.toLocaleString()}
+                  {formatMoney(remainingBalance)}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Payment Amount:</span>
                 <span className="font-semibold text-[#3A7717]">
-                  - R{parseFloat(repaymentAmount).toLocaleString()}
+                  - {formatMoney(parseFloat(repaymentAmount))}
                 </span>
               </div>
               <div className="flex justify-between pt-2 border-t border-blue-200">
@@ -268,7 +269,7 @@ export function RepaymentProofModal({
                 >
                   {newRemainingBalance <= 0
                     ? "R0.00 (Fully Paid!)"
-                    : `R${newRemainingBalance.toLocaleString()}`}
+                    : formatMoney(newRemainingBalance)}
                 </span>
               </div>
             </div>

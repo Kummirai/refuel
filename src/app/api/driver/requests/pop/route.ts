@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { connectToDatabase } from "@/lib/mongodb/client";
 import { ObjectId } from "mongodb";
+import { toMoney } from "@/lib/money";
 import {
   sendAdminReceiptUploadEmail,
   sendDriverReceiptUploadConfirmation,
@@ -81,9 +82,9 @@ export async function POST(request: NextRequest) {
     const finalTotalRepayable =
       totalRepayable ||
       (interest
-        ? actualAmount + (actualAmount * interest) / 100
+        ? toMoney(actualAmount + (actualAmount * interest) / 100)
         : actualAmount);
-    const finalDailyPayment = dailyPayment || finalTotalRepayable / 7;
+    const finalDailyPayment = dailyPayment || toMoney(finalTotalRepayable / 7);
     const finalRepaymentDays = repaymentDays || 7;
 
     // Update the request
@@ -125,7 +126,7 @@ export async function POST(request: NextRequest) {
     await driverProfilesCollection.updateOne(
       { userId: session.user.id },
       {
-        $inc: { totalSpent: actualAmount, totalRequests: 1 },
+        $inc: { totalSpent: toMoney(actualAmount), totalRequests: 1 },
         $set: { updatedAt: new Date() },
       },
       { upsert: true },

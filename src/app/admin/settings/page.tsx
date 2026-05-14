@@ -33,6 +33,7 @@ import {
   Edit2,
   Tag,
 } from "lucide-react";
+import { formatMoney } from "@/lib/money";
 
 // Car wash package interface
 interface CarWashPackage {
@@ -883,7 +884,7 @@ export default function AdminSettingsPage() {
                           {pkg.description}
                         </p>
                         <p className="text-lg font-bold text-[#3A7717] mt-2">
-                          R{pkg.price.toLocaleString()}
+                          {formatMoney(pkg.price)}
                         </p>
                       </div>
                       <div className="flex gap-2">

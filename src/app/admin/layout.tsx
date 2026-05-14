@@ -23,6 +23,7 @@ import {
   FileText,
   Receipt
 } from "lucide-react";
+import { formatMoney } from "@/lib/money";
 
 export default function AdminLayout({
   children,
@@ -357,8 +358,7 @@ export default function AdminLayout({
                               <Clock className="w-3 h-3" />
                               <span>
                                 {req.serviceType || "Service"} -{" "}
-                                {req.driverName || "Driver"} • R
-                                {req.amount?.toLocaleString()}
+                                {req.driverName || "Driver"} • {formatMoney(req.amount)}
                               </span>
                             </div>
                           ))}
@@ -407,8 +407,7 @@ export default function AdminLayout({
                               >
                                 <AlertCircle className="w-3 h-3" />
                                 <span>
-                                  {rep.driverName || "Driver"} - R
-                                  {rep.remainingAmount?.toLocaleString()}{" "}
+                                  {rep.driverName || "Driver"} - {formatMoney(rep.remainingAmount)}{" "}
                                   remaining • Due{" "}
                                   {rep.dueDate
                                     ? new Date(rep.dueDate).toLocaleDateString()
@@ -460,8 +459,7 @@ export default function AdminLayout({
                               >
                                 <AlertCircle className="w-3 h-3" />
                                 <span>
-                                  {receipt.driverName || "Driver"} - R
-                                  {receipt.amount?.toLocaleString()}{" "}
+                                  {receipt.driverName || "Driver"} - {formatMoney(receipt.amount)}{" "}
                                   • Due{" "}
                                   {receipt.dueDate
                                     ? new Date(receipt.dueDate).toLocaleDateString()

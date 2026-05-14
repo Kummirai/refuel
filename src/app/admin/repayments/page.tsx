@@ -37,6 +37,7 @@ import {
   X,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { formatMoney, toMoney } from "@/lib/money";
 
 interface Repayment {
   id: string;
@@ -202,7 +203,7 @@ export default function LoanRepaymentsPage() {
     }
 
     if (amount > repaymentUploadRepayment.remainingAmount) {
-      setErrorMessage(`Amount cannot exceed remaining balance of R${repaymentUploadRepayment.remainingAmount.toLocaleString()}`);
+      setErrorMessage(`Amount cannot exceed remaining balance of ${formatMoney(repaymentUploadRepayment.remainingAmount)}`);
       setShowErrorModal(true);
       return;
     }
@@ -236,7 +237,7 @@ export default function LoanRepaymentsPage() {
       }
 
       setSuccessMessage(
-        `✅ Repayment of R${amount.toLocaleString()} recorded successfully for ${repaymentUploadRepayment.driverName}! Remaining: R${data.remainingBalance.toLocaleString()}`,
+        `✅ Repayment of ${formatMoney(amount)} recorded successfully for ${repaymentUploadRepayment.driverName}! Remaining: ${formatMoney(data.remainingBalance)}`,
       );
       setShowSuccessModal(true);
       fetchRepayments();
@@ -311,7 +312,7 @@ export default function LoanRepaymentsPage() {
       if (response.ok) {
         const result = await response.json();
         setSuccessMessage(
-          `✅ Payment of R${amount.toLocaleString()} recorded successfully! Remaining: R${result.remainingBalance.toLocaleString()}`,
+          `✅ Payment of ${formatMoney(amount)} recorded successfully! Remaining: ${formatMoney(result.remainingBalance)}`,
         );
         setShowSuccessModal(true);
         fetchRepayments();
@@ -336,7 +337,7 @@ export default function LoanRepaymentsPage() {
     if (repayment.remainingAmount > 0) {
       if (
         !confirm(
-          `⚠️ WARNING: This ${repayment.serviceTypeLabel} still has a remaining balance of R${repayment.remainingAmount.toLocaleString()}.\n\n` +
+          `⚠️ WARNING: This ${repayment.serviceTypeLabel} still has a remaining balance of ${formatMoney(repayment.remainingAmount)}.\n\n` +
             `Force completing will mark it as closed despite the outstanding balance.\n\n` +
             `Driver: ${repayment.driverName}\n` +
             `Vehicle: ${repayment.carRegistration}\n\n` +
@@ -351,7 +352,7 @@ export default function LoanRepaymentsPage() {
           `Are you sure you want to mark this ${repayment.serviceTypeLabel} as COMPLETED?\n\n` +
             `Driver: ${repayment.driverName}\n` +
             `Vehicle: ${repayment.carRegistration}\n` +
-            `Total Repaid: R${repayment.repaidAmount.toLocaleString()}\n\n` +
+            `Total Repaid: ${formatMoney(repayment.repaidAmount)}\n\n` +
             `This action will close the repayment and mark it as fully completed.`,
         )
       ) {
@@ -376,9 +377,9 @@ export default function LoanRepaymentsPage() {
         setSuccessMessage(
           `✅ ${repayment.serviceTypeLabel} marked as COMPLETED successfully!\n\n` +
             `Driver: ${repayment.driverName}\n` +
-            `Total Repaid: R${repayment.repaidAmount.toLocaleString()}` +
+            `Total Repaid: ${formatMoney(repayment.repaidAmount)}` +
             (repayment.remainingAmount > 0
-              ? `\n\nNote: Remaining balance of R${repayment.remainingAmount.toLocaleString()} was written off.`
+              ? `\n\nNote: Remaining balance of ${formatMoney(repayment.remainingAmount)} was written off.`
               : ""),
         );
         setShowSuccessModal(true);
@@ -535,7 +536,7 @@ export default function LoanRepaymentsPage() {
 
       if (response.ok) {
         setSuccessMessage(
-          `✅ Repayment of R${proof.amount.toLocaleString()} approved!`,
+          `✅ Repayment of ${formatMoney(proof.amount)} approved!`,
         );
         setShowSuccessModal(true);
         fetchRepayments();
@@ -602,7 +603,7 @@ export default function LoanRepaymentsPage() {
       if (payRes.ok) {
         const result = await payRes.json();
         setSuccessMessage(
-          `✅ Approved & paid R${amount.toLocaleString()}! Remaining: R${result.remainingBalance.toLocaleString()}`,
+          `✅ Approved & paid ${formatMoney(amount)}! Remaining: ${formatMoney(result.remainingBalance)}`,
         );
         setShowSuccessModal(true);
         fetchRepayments();
@@ -646,7 +647,7 @@ export default function LoanRepaymentsPage() {
 
       if (response.ok) {
         setSuccessMessage(
-          `❌ Repayment of R${selectedProof.amount.toLocaleString()} rejected.`,
+          `❌ Repayment of ${formatMoney(selectedProof.amount)} rejected.`,
         );
         setShowSuccessModal(true);
         fetchRepayments();
@@ -786,12 +787,12 @@ export default function LoanRepaymentsPage() {
     );
 
   const stats = {
-    totalOutstanding: repayments
+    totalOutstanding: toMoney(repayments
       .filter((r) => r.status !== "paid" && r.status !== "completed")
-      .reduce((sum, r) => sum + r.remainingAmount, 0),
-    totalPaid: repayments
+      .reduce((sum, r) => sum + r.remainingAmount, 0)),
+    totalPaid: toMoney(repayments
       .filter((r) => r.status === "paid" || r.status === "completed")
-      .reduce((sum, r) => sum + r.repaidAmount, 0),
+      .reduce((sum, r) => sum + r.repaidAmount, 0)),
     totalLoans: repayments.length,
     activeLoans: repayments.filter(
       (r) => r.status !== "paid" && r.status !== "completed",
@@ -1052,7 +1053,7 @@ export default function LoanRepaymentsPage() {
                       Outstanding Balance
                     </p>
                     <p className="text-3xl sm:text-4xl font-black mt-1">
-                      R{repayment.remainingAmount.toLocaleString()}
+                      {formatMoney(repayment.remainingAmount)}
                     </p>
                   </div>
                   <div className="text-right">
@@ -1068,10 +1069,10 @@ export default function LoanRepaymentsPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-[10px] sm:text-xs font-bold uppercase">
                     <span className="text-white/60">
-                      Repaid: R{repayment.repaidAmount.toLocaleString()}
+                      Repaid: {formatMoney(repayment.repaidAmount)}
                     </span>
                     <span className="text-white/60">
-                      Total: R{repayment.totalRepayable.toLocaleString()}
+                      Total: {formatMoney(repayment.totalRepayable)}
                     </span>
                   </div>
                   <div className="w-full bg-black/20 rounded-full h-3 sm:h-4 overflow-hidden p-1">
@@ -1097,7 +1098,7 @@ export default function LoanRepaymentsPage() {
                       <div className="flex justify-between mb-2">
                         <span className="text-gray-600">Repayment Amount:</span>
                         <span className="font-bold text-[#3A7717]">
-                          R{proof.amount.toLocaleString()}
+                          {formatMoney(proof.amount)}
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -1110,7 +1111,7 @@ export default function LoanRepaymentsPage() {
                         <div className="flex justify-between mt-2 pt-2 border-t border-gray-200">
                           <span className="text-gray-600">Remaining Balance:</span>
                           <span className="font-semibold text-red-600">
-                            R{proof.remainingBalance.toLocaleString()}
+                            {formatMoney(proof.remainingBalance)}
                           </span>
                         </div>
                       )}
@@ -1177,7 +1178,7 @@ export default function LoanRepaymentsPage() {
                     </div>
                     <div>
                       <p className="text-[10px] text-gray-400 font-bold uppercase">Daily Pay</p>
-                      <p className="text-sm font-bold text-[#01312D]">R{repayment.dailyPayment}</p>
+                      <p className="text-sm font-bold text-[#01312D]">{formatMoney(repayment.dailyPayment)}</p>
                     </div>
                   </div>
                   <div>
@@ -1216,7 +1217,7 @@ export default function LoanRepaymentsPage() {
                             </div>
                             <div>
                               <p className="text-sm font-black text-[#01312D]">
-                                R{payment.amount.toLocaleString()}
+                                {formatMoney(payment.amount)}
                               </p>
                               <p className="text-[10px] text-gray-400 font-bold">
                                 {new Date(payment.date).toLocaleString()}
@@ -1272,12 +1273,12 @@ export default function LoanRepaymentsPage() {
                 <div className="flex items-center gap-3 mb-1">
                   <div className="bg-[#01312D] text-white rounded-xl px-4 py-2 flex-1">
                     <p className="text-white/60 text-[10px] font-bold uppercase">Outstanding</p>
-                    <p className="text-xl font-black">R{payMax.toLocaleString()}</p>
+                    <p className="text-xl font-black">{formatMoney(payMax)}</p>
                   </div>
                   <div className="text-center">
                     <p className="text-[10px] text-gray-500 font-bold uppercase">After</p>
                     <p className={`text-lg font-black ${balanceAfter === 0 ? "text-[#3A7717]" : "text-[#01312D]"}`}>
-                      R{balanceAfter.toLocaleString()}
+                      {formatMoney(balanceAfter)}
                     </p>
                   </div>
                 </div>
@@ -1322,7 +1323,7 @@ export default function LoanRepaymentsPage() {
                       ) : (
                         <CheckCircle className="w-5 h-5" />
                       )}
-                      Approve & Pay — R{parseFloat(payAmount || "0").toLocaleString()}
+                      Approve & Pay — {formatMoney(parseFloat(payAmount || "0"))}
                     </button>
                     <button
                       onClick={() => {
@@ -1372,7 +1373,7 @@ export default function LoanRepaymentsPage() {
                       ) : (
                         <CheckCircle className="w-5 h-5" />
                       )}
-                      Confirm Payment — R{parseFloat(payAmount || "0").toLocaleString()}
+                      Confirm Payment — {formatMoney(parseFloat(payAmount || "0"))}
                     </button>
                     <button
                       onClick={() => handleMarkAsCompleted(repayment)}
@@ -1457,7 +1458,7 @@ export default function LoanRepaymentsPage() {
                 {loading || refreshing ? (
                   <Skeleton className="h-8 w-28 inline-block" />
                 ) : (
-                  <>R{stats.totalOutstanding.toLocaleString()}</>
+                  <>{formatMoney(stats.totalOutstanding)}</>
                 )}
               </div>
             </div>
@@ -1474,7 +1475,7 @@ export default function LoanRepaymentsPage() {
                 {loading || refreshing ? (
                   <Skeleton className="h-8 w-28 inline-block" />
                 ) : (
-                  <>R{stats.totalPaid.toLocaleString()}</>
+                  <>{formatMoney(stats.totalPaid)}</>
                 )}
               </div>
             </div>
@@ -1787,7 +1788,7 @@ export default function LoanRepaymentsPage() {
                       </div>
                       <div className="text-right">
                         <p className="text-xl font-bold text-[#3A7717]">
-                          R{repayment.remainingAmount.toLocaleString()}
+                          {formatMoney(repayment.remainingAmount)}
                         </p>
                         <p className="text-xs text-gray-500">
                           Due:{" "}
@@ -1800,19 +1801,19 @@ export default function LoanRepaymentsPage() {
                       <div>
                         <p className="text-xs text-gray-500">Total Amount</p>
                         <p className="font-semibold text-[#01312D]">
-                          R{repayment.totalRepayable.toLocaleString()}
+                          {formatMoney(repayment.totalRepayable)}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Repaid</p>
                         <p className="font-semibold text-[#3A7717]">
-                          R{repayment.repaidAmount.toLocaleString()}
+                          {formatMoney(repayment.repaidAmount)}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Daily Payment</p>
                         <p className="font-semibold text-[#01312D]">
-                          R{repayment.dailyPayment.toLocaleString()}
+                          {formatMoney(repayment.dailyPayment)}
                         </p>
                       </div>
                       <div>
@@ -1827,11 +1828,11 @@ export default function LoanRepaymentsPage() {
                     {hasActualAmount && (
                       <div className="mt-2 text-xs text-gray-500 flex items-center gap-2">
                         <span className="text-gray-400">
-                          Requested: R{repayment.amount.toLocaleString()}
+                          Requested: {formatMoney(repayment.amount)}
                         </span>
                         <span>→</span>
                         <span className="text-[#3A7717] font-medium">
-                          Actual: R{repayment.actualAmount?.toLocaleString()}
+                          Actual: {formatMoney(repayment.actualAmount!)}
                         </span>
                       </div>
                     )}
@@ -1947,7 +1948,7 @@ export default function LoanRepaymentsPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Outstanding:</span>
-                    <span className="font-bold text-red-600">R{repaymentUploadRepayment.remainingAmount.toLocaleString()}</span>
+                    <span className="font-bold text-red-600">{formatMoney(repaymentUploadRepayment.remainingAmount)}</span>
                   </div>
                 </div>
               </div>
@@ -1977,7 +1978,7 @@ export default function LoanRepaymentsPage() {
                         : "bg-white border-gray-200 text-gray-500"
                     }`}
                   >
-                    Daily (R{repaymentUploadRepayment.dailyPayment})
+                    Daily ({formatMoney(repaymentUploadRepayment.dailyPayment)})
                   </button>
                   <button
                     onClick={() => setRepaymentUploadAmount((repaymentUploadRepayment.dailyPayment * 7).toString())}

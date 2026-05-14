@@ -28,6 +28,7 @@ import {
   UserCircle,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { formatMoney, toMoney } from "@/lib/money";
 
 export default function DriverDashboard() {
   const router = useRouter();
@@ -97,9 +98,9 @@ export default function DriverDashboard() {
 
         // Calculate stats from actual request data (not from profile)
         const total = requestsData.length;
-        const totalSpent = requestsData
+        const totalSpent = toMoney(requestsData
           .filter((r: any) => r.status === "approved" || r.status === "sent" || r.status === "completed")
-          .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount), 0);
+          .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount), 0));
         const pending = requestsData.filter(
           (r: any) => r.status === "pending",
         ).length;
@@ -289,7 +290,7 @@ export default function DriverDashboard() {
               <Skeleton className="h-7 w-16" />
             ) : (
               <div className="text-xl font-bold text-[#01312D]">
-                R{stats.totalSpent.toLocaleString()}
+                {formatMoney(stats.totalSpent)}
               </div>
             )}
             <p className="text-xs text-gray-500">Total Spent</p>
@@ -384,19 +385,19 @@ export default function DriverDashboard() {
                   <div className="flex justify-between">
                     <span className="text-sm text-[#01312D]">Loan Amount</span>
                     <span className="font-bold text-[#01312D]">
-                      R{activeLoan.amount?.toLocaleString()}
+                      {formatMoney(activeLoan.amount)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-[#01312D]">Remaining</span>
                     <span className="font-bold text-[#01312D]">
-                      R{activeLoan.remaining?.toLocaleString()}
+                      {formatMoney(activeLoan.remaining)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-[#01312D]">Next Payment</span>
                     <span className="font-semibold text-[#01312D]">
-                      R{activeLoan.dailyPayment?.toLocaleString()}
+                      {formatMoney(activeLoan.dailyPayment)}
                     </span>
                   </div>
                   <div className="mt-2">
@@ -532,7 +533,7 @@ export default function DriverDashboard() {
                     </div>
                     <div className="flex justify-between items-center">
                       <p className="text-xl font-bold text-[#01312D]">
-                        R{request.amount?.toLocaleString()}
+                        {formatMoney(request.amount)}
                       </p>
                       {request.otp && request.status === "approved" && (
                         <div className="bg-[#bff202]/20 rounded-lg px-3 py-1">

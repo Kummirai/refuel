@@ -2,6 +2,7 @@
 "use client";
 
 import { Suspense } from "react";
+import { formatMoney, toMoney } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
@@ -235,9 +236,9 @@ function RequestsPageContent() {
   // Calculate interest and repayment details for fuel only
   const calculateServiceDetails = (amountNum: number) => {
     const interestRate = currentConfig.interestRate / 100;
-    const interest = amountNum * interestRate;
-    const totalRepayable = amountNum + interest;
-    const dailyPayment = totalRepayable / selectedRepaymentDays;
+    const interest = toMoney(amountNum * interestRate);
+    const totalRepayable = toMoney(amountNum + interest);
+    const dailyPayment = toMoney(totalRepayable / selectedRepaymentDays);
     return {
       interest,
       totalRepayable,
@@ -257,7 +258,7 @@ function RequestsPageContent() {
       const selectedPackage = carWashPackages.find(
         (p) => p.price === amountNum,
       );
-      const totalCarWash = amountNum + carWashServiceCharge;
+      const totalCarWash = toMoney(amountNum + carWashServiceCharge);
       return (
         <div className="bg-linear-to-r from-[#bff202] to-[#72bf00] rounded-xl p-4 mt-3">
           <div className="flex items-center gap-2 mb-3">
@@ -284,14 +285,14 @@ function RequestsPageContent() {
             <div className="flex justify-between">
               <span className="text-[#01312D]">Package Price:</span>
               <span className="font-semibold text-[#01312D]">
-                R{amountNum.toLocaleString()}
+                {formatMoney(amountNum)}
               </span>
             </div>
             {carWashServiceCharge > 0 && (
               <div className="flex justify-between">
                 <span className="text-[#01312D]">Service Fee:</span>
                 <span className="font-semibold text-[#01312D]">
-                  + R{carWashServiceCharge.toLocaleString()}
+                  + {formatMoney(carWashServiceCharge)}
                 </span>
               </div>
             )}
@@ -304,7 +305,7 @@ function RequestsPageContent() {
             <div className="flex justify-between pt-2 border-t border-[#01312D]/20 bg-[#01312D]/10 rounded-lg p-2 -mx-1">
               <span className="font-bold text-[#01312D]">Total Due:</span>
               <span className="font-bold text-[#01312D]">
-                R{totalCarWash.toLocaleString()}
+                {formatMoney(totalCarWash)}
               </span>
             </div>
             <div className="bg-green-50 rounded-lg p-2 mt-2 -mx-1">
@@ -342,7 +343,7 @@ function RequestsPageContent() {
             <div className="flex justify-between">
               <span className="text-[#01312D]">Fuel Amount:</span>
               <span className="font-semibold text-[#01312D]">
-                R{amountNum.toLocaleString()}
+                {formatMoney(amountNum)}
               </span>
             </div>
             {!isWithinLimits && (
@@ -351,7 +352,7 @@ function RequestsPageContent() {
                   ⚠️ Amount outside limits
                 </span>
                 <span className="text-red-600 text-xs font-semibold">
-                  Min: R{minAmount} | Max: R{maxAmount}
+                  Min: {formatMoney(minAmount)} | Max: {formatMoney(maxAmount)}
                 </span>
               </div>
             )}
@@ -376,7 +377,7 @@ function RequestsPageContent() {
             <div className="flex justify-between">
               <span className="text-[#01312D]">Interest Amount:</span>
               <span className="font-semibold text-[#01312D]">
-                + R{interest.toLocaleString()}
+                + {formatMoney(interest)}
               </span>
             </div>
             <div className="flex justify-between pt-2 border-t border-[#01312D]/20">
@@ -384,7 +385,7 @@ function RequestsPageContent() {
                 Total Repayable:
               </span>
               <span className="font-bold text-[#01312D]">
-                R{totalRepayable.toLocaleString()}
+                {formatMoney(totalRepayable)}
               </span>
             </div>
             <div className="flex justify-between">
@@ -398,7 +399,7 @@ function RequestsPageContent() {
                 Daily Payment:
               </span>
               <span className="font-bold text-[#01312D]">
-                R{Math.ceil(dailyPayment).toLocaleString()}/day
+                {formatMoney(dailyPayment)}/day
               </span>
             </div>
           </div>
@@ -494,7 +495,7 @@ function RequestsPageContent() {
 
       if (amountNum < minAmount) {
         setError(
-          `Minimum fuel request amount is R${minAmount.toLocaleString()}`,
+          `Minimum fuel request amount is ${formatMoney(minAmount)}`,
         );
         setLoading(false);
         setSubmitted(false);
@@ -503,7 +504,7 @@ function RequestsPageContent() {
 
       if (amountNum > maxAmount) {
         setError(
-          `Maximum fuel request amount is R${maxAmount.toLocaleString()}`,
+          `Maximum fuel request amount is ${formatMoney(maxAmount)}`,
         );
         setLoading(false);
         setSubmitted(false);
@@ -562,14 +563,14 @@ function RequestsPageContent() {
           totalRepayable: totalRepayable,
           interestRate: interestRate,
           repaymentDays: selectedRepaymentDays,
-          dailyPayment: Math.ceil(dailyPayment),
+          dailyPayment: toMoney(dailyPayment),
           hasReceipt: false
         };
       } else if (selectedService === "carwash") {
         const selectedPackage = carWashPackages.find(
           (p) => p.price === amountNum,
         );
-        const totalDue = amountNum + carWashServiceCharge;
+        const totalDue = toMoney(amountNum + carWashServiceCharge);
         requestData = {
           ...requestData,
           amount: amountNum,
@@ -919,14 +920,14 @@ function RequestsPageContent() {
                             {pkg.description}
                           </p>
                         </div>
-                        <p className="text-xl font-bold">R{pkg.price}</p>
+                        <p className="text-xl font-bold">{formatMoney(pkg.price)}</p>
                       </div>
                     </button>
                   ))}
                   {carWashServiceCharge > 0 && (
                     <div className="mt-2 p-2 bg-blue-50 rounded-lg text-center">
                       <p className="text-xs text-blue-700">
-                        Service fee of R{carWashServiceCharge} applies to all
+                        Service fee of {formatMoney(carWashServiceCharge)} applies to all
                         packages
                       </p>
                     </div>
@@ -964,11 +965,10 @@ function RequestsPageContent() {
                       <p
                         className={`text-xs mt-2 ${!isAmountValid && amount ? "text-red-500" : "text-gray-500"}`}
                       >
-                        Min: R{minAmount.toLocaleString()} | Max: R
-                        {maxAmount.toLocaleString()}
+                        Min: {formatMoney(minAmount)} | Max: {formatMoney(maxAmount)}
                         {!isAmountValid &&
                           amount &&
-                          ` - Amount must be between R${minAmount} and R${maxAmount}`}
+                          ` - Amount must be between ${formatMoney(minAmount)} and ${formatMoney(maxAmount)}`}
                       </p>
                     </div>
                   )}
@@ -1084,8 +1084,8 @@ function RequestsPageContent() {
                   </p>
                   <p className="text-xs text-[#3A7717] font-semibold mt-1">
                     {selectedService === "carwash"
-                      ? `🚗 Car wash will be scheduled after approval. Service fee: R${carWashServiceCharge}. Total due: R${(parseFloat(amount) || 0) + carWashServiceCharge}.`
-                      : `💰 Fuel request between R${minAmount} - R${maxAmount}. ${currentConfig.interestRate}% interest over ${selectedRepaymentDays} days.`}
+                      ? `🚗 Car wash will be scheduled after approval. Service fee: ${formatMoney(carWashServiceCharge)}. Total due: ${formatMoney(toMoney((parseFloat(amount) || 0) + carWashServiceCharge))}.`
+                      : `💰 Fuel request between ${formatMoney(minAmount)} - ${formatMoney(maxAmount)}. ${currentConfig.interestRate}% interest over ${selectedRepaymentDays} days.`}
                   </p>
                 </div>
               </div>

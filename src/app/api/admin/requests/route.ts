@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
+import { toMoney } from "@/lib/money";
 
 export async function GET(request: NextRequest) {
   try {
@@ -134,19 +135,25 @@ export async function GET(request: NextRequest) {
     ).length;
 
     // Calculate total revenue based on actualAmount if available, otherwise amount
-    const totalRevenue = requestsWithDetails
-      .filter((r) => r.status === "completed")
-      .reduce((sum, r) => sum + (r.actualAmount || r.amount || 0), 0);
+    const totalRevenue = toMoney(
+      requestsWithDetails
+        .filter((r) => r.status === "completed")
+        .reduce((sum, r) => sum + (r.actualAmount || r.amount || 0), 0)
+    );
 
     // Calculate total repayable amount
-    const totalRepayable = requestsWithDetails
-      .filter((r) => r.status === "completed")
-      .reduce((sum, r) => sum + (r.totalRepayable || r.amount || 0), 0);
+    const totalRepayable = toMoney(
+      requestsWithDetails
+        .filter((r) => r.status === "completed")
+        .reduce((sum, r) => sum + (r.totalRepayable || r.amount || 0), 0)
+    );
 
     // Calculate total repaid amount
-    const totalRepaid = requestsWithDetails.reduce(
-      (sum, r) => sum + (r.repaidAmount || 0),
-      0,
+    const totalRepaid = toMoney(
+      requestsWithDetails.reduce(
+        (sum, r) => sum + (r.repaidAmount || 0),
+        0,
+      )
     );
 
     return NextResponse.json({

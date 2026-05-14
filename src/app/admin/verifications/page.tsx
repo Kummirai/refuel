@@ -29,6 +29,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { formatMoney } from "@/lib/money";
 
 export default function VerificationsPage() {
   const router = useRouter();
@@ -725,7 +726,7 @@ export default function VerificationsPage() {
                 </div>
                 <div className="text-center bg-white rounded-lg p-3">
                   <p className="text-2xl font-bold text-[#3A7717]">
-                    R{(driver.totalSpent || 0).toLocaleString()}
+                    {formatMoney(driver.totalSpent || 0)}
                   </p>
                   <p className="text-xs text-gray-500">Total Spent</p>
                 </div>

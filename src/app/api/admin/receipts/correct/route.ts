@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
+import { toMoney } from "@/lib/money";
 
 export async function POST(request: Request) {
   try {
@@ -68,12 +69,12 @@ export async function POST(request: Request) {
       const repaymentDays = existing.repaymentDays || 7;
 
       if (newActualAmount > 0) {
-        const totalRepayable = Math.ceil(newActualAmount * (1 + interestRate / 100));
-        const interestAmount = totalRepayable - newActualAmount;
+        const totalRepayable = toMoney(newActualAmount * (1 + interestRate / 100));
+        const interestAmount = toMoney(totalRepayable - newActualAmount);
 
-        setFields.interest = parseFloat(interestAmount.toFixed(2));
+        setFields.interest = interestAmount;
         setFields.totalRepayable = totalRepayable;
-        setFields.dailyPayment = Math.ceil(totalRepayable / repaymentDays);
+        setFields.dailyPayment = toMoney(totalRepayable / repaymentDays);
         setFields.remainingBalance = totalRepayable;
         setFields.isPaid = false;
       }
