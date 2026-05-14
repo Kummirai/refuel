@@ -1351,6 +1351,389 @@ export async function sendDriverReceiptUploadConfirmation(data: {
   }
 }
 
+// ==================== INVOICE EMAIL ====================
+
+export interface InvoiceEmailData {
+  driverEmail: string;
+  driverName: string;
+  carRegistration: string;
+  carModel?: string;
+  serviceTypeLabel: string;
+  requestId: string;
+  invoiceDate: string;
+  // Fuel fields
+  actualAmount?: number;
+  interestRate?: number;
+  interestAmount?: number;
+  totalRepayable?: number;
+  dailyPayment?: number;
+  repaymentDays?: number;
+  // Car wash fields
+  packageName?: string;
+  serviceCharge?: number;
+  totalDue?: number;
+}
+
+const generateInvoiceHtml = (data: InvoiceEmailData): string => {
+  const invoiceId = `INV-${data.requestId.slice(-8).toUpperCase()}`;
+  const isFuel = !!data.totalRepayable && data.totalRepayable > (data.actualAmount || 0);
+  const isCarWash = !isFuel;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Invoice - Kapuka Tradings</title>
+      <style>${globalStyles}</style>
+      <style>
+        .invoice-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 2px solid #0d4a2a; }
+        .invoice-title { font-size: 32px; font-weight: 800; color: #0d4a2a; letter-spacing: -1px; margin: 0; }
+        .invoice-subtitle { color: #64748b; font-size: 13px; margin: 4px 0 0; }
+        .invoice-meta { text-align: right; }
+        .invoice-meta-item { font-size: 14px; margin: 2px 0; }
+        .invoice-meta-label { color: #64748b; }
+        .invoice-meta-value { color: #0f172a; font-weight: 600; }
+        .bill-section { margin-bottom: 24px; }
+        .bill-label { color: #64748b; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin: 0 0 8px; }
+        .bill-name { font-size: 18px; font-weight: 700; color: #0f172a; margin: 0; }
+        .bill-detail { color: #475569; font-size: 14px; margin: 2px 0; }
+        .table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .table th { background-color: #f8fafc; color: #0d4a2a; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; text-align: left; padding: 12px 16px; border-bottom: 2px solid #0d4a2a; }
+        .table td { padding: 14px 16px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #0f172a; }
+        .table td:last-child, .table th:last-child { text-align: right; }
+        .table td:nth-child(2), .table th:nth-child(2) { text-align: right; }
+        .totals { margin-top: 16px; border-top: 2px solid #e2e8f0; padding-top: 16px; text-align: right; }
+        .total-row { display: flex; justify-content: flex-end; padding: 6px 0; gap: 40px; }
+        .total-label { color: #64748b; font-size: 14px; }
+        .total-value { color: #0f172a; font-weight: 600; font-size: 14px; min-width: 100px; text-align: right; }
+        .grand-total { border-top: 2px solid #0d4a2a; margin-top: 8px; padding-top: 12px; }
+        .grand-total .total-label { color: #0d4a2a; font-size: 16px; font-weight: 700; }
+        .grand-total .total-value { color: #0d4a2a; font-size: 20px; font-weight: 800; }
+        .terms { background-color: #f8fafc; border-radius: 12px; padding: 16px; margin: 20px 0; font-size: 13px; color: #64748b; line-height: 1.5; }
+        .terms strong { color: #0f172a; }
+        .status-paid { display: inline-block; background-color: #16a34a; color: #ffffff; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Kapuka Tradings</h1>
+          <p>Official Tax Invoice</p>
+        </div>
+        <div class="content">
+          <div class="invoice-header">
+            <div>
+              <h2 class="invoice-title">INVOICE</h2>
+              <p class="invoice-subtitle">${data.serviceTypeLabel} Service</p>
+            </div>
+            <div class="invoice-meta">
+              <div class="invoice-meta-item"><span class="invoice-meta-label">Invoice #:</span> <span class="invoice-meta-value">${invoiceId}</span></div>
+              <div class="invoice-meta-item"><span class="invoice-meta-label">Date:</span> <span class="invoice-meta-value">${formatDate(data.invoiceDate)}</span></div>
+              <div style="margin-top: 8px;"><span class="status-paid">AMOUNT DUE</span></div>
+            </div>
+          </div>
+
+          <div class="bill-section">
+            <p class="bill-label">Bill To</p>
+            <p class="bill-name">${data.driverName}</p>
+            <p class="bill-detail">${data.carRegistration}${data.carModel ? ` | ${data.carModel}` : ""}</p>
+          </div>
+
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                isCarWash && data.packageName
+                  ? `
+              <tr>
+                <td>Car Wash - ${data.packageName} Package</td>
+                <td>${formatMoney(data.actualAmount! - (data.serviceCharge || 0))}</td>
+              </tr>
+              ${data.serviceCharge && data.serviceCharge > 0 ? `
+              <tr>
+                <td>Service Charge</td>
+                <td>${formatMoney(data.serviceCharge)}</td>
+              </tr>
+              ` : ""}
+              `
+                  : `
+              <tr>
+                <td>Fuel - Actual Amount Used</td>
+                <td>${formatMoney(data.actualAmount!)}</td>
+              </tr>
+              ${data.interestAmount && data.interestAmount > 0 ? `
+              <tr>
+                <td>Interest (${data.interestRate || 13}%)</td>
+                <td>${formatMoney(data.interestAmount)}</td>
+              </tr>
+              ` : ""}
+              `
+              }
+            </tbody>
+          </table>
+
+          <div class="totals">
+            <div class="total-row">
+              <span class="total-label">Subtotal:</span>
+              <span class="total-value">${formatMoney(data.actualAmount!)}</span>
+            </div>
+            ${
+              data.interestAmount && data.interestAmount > 0
+                ? `<div class="total-row"><span class="total-label">Interest (${data.interestRate || 13}%):</span><span class="total-value">${formatMoney(data.interestAmount)}</span></div>`
+                : ""
+            }
+            ${
+              data.serviceCharge && data.serviceCharge > 0
+                ? `<div class="total-row"><span class="total-label">Service Charge:</span><span class="total-value">${formatMoney(data.serviceCharge)}</span></div>`
+                : ""
+            }
+            <div class="total-row grand-total">
+              <span class="total-label">Total Due:</span>
+              <span class="total-value">${formatMoney(data.totalRepayable || data.totalDue || data.actualAmount!)}</span>
+            </div>
+          </div>
+
+          ${
+            isFuel && data.dailyPayment && data.repaymentDays
+              ? `
+          <div class="terms">
+            <strong>Payment Terms:</strong><br>
+            This invoice is for a fuel loan. The total repayable amount of <strong>${formatMoney(data.totalRepayable!)}</strong> includes interest at ${data.interestRate || 13}%.<br>
+            The amount due must be paid in full within <strong>${data.repaymentDays} days</strong>.<br>
+            Please ensure payment is made on time to avoid penalties.
+          </div>
+          `
+              : `
+          <div class="terms">
+            <strong>Payment Terms:</strong><br>
+            This invoice has been fully paid. No further action is required.<br>
+            Thank you for choosing Kapuka Tradings.
+          </div>
+          `
+          }
+
+          <div class="validity-box">
+            <div class="validity-text"> Invoice Status: Amount Due</div>
+            <div style="margin-top: 6px; font-size: 13px; color: #92400e;">Please ensure payment is made according to the terms above.</div>
+          </div>
+
+          <div style="text-align: center;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/requests/history" class="button">View Request History</a>
+          </div>
+        </div>
+        <div class="footer">
+          <p><strong>Kapuka Tradings</strong> -- Automated Invoice</p>
+          <p>This is an automatically generated invoice. Please do not reply to this email.</p>
+          <p>For queries, contact: ${process.env.EMAIL_FROM ? `Kapuka Support` : "support@kapuka.com"}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
+export async function sendDriverInvoiceEmail(data: InvoiceEmailData) {
+  const invoiceId = `INV-${data.requestId.slice(-8).toUpperCase()}`;
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
+      to: data.driverEmail,
+      subject: `Invoice ${invoiceId} - ${data.serviceTypeLabel} Service - Kapuka Tradings`,
+      html: generateInvoiceHtml(data),
+      text: `Invoice ${invoiceId}\n\nDear ${data.driverName},\n\nThank you for your payment. Please find your invoice attached.\n\nService: ${data.serviceTypeLabel}\nAmount: ${formatMoney(data.actualAmount || 0)}\nTotal: ${formatMoney(data.totalRepayable || data.totalDue || data.actualAmount || 0)}\n\nThank you for choosing Kapuka Tradings.`,
+    });
+    console.log("Driver invoice email sent:", info.messageId);
+    return info;
+  } catch (error) {
+    console.error("Error sending driver invoice email:", error);
+    return null;
+  }
+}
+
+// ==================== WEEKLY INVOICE SUMMARY ====================
+
+const serviceTypeLabelMap: Record<string, string> = {
+  fuel: "Fuel",
+  airtime: "Airtime",
+  cash: "Cash Loan",
+  carwash: "Car Wash",
+};
+
+export async function sendDriverWeeklyInvoiceEmail(data: {
+  driverEmail: string;
+  driverName: string;
+  totalOutstanding: number;
+  items: {
+    type: string;
+    carNumber: string;
+    amount: number;
+    totalRepayable: number;
+    remainingBalance: number;
+  }[];
+}) {
+  const statementId = `WKS-${Date.now().toString(36).toUpperCase()}`;
+  const tableRows = data.items
+    .map(
+      (item) => `
+    <tr>
+      <td>${serviceTypeLabelMap[item.type] || item.type} - ${item.carNumber}</td>
+      <td>${formatMoney(item.amount)}</td>
+      <td>${formatMoney(item.totalRepayable)}</td>
+      <td>${formatMoney(item.totalRepayable - item.amount)}</td>
+      <td style="color: #dc2626; font-weight: 700;">${formatMoney(item.remainingBalance)}</td>
+    </tr>`,
+    )
+    .join("");
+
+  const totalInterest = data.items.reduce(
+    (sum, item) => sum + (item.totalRepayable - item.amount),
+    0,
+  );
+  const totalAmount = data.items.reduce((sum, item) => sum + item.amount, 0);
+  const totalRepayableAll = data.items.reduce(
+    (sum, item) => sum + item.totalRepayable,
+    0,
+  );
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Weekly Statement - Kapuka Tradings</title>
+      <style>${globalStyles}</style>
+      <style>
+        .invoice-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 2px solid #0d4a2a; }
+        .invoice-title { font-size: 28px; font-weight: 800; color: #0d4a2a; letter-spacing: -1px; margin: 0; }
+        .invoice-subtitle { color: #64748b; font-size: 13px; margin: 4px 0 0; }
+        .invoice-meta { text-align: right; }
+        .invoice-meta-item { font-size: 14px; margin: 2px 0; }
+        .invoice-meta-label { color: #64748b; }
+        .invoice-meta-value { color: #0f172a; font-weight: 600; }
+        .bill-section { margin-bottom: 24px; }
+        .bill-label { color: #64748b; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin: 0 0 8px; }
+        .bill-name { font-size: 18px; font-weight: 700; color: #0f172a; margin: 0; }
+        .bill-detail { color: #475569; font-size: 14px; margin: 2px 0; }
+        .table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .table th { background-color: #f8fafc; color: #0d4a2a; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; text-align: left; padding: 12px 10px; border-bottom: 2px solid #0d4a2a; }
+        .table td { padding: 12px 10px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #0f172a; }
+        .table th:last-child, .table td:last-child { text-align: right; }
+        .table th:nth-child(2), .table td:nth-child(2) { text-align: right; }
+        .table th:nth-child(3), .table td:nth-child(3) { text-align: right; }
+        .table th:nth-child(4), .table td:nth-child(4) { text-align: right; }
+        .totals { margin-top: 16px; border-top: 2px solid #e2e8f0; padding-top: 16px; text-align: right; }
+        .total-row { display: flex; justify-content: flex-end; padding: 6px 0; gap: 40px; }
+        .total-label { color: #64748b; font-size: 14px; }
+        .total-value { color: #0f172a; font-weight: 600; font-size: 14px; min-width: 100px; text-align: right; }
+        .grand-total { border-top: 2px solid #0d4a2a; margin-top: 8px; padding-top: 12px; }
+        .grand-total .total-label { color: #0d4a2a; font-size: 16px; font-weight: 700; }
+        .grand-total .total-value { color: #dc2626; font-size: 22px; font-weight: 800; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Kapuka Tradings</h1>
+          <p>Weekly Statement of Account</p>
+        </div>
+        <div class="content">
+          <div class="invoice-header">
+            <div>
+              <h2 class="invoice-title">STATEMENT</h2>
+              <p class="invoice-subtitle">Outstanding Balances</p>
+            </div>
+            <div class="invoice-meta">
+              <div class="invoice-meta-item"><span class="invoice-meta-label">Statement #:</span> <span class="invoice-meta-value">${statementId}</span></div>
+              <div class="invoice-meta-item"><span class="invoice-meta-label">Date:</span> <span class="invoice-meta-value">${formatDate(new Date().toISOString())}</span></div>
+              <div class="invoice-meta-item"><span class="invoice-meta-label">Items:</span> <span class="invoice-meta-value">${data.items.length}</span></div>
+            </div>
+          </div>
+
+          <div class="bill-section">
+            <p class="bill-label">Bill To</p>
+            <p class="bill-name">${data.driverName}</p>
+            <p class="bill-detail">${data.driverEmail}</p>
+          </div>
+
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>Amount</th>
+                <th>Total Repayable</th>
+                <th>Interest</th>
+                <th>Outstanding</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+
+          <div class="totals">
+            <div class="total-row">
+              <span class="total-label">Total Amount:</span>
+              <span class="total-value">${formatMoney(totalAmount)}</span>
+            </div>
+            <div class="total-row">
+              <span class="total-label">Total Interest:</span>
+              <span class="total-value">${formatMoney(totalInterest)}</span>
+            </div>
+            <div class="total-row">
+              <span class="total-label">Total Repayable:</span>
+              <span class="total-value">${formatMoney(totalRepayableAll)}</span>
+            </div>
+            <div class="total-row grand-total">
+              <span class="total-label">Total Outstanding:</span>
+              <span class="total-value">${formatMoney(data.totalOutstanding)}</span>
+            </div>
+          </div>
+
+          <div class="validity-box">
+            <div class="validity-text"> Payment Required</div>
+            <div style="margin-top: 6px; font-size: 13px; color: #92400e;">Please ensure all outstanding amounts are paid promptly to avoid any interruptions to your service.</div>
+          </div>
+
+          <div style="text-align: center;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/requests/history" class="button">View Payment History</a>
+          </div>
+        </div>
+        <div class="footer">
+          <p><strong>Kapuka Tradings</strong> -- Weekly Statement</p>
+          <p>This is an automated statement. Please do not reply to this email.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const itemCount = data.items.length;
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
+      to: data.driverEmail,
+      subject: `Weekly Statement - ${formatMoney(data.totalOutstanding)} Outstanding - Kapuka Tradings`,
+      html: html,
+      text: `Weekly Statement\n\nDear ${data.driverName},\n\nTotal Outstanding: ${formatMoney(data.totalOutstanding)}\nItems: ${itemCount}\n\nPlease log in to view details.\n\nKapuka Tradings`,
+    });
+    console.log("Weekly statement email sent:", info.messageId);
+    return info;
+  } catch (error) {
+    console.error("Error sending weekly statement:", error);
+    return null;
+  }
+}
+
 // Repayment Completed Email (for when a loan is fully paid off)
 export async function sendRepaymentCompletedEmail(data: {
   driverEmail: string;
@@ -1529,3 +1912,5 @@ export async function sendAdminProfileChangeEmail(data: {
     return null;
   }
 }
+
+

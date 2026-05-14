@@ -8,6 +8,7 @@ import { toMoney } from "@/lib/money";
 import {
   sendAdminReceiptUploadEmail,
   sendDriverReceiptUploadConfirmation,
+  sendDriverInvoiceEmail,
 } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
@@ -178,6 +179,42 @@ export async function POST(request: NextRequest) {
       requestId: requestId,
     }).catch((err) =>
       console.error("Failed to send driver receipt confirmation:", err),
+    );
+
+    // Send invoice email to driver (don't await - fire and forget)
+    const isCarWash = existingRequest.type === "carwash";
+    const calculatedInterestAmount =
+      existingRequest.type === "fuel" && interest
+        ? toMoney(interest)
+        : 0;
+    const calculatedInterestRate =
+      calculatedInterestAmount > 0 && actualAmount > 0
+        ? Math.round((calculatedInterestAmount / actualAmount) * 100)
+        : existingRequest.interestRate || 13;
+    const carWashServiceCharge =
+      isCarWash && actualAmount > existingRequest.amount
+        ? toMoney(actualAmount - existingRequest.amount)
+        : 0;
+
+    sendDriverInvoiceEmail({
+      driverEmail: user?.email || session.user.email || "",
+      driverName: user?.name || session.user.name || "Driver",
+      carRegistration: existingRequest.carNumber || "Unknown",
+      carModel: existingRequest.carModel || undefined,
+      serviceTypeLabel: serviceTypeLabel,
+      requestId: requestId,
+      invoiceDate: new Date().toISOString(),
+      actualAmount: actualAmount,
+      interestRate: calculatedInterestRate,
+      interestAmount: calculatedInterestAmount > 0 ? calculatedInterestAmount : undefined,
+      totalRepayable: finalTotalRepayable,
+      dailyPayment: finalDailyPayment || undefined,
+      repaymentDays: finalRepaymentDays || undefined,
+      packageName: existingRequest.package || undefined,
+      serviceCharge: carWashServiceCharge > 0 ? carWashServiceCharge : undefined,
+      totalDue: isCarWash ? actualAmount : undefined,
+    }).catch((err) =>
+      console.error("Failed to send driver invoice email:", err),
     );
 
     console.log("Successfully updated profile and sent notifications");

@@ -21,7 +21,8 @@ import {
   AlertCircle,
   XCircle,
   FileText,
-  Receipt
+  Receipt,
+  Send
 } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 
@@ -209,6 +210,13 @@ export default function AdminLayout({
       active: pathname === "/admin/repayments",
       badge: pendingRepaymentsCount,
       badgeColor: "bg-green-500",
+    },
+    {
+      icon: Send,
+      label: "Invoices",
+      path: "/admin/invoices",
+      active: pathname === "/admin/invoices",
+      badge: null,
     },
     {
       icon: Settings,
