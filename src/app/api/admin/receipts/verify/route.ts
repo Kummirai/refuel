@@ -2,6 +2,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
+import { sendDriverInvoiceEmail } from "@/lib/email";
+import { toMoney } from "@/lib/money";
+
+const serviceTypeMap: Record<string, string> = {
+  fuel: "Fuel",
+  airtime: "Airtime",
+  cash: "Cash Loan",
+  carwash: "Car Wash",
+};
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,7 +27,6 @@ export async function POST(req: NextRequest) {
 
     const serviceRequestsCollection = db.collection("serviceRequests");
 
-    // Convert requestId to ObjectId
     let objectId;
     try {
       objectId = new ObjectId(requestId);
@@ -46,6 +54,66 @@ export async function POST(req: NextRequest) {
           { error: "Failed to verify receipt" },
           { status: 500 },
         );
+      }
+
+      const serviceRequest = await serviceRequestsCollection.findOne({
+        _id: objectId,
+      });
+
+      if (serviceRequest) {
+        const usersCollection = db.collection("user");
+        let user;
+        try {
+          user = await usersCollection.findOne({
+            _id: new ObjectId(serviceRequest.userId),
+          });
+        } catch {
+          user = await usersCollection.findOne({ id: serviceRequest.userId });
+        }
+
+        const driverEmail =
+          serviceRequest.driverEmail || user?.email || "";
+        const driverName =
+          serviceRequest.driverName || user?.name || "Driver";
+        const serviceTypeLabel =
+          serviceTypeMap[serviceRequest.type] || serviceRequest.type;
+        const actualAmount =
+          serviceRequest.actualAmount || serviceRequest.amount;
+        const totalRepayable =
+          serviceRequest.totalRepayable || actualAmount;
+        const interestAmount = serviceRequest.interest || 0;
+        const interestRate = serviceRequest.interestRate || 13;
+        const dailyPayment = serviceRequest.dailyPayment || 0;
+        const repaymentDays = serviceRequest.repaymentDays || 7;
+        const isCarWash = serviceRequest.type === "carwash";
+        const carWashServiceCharge =
+          isCarWash && actualAmount > serviceRequest.amount
+            ? toMoney(actualAmount - serviceRequest.amount)
+            : 0;
+
+        if (driverEmail) {
+          sendDriverInvoiceEmail({
+            driverEmail,
+            driverName,
+            carRegistration: serviceRequest.carNumber || "Unknown",
+            carModel: serviceRequest.carModel || undefined,
+            serviceTypeLabel,
+            requestId,
+            invoiceDate: new Date().toISOString(),
+            actualAmount,
+            interestRate: interestAmount > 0 ? interestRate : undefined,
+            interestAmount: interestAmount > 0 ? interestAmount : undefined,
+            totalRepayable,
+            dailyPayment: dailyPayment > 0 ? dailyPayment : undefined,
+            repaymentDays: repaymentDays > 0 ? repaymentDays : undefined,
+            packageName: serviceRequest.package || undefined,
+            serviceCharge:
+              carWashServiceCharge > 0 ? carWashServiceCharge : undefined,
+            totalDue: isCarWash ? actualAmount : undefined,
+          }).catch((err) =>
+            console.error("Failed to send invoice email:", err),
+          );
+        }
       }
 
       return NextResponse.json({
