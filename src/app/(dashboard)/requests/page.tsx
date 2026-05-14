@@ -30,6 +30,7 @@ import {
   Calendar,
   Ban,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 type ServiceType = "fuel" | "carwash";
 
@@ -657,7 +658,9 @@ function RequestsPageContent() {
     }
   };
 
-  if (isPending || fetchingDetails || settingsLoading) {
+  const isLoadingInitial = fetchingDetails || settingsLoading;
+
+  if (isPending) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -674,7 +677,7 @@ function RequestsPageContent() {
 
   const statusDisplay = getVerificationStatusDisplay();
 
-  if (driverDetails.verificationStatus !== "approved") {
+  if (!isLoadingInitial && driverDetails.verificationStatus !== "approved") {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center px-5">
         <div className="text-center max-w-md">
@@ -801,36 +804,36 @@ function RequestsPageContent() {
                 <User className="w-5 h-5 text-[#3A7717]" />
               </div>
               <div>
-                <p className="font-semibold text-[#01312D]">
-                  {driverDetails.fullName}
-                </p>
-                <p className="text-xs text-gray-500">{driverDetails.email}</p>
+                <div className="font-semibold text-[#01312D]">
+                  {isLoadingInitial ? <Skeleton className="h-5 w-36" /> : driverDetails.fullName}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {isLoadingInitial ? <Skeleton className="h-4 w-44" /> : driverDetails.email}
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <p className="text-xs text-gray-500">Car Registration</p>
-                <p className="font-semibold text-[#01312D]">
-                  {driverDetails.carRegistrationNumber || "Not set"}
-                </p>
+                <div className="font-semibold text-[#01312D]">
+                  {isLoadingInitial ? <Skeleton className="h-4 w-24" /> : driverDetails.carRegistrationNumber || "Not set"}
+                </div>
               </div>
               <div>
                 <p className="text-xs text-gray-500">Car Model</p>
-                <p className="font-semibold text-[#01312D]">
-                  {driverDetails.carModel || "Not set"}
-                </p>
+                <div className="font-semibold text-[#01312D]">
+                  {isLoadingInitial ? <Skeleton className="h-4 w-28" /> : driverDetails.carModel || "Not set"}
+                </div>
               </div>
               <div>
                 <p className="text-xs text-gray-500">Registered Phone</p>
-                <p className="font-semibold text-[#01312D]">
-                  {driverDetails.phone || "Not set"}
-                </p>
+                <div className="font-semibold text-[#01312D]">
+                  {isLoadingInitial ? <Skeleton className="h-4 w-28" /> : driverDetails.phone || "Not set"}
+                </div>
               </div>
               <div>
                 <p className="text-xs text-gray-500">Status</p>
-                <p className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full inline-block">
-                  ✓ Verified
-                </p>
+                {isLoadingInitial ? <Skeleton className="h-5 w-16 rounded-full" /> : <p className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full inline-block">✓ Verified</p>}
               </div>
             </div>
           </div>
@@ -1101,10 +1104,14 @@ export default function RequestsPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
-          <div className="text-center">
-            <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
-            <p className="text-[#01312D]">Loading...</p>
+        <div className="min-h-screen bg-[#eafde7] px-5 py-8">
+          <div className="max-w-lg mx-auto space-y-6">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-40 w-full rounded-2xl" />
+            <Skeleton className="h-14 w-full rounded-xl" />
+            <Skeleton className="h-14 w-full rounded-xl" />
+            <Skeleton className="h-14 w-full rounded-xl" />
+            <Skeleton className="h-12 w-full rounded-xl" />
           </div>
         </div>
       }

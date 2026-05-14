@@ -13,9 +13,9 @@ import {
   LogOut,
   Menu,
   X,
+  Loader2,
   Bell,
   Shield,
-  Loader2,
   CheckCircle,
   Clock,
   AlertCircle,
@@ -154,19 +154,15 @@ export default function AdminLayout({
     router.push("/");
   };
 
-  if (isPending) {
+  if (!isAuthorized) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
-          <p className="text-[#01312D]">Verifying access...</p>
+          <Loader2 className="w-10 h-10 text-[#3A7717] animate-spin mx-auto" />
+          <p className="mt-4 text-[#01312D] font-medium">Verifying access...</p>
         </div>
       </div>
     );
-  }
-
-  if (!isAuthorized) {
-    return null;
   }
 
   const user = session?.user as any;

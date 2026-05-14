@@ -40,6 +40,7 @@ import {
   SprayCan,
   DollarSign,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -461,7 +462,7 @@ export default function ProfilePage() {
     }
   };
 
-  if (isPending || loading) {
+  if (isPending) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -543,18 +544,18 @@ export default function ProfilePage() {
       <div className="px-5 pt-16 pb-4 bg-white border-b border-[#bff202]/20">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold text-[#01312D]">
-              {userData.name}
-            </h1>
+            <div className="text-2xl font-bold text-[#01312D]">
+              {loading ? <Skeleton className="h-8 w-48" /> : userData.name}
+            </div>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <p className="text-gray-500 text-sm">{userData.email}</p>
-              {getStatusBadge(userData.verificationStatus)}
+              {loading ? <Skeleton className="h-5 w-56" /> : <p className="text-gray-500 text-sm">{userData.email}</p>}
+              {!loading && getStatusBadge(userData.verificationStatus)}
             </div>
             <div className="flex items-center gap-2 mt-2">
               <div className="bg-[#eafde7] px-2 py-1 rounded-lg">
-                <p className="text-xs text-[#01312D]">
-                  Member since {userData.memberSince}
-                </p>
+                <div className="text-xs text-[#01312D]">
+                  {loading ? <Skeleton className="h-4 w-36" /> : <>Member since {userData.memberSince}</>}
+                </div>
               </div>
             </div>
           </div>
@@ -571,7 +572,7 @@ export default function ProfilePage() {
             <History className="w-4 h-4 text-[#3A7717]" />
           </div>
           <p className="text-lg font-bold text-[#01312D]">
-            {userData.totalRequests}
+            {loading ? <Skeleton className="h-6 w-10 mx-auto" /> : userData.totalRequests}
           </p>
           <p className="text-xs text-gray-500">Requests</p>
         </div>
@@ -580,7 +581,7 @@ export default function ProfilePage() {
             <Wallet className="w-4 h-4 text-[#3A7717]" />
           </div>
           <p className="text-lg font-bold text-[#01312D]">
-            R{userData.totalSpent.toLocaleString()}
+            {loading ? <Skeleton className="h-6 w-20 mx-auto" /> : <>R{userData.totalSpent.toLocaleString()}</>}
           </p>
           <p className="text-xs text-gray-500">Spent</p>
         </div>
@@ -589,7 +590,7 @@ export default function ProfilePage() {
             <TrendingUp className="w-4 h-4 text-[#3A7717]" />
           </div>
           <p className="text-lg font-bold text-[#01312D]">
-            {userData.totalLoans}
+            {loading ? <Skeleton className="h-6 w-10 mx-auto" /> : userData.totalLoans}
           </p>
           <p className="text-xs text-gray-500">Loans</p>
         </div>
@@ -598,14 +599,20 @@ export default function ProfilePage() {
             <Star className="w-4 h-4 text-[#3A7717]" />
           </div>
           <p className="text-lg font-bold text-[#01312D]">
-            {userData.rating || "N/A"}
+            {loading ? <Skeleton className="h-6 w-10 mx-auto" /> : (userData.rating || "N/A")}
           </p>
           <p className="text-xs text-gray-500">Rating</p>
         </div>
       </div>
 
       {/* Verification Banner for unverified users */}
-      {userData.verificationStatus !== "approved" && (
+      {loading ? (
+        <div className="px-5 mb-4">
+          <div className="rounded-2xl p-4">
+            <Skeleton className="h-20 w-full" />
+          </div>
+        </div>
+      ) : userData.verificationStatus !== "approved" && (
         <div className="px-5 mb-4">
           <div className="bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-2xl p-4">
             <div className="flex items-center justify-between">
@@ -693,34 +700,28 @@ export default function ProfilePage() {
                   <Mail className="w-4 h-4 text-[#72bf00]" />
                   <div>
                     <p className="text-xs text-gray-500">Email</p>
-                    <p className="text-sm text-[#01312D]">{userData.email}</p>
+                    {loading ? <Skeleton className="h-5 w-48 mt-1" /> : <p className="text-sm text-[#01312D]">{userData.email}</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <Phone className="w-4 h-4 text-[#72bf00]" />
                   <div>
                     <p className="text-xs text-gray-500">Phone</p>
-                    <p className="text-sm text-[#01312D]">
-                      {userData.phone || "Not provided"}
-                    </p>
+                    {loading ? <Skeleton className="h-5 w-36 mt-1" /> : <p className="text-sm text-[#01312D]">{userData.phone || "Not provided"}</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <MapPin className="w-4 h-4 text-[#72bf00]" />
                   <div className="flex-1">
                     <p className="text-xs text-gray-500">Address</p>
-                    <p className="text-sm text-[#01312D]">{fullAddress}</p>
+                    {loading ? <Skeleton className="h-5 w-56 mt-1" /> : <p className="text-sm text-[#01312D]">{fullAddress}</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <Calendar className="w-4 h-4 text-[#72bf00]" />
                   <div>
                     <p className="text-xs text-gray-500">Date of Birth</p>
-                    <p className="text-sm text-[#01312D]">
-                      {userData.dateOfBirth !== "Not provided"
-                        ? new Date(userData.dateOfBirth).toLocaleDateString()
-                        : "Not provided"}
-                    </p>
+                    {loading ? <Skeleton className="h-5 w-36 mt-1" /> : <p className="text-sm text-[#01312D]">{userData.dateOfBirth !== "Not provided" ? new Date(userData.dateOfBirth).toLocaleDateString() : "Not provided"}</p>}
                   </div>
                 </div>
               </div>
@@ -736,27 +737,19 @@ export default function ProfilePage() {
                   <span className="text-sm text-gray-500">
                     Registration Number
                   </span>
-                  <span className="text-sm font-semibold text-[#01312D]">
-                    {userData.carRegistration}
-                  </span>
+                  {loading ? <Skeleton className="h-5 w-32" /> : <span className="text-sm font-semibold text-[#01312D]">{userData.carRegistration}</span>}
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-500">Car Model</span>
-                  <span className="text-sm font-semibold text-[#01312D]">
-                    {userData.carModel}
-                  </span>
+                  {loading ? <Skeleton className="h-5 w-32" /> : <span className="text-sm font-semibold text-[#01312D]">{userData.carModel}</span>}
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-500">Year</span>
-                  <span className="text-sm font-semibold text-[#01312D]">
-                    {userData.carYear}
-                  </span>
+                  {loading ? <Skeleton className="h-5 w-20" /> : <span className="text-sm font-semibold text-[#01312D]">{userData.carYear}</span>}
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-500">Color</span>
-                  <span className="text-sm font-semibold text-[#01312D]">
-                    {userData.carColor}
-                  </span>
+                  {loading ? <Skeleton className="h-5 w-20" /> : <span className="text-sm font-semibold text-[#01312D]">{userData.carColor}</span>}
                 </div>
               </div>
             </div>
@@ -825,7 +818,25 @@ export default function ProfilePage() {
                 </button>
               </div>
               <div className="space-y-3">
-                {recentActivity.length > 0 ? (
+                {loading ? (
+                  <>
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex items-center justify-between p-2">
+                        <div className="flex items-center gap-3">
+                          <Skeleton className="w-10 h-10 rounded-lg" />
+                          <div className="space-y-2">
+                            <Skeleton className="h-4 w-28" />
+                            <Skeleton className="h-3 w-20" />
+                          </div>
+                        </div>
+                        <div className="text-right space-y-2">
+                          <Skeleton className="h-4 w-16 ml-auto" />
+                          <Skeleton className="h-3 w-12 ml-auto" />
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                ) : recentActivity.length > 0 ? (
                   recentActivity.map((req, idx) => (
                     <div
                       key={req.id || idx}
@@ -883,7 +894,29 @@ export default function ProfilePage() {
                 <Wallet className="w-4 h-4 text-[#3A7717]" />
                 Active Loans & Balances
               </h3>
-              {activeLoans.length > 0 ? (
+              {loading ? (
+                <div className="space-y-3">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="p-3 bg-[#eafde7] rounded-xl border border-[#bff202]/10">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="w-8 h-8 rounded-lg" />
+                          <Skeleton className="h-5 w-20" />
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-500">Balance</p>
+                          <Skeleton className="h-5 w-16 mt-1 ml-auto" />
+                        </div>
+                      </div>
+                      <Skeleton className="w-full h-1.5 rounded-full mb-2" />
+                      <div className="flex justify-between items-center">
+                        <Skeleton className="h-3 w-24" />
+                        <Skeleton className="h-3 w-14" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : activeLoans.length > 0 ? (
                 <div className="space-y-3">
                   {activeLoans.map((loan, idx) => (
                     <div

@@ -37,6 +37,7 @@ import {
 import { PopUploadModal } from "@/components/PopUploadModal";
 import { RepaymentProofModal } from "@/components/RepaymentProofModal";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 type RequestStatus = "pending" | "approved" | "sent" | "completed" | "rejected";
 type RepaymentStatus = "pending" | "approved" | "rejected";
@@ -952,7 +953,7 @@ export default function RequestHistoryPage() {
     );
   };
 
-  if (isPending || loading) {
+  if (isPending) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -1001,31 +1002,61 @@ export default function RequestHistoryPage() {
           <div className="grid grid-cols-3 gap-2 mt-4">
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
               <p className="text-xs text-gray-500">Total</p>
-              <p className="text-lg font-bold text-[#01312D]">{stats.total}</p>
+              {(loading || refreshing) ? (
+                <div className="flex justify-center">
+                  <Skeleton className="h-8 w-20" />
+                </div>
+              ) : (
+                <p className="text-lg font-bold text-[#01312D]">{stats.total}</p>
+              )}
             </div>
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
               <p className="text-xs text-gray-500">Pending</p>
-              <p className="text-lg font-bold text-yellow-600">
-                {stats.pending}
-              </p>
+              {(loading || refreshing) ? (
+                <div className="flex justify-center">
+                  <Skeleton className="h-8 w-20" />
+                </div>
+              ) : (
+                <p className="text-lg font-bold text-yellow-600">
+                  {stats.pending}
+                </p>
+              )}
             </div>
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
               <p className="text-xs text-gray-500">Approved</p>
-              <p className="text-lg font-bold text-blue-600">
-                {stats.approved}
-              </p>
+              {(loading || refreshing) ? (
+                <div className="flex justify-center">
+                  <Skeleton className="h-8 w-20" />
+                </div>
+              ) : (
+                <p className="text-lg font-bold text-blue-600">
+                  {stats.approved}
+                </p>
+              )}
             </div>
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
               <p className="text-xs text-gray-500">Completed</p>
-              <p className="text-lg font-bold text-[#3A7717]">
-                {stats.completed}
-              </p>
+              {(loading || refreshing) ? (
+                <div className="flex justify-center">
+                  <Skeleton className="h-8 w-20" />
+                </div>
+              ) : (
+                <p className="text-lg font-bold text-[#3A7717]">
+                  {stats.completed}
+                </p>
+              )}
             </div>
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
               <p className="text-xs text-gray-500">Outstanding</p>
-              <p className="text-lg font-bold text-red-600">
-                R{stats.totalOutstanding.toLocaleString()}
-              </p>
+              {(loading || refreshing) ? (
+                <div className="flex justify-center">
+                  <Skeleton className="h-8 w-20" />
+                </div>
+              ) : (
+                <p className="text-lg font-bold text-red-600">
+                  R{stats.totalOutstanding.toLocaleString()}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -1067,7 +1098,34 @@ export default function RequestHistoryPage() {
       </div>
       {/* Requests List */}
       <div className="px-5 pt-4 pb-24">
-        {filteredRequests.length === 0 ? (
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
+                <div className="flex flex-col items-start gap-3 justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="w-10 h-10 rounded-xl" />
+                    <div>
+                      <Skeleton className="h-4 w-24 mb-1" />
+                      <Skeleton className="h-3 w-16" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-5 w-20 rounded-full" />
+                </div>
+                <div className="flex justify-between items-between mb-3">
+                  <div>
+                    <Skeleton className="h-7 w-28 mb-1" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-3 border-t border-gray-100">
+                  <Skeleton className="flex-1 h-9 rounded-lg" />
+                  <Skeleton className="flex-1 h-9 rounded-lg" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredRequests.length === 0 ? (
           <div className="text-center py-12">
             <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-md">
               <Clock className="w-10 h-10 text-[#72bf00]" />

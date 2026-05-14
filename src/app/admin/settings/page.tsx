@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
+import { Skeleton } from "@/components/ui/Skeleton";
 import {
   Settings,
   Bell,
@@ -27,7 +28,6 @@ import {
   Phone,
   AtSign,
   Fuel,
-  Loader2,
   Plus,
   Trash2,
   Edit2,
@@ -455,16 +455,7 @@ export default function AdminSettingsPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
-          <p className="text-[#01312D]">Loading settings...</p>
-        </div>
-      </div>
-    );
-  }
+  const isLoading = loading;
 
   return (
     <div className="space-y-6">
@@ -522,94 +513,122 @@ export default function AdminSettingsPage() {
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Site Name
                 </label>
-                <input
-                  type="text"
-                  value={generalSettings.siteName}
-                  onChange={handleGeneralChange("siteName")}
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                />
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <input
+                    type="text"
+                    value={generalSettings.siteName}
+                    onChange={handleGeneralChange("siteName")}
+                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Site Description
                 </label>
-                <input
-                  type="text"
-                  value={generalSettings.siteDescription}
-                  onChange={handleGeneralChange("siteDescription")}
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                />
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <input
+                    type="text"
+                    value={generalSettings.siteDescription}
+                    onChange={handleGeneralChange("siteDescription")}
+                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Contact Email
                 </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="email"
-                    value={generalSettings.contactEmail}
-                    onChange={handleGeneralChange("contactEmail")}
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                  />
-                </div>
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="email"
+                      value={generalSettings.contactEmail}
+                      onChange={handleGeneralChange("contactEmail")}
+                      className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                    />
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Contact Phone
                 </label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="tel"
-                    value={generalSettings.contactPhone}
-                    onChange={handleGeneralChange("contactPhone")}
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                  />
-                </div>
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="tel"
+                      value={generalSettings.contactPhone}
+                      onChange={handleGeneralChange("contactPhone")}
+                      className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                    />
+                  </div>
+                )}
               </div>
               <div className="md:col-span-2">
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Address
                 </label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                  <textarea
-                    value={generalSettings.address}
-                    onChange={handleGeneralChange("address")}
-                    rows={2}
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                  />
-                </div>
+                {isLoading ? (
+                  <Skeleton className="h-16 w-full" />
+                ) : (
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                    <textarea
+                      value={generalSettings.address}
+                      onChange={handleGeneralChange("address")}
+                      rows={2}
+                      className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                    />
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Timezone
                 </label>
-                <select
-                  value={generalSettings.timezone}
-                  onChange={handleGeneralChange("timezone")}
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                >
-                  <option value="Africa/Johannesburg">SAST (UTC+2)</option>
-                  <option value="UTC">UTC</option>
-                  <option value="America/New_York">EST (UTC-5)</option>
-                  <option value="Europe/London">GMT (UTC+0)</option>
-                </select>
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <select
+                    value={generalSettings.timezone}
+                    onChange={handleGeneralChange("timezone")}
+                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                  >
+                    <option value="Africa/Johannesburg">SAST (UTC+2)</option>
+                    <option value="UTC">UTC</option>
+                    <option value="America/New_York">EST (UTC-5)</option>
+                    <option value="Europe/London">GMT (UTC+0)</option>
+                  </select>
+                )}
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Date Format
                 </label>
-                <select
-                  value={generalSettings.dateFormat}
-                  onChange={handleGeneralChange("dateFormat")}
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                >
-                  <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                  <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                  <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                </select>
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <select
+                    value={generalSettings.dateFormat}
+                    onChange={handleGeneralChange("dateFormat")}
+                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                  >
+                    <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                    <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                    <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                  </select>
+                )}
               </div>
             </div>
           </SettingSection>
@@ -626,40 +645,48 @@ export default function AdminSettingsPage() {
                   <Fuel className="w-5 h-5 text-[#3A7717]" />
                   <span className="font-semibold text-[#01312D]">Fuel</span>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={serviceSettings.fuelEnabled}
-                    onChange={(e) =>
-                      setServiceSettings((prev) => ({
-                        ...prev,
-                        fuelEnabled: e.target.checked,
-                      }))
-                    }
-                    className="sr-only peer"
-                  />
-                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
-                </label>
+                {isLoading ? (
+                  <Skeleton className="h-5 w-10 rounded-full" />
+                ) : (
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={serviceSettings.fuelEnabled}
+                      onChange={(e) =>
+                        setServiceSettings((prev) => ({
+                          ...prev,
+                          fuelEnabled: e.target.checked,
+                        }))
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  </label>
+                )}
               </div>
               <div className="flex items-center justify-between p-3 bg-[#eafde7] rounded-xl">
                 <div className="flex items-center gap-2">
                   <Smartphone className="w-5 h-5 text-[#3A7717]" />
                   <span className="font-semibold text-[#01312D]">Airtime</span>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={serviceSettings.airtimeEnabled}
-                    onChange={(e) =>
-                      setServiceSettings((prev) => ({
-                        ...prev,
-                        airtimeEnabled: e.target.checked,
-                      }))
-                    }
-                    className="sr-only peer"
-                  />
-                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
-                </label>
+                {isLoading ? (
+                  <Skeleton className="h-5 w-10 rounded-full" />
+                ) : (
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={serviceSettings.airtimeEnabled}
+                      onChange={(e) =>
+                        setServiceSettings((prev) => ({
+                          ...prev,
+                          airtimeEnabled: e.target.checked,
+                        }))
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  </label>
+                )}
               </div>
               <div className="flex items-center justify-between p-3 bg-[#eafde7] rounded-xl">
                 <div className="flex items-center gap-2">
@@ -668,40 +695,48 @@ export default function AdminSettingsPage() {
                     Cash Loan
                   </span>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={serviceSettings.cashLoanEnabled}
-                    onChange={(e) =>
-                      setServiceSettings((prev) => ({
-                        ...prev,
-                        cashLoanEnabled: e.target.checked,
-                      }))
-                    }
-                    className="sr-only peer"
-                  />
-                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
-                </label>
+                {isLoading ? (
+                  <Skeleton className="h-5 w-10 rounded-full" />
+                ) : (
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={serviceSettings.cashLoanEnabled}
+                      onChange={(e) =>
+                        setServiceSettings((prev) => ({
+                          ...prev,
+                          cashLoanEnabled: e.target.checked,
+                        }))
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  </label>
+                )}
               </div>
               <div className="flex items-center justify-between p-3 bg-[#eafde7] rounded-xl">
                 <div className="flex items-center gap-2">
                   <Car className="w-5 h-5 text-[#3A7717]" />
                   <span className="font-semibold text-[#01312D]">Car Wash</span>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={serviceSettings.carWashEnabled}
-                    onChange={(e) =>
-                      setServiceSettings((prev) => ({
-                        ...prev,
-                        carWashEnabled: e.target.checked,
-                      }))
-                    }
-                    className="sr-only peer"
-                  />
-                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
-                </label>
+                {isLoading ? (
+                  <Skeleton className="h-5 w-10 rounded-full" />
+                ) : (
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={serviceSettings.carWashEnabled}
+                      onChange={(e) =>
+                        setServiceSettings((prev) => ({
+                          ...prev,
+                          carWashEnabled: e.target.checked,
+                        }))
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  </label>
+                )}
               </div>
             </div>
           </SettingSection>
@@ -713,52 +748,64 @@ export default function AdminSettingsPage() {
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Fuel Interest Rate
                 </label>
-                <div className="relative">
-                  <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="number"
-                    value={serviceSettings.fuelInterestRate || ""}
-                    onChange={handleServiceNumericChange("fuelInterestRate")}
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                    step="1"
-                    min="0"
-                    max="100"
-                  />
-                </div>
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <div className="relative">
+                    <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="number"
+                      value={serviceSettings.fuelInterestRate || ""}
+                      onChange={handleServiceNumericChange("fuelInterestRate")}
+                      className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                      step="1"
+                      min="0"
+                      max="100"
+                    />
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Airtime Interest Rate
                 </label>
-                <div className="relative">
-                  <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="number"
-                    value={serviceSettings.airtimeInterestRate || ""}
-                    onChange={handleServiceNumericChange("airtimeInterestRate")}
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                    step="1"
-                    min="0"
-                    max="100"
-                  />
-                </div>
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <div className="relative">
+                    <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="number"
+                      value={serviceSettings.airtimeInterestRate || ""}
+                      onChange={handleServiceNumericChange("airtimeInterestRate")}
+                      className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                      step="1"
+                      min="0"
+                      max="100"
+                    />
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Cash Loan Interest Rate
                 </label>
-                <div className="relative">
-                  <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="number"
-                    value={serviceSettings.cashInterestRate || ""}
-                    onChange={handleServiceNumericChange("cashInterestRate")}
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                    step="1"
-                    min="0"
-                    max="100"
-                  />
-                </div>
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <div className="relative">
+                    <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="number"
+                      value={serviceSettings.cashInterestRate || ""}
+                      onChange={handleServiceNumericChange("cashInterestRate")}
+                      className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                      step="1"
+                      min="0"
+                      max="100"
+                    />
+                  </div>
+                )}
               </div>
             </div>
             <div className="mt-3 p-3 bg-blue-50 rounded-lg">
@@ -778,22 +825,26 @@ export default function AdminSettingsPage() {
                   <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                     Service Charge (R)
                   </label>
-                  <div className="relative max-w-xs">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">
-                      R
-                    </span>
-                    <input
-                      type="number"
-                      value={serviceSettings.carWashServiceCharge || ""}
-                      onChange={handleServiceNumericChange(
-                        "carWashServiceCharge",
-                      )}
-                      className="w-full pl-8 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                      placeholder="e.g., 20"
-                      min="0"
-                      step="1"
-                    />
-                  </div>
+                  {isLoading ? (
+                    <Skeleton className="h-10 w-full max-w-xs" />
+                  ) : (
+                    <div className="relative max-w-xs">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">
+                        R
+                      </span>
+                      <input
+                        type="number"
+                        value={serviceSettings.carWashServiceCharge || ""}
+                        onChange={handleServiceNumericChange(
+                          "carWashServiceCharge",
+                        )}
+                        className="w-full pl-8 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                        placeholder="e.g., 20"
+                        min="0"
+                        step="1"
+                      />
+                    </div>
+                  )}
                   <p className="text-xs text-gray-500 mt-1">
                     Fixed amount charged per car wash transaction (in addition
                     to the package price).
@@ -872,66 +923,82 @@ export default function AdminSettingsPage() {
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Minimum Loan Amount (R)
                 </label>
-                <input
-                  type="number"
-                  value={serviceSettings.minLoanAmount || ""}
-                  onChange={handleServiceNumericChange("minLoanAmount")}
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                  step="10"
-                  min="0"
-                />
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <input
+                    type="number"
+                    value={serviceSettings.minLoanAmount || ""}
+                    onChange={handleServiceNumericChange("minLoanAmount")}
+                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    step="10"
+                    min="0"
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Maximum Loan Amount (R)
                 </label>
-                <input
-                  type="number"
-                  value={serviceSettings.maxLoanAmount || ""}
-                  onChange={handleServiceNumericChange("maxLoanAmount")}
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                  step="10"
-                  min="0"
-                />
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <input
+                    type="number"
+                    value={serviceSettings.maxLoanAmount || ""}
+                    onChange={handleServiceNumericChange("maxLoanAmount")}
+                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    step="10"
+                    min="0"
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Default Repayment Period (days)
                 </label>
-                <select
-                  value={serviceSettings.defaultRepaymentPeriod}
-                  onChange={(e) => {
-                    const val = Number(e.target.value);
-                    setServiceSettings((prev) => ({
-                      ...prev,
-                      defaultRepaymentPeriod: val,
-                    }));
-                  }}
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                >
-                  {serviceSettings.repaymentPeriods.map((days) => (
-                    <option key={days} value={days}>
-                      {days} days
-                    </option>
-                  ))}
-                </select>
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <select
+                    value={serviceSettings.defaultRepaymentPeriod}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setServiceSettings((prev) => ({
+                        ...prev,
+                        defaultRepaymentPeriod: val,
+                      }));
+                    }}
+                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                  >
+                    {serviceSettings.repaymentPeriods.map((days) => (
+                      <option key={days} value={days}>
+                        {days} days
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Late Fee (% per day)
                 </label>
-                <div className="relative">
-                  <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="number"
-                    value={serviceSettings.lateFeePercentage || ""}
-                    onChange={handleServiceNumericChange("lateFeePercentage")}
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                    step="0.5"
-                    min="0"
-                    max="100"
-                  />
-                </div>
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <div className="relative">
+                    <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="number"
+                      value={serviceSettings.lateFeePercentage || ""}
+                      onChange={handleServiceNumericChange("lateFeePercentage")}
+                      className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                      step="0.5"
+                      min="0"
+                      max="100"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </SettingSection>
@@ -950,15 +1017,19 @@ export default function AdminSettingsPage() {
                     Email Notifications
                   </span>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={notificationSettings.emailNotifications}
-                    onChange={handleNotificationChange("emailNotifications")}
-                    className="sr-only peer"
-                  />
-                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
-                </label>
+                {isLoading ? (
+                  <Skeleton className="h-5 w-10 rounded-full" />
+                ) : (
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={notificationSettings.emailNotifications}
+                      onChange={handleNotificationChange("emailNotifications")}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  </label>
+                )}
               </div>
               <div className="flex items-center justify-between p-3 bg-[#eafde7] rounded-xl">
                 <div className="flex items-center gap-2">
@@ -967,15 +1038,19 @@ export default function AdminSettingsPage() {
                     WhatsApp Notifications
                   </span>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={notificationSettings.whatsappNotifications}
-                    onChange={handleNotificationChange("whatsappNotifications")}
-                    className="sr-only peer"
-                  />
-                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
-                </label>
+                {isLoading ? (
+                  <Skeleton className="h-5 w-10 rounded-full" />
+                ) : (
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={notificationSettings.whatsappNotifications}
+                      onChange={handleNotificationChange("whatsappNotifications")}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  </label>
+                )}
               </div>
               <div className="flex items-center justify-between p-3 bg-[#eafde7] rounded-xl">
                 <div className="flex items-center gap-2">
@@ -984,15 +1059,19 @@ export default function AdminSettingsPage() {
                     SMS Notifications
                   </span>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={notificationSettings.smsNotifications}
-                    onChange={handleNotificationChange("smsNotifications")}
-                    className="sr-only peer"
-                  />
-                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
-                </label>
+                {isLoading ? (
+                  <Skeleton className="h-5 w-10 rounded-full" />
+                ) : (
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={notificationSettings.smsNotifications}
+                      onChange={handleNotificationChange("smsNotifications")}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  </label>
+                )}
               </div>
             </div>
           </SettingSection>
@@ -1003,45 +1082,57 @@ export default function AdminSettingsPage() {
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Admin Email
                 </label>
-                <div className="relative">
-                  <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="email"
-                    value={notificationSettings.adminEmail}
-                    onChange={handleNotificationChange("adminEmail")}
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                  />
-                </div>
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <div className="relative">
+                    <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="email"
+                      value={notificationSettings.adminEmail}
+                      onChange={handleNotificationChange("adminEmail")}
+                      className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                    />
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Admin Phone
                 </label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="tel"
-                    value={notificationSettings.adminPhone}
-                    onChange={handleNotificationChange("adminPhone")}
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                  />
-                </div>
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="tel"
+                      value={notificationSettings.adminPhone}
+                      onChange={handleNotificationChange("adminPhone")}
+                      className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                    />
+                  </div>
+                )}
               </div>
               <div className="md:col-span-2">
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   WhatsApp Business Number
                 </label>
-                <div className="relative">
-                  <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="tel"
-                    value={notificationSettings.whatsappBusinessNumber}
-                    onChange={handleNotificationChange(
-                      "whatsappBusinessNumber",
-                    )}
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                  />
-                </div>
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <div className="relative">
+                    <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="tel"
+                      value={notificationSettings.whatsappBusinessNumber}
+                      onChange={handleNotificationChange(
+                        "whatsappBusinessNumber",
+                      )}
+                      className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </SettingSection>
@@ -1050,57 +1141,73 @@ export default function AdminSettingsPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[#01312D]">New Driver Verification</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={notificationSettings.notifyOnNewVerification}
-                    onChange={handleNotificationChange(
-                      "notifyOnNewVerification",
-                    )}
-                    className="sr-only peer"
-                  />
-                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
-                </label>
+                {isLoading ? (
+                  <Skeleton className="h-5 w-10 rounded-full" />
+                ) : (
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={notificationSettings.notifyOnNewVerification}
+                      onChange={handleNotificationChange(
+                        "notifyOnNewVerification",
+                      )}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  </label>
+                )}
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#01312D]">New Service Request</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={notificationSettings.notifyOnNewRequest}
-                    onChange={handleNotificationChange("notifyOnNewRequest")}
-                    className="sr-only peer"
-                  />
-                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
-                </label>
+                {isLoading ? (
+                  <Skeleton className="h-5 w-10 rounded-full" />
+                ) : (
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={notificationSettings.notifyOnNewRequest}
+                      onChange={handleNotificationChange("notifyOnNewRequest")}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  </label>
+                )}
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#01312D]">
                   Request Approval Confirmation
                 </span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={notificationSettings.notifyOnRequestApproval}
-                    onChange={handleNotificationChange(
-                      "notifyOnRequestApproval",
-                    )}
-                    className="sr-only peer"
-                  />
-                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
-                </label>
+                {isLoading ? (
+                  <Skeleton className="h-5 w-10 rounded-full" />
+                ) : (
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={notificationSettings.notifyOnRequestApproval}
+                      onChange={handleNotificationChange(
+                        "notifyOnRequestApproval",
+                      )}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  </label>
+                )}
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#01312D]">Loan Due Date Reminder</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={notificationSettings.notifyOnLoanDue}
-                    onChange={handleNotificationChange("notifyOnLoanDue")}
-                    className="sr-only peer"
-                  />
-                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
-                </label>
+                {isLoading ? (
+                  <Skeleton className="h-5 w-10 rounded-full" />
+                ) : (
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={notificationSettings.notifyOnLoanDue}
+                      onChange={handleNotificationChange("notifyOnLoanDue")}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  </label>
+                )}
               </div>
             </div>
           </SettingSection>
@@ -1119,60 +1226,80 @@ export default function AdminSettingsPage() {
                     Two-Factor Authentication (2FA)
                   </span>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={securitySettings.twoFactorAuth}
-                    onChange={handleSecurityChange("twoFactorAuth")}
-                    className="sr-only peer"
-                  />
-                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
-                </label>
+                {isLoading ? (
+                  <Skeleton className="h-5 w-10 rounded-full" />
+                ) : (
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={securitySettings.twoFactorAuth}
+                      onChange={handleSecurityChange("twoFactorAuth")}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  </label>
+                )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                     Session Timeout (minutes)
                   </label>
-                  <input
-                    type="number"
-                    value={securitySettings.sessionTimeout || ""}
-                    onChange={handleSecurityChange("sessionTimeout")}
-                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                  />
+                  {isLoading ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <input
+                      type="number"
+                      value={securitySettings.sessionTimeout || ""}
+                      onChange={handleSecurityChange("sessionTimeout")}
+                      className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                     Max Login Attempts
                   </label>
-                  <input
-                    type="number"
-                    value={securitySettings.maxLoginAttempts || ""}
-                    onChange={handleSecurityChange("maxLoginAttempts")}
-                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                  />
+                  {isLoading ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <input
+                      type="number"
+                      value={securitySettings.maxLoginAttempts || ""}
+                      onChange={handleSecurityChange("maxLoginAttempts")}
+                      className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                     Lockout Duration (minutes)
                   </label>
-                  <input
-                    type="number"
-                    value={securitySettings.lockoutDuration || ""}
-                    onChange={handleSecurityChange("lockoutDuration")}
-                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                  />
+                  {isLoading ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <input
+                      type="number"
+                      value={securitySettings.lockoutDuration || ""}
+                      onChange={handleSecurityChange("lockoutDuration")}
+                      className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                     Password Expiry (days)
                   </label>
-                  <input
-                    type="number"
-                    value={securitySettings.passwordExpiry || ""}
-                    onChange={handleSecurityChange("passwordExpiry")}
-                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                  />
+                  {isLoading ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <input
+                      type="number"
+                      value={securitySettings.passwordExpiry || ""}
+                      onChange={handleSecurityChange("passwordExpiry")}
+                      className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -1189,15 +1316,19 @@ export default function AdminSettingsPage() {
                     Allow admin to be logged in from multiple devices
                   </p>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={securitySettings.allowMultipleSessions}
-                    onChange={handleSecurityChange("allowMultipleSessions")}
-                    className="sr-only peer"
-                  />
-                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
-                </label>
+                {isLoading ? (
+                  <Skeleton className="h-5 w-10 rounded-full" />
+                ) : (
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={securitySettings.allowMultipleSessions}
+                      onChange={handleSecurityChange("allowMultipleSessions")}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  </label>
+                )}
               </div>
               <div className="flex items-center justify-between">
                 <div>
@@ -1208,17 +1339,21 @@ export default function AdminSettingsPage() {
                     Restrict access to specific IP addresses
                   </p>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={securitySettings.ipWhitelisting}
-                    onChange={handleSecurityChange("ipWhitelisting")}
-                    className="sr-only peer"
-                  />
-                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
-                </label>
+                {isLoading ? (
+                  <Skeleton className="h-5 w-10 rounded-full" />
+                ) : (
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={securitySettings.ipWhitelisting}
+                      onChange={handleSecurityChange("ipWhitelisting")}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  </label>
+                )}
               </div>
-              {securitySettings.ipWhitelisting && (
+              {!isLoading && securitySettings.ipWhitelisting && (
                 <div>
                   <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                     Whitelisted IPs (one per line)
@@ -1246,62 +1381,82 @@ export default function AdminSettingsPage() {
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Business Name
                 </label>
-                <input
-                  type="text"
-                  value={businessSettings.businessName}
-                  onChange={handleBusinessChange("businessName")}
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                />
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <input
+                    type="text"
+                    value={businessSettings.businessName}
+                    onChange={handleBusinessChange("businessName")}
+                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Business Email
                 </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="email"
-                    value={businessSettings.businessEmail}
-                    onChange={handleBusinessChange("businessEmail")}
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                  />
-                </div>
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="email"
+                      value={businessSettings.businessEmail}
+                      onChange={handleBusinessChange("businessEmail")}
+                      className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                    />
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Business Phone
                 </label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="tel"
-                    value={businessSettings.businessPhone}
-                    onChange={handleBusinessChange("businessPhone")}
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                  />
-                </div>
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="tel"
+                      value={businessSettings.businessPhone}
+                      onChange={handleBusinessChange("businessPhone")}
+                      className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                    />
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Registration Number
                 </label>
-                <input
-                  type="text"
-                  value={businessSettings.registrationNumber}
-                  onChange={handleBusinessChange("registrationNumber")}
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                />
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <input
+                    type="text"
+                    value={businessSettings.registrationNumber}
+                    onChange={handleBusinessChange("registrationNumber")}
+                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   VAT Number
                 </label>
-                <input
-                  type="text"
-                  value={businessSettings.vatNumber}
-                  onChange={handleBusinessChange("vatNumber")}
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                />
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <input
+                    type="text"
+                    value={businessSettings.vatNumber}
+                    onChange={handleBusinessChange("vatNumber")}
+                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                  />
+                )}
               </div>
             </div>
           </SettingSection>
@@ -1312,48 +1467,64 @@ export default function AdminSettingsPage() {
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Bank Name
                 </label>
-                <input
-                  type="text"
-                  value={businessSettings.bankName}
-                  onChange={handleBusinessChange("bankName")}
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                />
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <input
+                    type="text"
+                    value={businessSettings.bankName}
+                    onChange={handleBusinessChange("bankName")}
+                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Account Number
                 </label>
-                <input
-                  type="text"
-                  value={businessSettings.accountNumber}
-                  onChange={handleBusinessChange("accountNumber")}
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                />
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <input
+                    type="text"
+                    value={businessSettings.accountNumber}
+                    onChange={handleBusinessChange("accountNumber")}
+                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Branch Code
                 </label>
-                <input
-                  type="text"
-                  value={businessSettings.branchCode}
-                  onChange={handleBusinessChange("branchCode")}
-                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                />
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <input
+                    type="text"
+                    value={businessSettings.branchCode}
+                    onChange={handleBusinessChange("branchCode")}
+                    className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   UPI ID / Payable To
                 </label>
-                <div className="relative">
-                  <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={businessSettings.upiId}
-                    onChange={handleBusinessChange("upiId")}
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                  />
-                </div>
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <div className="relative">
+                    <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={businessSettings.upiId}
+                      onChange={handleBusinessChange("upiId")}
+                      className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </SettingSection>
@@ -1364,29 +1535,37 @@ export default function AdminSettingsPage() {
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Terms & Conditions URL
                 </label>
-                <div className="relative">
-                  <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="url"
-                    value={businessSettings.termsAndConditions}
-                    onChange={handleBusinessChange("termsAndConditions")}
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                  />
-                </div>
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <div className="relative">
+                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="url"
+                      value={businessSettings.termsAndConditions}
+                      onChange={handleBusinessChange("termsAndConditions")}
+                      className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                    />
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                   Privacy Policy URL
                 </label>
-                <div className="relative">
-                  <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="url"
-                    value={businessSettings.privacyPolicy}
-                    onChange={handleBusinessChange("privacyPolicy")}
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
-                  />
-                </div>
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <div className="relative">
+                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="url"
+                      value={businessSettings.privacyPolicy}
+                      onChange={handleBusinessChange("privacyPolicy")}
+                      className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </SettingSection>
