@@ -60,9 +60,9 @@ interface ReceiptRequest {
 
 export default function AdminReceiptsPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"pending" | "verified" | "all" | "noreceipt">(
-    "pending",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "pending" | "verified" | "all" | "noreceipt"
+  >("pending");
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -112,7 +112,14 @@ export default function AdminReceiptsPage() {
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState("");
 
-  const isAnyModalOpen = showDetailsModal || showSuccessModal || showErrorModal || showRejectModal || showCorrectModal || showUploadModal || showUploadSuccessModal;
+  const isAnyModalOpen =
+    showDetailsModal ||
+    showSuccessModal ||
+    showErrorModal ||
+    showRejectModal ||
+    showCorrectModal ||
+    showUploadModal ||
+    showUploadSuccessModal;
   useBodyScrollLock(isAnyModalOpen);
 
   useEffect(() => {
@@ -130,11 +137,16 @@ export default function AdminReceiptsPage() {
           setNoReceiptRequests(data.data || []);
           setNoReceiptStats({
             count: data.data?.length || 0,
-            totalAmount: (data.data || []).reduce((sum: number, r: any) => sum + (r.amount || 0), 0),
+            totalAmount: (data.data || []).reduce(
+              (sum: number, r: any) => sum + (r.amount || 0),
+              0,
+            ),
           });
         }
       } else {
-        const response = await fetch(`/api/admin/receipts?status=${activeTab === "all" ? "" : activeTab}`);
+        const response = await fetch(
+          `/api/admin/receipts?status=${activeTab === "all" ? "" : activeTab}`,
+        );
         if (response.ok) {
           const data = await response.json();
           setReceipts(data.data || []);
@@ -171,7 +183,7 @@ export default function AdminReceiptsPage() {
         fetchReceipts();
         setShowDetailsModal(false);
         setSelectedReceipt(null);
-        
+
         // Refresh counts in the sidebar
         window.dispatchEvent(new CustomEvent("refreshAdminCounts"));
       } else {
@@ -235,19 +247,34 @@ export default function AdminReceiptsPage() {
     setCorrectLoading(true);
     try {
       const updates: Record<string, any> = {};
-      if (correctedAmount && parseFloat(correctedAmount) !== selectedReceipt.actualAmount) {
+      if (
+        correctedAmount &&
+        parseFloat(correctedAmount) !== selectedReceipt.actualAmount
+      ) {
         updates.actualAmount = parseFloat(correctedAmount);
       }
-      if (correctedDriverName && correctedDriverName !== selectedReceipt.driverName) {
+      if (
+        correctedDriverName &&
+        correctedDriverName !== selectedReceipt.driverName
+      ) {
         updates.driverName = correctedDriverName;
       }
-      if (correctedDriverEmail && correctedDriverEmail !== selectedReceipt.driverEmail) {
+      if (
+        correctedDriverEmail &&
+        correctedDriverEmail !== selectedReceipt.driverEmail
+      ) {
         updates.driverEmail = correctedDriverEmail;
       }
-      if (correctedDriverPhone && correctedDriverPhone !== selectedReceipt.driverPhone) {
+      if (
+        correctedDriverPhone &&
+        correctedDriverPhone !== selectedReceipt.driverPhone
+      ) {
         updates.driverPhone = correctedDriverPhone;
       }
-      if (correctedCarNumber && correctedCarNumber !== selectedReceipt.carRegistration) {
+      if (
+        correctedCarNumber &&
+        correctedCarNumber !== selectedReceipt.carRegistration
+      ) {
         updates.carNumber = correctedCarNumber;
       }
 
@@ -311,8 +338,10 @@ export default function AdminReceiptsPage() {
         const data = await res.json();
         const pendingReceipt = (data.requests || []).filter(
           (r: any) =>
-            (r.status === "approved" || r.status === "sent" || r.status === "completed") &&
-            !r.hasReceipt
+            (r.status === "approved" ||
+              r.status === "sent" ||
+              r.status === "completed") &&
+            !r.hasReceipt,
         );
         setAvailableRequests(pendingReceipt);
       }
@@ -347,7 +376,9 @@ export default function AdminReceiptsPage() {
       setUploadDriverEmail(req.driverEmail || "");
       setUploadDriverPhone(req.driverPhone || "");
       setUploadCarNumber(req.carNumber || "");
-      setUploadAmount(req.actualAmount?.toString() || req.amount?.toString() || "");
+      setUploadAmount(
+        req.actualAmount?.toString() || req.amount?.toString() || "",
+      );
       setUploadType(req.type || "fuel");
     }
   };
@@ -419,7 +450,10 @@ export default function AdminReceiptsPage() {
 
   const openCorrectModal = () => {
     if (!selectedReceipt) return;
-    setCorrectedAmount(selectedReceipt.actualAmount?.toString() || selectedReceipt.amount.toString());
+    setCorrectedAmount(
+      selectedReceipt.actualAmount?.toString() ||
+        selectedReceipt.amount.toString(),
+    );
     setCorrectedDriverName(selectedReceipt.driverName);
     setCorrectedDriverEmail(selectedReceipt.driverEmail);
     setCorrectedDriverPhone(selectedReceipt.driverPhone);
@@ -433,7 +467,11 @@ export default function AdminReceiptsPage() {
     if (!cleanPhone.startsWith("27") && cleanPhone.length === 9) {
       return `27${cleanPhone}`;
     }
-    if (!cleanPhone.startsWith("27") && cleanPhone.length === 10 && cleanPhone.startsWith("0")) {
+    if (
+      !cleanPhone.startsWith("27") &&
+      cleanPhone.length === 10 &&
+      cleanPhone.startsWith("0")
+    ) {
       return `27${cleanPhone.substring(1)}`;
     }
     return cleanPhone;
@@ -476,12 +514,26 @@ Kapuka Tradings Team`;
     const config: any = {
       fuel: { bg: "bg-green-100", text: "text-green-700", label: "Fuel" },
       airtime: { bg: "bg-blue-100", text: "text-blue-700", label: "Airtime" },
-      cash: { bg: "bg-yellow-100", text: "text-yellow-700", label: "Cash Loan" },
-      carwash: { bg: "bg-purple-100", text: "text-purple-700", label: "Car Wash" },
+      cash: {
+        bg: "bg-yellow-100",
+        text: "text-yellow-700",
+        label: "Cash Loan",
+      },
+      carwash: {
+        bg: "bg-purple-100",
+        text: "text-purple-700",
+        label: "Car Wash",
+      },
     };
-    const c = config[type] || { bg: "bg-gray-100", text: "text-gray-700", label: type };
+    const c = config[type] || {
+      bg: "bg-gray-100",
+      text: "text-gray-700",
+      label: type,
+    };
     return (
-      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${c.bg} ${c.text}`}>
+      <span
+        className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${c.bg} ${c.text}`}
+      >
         {c.label}
       </span>
     );
@@ -500,17 +552,25 @@ Kapuka Tradings Team`;
   const stats = {
     pending: receipts.filter((r) => !r.hasReceipt).length,
     verified: receipts.filter((r) => r.hasReceipt).length,
-    totalAmount: receipts.reduce((sum, r) => sum + (r.actualAmount || r.amount), 0),
+    totalAmount: receipts.reduce(
+      (sum, r) => sum + (r.actualAmount || r.amount),
+      0,
+    ),
   };
 
   // No receipt stats are loaded separately
-  const [noReceiptStats, setNoReceiptStats] = useState({ count: 0, totalAmount: 0 });
+  const [noReceiptStats, setNoReceiptStats] = useState({
+    count: 0,
+    totalAmount: 0,
+  });
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[#01312D]">Fuel & Service Receipts</h1>
+          <h1 className="text-2xl font-bold text-[#01312D]">
+            Fuel & Service Receipts
+          </h1>
           <p className="text-gray-500 text-sm mt-1">
             Verify receipts uploaded by drivers for completed services
           </p>
@@ -528,7 +588,9 @@ Kapuka Tradings Team`;
             disabled={refreshing}
             className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all"
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+            />
             Refresh
           </button>
         </div>
@@ -540,7 +602,9 @@ Kapuka Tradings Team`;
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">Pending Verification</p>
-              <div className="text-2xl font-bold text-yellow-600">{isLoading ? <Skeleton className="h-8 w-20" /> : stats.pending}</div>
+              <div className="text-2xl font-bold text-yellow-600">
+                {isLoading ? <Skeleton className="h-8 w-20" /> : stats.pending}
+              </div>
             </div>
             <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
               <Clock className="w-5 h-5 text-yellow-600" />
@@ -551,7 +615,9 @@ Kapuka Tradings Team`;
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">Verified Receipts</p>
-              <div className="text-2xl font-bold text-[#3A7717]">{isLoading ? <Skeleton className="h-8 w-20" /> : stats.verified}</div>
+              <div className="text-2xl font-bold text-[#3A7717]">
+                {isLoading ? <Skeleton className="h-8 w-20" /> : stats.verified}
+              </div>
             </div>
             <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
               <CheckCircle className="w-5 h-5 text-green-600" />
@@ -562,7 +628,13 @@ Kapuka Tradings Team`;
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">Total Value</p>
-              <div className="text-2xl font-bold text-[#01312D]">{isLoading ? <Skeleton className="h-8 w-28" /> : `R${stats.totalAmount.toLocaleString()}`}</div>
+              <div className="text-2xl font-bold text-[#01312D]">
+                {isLoading ? (
+                  <Skeleton className="h-8 w-28" />
+                ) : (
+                  `R${stats.totalAmount.toLocaleString()}`
+                )}
+              </div>
             </div>
             <div className="w-10 h-10 bg-[#eafde7] rounded-xl flex items-center justify-center">
               <FileText className="w-5 h-5 text-[#3A7717]" />
@@ -573,7 +645,13 @@ Kapuka Tradings Team`;
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">Awaiting Receipt Upload</p>
-              <div className="text-2xl font-bold text-orange-600">{isLoading ? <Skeleton className="h-8 w-20" /> : noReceiptStats.count}</div>
+              <div className="text-2xl font-bold text-orange-600">
+                {isLoading ? (
+                  <Skeleton className="h-8 w-20" />
+                ) : (
+                  noReceiptStats.count
+                )}
+              </div>
             </div>
             <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
               <Upload className="w-5 h-5 text-orange-600" />
@@ -643,7 +721,10 @@ Kapuka Tradings Team`;
       {isLoading ? (
         <div className="grid grid-cols-1 gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/10">
+            <div
+              key={i}
+              className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/10"
+            >
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div className="flex items-start gap-4">
                   <Skeleton className="w-14 h-14 rounded-2xl shrink-0" />
@@ -668,8 +749,12 @@ Kapuka Tradings Team`;
           <div className="w-20 h-20 bg-[#eafde7] rounded-full flex items-center justify-center mx-auto mb-4">
             <Upload className="w-10 h-10 text-gray-300" />
           </div>
-          <h3 className="text-lg font-bold text-[#01312D]">All receipts uploaded</h3>
-          <p className="text-gray-500">All approved/sent requests have receipts uploaded.</p>
+          <h3 className="text-lg font-bold text-[#01312D]">
+            All receipts uploaded
+          </h3>
+          <p className="text-gray-500">
+            All approved/sent requests have receipts uploaded.
+          </p>
         </div>
       ) : activeTab === "noreceipt" ? (
         <div className="grid grid-cols-1 gap-4">
@@ -680,11 +765,17 @@ Kapuka Tradings Team`;
             >
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div className="flex items-start gap-4">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${
-                    req.type === 'fuel' ? 'bg-green-50' : 
-                    req.type === 'airtime' ? 'bg-blue-50' : 
-                    req.type === 'cash' ? 'bg-yellow-50' : 'bg-purple-50'
-                  }`}>
+                  <div
+                    className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${
+                      req.type === "fuel"
+                        ? "bg-green-50"
+                        : req.type === "airtime"
+                          ? "bg-blue-50"
+                          : req.type === "cash"
+                            ? "bg-yellow-50"
+                            : "bg-purple-50"
+                    }`}
+                  >
                     {getServiceTypeIcon(req.type)}
                   </div>
                   <div className="space-y-1">
@@ -702,17 +793,24 @@ Kapuka Tradings Team`;
                         <Car className="w-4 h-4" /> {req.carNumber}
                       </span>
                       <span className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" /> {req.approvedDate ? new Date(req.approvedDate).toLocaleDateString() : "N/A"}
+                        <Calendar className="w-4 h-4" />{" "}
+                        {req.approvedDate
+                          ? new Date(req.approvedDate).toLocaleDateString()
+                          : "N/A"}
                       </span>
                       <span className="flex items-center gap-1">
-                        <span className="capitalize text-xs font-semibold text-gray-400">{req.status}</span>
+                        <span className="capitalize text-xs font-semibold text-gray-400">
+                          {req.status}
+                        </span>
                       </span>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center justify-between lg:justify-end gap-8 border-t lg:border-t-0 pt-4 lg:pt-0">
                   <div className="text-right">
-                    <p className="text-xs text-gray-400 uppercase font-bold tracking-wider">Amount</p>
+                    <p className="text-xs text-gray-400 uppercase font-bold tracking-wider">
+                      Amount
+                    </p>
                     <p className="text-2xl font-black text-[#01312D]">
                       R{(req.actualAmount || req.amount).toLocaleString()}
                     </p>
@@ -734,8 +832,12 @@ Kapuka Tradings Team`;
           <div className="w-20 h-20 bg-[#eafde7] rounded-full flex items-center justify-center mx-auto mb-4">
             <FileText className="w-10 h-10 text-gray-300" />
           </div>
-          <h3 className="text-lg font-bold text-[#01312D]">No receipts found</h3>
-          <p className="text-gray-500">There are no receipts matching your criteria.</p>
+          <h3 className="text-lg font-bold text-[#01312D]">
+            No receipts found
+          </h3>
+          <p className="text-gray-500">
+            There are no receipts matching your criteria.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
@@ -746,16 +848,22 @@ Kapuka Tradings Team`;
             >
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div className="flex items-start gap-4">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${
-                    receipt.type === 'fuel' ? 'bg-green-50' : 
-                    receipt.type === 'airtime' ? 'bg-blue-50' : 
-                    receipt.type === 'cash' ? 'bg-yellow-50' : 'bg-purple-50'
-                  }`}>
+                  <div
+                    className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${
+                      receipt.type === "fuel"
+                        ? "bg-green-50"
+                        : receipt.type === "airtime"
+                          ? "bg-blue-50"
+                          : receipt.type === "cash"
+                            ? "bg-yellow-50"
+                            : "bg-purple-50"
+                    }`}
+                  >
                     {getServiceTypeIcon(receipt.type)}
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-[#01312D] text-lg">
+                      <h3 className="font-bold text-[#01312D] text-md">
                         {receipt.driverName}
                       </h3>
                       {getServiceTypeBadge(receipt.type)}
@@ -769,12 +877,13 @@ Kapuka Tradings Team`;
                         </span>
                       )}
                     </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
                       <span className="flex items-center gap-1">
                         <Car className="w-4 h-4" /> {receipt.carRegistration}
                       </span>
                       <span className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" /> Completed {new Date(receipt.completedDate).toLocaleDateString()}
+                        <Calendar className="w-4 h-4" /> Completed{" "}
+                        {new Date(receipt.completedDate).toLocaleDateString()}
                       </span>
                     </div>
                   </div>
@@ -782,9 +891,14 @@ Kapuka Tradings Team`;
 
                 <div className="flex items-center justify-between lg:justify-end gap-8 border-t lg:border-t-0 pt-4 lg:pt-0">
                   <div className="text-right">
-                    <p className="text-xs text-gray-400 uppercase font-bold tracking-wider">Amount</p>
+                    <p className="text-[11px] text-gray-400 uppercase font-bold tracking-wider">
+                      Amount
+                    </p>
                     <p className="text-2xl font-black text-[#01312D]">
-                      R{(receipt.actualAmount || receipt.amount).toLocaleString()}
+                      R
+                      {(
+                        receipt.actualAmount || receipt.amount
+                      ).toLocaleString()}
                     </p>
                   </div>
                   <button
@@ -792,9 +906,10 @@ Kapuka Tradings Team`;
                       setSelectedReceipt(receipt);
                       setShowDetailsModal(true);
                     }}
-                    className="flex items-center gap-2 bg-[#01312D] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#3A7717] transition-all shadow-md active:scale-95"
+                    className="flex items-center gap-2 bg-[#01312D] text-white px-6 py-2.5 rounded-lg 
+                     hover:bg-[#3A7717] transition-all shadow-md active:scale-95 text-xs"
                   >
-                    <Eye className="w-5 h-5" />
+                    <Eye className="w-4 h-4" />
                     Review
                   </button>
                 </div>
@@ -814,14 +929,22 @@ Kapuka Tradings Team`;
           <div className="relative bg-white rounded-[0.5rem] sm:rounded-[2rem] max-w-2xl w-full max-h-[95vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
             <div className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-[#bff202]/20 p-4 sm:p-6 flex justify-between items-center z-10">
               <div className="flex items-center gap-3 sm:gap-4">
-                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center ${
-                  selectedReceipt.type === 'fuel' ? 'bg-green-50' : 'bg-blue-50'
-                }`}>
+                <div
+                  className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center ${
+                    selectedReceipt.type === "fuel"
+                      ? "bg-green-50"
+                      : "bg-blue-50"
+                  }`}
+                >
                   {getServiceTypeIcon(selectedReceipt.type)}
                 </div>
                 <div>
-                  <h2 className="text-lg sm:text-xl font-black text-[#01312D] leading-tight">Receipt Verification</h2>
-                  <p className="text-[10px] sm:text-sm text-gray-500">Verify service delivery proof</p>
+                  <h2 className="text-lg sm:text-xl font-black text-[#01312D] leading-tight">
+                    Receipt Verification
+                  </h2>
+                  <p className="text-[10px] sm:text-sm text-gray-500">
+                    Verify service delivery proof
+                  </p>
                 </div>
               </div>
               <button
@@ -838,19 +961,21 @@ Kapuka Tradings Team`;
               <div className="space-y-2 sm:space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm sm:text-base font-bold text-[#01312D] flex items-center gap-2">
-                    <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-[#3A7717]" /> Uploaded Receipt
+                    <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-[#3A7717]" />{" "}
+                    Uploaded Receipt
                   </h3>
                   {selectedReceipt.popUrl && (
-                    <a 
-                      href={selectedReceipt.popUrl} 
-                      target="_blank" 
+                    <a
+                      href={selectedReceipt.popUrl}
+                      target="_blank"
                       className="text-[10px] sm:text-xs font-bold text-[#3A7717] hover:underline flex items-center gap-1"
                     >
-                      Open Original <ArrowRight className="w-2.5 h-2.5 sm:w-3 h-3" />
+                      Open Original{" "}
+                      <ArrowRight className="w-2.5 h-2.5 sm:w-3 h-3" />
                     </a>
                   )}
                 </div>
-                
+
                 <div className="bg-gray-50 rounded-2xl sm:rounded-3xl p-2 sm:p-4 border-2 border-dashed border-[#bff202]/30 min-h-[200px] sm:min-h-[300px] flex items-center justify-center relative group overflow-hidden">
                   {selectedReceipt.popUrl ? (
                     <img
@@ -861,7 +986,9 @@ Kapuka Tradings Team`;
                   ) : (
                     <div className="text-center p-4">
                       <ImageIcon className="w-12 h-12 sm:w-16 sm:h-16 text-gray-200 mx-auto mb-2" />
-                      <p className="text-gray-400 text-xs sm:text-sm">No image available</p>
+                      <p className="text-gray-400 text-xs sm:text-sm">
+                        No image available
+                      </p>
                     </div>
                   )}
                 </div>
@@ -871,40 +998,71 @@ Kapuka Tradings Team`;
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
                 <div className="bg-[#eafde7] rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-3 sm:space-y-4">
                   <h3 className="text-sm sm:text-base font-bold text-[#01312D] flex items-center gap-2 border-b border-[#bff202]/20 pb-2">
-                    <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#3A7717]" /> Driver Details
+                    <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#3A7717]" />{" "}
+                    Driver Details
                   </h3>
                   <div className="space-y-2 sm:space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider">Name</span>
-                      <span className="text-xs sm:text-sm font-bold text-[#01312D]">{selectedReceipt.driverName}</span>
+                      <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider">
+                        Name
+                      </span>
+                      <span className="text-xs sm:text-sm font-bold text-[#01312D]">
+                        {selectedReceipt.driverName}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider">Phone</span>
-                      <span className="text-xs sm:text-sm font-bold text-[#01312D]">{selectedReceipt.driverPhone}</span>
+                      <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider">
+                        Phone
+                      </span>
+                      <span className="text-xs sm:text-sm font-bold text-[#01312D]">
+                        {selectedReceipt.driverPhone}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider">Vehicle</span>
-                      <span className="text-xs sm:text-sm font-bold text-[#01312D]">{selectedReceipt.carRegistration}</span>
+                      <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider">
+                        Vehicle
+                      </span>
+                      <span className="text-xs sm:text-sm font-bold text-[#01312D]">
+                        {selectedReceipt.carRegistration}
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 <div className="bg-[#eafde7] rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-3 sm:space-y-4">
                   <h3 className="text-sm sm:text-base font-bold text-[#01312D] flex items-center gap-2 border-b border-[#bff202]/20 pb-2">
-                    <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#3A7717]" /> Service Info
+                    <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#3A7717]" />{" "}
+                    Service Info
                   </h3>
                   <div className="space-y-2 sm:space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider">Type</span>
-                      <span className="text-xs sm:text-sm font-bold text-[#01312D] capitalize">{selectedReceipt.type}</span>
+                      <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider">
+                        Type
+                      </span>
+                      <span className="text-xs sm:text-sm font-bold text-[#01312D] capitalize">
+                        {selectedReceipt.type}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider">Date</span>
-                      <span className="text-xs sm:text-sm font-bold text-[#01312D]">{new Date(selectedReceipt.completedDate).toLocaleDateString()}</span>
+                      <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider">
+                        Date
+                      </span>
+                      <span className="text-xs sm:text-sm font-bold text-[#01312D]">
+                        {new Date(
+                          selectedReceipt.completedDate,
+                        ).toLocaleDateString()}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider">Amount</span>
-                      <span className="text-base sm:text-xl font-black text-[#3A7717]">R{(selectedReceipt.actualAmount || selectedReceipt.amount).toLocaleString()}</span>
+                      <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider">
+                        Amount
+                      </span>
+                      <span className="text-base sm:text-xl font-black text-[#3A7717]">
+                        R
+                        {(
+                          selectedReceipt.actualAmount || selectedReceipt.amount
+                        ).toLocaleString()}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -915,7 +1073,10 @@ Kapuka Tradings Team`;
                 <div className="bg-yellow-50 border border-yellow-200 rounded-xl sm:rounded-2xl p-3 sm:p-4 flex items-start gap-2 sm:gap-3">
                   <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600 shrink-0 mt-0.5" />
                   <p className="text-[10px] sm:text-sm text-yellow-800 leading-relaxed">
-                    Please ensure the receipt clearly shows the <strong>amount</strong>, <strong>date</strong>, and <strong>station name</strong> before verifying. Verified receipts will be used for final bookkeeping.
+                    Please ensure the receipt clearly shows the{" "}
+                    <strong>amount</strong>, <strong>date</strong>, and{" "}
+                    <strong>station name</strong> before verifying. Verified
+                    receipts will be used for final bookkeeping.
                   </p>
                 </div>
               )}
@@ -988,7 +1149,9 @@ Kapuka Tradings Team`;
             <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle className="w-12 h-12 text-green-600" />
             </div>
-            <h2 className="text-2xl font-black text-[#01312D] mb-2">Success!</h2>
+            <h2 className="text-2xl font-black text-[#01312D] mb-2">
+              Success!
+            </h2>
             <p className="text-gray-500 mb-8">{successMessage}</p>
             <button
               type="button"
@@ -1025,7 +1188,10 @@ Kapuka Tradings Team`;
       {/* Reject Modal */}
       {showRejectModal && selectedReceipt && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !rejectLoading && setShowRejectModal(false)} />
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => !rejectLoading && setShowRejectModal(false)}
+          />
           <div className="relative bg-white rounded-[2rem] max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
             <div className="bg-gradient-to-r from-red-500 to-red-600 p-6">
               <div className="flex items-center gap-3">
@@ -1033,8 +1199,12 @@ Kapuka Tradings Team`;
                   <XCircle className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-white">Reject Receipt</h2>
-                  <p className="text-white/80 text-sm">Provide a reason for rejection</p>
+                  <h2 className="text-xl font-bold text-white">
+                    Reject Receipt
+                  </h2>
+                  <p className="text-white/80 text-sm">
+                    Provide a reason for rejection
+                  </p>
                 </div>
               </div>
             </div>
@@ -1043,15 +1213,24 @@ Kapuka Tradings Team`;
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-500">Driver:</span>
-                    <span className="font-semibold text-[#01312D]">{selectedReceipt.driverName}</span>
+                    <span className="font-semibold text-[#01312D]">
+                      {selectedReceipt.driverName}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Vehicle:</span>
-                    <span className="font-semibold text-[#01312D]">{selectedReceipt.carRegistration}</span>
+                    <span className="font-semibold text-[#01312D]">
+                      {selectedReceipt.carRegistration}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Amount:</span>
-                    <span className="font-bold text-[#3A7717]">R{(selectedReceipt.actualAmount || selectedReceipt.amount).toLocaleString()}</span>
+                    <span className="font-bold text-[#3A7717]">
+                      R
+                      {(
+                        selectedReceipt.actualAmount || selectedReceipt.amount
+                      ).toLocaleString()}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1066,40 +1245,49 @@ Kapuka Tradings Team`;
                   className="w-full px-4 py-3 bg-white border border-red-200 rounded-xl focus:outline-none focus:border-red-500 resize-none"
                   rows={4}
                 />
-                <p className="text-xs text-gray-500 mt-1">This reason will be recorded with the rejection</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  This reason will be recorded with the rejection
+                </p>
               </div>
               <div className="bg-red-50 rounded-xl p-3">
                 <div className="flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-red-600 mt-0.5" />
                   <div>
-                    <p className="text-xs text-red-800 font-semibold">This action cannot be undone</p>
-                    <p className="text-xs text-red-700 mt-1">The driver may need to re-upload a corrected receipt.</p>
+                    <p className="text-xs text-red-800 font-semibold">
+                      This action cannot be undone
+                    </p>
+                    <p className="text-xs text-red-700 mt-1">
+                      The driver may need to re-upload a corrected receipt.
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
             <div className="border-t border-gray-100 p-6 flex gap-3">
-            <button
-              type="button"
-              onClick={() => { setShowRejectModal(false); setRejectionReason(""); }}
-              disabled={rejectLoading}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleRejectReceipt}
-              disabled={rejectLoading}
-              className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
-            >
-              {rejectLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <XCircle className="w-4 h-4" />
-              )}
-              Confirm Rejection
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setRejectionReason("");
+                }}
+                disabled={rejectLoading}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRejectReceipt}
+                disabled={rejectLoading}
+                className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                {rejectLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <XCircle className="w-4 h-4" />
+                )}
+                Confirm Rejection
+              </button>
             </div>
           </div>
         </div>
@@ -1108,7 +1296,10 @@ Kapuka Tradings Team`;
       {/* Correct Information Modal */}
       {showCorrectModal && selectedReceipt && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !correctLoading && setShowCorrectModal(false)} />
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => !correctLoading && setShowCorrectModal(false)}
+          />
           <div className="relative bg-white rounded-[2rem] max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
             <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] p-6">
               <div className="flex items-center gap-3">
@@ -1116,14 +1307,20 @@ Kapuka Tradings Team`;
                   <Edit3 className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-white">Correct Information</h2>
-                  <p className="text-white/80 text-sm">Update receipt details</p>
+                  <h2 className="text-xl font-bold text-white">
+                    Correct Information
+                  </h2>
+                  <p className="text-white/80 text-sm">
+                    Update receipt details
+                  </p>
                 </div>
               </div>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Amount (R)</label>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">
+                  Amount (R)
+                </label>
                 <input
                   type="number"
                   value={correctedAmount}
@@ -1132,7 +1329,9 @@ Kapuka Tradings Team`;
                 />
               </div>
               <div>
-                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Driver Name</label>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">
+                  Driver Name
+                </label>
                 <input
                   type="text"
                   value={correctedDriverName}
@@ -1141,7 +1340,9 @@ Kapuka Tradings Team`;
                 />
               </div>
               <div>
-                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Driver Email</label>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">
+                  Driver Email
+                </label>
                 <input
                   type="email"
                   value={correctedDriverEmail}
@@ -1150,7 +1351,9 @@ Kapuka Tradings Team`;
                 />
               </div>
               <div>
-                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Driver Phone</label>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">
+                  Driver Phone
+                </label>
                 <input
                   type="text"
                   value={correctedDriverPhone}
@@ -1159,7 +1362,9 @@ Kapuka Tradings Team`;
                 />
               </div>
               <div>
-                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Car Registration</label>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">
+                  Car Registration
+                </label>
                 <input
                   type="text"
                   value={correctedCarNumber}
@@ -1169,27 +1374,27 @@ Kapuka Tradings Team`;
               </div>
             </div>
             <div className="border-t border-gray-100 p-6 flex gap-3">
-            <button
-              type="button"
-              onClick={() => setShowCorrectModal(false)}
-              disabled={correctLoading}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleCorrectReceipt}
-              disabled={correctLoading}
-              className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
-            >
-              {correctLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              Save Changes
-            </button>
+              <button
+                type="button"
+                onClick={() => setShowCorrectModal(false)}
+                disabled={correctLoading}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCorrectReceipt}
+                disabled={correctLoading}
+                className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                {correctLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                Save Changes
+              </button>
             </div>
           </div>
         </div>
@@ -1198,7 +1403,10 @@ Kapuka Tradings Team`;
       {/* Upload Receipt for Driver Modal */}
       {showUploadModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !uploadLoading && setShowUploadModal(false)} />
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => !uploadLoading && setShowUploadModal(false)}
+          />
           <div className="relative bg-white rounded-[2rem] max-w-lg w-full max-h-[95vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] p-6">
               <div className="flex items-center justify-between">
@@ -1207,13 +1415,20 @@ Kapuka Tradings Team`;
                     <Upload className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white">Upload Receipt</h2>
-                    <p className="text-white/80 text-sm">For elderly or disabled drivers</p>
+                    <h2 className="text-xl font-bold text-white">
+                      Upload Receipt
+                    </h2>
+                    <p className="text-white/80 text-sm">
+                      For elderly or disabled drivers
+                    </p>
                   </div>
                 </div>
                 <button
                   type="button"
-                onClick={() => { setShowUploadModal(false); setSelectedRequestId(""); }}
+                  onClick={() => {
+                    setShowUploadModal(false);
+                    setSelectedRequestId("");
+                  }}
                   className="p-1 hover:bg-white/20 rounded-full transition-colors"
                 >
                   <X className="w-5 h-5 text-white" />
@@ -1223,10 +1438,16 @@ Kapuka Tradings Team`;
             <div className="p-6 space-y-4">
               <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
-                <p className="text-xs text-yellow-800">Use this form to upload a receipt on behalf of a driver who is unable to do so themselves (e.g., elderly or disabled drivers).</p>
+                <p className="text-xs text-yellow-800">
+                  Use this form to upload a receipt on behalf of a driver who is
+                  unable to do so themselves (e.g., elderly or disabled
+                  drivers).
+                </p>
               </div>
               <div>
-                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Receipt Image *</label>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">
+                  Receipt Image *
+                </label>
                 <input
                   type="file"
                   accept="image/*"
@@ -1235,7 +1456,9 @@ Kapuka Tradings Team`;
                 />
               </div>
               <div>
-                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Service Type</label>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">
+                  Service Type
+                </label>
                 <select
                   value={uploadType}
                   onChange={(e) => setUploadType(e.target.value)}
@@ -1248,7 +1471,9 @@ Kapuka Tradings Team`;
                 </select>
               </div>
               <div>
-                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Amount (R) *</label>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">
+                  Amount (R) *
+                </label>
                 <input
                   type="number"
                   value={uploadAmount}
@@ -1259,7 +1484,8 @@ Kapuka Tradings Team`;
               </div>
               <div>
                 <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">
-                  Link to Existing Request <span className="text-red-500">*</span>
+                  Link to Existing Request{" "}
+                  <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={selectedRequestId}
@@ -1270,31 +1496,47 @@ Kapuka Tradings Team`;
                   {requestsLoading ? (
                     <option disabled>Loading requests...</option>
                   ) : availableRequests.length === 0 ? (
-                    <option disabled>No completed requests without receipts</option>
+                    <option disabled>
+                      No completed requests without receipts
+                    </option>
                   ) : (
                     availableRequests.map((req: any) => (
                       <option key={req.id} value={req.id}>
-                        {req.driverName || "Unknown"} - {req.type} - R{(req.actualAmount || req.amount).toLocaleString()} ({req.id.slice(-6).toUpperCase()})
+                        {req.driverName || "Unknown"} - {req.type} - R
+                        {(req.actualAmount || req.amount).toLocaleString()} (
+                        {req.id.slice(-6).toUpperCase()})
                       </option>
                     ))
                   )}
                 </select>
                 {!requestsLoading && availableRequests.length > 0 && (
-                  <p className="text-xs text-gray-400 mt-1">{availableRequests.length} request{availableRequests.length !== 1 ? "s" : ""} awaiting receipt upload</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {availableRequests.length} request
+                    {availableRequests.length !== 1 ? "s" : ""} awaiting receipt
+                    upload
+                  </p>
                 )}
               </div>
               <div className="bg-[#eafde7] rounded-xl p-3 space-y-3">
                 <p className="text-xs font-semibold text-[#01312D]">
                   Driver Details
                   {selectedRequestId ? (
-                    <span className="text-[#3A7717] font-normal"> (auto-filled from request)</span>
+                    <span className="text-[#3A7717] font-normal">
+                      {" "}
+                      (auto-filled from request)
+                    </span>
                   ) : (
-                    <span className="text-gray-400 font-normal"> (or enter manually)</span>
+                    <span className="text-gray-400 font-normal">
+                      {" "}
+                      (or enter manually)
+                    </span>
                   )}
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10px] text-gray-500 font-semibold uppercase mb-1">Name *</label>
+                    <label className="block text-[10px] text-gray-500 font-semibold uppercase mb-1">
+                      Name *
+                    </label>
                     <input
                       type="text"
                       value={uploadDriverName}
@@ -1304,7 +1546,9 @@ Kapuka Tradings Team`;
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-gray-500 font-semibold uppercase mb-1">Email</label>
+                    <label className="block text-[10px] text-gray-500 font-semibold uppercase mb-1">
+                      Email
+                    </label>
                     <input
                       type="email"
                       value={uploadDriverEmail}
@@ -1314,7 +1558,9 @@ Kapuka Tradings Team`;
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-gray-500 font-semibold uppercase mb-1">Phone</label>
+                    <label className="block text-[10px] text-gray-500 font-semibold uppercase mb-1">
+                      Phone
+                    </label>
                     <input
                       type="text"
                       value={uploadDriverPhone}
@@ -1324,7 +1570,9 @@ Kapuka Tradings Team`;
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-gray-500 font-semibold uppercase mb-1">Vehicle</label>
+                    <label className="block text-[10px] text-gray-500 font-semibold uppercase mb-1">
+                      Vehicle
+                    </label>
                     <input
                       type="text"
                       value={uploadCarNumber}
@@ -1335,30 +1583,29 @@ Kapuka Tradings Team`;
                   </div>
                 </div>
               </div>
-
             </div>
             <div className="border-t border-gray-100 p-6 flex gap-3">
-            <button
-              type="button"
-              onClick={() => setShowUploadModal(false)}
-              disabled={uploadLoading}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleUploadForDriver}
-              disabled={uploadLoading || !uploadFile}
-              className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
-            >
-              {uploadLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Upload className="w-4 h-4" />
-              )}
-              Upload Receipt
-            </button>
+              <button
+                type="button"
+                onClick={() => setShowUploadModal(false)}
+                disabled={uploadLoading}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleUploadForDriver}
+                disabled={uploadLoading || !uploadFile}
+                className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                {uploadLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4" />
+                )}
+                Upload Receipt
+              </button>
             </div>
           </div>
         </div>
@@ -1372,7 +1619,9 @@ Kapuka Tradings Team`;
             <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle className="w-12 h-12 text-green-600" />
             </div>
-            <h2 className="text-2xl font-black text-[#01312D] mb-2">Uploaded!</h2>
+            <h2 className="text-2xl font-black text-[#01312D] mb-2">
+              Uploaded!
+            </h2>
             <p className="text-gray-500 mb-8">{uploadSuccessMessage}</p>
             <button
               type="button"
