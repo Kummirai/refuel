@@ -15,8 +15,6 @@ import {
   RefreshCw,
   FileText,
   User,
-  Mail,
-  Phone,
 } from "lucide-react";
 
 interface InvoiceItem {
