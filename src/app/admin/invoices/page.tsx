@@ -221,8 +221,8 @@ export default function AdminInvoicesPage() {
                 </div>
               </div>
 
-              {/* Items Table */}
-              <div className="overflow-x-auto">
+              {/* Items Table - Desktop */}
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100">
@@ -234,6 +234,9 @@ export default function AdminInvoicesPage() {
                       </th>
                       <th className="text-right py-2 text-gray-400 font-semibold text-xs uppercase">
                         Amount
+                      </th>
+                      <th className="text-right py-2 text-gray-400 font-semibold text-xs uppercase">
+                        Interest
                       </th>
                       <th className="text-right py-2 text-gray-400 font-semibold text-xs uppercase">
                         Total Repayable
@@ -261,6 +264,9 @@ export default function AdminInvoicesPage() {
                           {formatMoney(item.amount)}
                         </td>
                         <td className="py-2 text-right">
+                          {formatMoney(item.totalRepayable - item.amount)}
+                        </td>
+                        <td className="py-2 text-right">
                           {formatMoney(item.totalRepayable)}
                         </td>
                         <td className="py-2 text-right font-semibold text-red-600">
@@ -270,6 +276,44 @@ export default function AdminInvoicesPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Items Cards - Mobile */}
+              <div className="sm:hidden space-y-2">
+                {driver.items.map((item, iidx) => (
+                  <div
+                    key={iidx}
+                    className="bg-gray-50 rounded-xl p-3 border border-gray-100"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="flex items-center gap-1.5 text-sm font-semibold text-[#01312D]">
+                        {getTypeIcon(item.type)}
+                        {getTypeLabel(item.type)}
+                      </span>
+                      <span className="flex items-center gap-1 text-xs text-gray-500">
+                        <Car className="w-3 h-3" /> {item.carNumber}
+                      </span>
+                    </div>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Amount</span>
+                        <span className="font-semibold text-[#01312D]">{formatMoney(item.amount)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Interest</span>
+                        <span className="font-semibold text-[#01312D]">{formatMoney(item.totalRepayable - item.amount)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Total</span>
+                        <span className="font-semibold text-[#01312D]">{formatMoney(item.totalRepayable)}</span>
+                      </div>
+                      <div className="flex justify-between pt-1 border-t border-gray-200">
+                        <span className="text-gray-400 font-semibold">Remaining</span>
+                        <span className="font-semibold text-red-600">{formatMoney(item.remainingBalance)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}

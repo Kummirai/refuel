@@ -78,7 +78,7 @@ export async function POST() {
       outstandingByUser[userId].items.push({
         type: req.type,
         carNumber: req.carNumber || "Unknown",
-        amount: req.amount || 0,
+        amount: req.actualAmount || req.amount || 0,
         totalRepayable,
         remainingBalance,
       });
