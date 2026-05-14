@@ -194,7 +194,7 @@ export default function AdminLayout({
     },
     {
       icon: ClipboardList,
-      label: "Service Requests",
+      label: "Requests",
       path: "/admin/service-requests",
       active: pathname === "/admin/service-requests",
       badge: pendingRequestsCount,
@@ -596,7 +596,7 @@ export default function AdminLayout({
                     router.push(item.path);
                     setSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 text-[14px] px-4 py-3 rounded-xl transition-all duration-200 ${
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                     item.active
                       ? "bg-[#bff202] text-[#01312D] shadow-md"
                       : "text-white/70 hover:bg-white/10 hover:text-white"
