@@ -25,6 +25,7 @@ interface InvoiceItem {
   amount: number;
   totalRepayable: number;
   remainingBalance: number;
+  completedDate?: string;
 }
 
 interface DriverInvoice {
@@ -192,31 +193,29 @@ export default function AdminInvoicesPage() {
               key={idx}
               className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/10"
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 bg-[#eafde7] rounded-xl flex items-center justify-center">
-                    <User className="w-5 h-5 text-[#3A7717]" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-[#01312D]">
-                      {driver.driverName}
-                    </h3>
-                    <div className="flex flex-wrap gap-x-4 text-xs text-gray-500 mt-1">
-                      {driver.driverEmail && (
-                        <span className="flex items-center gap-1">
-                          <Mail className="w-3 h-3" /> {driver.driverEmail}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 shrink-0 bg-[#eafde7] rounded-lg flex items-center justify-center">
+                  <User className="w-4 h-4 text-[#3A7717]" />
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-400">Outstanding</p>
-                  <p className="text-xl font-black text-red-600">
+                <div className="min-w-0">
+                  <h3 className="font-bold text-[#01312D]">
+                    {driver.driverName}
+                  </h3>
+                  {driver.driverEmail && (
+                    <p className="text-xs text-gray-500 truncate">
+                      {driver.driverEmail}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="mb-4 pb-3 border-b border-gray-100">
+                <span className="inline-block text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-md mb-2">
+                  {driver.items.length} item{driver.items.length !== 1 ? "s" : ""}
+                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-400">Outstanding</span>
+                  <p className="text-xl font-black text-red-600 leading-tight">
                     {formatMoney(driver.totalOutstanding)}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {driver.items.length} item{driver.items.length !== 1 ? "s" : ""}
                   </p>
                 </div>
               </div>
@@ -226,6 +225,9 @@ export default function AdminInvoicesPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100">
+                      <th className="text-left py-2 text-gray-400 font-semibold text-xs uppercase">
+                        Date
+                      </th>
                       <th className="text-left py-2 text-gray-400 font-semibold text-xs uppercase">
                         Type
                       </th>
@@ -249,6 +251,11 @@ export default function AdminInvoicesPage() {
                   <tbody>
                     {driver.items.map((item, iidx) => (
                       <tr key={iidx} className="border-b border-gray-50">
+                        <td className="py-2 text-xs text-gray-500 whitespace-nowrap">
+                          {item.completedDate
+                            ? new Date(item.completedDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
+                            : "-"}
+                        </td>
                         <td className="py-2">
                           <span className="flex items-center gap-1.5">
                             {getTypeIcon(item.type)}
@@ -290,6 +297,13 @@ export default function AdminInvoicesPage() {
                         {getTypeIcon(item.type)}
                         {getTypeLabel(item.type)}
                       </span>
+                      <span className="text-xs text-gray-400">
+                        {item.completedDate
+                          ? new Date(item.completedDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
+                          : ""}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mb-2">
                       <span className="flex items-center gap-1 text-xs text-gray-500">
                         <Car className="w-3 h-3" /> {item.carNumber}
                       </span>
