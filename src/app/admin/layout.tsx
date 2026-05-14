@@ -15,7 +15,6 @@ import {
   X,
   Bell,
   Shield,
-  Loader2,
   CheckCircle,
   Clock,
   AlertCircle,
@@ -23,6 +22,61 @@ import {
   FileText,
   Receipt
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
+
+const AdminLayoutSkeleton = () => (
+  <div className="min-h-screen bg-[#eafde7] flex">
+    <aside className="fixed top-0 left-0 h-full w-72 bg-[#01312D] z-40">
+      <div className="p-5 h-full flex flex-col">
+        <div className="flex items-center gap-2 mb-8 pt-10 lg:pt-5">
+          <Skeleton className="w-10 h-10 rounded-xl bg-white/10" />
+          <div>
+            <Skeleton className="h-5 w-24 mb-1 bg-white/10" />
+            <Skeleton className="h-3 w-16 bg-white/10" />
+          </div>
+        </div>
+        <nav className="space-y-2 flex-1">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full rounded-xl bg-white/10" />
+          ))}
+        </nav>
+        <Skeleton className="h-12 w-full rounded-xl bg-white/10" />
+      </div>
+    </aside>
+    <div className="lg:ml-72 flex-1">
+      <header className="bg-white border-b border-[#bff202]/20 p-4">
+        <div className="flex justify-between items-center">
+          <Skeleton className="h-6 w-32" />
+          <div className="flex items-center gap-3">
+            <Skeleton className="w-8 h-8 rounded-full" />
+            <Skeleton className="h-8 w-24 rounded-lg" />
+          </div>
+        </div>
+      </header>
+      <main className="p-6">
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <Skeleton className="h-8 w-48 mb-1" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+            <Skeleton className="h-10 w-24 rounded-xl" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-28 w-full rounded-2xl" />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <Skeleton key={i} className="h-64 w-full rounded-2xl" />
+            ))}
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+);
 
 export default function AdminLayout({
   children,
@@ -154,19 +208,8 @@ export default function AdminLayout({
     router.push("/");
   };
 
-  if (isPending) {
-    return (
-      <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
-          <p className="text-[#01312D]">Verifying access...</p>
-        </div>
-      </div>
-    );
-  }
-
   if (!isAuthorized) {
-    return null;
+    return <AdminLayoutSkeleton />;
   }
 
   const user = session?.user as any;

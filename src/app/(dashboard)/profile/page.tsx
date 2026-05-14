@@ -544,18 +544,18 @@ export default function ProfilePage() {
       <div className="px-5 pt-16 pb-4 bg-white border-b border-[#bff202]/20">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold text-[#01312D]">
+            <div className="text-2xl font-bold text-[#01312D]">
               {loading ? <Skeleton className="h-8 w-48" /> : userData.name}
-            </h1>
+            </div>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               {loading ? <Skeleton className="h-5 w-56" /> : <p className="text-gray-500 text-sm">{userData.email}</p>}
               {!loading && getStatusBadge(userData.verificationStatus)}
             </div>
             <div className="flex items-center gap-2 mt-2">
               <div className="bg-[#eafde7] px-2 py-1 rounded-lg">
-                <p className="text-xs text-[#01312D]">
+                <div className="text-xs text-[#01312D]">
                   {loading ? <Skeleton className="h-4 w-36" /> : <>Member since {userData.memberSince}</>}
-                </p>
+                </div>
               </div>
             </div>
           </div>
