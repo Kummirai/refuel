@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
+import { toMoney } from "@/lib/money";
 import { calculateDriverRating } from "@/lib/utils/rating";
 
 export async function GET(request: NextRequest) {
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
           .reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
 
         const totalRepayable = request.totalRepayable || request.amount;
-        const remainingBalance = Math.max(0, totalRepayable - totalRepaid);
+        const remainingBalance = toMoney(Math.max(0, totalRepayable - totalRepaid));
 
         return {
           ...request,

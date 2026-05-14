@@ -38,6 +38,7 @@ import { PopUploadModal } from "@/components/PopUploadModal";
 import { RepaymentProofModal } from "@/components/RepaymentProofModal";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { formatMoney, toMoney } from "@/lib/money";
 
 type RequestStatus = "pending" | "approved" | "sent" | "completed" | "rejected";
 type RepaymentStatus = "pending" | "approved" | "rejected";
@@ -358,17 +359,21 @@ export default function RequestHistoryPage() {
     ).length,
     completed: requests.filter((r) => r.status === "completed").length,
     rejected: requests.filter((r) => r.status === "rejected").length,
-    totalSpent: requests
-      .filter(
-        (r) =>
-          r.status === "approved" ||
-          r.status === "sent" ||
-          r.status === "completed",
-      )
-      .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount), 0),
-    totalOutstanding: requests
-      .filter((r) => (r.remainingBalance || 0) > 0)
-      .reduce((sum: number, r: any) => sum + (r.remainingBalance || 0), 0),
+    totalSpent: toMoney(
+      requests
+        .filter(
+          (r) =>
+            r.status === "approved" ||
+            r.status === "sent" ||
+            r.status === "completed",
+        )
+        .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount), 0),
+    ),
+    totalOutstanding: toMoney(
+      requests
+        .filter((r) => (r.remainingBalance || 0) > 0)
+        .reduce((sum: number, r: any) => sum + (r.remainingBalance || 0), 0),
+    ),
   };
 
   // Helper function to check if request needs receipt upload
@@ -595,7 +600,7 @@ export default function RequestHistoryPage() {
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-gray-500 text-sm">Package Price</span>
                     <span className="text-xl font-bold text-[#01312D]">
-                      R{request.amount.toLocaleString()}
+                      {formatMoney(request.amount)}
                     </span>
                   </div>
                   {(request.serviceCharge ?? 0) > 0 && (
@@ -604,7 +609,7 @@ export default function RequestHistoryPage() {
                         Service Charge
                       </span>
                       <span className="font-semibold text-[#01312D]">
-                        + R{(request.serviceCharge ?? 0).toLocaleString()}
+                        + {formatMoney(request.serviceCharge ?? 0)}
                       </span>
                     </div>
                   )}
@@ -613,7 +618,7 @@ export default function RequestHistoryPage() {
                       Total Due
                     </span>
                     <span className="text-2xl font-bold text-[#3A7717]">
-                      R{(request.totalDue ?? request.amount).toLocaleString()}
+                      {formatMoney(request.totalDue ?? request.amount)}
                     </span>
                   </div>
                 </>
@@ -624,7 +629,7 @@ export default function RequestHistoryPage() {
                       Requested Amount
                     </span>
                     <span className="text-2xl font-bold text-[#01312D]">
-                      R{request.amount.toLocaleString()}
+                      {formatMoney(request.amount)}
                     </span>
                   </div>
                   {request.actualAmount && (
@@ -633,7 +638,7 @@ export default function RequestHistoryPage() {
                         Actual Amount Used
                       </span>
                       <span className="text-xl font-bold text-[#3A7717]">
-                        R{request.actualAmount.toLocaleString()}
+                        {formatMoney(request.actualAmount)}
                       </span>
                     </div>
                   )}
@@ -695,13 +700,13 @@ export default function RequestHistoryPage() {
                     <div className="flex justify-between">
                       <span className="text-gray-600">Total Loan Amount:</span>
                       <span className="font-semibold">
-                        R{request.totalRepayable.toLocaleString()}
+                        {formatMoney(request.totalRepayable)}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Repaid Amount:</span>
                       <span className="font-semibold text-[#3A7717]">
-                        R{repaidAmount.toLocaleString()}
+                        {formatMoney(repaidAmount)}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -709,7 +714,7 @@ export default function RequestHistoryPage() {
                         Outstanding Balance:
                       </span>
                       <span className="font-bold text-red-600">
-                        R{(request.remainingBalance || 0).toLocaleString()}
+                        {formatMoney(request.remainingBalance || 0)}
                       </span>
                     </div>
                     <div className="mt-2">
@@ -738,7 +743,7 @@ export default function RequestHistoryPage() {
                     </p>
                     <p className="text-xs text-blue-700 mt-1">
                       {request.type === "carwash"
-                        ? `Your car wash request has been approved! Please upload your proof of payment to confirm the total of R${(request.totalDue ?? request.amount).toLocaleString()}.`
+                        ? `Your car wash request has been approved! Please upload your proof of payment to confirm the total of ${formatMoney(request.totalDue ?? request.amount)}.`
                         : "Your fuel request has been approved! Please upload your proof of payment receipt to confirm service delivery."}
                     </p>
                   </div>
@@ -775,7 +780,7 @@ export default function RequestHistoryPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-yellow-700">Amount:</span>
                     <span className="font-bold text-yellow-800">
-                      R{request.pendingRepaymentAmount?.toLocaleString()}
+                      {formatMoney(request.pendingRepaymentAmount ?? 0)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -807,15 +812,14 @@ export default function RequestHistoryPage() {
                     >
                       <div>
                         <p className="font-semibold text-[#3A7717]">
-                          R{repayment.amount.toLocaleString()}
+                          {formatMoney(repayment.amount)}
                         </p>
                         <p className="text-xs text-gray-500">
                           {new Date(repayment.submittedAt).toLocaleDateString()}
                         </p>
                         {repayment.remainingBalance !== undefined && (
                           <p className="text-xs text-gray-400">
-                            Remaining Loan: R
-                            {repayment.remainingBalance.toLocaleString()}
+                            Remaining Loan: {formatMoney(repayment.remainingBalance)}
                           </p>
                         )}
                       </div>
@@ -1054,7 +1058,7 @@ export default function RequestHistoryPage() {
                 </div>
               ) : (
                 <p className="text-lg font-bold text-red-600">
-                  R{stats.totalOutstanding.toLocaleString()}
+                  {formatMoney(stats.totalOutstanding)}
                 </p>
               )}
             </div>
@@ -1197,28 +1201,23 @@ export default function RequestHistoryPage() {
                   <div className="flex justify-between items-between mb-3">
                     <div>
                       <p className="text-2xl font-bold text-[#01312D]">
-                        R{request.amount.toLocaleString()}
+                        {formatMoney(request.amount)}
                       </p>
                       {hasOutstanding && request.type !== "carwash" && (
                         <p className="text-xs text-red-600 mt-1">
-                          Outstanding Loan: R
-                          {(request.remainingBalance || 0).toLocaleString()}
+                          Outstanding Loan: {formatMoney(request.remainingBalance || 0)}
                         </p>
                       )}
                       {request.type === "carwash" &&
                         (request.serviceCharge ?? 0) > 0 && (
                           <p className="text-xs text-[#3A7717] mt-1">
-                            Total due: R
-                            {(
-                              request.totalDue ?? request.amount
-                            ).toLocaleString()}
+                            Total due: {formatMoney(request.totalDue ?? request.amount)}
                           </p>
                         )}
                       {request.hasPendingRepayment && (
                         <p className="text-xs text-yellow-600 mt-1 flex items-center gap-1">
                           <Hourglass className="w-3 h-3" />
-                          Repayment pending verification: R
-                          {request.pendingRepaymentAmount?.toLocaleString()}
+                          Repayment pending verification: {formatMoney(request.pendingRepaymentAmount ?? 0)}
                         </p>
                       )}
                       {/* <p className="text-xs text-gray-500">

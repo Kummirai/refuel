@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toPng } from "html-to-image";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
+import { formatMoney, toMoney } from "@/lib/money";
 import {
   Users,
   ClipboardList,
@@ -207,8 +208,8 @@ export default function AdminDashboard() {
 
         allRequests.forEach((request: any) => {
           const amount = request.actualAmount || request.amount || 0;
-          totalMoneyRequested += amount;
-          totalRepaid += request.repaidAmount || 0;
+          totalMoneyRequested = toMoney(totalMoneyRequested + amount);
+          totalRepaid = toMoney(totalRepaid + (request.repaidAmount || 0));
 
           const interest = request.interest || Math.round(amount * 0.13);
           const totalRepayable = request.totalRepayable || amount + interest;
@@ -218,13 +219,13 @@ export default function AdminDashboard() {
           const isPaid = request.isPaid || remainingBalance <= 0;
 
           if (isPaid) {
-            totalActualInterest += interest;
+            totalActualInterest = toMoney(totalActualInterest + interest);
           } else if (repaidAmount > 0) {
             const paidRatio = repaidAmount / totalRepayable;
-            totalActualInterest += Math.round(interest * paidRatio);
-            totalPotentialInterest += Math.round(interest * (1 - paidRatio));
+            totalActualInterest = toMoney(totalActualInterest + (interest * paidRatio));
+            totalPotentialInterest = toMoney(totalPotentialInterest + (interest * (1 - paidRatio)));
           } else {
-            totalPotentialInterest += interest;
+            totalPotentialInterest = toMoney(totalPotentialInterest + interest);
           }
         });
 
@@ -869,14 +870,14 @@ export default function AdminDashboard() {
                 <div className="flex justify-between pt-2 border-t border-[#bff202]/20">
                   <span className="text-gray-500">Requested Amount:</span>
                   <span className="font-semibold text-[#01312D]">
-                    R{request.amount?.toLocaleString()}
+                    {formatMoney(request.amount ?? 0)}
                   </span>
                 </div>
                 {hasActualAmount && (
                   <div className="flex justify-between">
                     <span className="text-gray-500">Actual Amount Paid:</span>
                     <span className="font-semibold text-[#3A7717]">
-                      R{request.actualAmount?.toLocaleString()}
+                      {formatMoney(request.actualAmount ?? 0)}
                     </span>
                   </div>
                 )}
@@ -884,7 +885,7 @@ export default function AdminDashboard() {
                   <div className="flex justify-between">
                     <span className="text-gray-500">Total Repayable:</span>
                     <span className="font-semibold text-[#3A7717]">
-                      R{request.totalRepayable?.toLocaleString()}
+                      {formatMoney(request.totalRepayable ?? 0)}
                     </span>
                   </div>
                 )}
@@ -892,7 +893,7 @@ export default function AdminDashboard() {
                   <div className="flex justify-between">
                     <span className="text-gray-500">Daily Payment:</span>
                     <span className="font-semibold text-[#01312D]">
-                      R{request.dailyPayment?.toLocaleString()}/day
+                      {formatMoney(request.dailyPayment ?? 0)}/day
                     </span>
                   </div>
                 )}
@@ -1429,7 +1430,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-[#3A7717]">
-                    R{(driver.totalSpent || 0).toLocaleString()}
+                    {formatMoney(driver.totalSpent || 0)}
                   </p>
                   <p className="text-xs text-gray-500">Total Spent</p>
                 </div>
@@ -1473,7 +1474,7 @@ export default function AdminDashboard() {
 
     const displayAmount =
       approvedRequest.actualAmount || approvedRequest.amount;
-    const message = `Hello ${approvedRequest.driverName},\n\nYour request for ${getTypeLabel(approvedRequest.type)} has been APPROVED! ✅\n\n🔐 OTP: ${approvedRequest.otp || generatedOtp}\n💰 Amount: R${displayAmount.toLocaleString()}\n🚗 Vehicle: ${approvedRequest.carRegistration}\n\nThank you for using Kapuka! 🚀`;
+    const message = `Hello ${approvedRequest.driverName},\n\nYour request for ${getTypeLabel(approvedRequest.type)} has been APPROVED! ✅\n\n🔐 OTP: ${approvedRequest.otp || generatedOtp}\n💰 Amount: ${formatMoney(displayAmount)}\n🚗 Vehicle: ${approvedRequest.carRegistration}\n\nThank you for using Kapuka! 🚀`;
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1585,8 +1586,7 @@ export default function AdminDashboard() {
             <Skeleton className="h-8 w-28 mt-1" />
           ) : (
             <p className="text-2xl font-bold text-[#01312D] mt-1">
-              {prefix}
-              {value.toLocaleString()}
+              {prefix === "R" ? formatMoney(value) : prefix + value.toLocaleString()}
             </p>
           )}
         </div>
@@ -2017,7 +2017,7 @@ export default function AdminDashboard() {
                           </td>
                           <td className="p-4">
                             <span className="font-semibold text-[#3A7717]">
-                              R{(driver.totalSpent || 0).toLocaleString()}
+                              {formatMoney(driver.totalSpent || 0)}
                             </span>
                           </td>
                           <td className="p-4">

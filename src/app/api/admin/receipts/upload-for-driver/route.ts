@@ -3,6 +3,7 @@ import { v2 as cloudinary } from "cloudinary";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { Readable } from "stream";
+import { toMoney } from "@/lib/money";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     const popUrl = (result as any).secure_url;
     const popPublicId = (result as any).public_id;
-    const amount = actualAmount ? parseFloat(actualAmount) : 0;
+    const amount = actualAmount ? toMoney(parseFloat(actualAmount)) : 0;
 
     // Link to existing request
     if (requestId && ObjectId.isValid(requestId)) {

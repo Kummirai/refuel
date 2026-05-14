@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
+import { toMoney } from "@/lib/money";
 
 export async function GET() {
   try {
@@ -53,9 +54,9 @@ export async function GET() {
           }));
 
         // Calculate financial status
-        const totalRepayable = loan.totalRepayable || loan.amount * 1.13;
+        const totalRepayable = loan.totalRepayable || toMoney(loan.amount * 1.13);
         const repaidAmount = loan.repaidAmount || 0;
-        const remainingAmount = totalRepayable - repaidAmount;
+        const remainingAmount = toMoney(totalRepayable - repaidAmount);
         const today = new Date();
 
         // Calculate due date based on approved date or request date
@@ -118,7 +119,7 @@ export async function GET() {
           interestRate: loan.interestRate || 13,
           interest:
             loan.interest ||
-            Math.round((loan.actualAmount || loan.amount) * 0.13),
+            toMoney((loan.actualAmount || loan.amount) * 0.13),
           totalRepayable: totalRepayable,
           repaidAmount: repaidAmount,
           remainingAmount: remainingAmount,
@@ -128,7 +129,7 @@ export async function GET() {
           isServiceCompleted: isServiceCompleted,
           dailyPayment:
             loan.dailyPayment ||
-            Math.ceil(totalRepayable / (loan.repaymentDays || 7)),
+            toMoney(totalRepayable / (loan.repaymentDays || 7)),
           repaymentDays: loan.repaymentDays || 7,
           nextPaymentDate: new Date().toISOString(),
           lastPaymentDate: loan.lastPaymentDate,
