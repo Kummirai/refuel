@@ -224,8 +224,12 @@ export default function AdminDashboard() {
             totalActualInterest = toMoney(totalActualInterest + interest);
           } else if (repaidAmount > 0) {
             const paidRatio = repaidAmount / totalRepayable;
-            totalActualInterest = toMoney(totalActualInterest + (interest * paidRatio));
-            totalPotentialInterest = toMoney(totalPotentialInterest + (interest * (1 - paidRatio)));
+            totalActualInterest = toMoney(
+              totalActualInterest + interest * paidRatio,
+            );
+            totalPotentialInterest = toMoney(
+              totalPotentialInterest + interest * (1 - paidRatio),
+            );
           } else {
             totalPotentialInterest = toMoney(totalPotentialInterest + interest);
           }
@@ -1590,7 +1594,9 @@ export default function AdminDashboard() {
             <Skeleton className="h-8 w-28 mt-1" />
           ) : (
             <p className="text-2xl font-bold text-[#01312D] mt-1">
-              {prefix === "R" ? formatMoney(value) : prefix + value.toLocaleString()}
+              {prefix === "R"
+                ? formatMoney(value)
+                : prefix + value.toLocaleString()}
             </p>
           )}
           {subtitle && (
@@ -1700,7 +1706,7 @@ export default function AdminDashboard() {
         {/* Financial Stats Row - 4 Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            title="Total Disbursed"
+            title="Total Requests"
             value={financialStats.moneyRequested}
             icon={Wallet}
             color="bg-[#01312D]"
@@ -1708,7 +1714,7 @@ export default function AdminDashboard() {
             loading={isLoading}
           />
           <StatCard
-            title="Capital Recovered"
+            title="Requests Paid"
             value={financialStats.principalRepaid}
             icon={PiggyBank}
             color="bg-[#3A7717]"
@@ -1716,7 +1722,7 @@ export default function AdminDashboard() {
             loading={isLoading}
           />
           <StatCard
-            title="Revenue Collected"
+            title="Profit"
             value={financialStats.actualInterest}
             icon={TrendingUp}
             color="bg-[#72bf00]"
@@ -1724,7 +1730,7 @@ export default function AdminDashboard() {
             loading={isLoading}
           />
           <StatCard
-            title="Expected Revenue"
+            title="Expected Total Profit"
             value={financialStats.potentialInterest}
             icon={TrendingDown}
             color="bg-amber-500"
