@@ -18,7 +18,7 @@ const globalWithMongo = global as typeof globalThis & {
 
 function createClient() {
   return new MongoClient(MONGODB_URI, {
-    maxPoolSize: 15,
+    maxPoolSize: 10,
     minPoolSize: 0,
     maxIdleTimeMS: 10000,
     serverSelectionTimeoutMS: 5000,
@@ -37,10 +37,7 @@ export function getClient() {
 
 export async function connectToDatabase() {
   if (globalWithMongo._mongoClient && globalWithMongo._mongoDb) {
-    return {
-      client: globalWithMongo._mongoClient,
-      db: globalWithMongo._mongoDb,
-    };
+    return { client: globalWithMongo._mongoClient, db: globalWithMongo._mongoDb };
   }
 
   if (!globalWithMongo._mongoClient) {

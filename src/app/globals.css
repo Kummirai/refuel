@@ -16,31 +16,37 @@
   animation: slideUp 0.3s ease-out;
 }
 
-/* Safe area for notches on mobile devices */
-.safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 0.5rem);
+/* Improve touch targets on mobile */
+@media (max-width: 768px) {
+  button,
+  [role="button"],
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Ensure buttons have minimum touch target size */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
-/* Touch manipulation - prevent 300ms delay & remove tap highlight */
+/* src/app/globals.css - Add these styles */
+
+/* Better touch feedback for mobile */
 .touch-manipulation {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Smooth transitions for all interactive elements */
-button,
-[role="button"],
-.touch-feedback {
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+.touch-manipulation:active {
+  transform: scale(0.95);
 }
 
-/* Minimum touch target size on mobile */
-@media (max-width: 768px) {
-  button,
-  [role="button"] {
-    min-height: 44px;
-    min-width: 44px;
-  }
+/* Safe area for notches on mobile devices */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0.5rem);
 }
 
 /* Active state for bottom nav buttons */
@@ -49,7 +55,7 @@ button,
 }
 
 .bottom-nav-btn:active {
-  scale: 0.92;
+  transform: scale(0.92);
   background-color: rgba(191, 242, 2, 0.2);
 }
 
