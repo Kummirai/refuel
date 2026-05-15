@@ -37,6 +37,7 @@ import {
   Wallet,
   TrendingDown,
   PiggyBank,
+  Banknote,
   Shield,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -135,6 +136,7 @@ export default function AdminDashboard() {
     actualInterest: 0,
     potentialInterest: 0,
     totalRepaid: 0,
+    principalRepaid: 0,
   });
 
   const [stats, setStats] = useState({
@@ -234,6 +236,7 @@ export default function AdminDashboard() {
           actualInterest: totalActualInterest,
           potentialInterest: totalPotentialInterest,
           totalRepaid: totalRepaid,
+          principalRepaid: toMoney(totalRepaid - totalActualInterest),
         });
       }
     } catch (error) {
@@ -1577,6 +1580,7 @@ export default function AdminDashboard() {
     color,
     prefix = "",
     loading,
+    subtitle,
   }: any) => (
     <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20 hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start">
@@ -1588,6 +1592,9 @@ export default function AdminDashboard() {
             <p className="text-2xl font-bold text-[#01312D] mt-1">
               {prefix === "R" ? formatMoney(value) : prefix + value.toLocaleString()}
             </p>
+          )}
+          {subtitle && (
+            <p className="text-gray-400 text-[11px] mt-0.5">{subtitle}</p>
           )}
         </div>
         <div
@@ -1693,7 +1700,7 @@ export default function AdminDashboard() {
         {/* Financial Stats Row - 4 Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            title="Money Requested"
+            title="Total Disbursed"
             value={financialStats.moneyRequested}
             icon={Wallet}
             color="bg-[#01312D]"
@@ -1701,15 +1708,15 @@ export default function AdminDashboard() {
             loading={isLoading}
           />
           <StatCard
-            title="Money Paid Back"
-            value={financialStats.totalRepaid}
+            title="Capital Recovered"
+            value={financialStats.principalRepaid}
             icon={PiggyBank}
             color="bg-[#3A7717]"
             prefix="R"
             loading={isLoading}
           />
           <StatCard
-            title="Interest Paid"
+            title="Revenue Collected"
             value={financialStats.actualInterest}
             icon={TrendingUp}
             color="bg-[#72bf00]"
@@ -1717,7 +1724,7 @@ export default function AdminDashboard() {
             loading={isLoading}
           />
           <StatCard
-            title="Unpaid Interest"
+            title="Expected Revenue"
             value={financialStats.potentialInterest}
             icon={TrendingDown}
             color="bg-amber-500"

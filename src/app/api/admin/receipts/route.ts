@@ -13,15 +13,22 @@ export async function GET(request: Request) {
     const serviceRequestsCollection = db.collection("serviceRequests");
     const usersCollection = db.collection("user");
 
-    // Query for requests that have been completed (POP uploaded) but haven't had their receipts verified
-    let query: any = { 
-      completedDate: { $ne: null }
-    };
+    let query: any = {};
 
     if (status === "pending") {
-      query.hasReceipt = { $eq: false };
+      // Completed requests where receipt is NOT yet verified
+      query.completedDate = { $ne: null };
+      query.$nor = [
+        { hasReceipt: true },
+        { receiptStatus: "verified" },
+      ];
     } else if (status === "verified") {
-      query.hasReceipt = { $eq: true };
+      // Completed requests with verified receipts
+      query.completedDate = { $ne: null };
+      query.$or = [
+        { hasReceipt: true },
+        { receiptStatus: "verified" },
+      ];
     } else if (status === "noreceipt") {
       query = {
         status: { $in: ["approved", "sent"] },
@@ -31,7 +38,6 @@ export async function GET(request: Request) {
           { popUrl: "" },
         ],
       };
-      delete query.completedDate;
     }
 
     const receipts = await serviceRequestsCollection

@@ -68,6 +68,7 @@ export default function AdminReceiptsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [receipts, setReceipts] = useState<ReceiptRequest[]>([]);
+  const [allReceipts, setAllReceipts] = useState<ReceiptRequest[]>([]);
   const [noReceiptRequests, setNoReceiptRequests] = useState<any[]>([]);
   const [selectedReceipt, setSelectedReceipt] = useState<ReceiptRequest | null>(
     null,
@@ -123,11 +124,53 @@ export default function AdminReceiptsPage() {
     showUploadSuccessModal;
   useBodyScrollLock(isAnyModalOpen);
 
+  // Fetch global stats once on mount
+  const fetchAllStats = async () => {
+    try {
+      const [verifiedRes, pendingRes, noReceiptRes] = await Promise.all([
+        fetch("/api/admin/receipts?status=verified&limit=500"),
+        fetch("/api/admin/receipts?status=pending&limit=500"),
+        fetch("/api/admin/receipts?status=noreceipt"),
+      ]);
+
+      const all: ReceiptRequest[] = [];
+      if (verifiedRes.ok) {
+        const data = await verifiedRes.json();
+        all.push(...(data.data || []));
+      }
+      if (pendingRes.ok) {
+        const data = await pendingRes.json();
+        all.push(...(data.data || []));
+      }
+      setAllReceipts(all);
+
+      if (noReceiptRes.ok) {
+        const data = await noReceiptRes.json();
+        setNoReceiptRequests(data.data || []);
+        setNoReceiptStats({
+          count: data.data?.length || 0,
+          totalAmount: (data.data || []).reduce(
+            (sum: number, r: any) => sum + (r.amount || 0),
+            0,
+          ),
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching receipt stats:", error);
+    }
+  };
+
+  // Fetch stats on mount
   useEffect(() => {
-    fetchReceipts();
+    fetchAllStats();
+  }, []);
+
+  // Fetch tab data when tab changes
+  useEffect(() => {
+    fetchTabData();
   }, [activeTab]);
 
-  const fetchReceipts = async () => {
+  const fetchTabData = async () => {
     try {
       setLoading(true);
 
@@ -163,7 +206,7 @@ export default function AdminReceiptsPage() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchReceipts();
+    await Promise.all([fetchAllStats(), fetchTabData()]);
   };
 
   const handleVerifyReceipt = async (requestId: string) => {
@@ -548,13 +591,18 @@ Kapuka Tradings Team`;
   );
 
   const isLoading = loading || refreshing;
+  const statsLoading = allReceipts.length === 0 && (loading || refreshing);
 
-  // Stats
+  // Stats from all data (not just current tab)
   const stats = {
-    pending: receipts.filter((r) => !r.hasReceipt).length,
-    verified: receipts.filter((r) => r.hasReceipt).length,
-    totalAmount: receipts.reduce(
-      (sum, r) => sum + (r.actualAmount || r.amount),
+    pending: allReceipts.filter(
+      (r) => !r.hasReceipt && r.receiptStatus !== "verified",
+    ).length,
+    verified: allReceipts.filter(
+      (r) => r.hasReceipt || r.receiptStatus === "verified",
+    ).length,
+    totalAmount: allReceipts.reduce(
+      (sum, r) => sum + (r.actualAmount || r.amount || 0),
       0,
     ),
   };
@@ -604,7 +652,7 @@ Kapuka Tradings Team`;
             <div>
               <p className="text-xs text-gray-500">Pending Verification</p>
               <div className="text-2xl font-bold text-yellow-600">
-                {isLoading ? <Skeleton className="h-8 w-20" /> : stats.pending}
+                {statsLoading ? <Skeleton className="h-8 w-20" /> : stats.pending}
               </div>
             </div>
             <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
@@ -617,7 +665,7 @@ Kapuka Tradings Team`;
             <div>
               <p className="text-xs text-gray-500">Verified Receipts</p>
               <div className="text-2xl font-bold text-[#3A7717]">
-                {isLoading ? <Skeleton className="h-8 w-20" /> : stats.verified}
+                {statsLoading ? <Skeleton className="h-8 w-20" /> : stats.verified}
               </div>
             </div>
             <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
@@ -630,7 +678,7 @@ Kapuka Tradings Team`;
             <div>
               <p className="text-xs text-gray-500">Total Value</p>
               <div className="text-2xl font-bold text-[#01312D]">
-                {isLoading ? (
+                {statsLoading ? (
                   <Skeleton className="h-8 w-28" />
                 ) : (
                   formatMoney(stats.totalAmount)
@@ -647,7 +695,7 @@ Kapuka Tradings Team`;
             <div>
               <p className="text-xs text-gray-500">Awaiting Receipt Upload</p>
               <div className="text-2xl font-bold text-orange-600">
-                {isLoading ? (
+                {statsLoading ? (
                   <Skeleton className="h-8 w-20" />
                 ) : (
                   noReceiptStats.count
@@ -686,13 +734,18 @@ Kapuka Tradings Team`;
           </button>
           <button
             onClick={() => setActiveTab("noreceipt")}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all relative ${
               activeTab === "noreceipt"
                 ? "bg-white text-[#01312D] shadow-sm"
                 : "text-gray-500 hover:text-[#01312D]"
             }`}
           >
             No Receipt
+            {noReceiptStats.count > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-orange-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
+                {noReceiptStats.count > 99 ? "99+" : noReceiptStats.count}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab("all")}

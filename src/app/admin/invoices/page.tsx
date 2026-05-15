@@ -285,7 +285,7 @@ Kapuka Tradings Team`;
       {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
-          <p className="text-xs text-gray-500">Amount Requested</p>
+          <p className="text-xs text-gray-500">Requested Outstanding</p>
           <div className="text-xl sm:text-2xl font-bold text-[#01312D]">
             {loading ? "..." : formatMoney(totals.amount)}
           </div>
