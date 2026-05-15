@@ -224,7 +224,7 @@ export default function AdminReceiptsPage() {
       if (response.ok) {
         setSuccessMessage("✅ Receipt verified successfully!");
         setShowSuccessModal(true);
-        fetchReceipts();
+        fetchTabData();
         setShowDetailsModal(false);
         setSelectedReceipt(null);
 
@@ -265,7 +265,7 @@ export default function AdminReceiptsPage() {
       if (response.ok) {
         setSuccessMessage("Receipt rejected successfully");
         setShowSuccessModal(true);
-        fetchReceipts();
+        fetchTabData();
         setShowRejectModal(false);
         setShowDetailsModal(false);
         setSelectedReceipt(null);
@@ -341,7 +341,7 @@ export default function AdminReceiptsPage() {
       if (response.ok) {
         setSuccessMessage("Receipt information corrected successfully!");
         setShowSuccessModal(true);
-        fetchReceipts();
+        fetchTabData();
         setShowCorrectModal(false);
         setShowDetailsModal(false);
         setSelectedReceipt(null);
@@ -476,7 +476,7 @@ export default function AdminReceiptsPage() {
         setUploadAmount("");
         setUploadType("fuel");
         setDriverSearch("");
-        fetchReceipts();
+        fetchTabData();
         window.dispatchEvent(new Event("refreshAdminCounts"));
       } else {
         const error = await response.json();
