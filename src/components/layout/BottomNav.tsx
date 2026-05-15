@@ -25,7 +25,7 @@ export default function BottomNav() {
             <button
               key={item.path}
               onClick={() => router.push(item.path)}
-              className="flex flex-col items-center gap-1 py-1"
+              className="flex flex-col items-center gap-1 py-1 active:scale-90 transition-transform touch-manipulation"
             >
               <Icon
                 className={`w-5 h-5 ${isActive ? "text-secondary" : "text-gray-400"}`}

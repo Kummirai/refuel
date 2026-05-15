@@ -115,14 +115,14 @@ export function CloudinaryUpload({
           <button
             onClick={handleDelete}
             type="button"
-            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-all active:scale-90"
           >
             <X className="w-4 h-4" />
           </button>
           <button
             onClick={() => window.open(previewUrl, "_blank")}
             type="button"
-            className="absolute -bottom-2 -right-2 bg-[#3A7717] text-white rounded-full p-1 hover:bg-[#2d5a12] transition-colors"
+            className="absolute -bottom-2 -right-2 bg-[#3A7717] text-white rounded-full p-1 hover:bg-[#2d5a12] transition-all active:scale-90"
           >
             <Eye className="w-4 h-4" />
           </button>
@@ -166,7 +166,7 @@ export function CloudinaryUpload({
             onClick={() => open && open()}
             disabled={uploading}
             type="button"
-            className="bg-[#3A7717] text-white px-4 py-2 rounded-lg hover:bg-[#2d5a12] transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+            className="bg-[#3A7717] text-white px-4 py-2 rounded-lg hover:bg-[#2d5a12] transition-all disabled:opacity-50 inline-flex items-center gap-2 active:scale-95"
           >
             {uploading ? (
               <>

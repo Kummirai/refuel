@@ -499,14 +499,14 @@ export default function VerifyPage() {
             <button
               type="button"
               onClick={() => router.push("/verify/status")}
-              className="flex-1 bg-[#72bf00] text-white px-4 py-2 rounded-lg font-semibold"
+              className="flex-1 bg-[#72bf00] text-white px-4 py-2 rounded-lg font-semibold active:scale-95 transition-transform"
             >
               Check Status
             </button>
             <button
               type="button"
               onClick={() => router.push("/")}
-              className="flex-1 bg-[#01312D] text-white px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2"
+              className="flex-1 bg-[#01312D] text-white px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 active:scale-95 transition-transform"
             >
               <Home className="w-4 h-4" />
               Go Back Home
@@ -562,7 +562,7 @@ export default function VerifyPage() {
           <button
             type="button"
             onClick={() => router.push("/")}
-            className="bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white px-6 py-3 rounded-xl font-semibold"
+            className="bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white px-6 py-3 rounded-xl font-semibold active:scale-95 transition-transform"
           >
             Back to Home
           </button>
@@ -581,7 +581,7 @@ export default function VerifyPage() {
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center"
+                className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center active:scale-95 transition-transform"
               >
                 <ArrowLeft className="w-5 h-5 text-[#01312D]" />
               </button>
@@ -767,7 +767,7 @@ export default function VerifyPage() {
                 type="button"
                 onClick={nextStep}
                 disabled={!isStep1Completed()}
-                className="w-full bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50"
+                className="w-full bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 active:scale-[0.98] transition-transform"
               >
                 Continue →
               </button>
@@ -863,7 +863,7 @@ export default function VerifyPage() {
                 <button
                   type="button"
                   onClick={prevStep}
-                  className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold"
+                  className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold active:scale-[0.98] transition-transform"
                 >
                   ← Back
                 </button>
@@ -871,7 +871,7 @@ export default function VerifyPage() {
                   type="button"
                   onClick={nextStep}
                   disabled={!isStep2Completed()}
-                  className="flex-1 bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50"
+                  className="flex-1 bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 active:scale-[0.98] transition-transform"
                 >
                   Continue →
                 </button>
@@ -939,7 +939,7 @@ export default function VerifyPage() {
                 <button
                   type="button"
                   onClick={prevStep}
-                  className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold"
+                  className="flex-1 bg-gray-200 text-[#01312D] py-3 rounded-xl font-semibold active:scale-[0.98] transition-transform"
                 >
                   ← Back
                 </button>
@@ -947,7 +947,7 @@ export default function VerifyPage() {
                   type="button"
                   onClick={handleSubmit}
                   disabled={loading || !isStep3Completed()}
-                  className="flex-1 bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 bg-[#3A7717] text-white py-3 rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
                 >
                   {loading ? (
                     <>

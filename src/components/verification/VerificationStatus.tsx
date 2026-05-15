@@ -77,13 +77,13 @@ export default function VerificationStatus({
       </div>
 
       {status === "rejected" && (
-        <button className="mt-3 w-full bg-red-600 text-white py-2 rounded-lg text-sm font-semibold">
+        <button className="mt-3 w-full bg-red-600 text-white py-2 rounded-lg text-sm font-semibold active:scale-[0.98] transition-transform">
           Re-submit Documents
         </button>
       )}
 
       {status === "not_submitted" && (
-        <button className="mt-3 w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-lg text-sm font-semibold">
+        <button className="mt-3 w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-lg text-sm font-semibold active:scale-[0.98] transition-transform">
           Start Verification
         </button>
       )}
