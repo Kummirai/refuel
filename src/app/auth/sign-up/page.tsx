@@ -84,6 +84,7 @@ export default function SignUpPage() {
       {/* Back Button */}
       <div className="relative z-10 px-5 pt-6">
         <button
+          type="button"
           onClick={() => router.back()}
           className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md active:scale-95 transition-transform"
         >

@@ -1,11 +1,23 @@
 // src/app/api/admin/requests/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
+import { toMoney } from "@/lib/money";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
+    const { searchParams } = new URL(request.url);
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
+
+    const query: any = {};
+    if (from || to) {
+      const dateQuery: any = {};
+      if (from) dateQuery.$gte = new Date(from);
+      if (to) dateQuery.$lte = new Date(to);
+      query.requestDate = dateQuery;
+    }
 
     const serviceRequestsCollection = db.collection("serviceRequests");
     const usersCollection = db.collection("user");
@@ -13,11 +25,11 @@ export async function GET() {
 
     // Get all service requests sorted by date
     const requests = await serviceRequestsCollection
-      .find({})
+      .find(query)
       .sort({ requestDate: -1 })
       .toArray();
 
-    console.log("Found requests:", requests.length);
+    // console.log("Found requests:", requests.length);
 
     // Get driver details for each request
     const requestsWithDetails = await Promise.all(
@@ -88,6 +100,9 @@ export async function GET() {
           popPublicId: request.popPublicId,
           popUploadedAt: request.popUploadedAt,
           updatedAt: request.updatedAt,
+          repaidAmount: request.repaidAmount || 0,
+          remainingBalance: request.remainingBalance || 0,
+          isPaid: request.isPaid || false,
           // Additional fields for display
           location:
             request.location || driverProfile?.address || "Not provided",
@@ -96,13 +111,13 @@ export async function GET() {
       }),
     );
 
-    console.log("Requests with details:", requestsWithDetails.length);
-    if (requestsWithDetails.length > 0) {
-      console.log(
-        "First request details:",
-        JSON.stringify(requestsWithDetails[0], null, 2),
-      );
-    }
+    // console.log("Requests with details:", requestsWithDetails.length);
+    // if (requestsWithDetails.length > 0) {
+    //   console.log(
+    //     "First request details:",
+    //     JSON.stringify(requestsWithDetails[0], null, 2),
+    //   );
+    // }
 
     // Calculate stats
     const total = requestsWithDetails.length;
@@ -112,6 +127,9 @@ export async function GET() {
     const approved = requestsWithDetails.filter(
       (r) => r.status === "approved",
     ).length;
+    const sent = requestsWithDetails.filter(
+      (r) => r.status === "sent",
+    ).length;
     const completed = requestsWithDetails.filter(
       (r) => r.status === "completed",
     ).length;
@@ -120,14 +138,26 @@ export async function GET() {
     ).length;
 
     // Calculate total revenue based on actualAmount if available, otherwise amount
-    const totalRevenue = requestsWithDetails
-      .filter((r) => r.status === "completed")
-      .reduce((sum, r) => sum + (r.actualAmount || r.amount || 0), 0);
+    const totalRevenue = toMoney(
+      requestsWithDetails
+        .filter((r) => r.status === "completed")
+        .reduce((sum, r) => sum + (r.actualAmount || r.amount || 0), 0)
+    );
 
     // Calculate total repayable amount
-    const totalRepayable = requestsWithDetails
-      .filter((r) => r.status === "completed")
-      .reduce((sum, r) => sum + (r.totalRepayable || r.amount || 0), 0);
+    const totalRepayable = toMoney(
+      requestsWithDetails
+        .filter((r) => r.status === "completed")
+        .reduce((sum, r) => sum + (r.totalRepayable || r.amount || 0), 0)
+    );
+
+    // Calculate total repaid amount
+    const totalRepaid = toMoney(
+      requestsWithDetails.reduce(
+        (sum, r) => sum + (r.repaidAmount || 0),
+        0,
+      )
+    );
 
     return NextResponse.json({
       requests: requestsWithDetails,
@@ -137,10 +167,12 @@ export async function GET() {
       total,
       pending,
       approved,
+      sent,
       completed,
       rejected,
       totalRevenue,
       totalRepayable,
+      totalRepaid,
     });
   } catch (error) {
     console.error("Error fetching requests:", error);

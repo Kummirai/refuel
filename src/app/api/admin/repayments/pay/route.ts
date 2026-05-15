@@ -2,10 +2,11 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
+import { toMoney } from "@/lib/money";
 
 export async function POST(request: Request) {
   try {
-    const { repaymentId, amount, method, reference, proofUrl, proofPublicId } =
+    const { repaymentId, amount, method, reference, date, proofUrl, proofPublicId } =
       await request.json();
 
     if (!repaymentId || !amount || amount <= 0) {
@@ -14,6 +15,8 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+
+    const paymentDate = date ? new Date(date) : new Date();
 
     const { db } = await connectToDatabase();
     const serviceRequestsCollection = db.collection("serviceRequests");
@@ -29,9 +32,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Loan not found" }, { status: 404 });
     }
 
-    const totalRepayable = loan.totalRepayable || loan.amount * 1.13;
+    const totalRepayable = loan.totalRepayable || toMoney(loan.amount * 1.13);
     const currentRepaid = loan.repaidAmount || 0;
-    const newRepaid = currentRepaid + amount;
+    const newRepaid = toMoney(currentRepaid + amount);
     const isFullyPaid = newRepaid >= totalRepayable;
 
     // Generate payment ID
@@ -41,18 +44,37 @@ export async function POST(request: Request) {
     await loanPaymentsCollection.insertOne({
       _id: paymentId,
       loanId: repaymentId,
-      amount: amount,
-      paymentDate: new Date(),
+      amount,
+      paymentDate,
       method: method || "cash",
       reference: reference || null,
-      remainingBalance: totalRepayable - newRepaid,
+      remainingBalance: toMoney(Math.max(0, totalRepayable - newRepaid)),
+      uploadedByAdmin: true,
       createdAt: new Date(),
       ...(proofUrl && { proofUrl, proofPublicId }),
     });
 
-    // 2. Update the repayment request status if it exists and is now fully paid
+    // 2. If proof was provided, also create a repaymentProofs record (so driver can see it)
+    if (proofUrl) {
+      const repaymentsCollection = db.collection("repaymentProofs");
+      await repaymentsCollection.insertOne({
+        requestId: repaymentId,
+        userId: loan.userId || "admin",
+        amount,
+        remainingBalance: toMoney(Math.max(0, totalRepayable - newRepaid)),
+        isFullyPaid,
+        proofUrl,
+        proofPublicId: proofPublicId || null,
+        status: "approved",
+        submittedAt: new Date(),
+        updatedAt: new Date(),
+        approvedAt: new Date(),
+        approvedBy: "admin",
+      });
+    }
+
+    // 3. Update the repayment request status if it exists and is now fully paid
     if (isFullyPaid) {
-      // Find and update any pending repayment request for this loan
       const repaymentRequest = await repaymentRequestsCollection.findOne({
         requestId: repaymentId,
         status: "pending",
@@ -76,7 +98,8 @@ export async function POST(request: Request) {
     // 3. Update loan with new repaid amount
     const updateFields: any = {
       repaidAmount: newRepaid,
-      lastPaymentDate: new Date(),
+      remainingBalance: toMoney(Math.max(0, totalRepayable - newRepaid)),
+      lastPaymentDate: paymentDate,
     };
 
     // If fully paid, mark as paid (financial settlement complete)
@@ -93,11 +116,11 @@ export async function POST(request: Request) {
         $push: {
           payments: {
             id: paymentId.toString(),
-            amount: amount,
-            date: new Date(),
+            amount,
+            date: paymentDate,
             method: method || "cash",
             reference: reference || null,
-            ...(proofUrl && { proofUrl }),
+            ...(proofUrl && { proofUrl, proofPublicId }),
           },
         },
       },

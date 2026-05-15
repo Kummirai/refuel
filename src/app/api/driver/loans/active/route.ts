@@ -1,6 +1,7 @@
 // src/app/api/driver/loans/active/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
+import { toMoney } from "@/lib/money";
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,17 +27,18 @@ export async function GET(request: NextRequest) {
 
     if (activeLoan) {
       // Calculate remaining amount and daily payment
-      const repaid =
-        activeLoan.amount - (activeLoan.remaining || activeLoan.amount);
+      const repaid = toMoney(
+        activeLoan.amount - (activeLoan.remaining || activeLoan.amount)
+      );
       const remaining = activeLoan.remaining || activeLoan.amount;
-      const dailyPayment = remaining / 14; // Assuming 14 days repayment period
+      const dailyPayment = toMoney(remaining / 14); // Assuming 14 days repayment period
 
       return NextResponse.json({
         id: activeLoan._id,
         amount: activeLoan.amount,
         remaining: remaining,
         repaid: repaid,
-        dailyPayment: Math.ceil(dailyPayment),
+        dailyPayment: dailyPayment,
         interestRate: activeLoan.interestRate || 13,
         dueDate: activeLoan.approvedDate
           ? new Date(

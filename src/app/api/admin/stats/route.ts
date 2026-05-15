@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
+import { toMoney } from "@/lib/money";
 
 export async function GET() {
   try {
@@ -40,9 +41,11 @@ export async function GET() {
     const completedRequestsData = await serviceRequestsCollection
       .find({ status: "completed" })
       .toArray();
-    const totalRevenue = completedRequestsData.reduce(
-      (sum: any, req: any) => sum + (req.amount || 0),
-      0,
+    const totalRevenue = toMoney(
+      completedRequestsData.reduce(
+        (sum: any, req: any) => sum + (req.amount || 0),
+        0,
+      )
     );
 
     // Calculate average rating
@@ -68,9 +71,11 @@ export async function GET() {
     const loanData = await serviceRequestsCollection
       .find({ type: "cash", status: "approved" })
       .toArray();
-    const totalLoanAmount = loanData.reduce(
-      (sum: any, loan: any) => sum + (loan.amount || 0),
-      0,
+    const totalLoanAmount = toMoney(
+      loanData.reduce(
+        (sum: any, loan: any) => sum + (loan.amount || 0),
+        0,
+      )
     );
 
     return NextResponse.json({

@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import {
   Search,
   Filter,
@@ -35,6 +36,8 @@ import {
   Truck,
 } from "lucide-react";
 import { toPng } from "html-to-image";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { formatMoney, toMoney } from "@/lib/money";
 
 type RequestType = "fuel" | "airtime" | "cash" | "carwash";
 type RequestStatus = "pending" | "approved" | "sent" | "completed" | "rejected";
@@ -124,6 +127,9 @@ export default function AdminServiceRequestsPage() {
     useState<ServiceRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [rejectLoading, setRejectLoading] = useState(false);
+
+  const isAnyModalOpen = showSuccessModal || showErrorModal || showRejectModal;
+  useBodyScrollLock(isAnyModalOpen);
 
   useEffect(() => {
     fetchRequests();
@@ -600,7 +606,7 @@ export default function AdminServiceRequestsPage() {
                   <div className="flex justify-between">
                     <span className="text-gray-500">Requested Amount:</span>
                     <span className="font-semibold text-[#01312D]">
-                      R{request.amount?.toLocaleString()}
+                      {formatMoney(request.amount ?? 0)}
                     </span>
                   </div>
                   {hasActualAmount && (
@@ -611,13 +617,13 @@ export default function AdminServiceRequestsPage() {
                       <span
                         className={`font-bold ${amountDifference !== 0 ? "text-[#3A7717]" : "text-[#01312D]"}`}
                       >
-                        R{request.actualAmount?.toLocaleString()}
+                        {formatMoney(request.actualAmount ?? 0)}
                         {amountDifference !== 0 && (
                           <span className="text-xs ml-1 text-[#72BF00]">
                             (
-                            {amountDifference > 0
-                              ? `+R${amountDifference}`
-                              : `-R${Math.abs(amountDifference)}`}
+                        {amountDifference > 0
+                          ? `+${formatMoney(amountDifference)}`
+                          : `-${formatMoney(Math.abs(amountDifference))}`}
                             )
                           </span>
                         )}
@@ -640,7 +646,7 @@ export default function AdminServiceRequestsPage() {
                     <div className="flex justify-between">
                       <span className="text-gray-600">Interest Amount:</span>
                       <span className="font-semibold text-[#3A7717]">
-                        + R{displayInterest.toLocaleString()}
+                        + {formatMoney(displayInterest)}
                       </span>
                     </div>
                     <div className="flex justify-between pt-1 border-t border-[#BFF202]/20">
@@ -648,7 +654,7 @@ export default function AdminServiceRequestsPage() {
                         Total Repayable:
                       </span>
                       <span className="font-bold text-[#3A7717]">
-                        R{displayTotal.toLocaleString()}
+                        {formatMoney(displayTotal)}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -656,7 +662,7 @@ export default function AdminServiceRequestsPage() {
                         Daily Payment ({request.repaymentDays || 7} days):
                       </span>
                       <span className="font-semibold text-[#01312D]">
-                        R{displayDailyPayment.toLocaleString()}/day
+                        {formatMoney(displayDailyPayment)}/day
                       </span>
                     </div>
                   </div>
@@ -880,7 +886,7 @@ export default function AdminServiceRequestsPage() {
                 <strong>Service:</strong> {getTypeLabel(sentRequest.type)}
               </p>
               <p className="text-sm">
-                <strong>Amount:</strong> R{sentRequest.amount?.toLocaleString()}
+                <strong>Amount:</strong> {formatMoney(sentRequest.amount ?? 0)}
               </p>
               <p className="text-xs text-gray-500 mt-2">
                 Once marked as sent, the driver will receive the OTP and can
@@ -1001,10 +1007,9 @@ export default function AdminServiceRequestsPage() {
     );
   };
 
-  // Rejection Modal Component
-  const RejectionModal = () => {
-    if (!showRejectModal || !rejectingRequest) return null;
-
+  // Rejection Modal
+  const renderRejectionModal = () => {
+    if (!rejectingRequest) return null;
     const TypeIcon = getTypeIcon(rejectingRequest.type);
     const displayAmount =
       rejectingRequest.actualAmount || rejectingRequest.amount;
@@ -1062,7 +1067,7 @@ export default function AdminServiceRequestsPage() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Amount:</span>
                   <span className="font-bold text-[#3A7717] text-lg">
-                    R{displayAmount.toLocaleString()}
+                    {formatMoney(displayAmount)}
                   </span>
                 </div>
               </div>
@@ -1331,7 +1336,7 @@ Your service request has been approved.
 
 Request ID: ${approvedRequest.id.slice(-6).toUpperCase()}
 ${transactionLabel}: ${approvedRequest.otp || generatedOtp}
-Amount: R${displayAmount.toLocaleString()}
+Amount: ${formatMoney(displayAmount)}
 
 Please check your email for the receipt.
 
@@ -1768,7 +1773,7 @@ Kapuka Tradings`;
                     color: "#01312D",
                   }}
                 >
-                  R{displayAmount.toLocaleString()}
+                  {formatMoney(displayAmount)}
                 </span>
               </div>
 
@@ -1797,7 +1802,7 @@ Kapuka Tradings`;
                         textDecoration: "line-through",
                       }}
                     >
-                      R{approvedRequest.amount?.toLocaleString()}
+                      {formatMoney(approvedRequest.amount ?? 0)}
                     </span>
                   </div>
                 </div>
@@ -1821,7 +1826,7 @@ Kapuka Tradings`;
                       color: "#3A7717",
                     }}
                   >
-                    + R{approvedRequest.interest?.toLocaleString() || 0}
+                    + {formatMoney(approvedRequest.interest ?? 0)}
                   </span>
                 </div>
                 <div
@@ -1847,7 +1852,7 @@ Kapuka Tradings`;
                       color: "#3A7717",
                     }}
                   >
-                    R{displayTotal.toLocaleString()}
+                    {formatMoney(displayTotal)}
                   </span>
                 </div>
                 <div
@@ -1863,8 +1868,7 @@ Kapuka Tradings`;
                       color: "#01312D",
                     }}
                   >
-                    {approvedRequest.repaymentDays || 7} days • R
-                    {displayDailyPayment.toLocaleString()}/day
+                    {approvedRequest.repaymentDays || 7} days • {formatMoney(displayDailyPayment)}/day
                   </span>
                 </div>
               </div>
@@ -2108,7 +2112,7 @@ Kapuka Tradings`;
                     <DollarSign className="w-4 h-4 text-[#3A7717]" />
                     <span className="text-gray-600">Amount:</span>
                     <span className="font-bold text-[#3A7717] text-lg">
-                      R{displayAmount.toLocaleString()}
+                      {formatMoney(displayAmount)}
                     </span>
                   </div>
                 </div>
@@ -2260,7 +2264,7 @@ Kapuka Tradings`;
                 <div className="flex justify-between">
                   <span className="text-gray-600">Amount:</span>
                   <span className="font-bold text-[#3A7717] text-lg">
-                    R{displayAmount.toLocaleString()}
+                    {formatMoney(displayAmount)}
                   </span>
                 </div>
               </div>
@@ -2317,17 +2321,6 @@ Kapuka Tradings`;
     );
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
-          <p className="text-[#01312D]">Loading service requests...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -2355,35 +2348,63 @@ Kapuka Tradings`;
       <div className="grid grid-cols-2 lg:grid-cols-7 gap-3">
         <div className="bg-white rounded-xl p-3 shadow-sm border border-[#BFF202]/20">
           <p className="text-xs text-gray-500">Total</p>
-          <p className="text-xl font-bold text-[#01312D]">{stats.total}</p>
+          {loading || refreshing ? (
+            <Skeleton className="h-8 w-28" />
+          ) : (
+            <p className="text-xl font-bold text-[#01312D]">{stats.total}</p>
+          )}
         </div>
         <div className="bg-white rounded-xl p-3 shadow-sm border border-[#BFF202]/20">
           <p className="text-xs text-gray-500">Pending</p>
-          <p className="text-xl font-bold text-yellow-600">{stats.pending}</p>
+          {loading || refreshing ? (
+            <Skeleton className="h-8 w-28" />
+          ) : (
+            <p className="text-xl font-bold text-yellow-600">{stats.pending}</p>
+          )}
         </div>
         <div className="bg-white rounded-xl p-3 shadow-sm border border-[#BFF202]/20">
           <p className="text-xs text-gray-500">Approved</p>
-          <p className="text-xl font-bold text-blue-600">{stats.approved}</p>
+          {loading || refreshing ? (
+            <Skeleton className="h-8 w-28" />
+          ) : (
+            <p className="text-xl font-bold text-blue-600">{stats.approved}</p>
+          )}
         </div>
         <div className="bg-white rounded-xl p-3 shadow-sm border border-[#BFF202]/20">
           <p className="text-xs text-gray-500">Sent</p>
-          <p className="text-xl font-bold text-purple-600">{stats.sent}</p>
+          {loading || refreshing ? (
+            <Skeleton className="h-8 w-28" />
+          ) : (
+            <p className="text-xl font-bold text-purple-600">{stats.sent}</p>
+          )}
         </div>
         <div className="bg-white rounded-xl p-3 shadow-sm border border-[#BFF202]/20">
           <p className="text-xs text-gray-500">Completed</p>
-          <p className="text-xl font-bold text-[#3A7717]">{stats.completed}</p>
+          {loading || refreshing ? (
+            <Skeleton className="h-8 w-28" />
+          ) : (
+            <p className="text-xl font-bold text-[#3A7717]">{stats.completed}</p>
+          )}
         </div>
         <div className="bg-white rounded-xl p-3 shadow-sm border border-[#BFF202]/20">
           <p className="text-xs text-gray-500">Requested</p>
-          <p className="text-xl font-bold text-[#01312D]">
-            R{stats.totalRequestedAmount.toLocaleString()}
-          </p>
+          {loading || refreshing ? (
+            <Skeleton className="h-8 w-28" />
+          ) : (
+            <p className="text-xl font-bold text-[#01312D]">
+              {formatMoney(stats.totalRequestedAmount)}
+            </p>
+          )}
         </div>
         <div className="bg-white rounded-xl p-3 shadow-sm border border-[#BFF202]/20">
           <p className="text-xs text-gray-500">Actual</p>
-          <p className="text-xl font-bold text-[#3A7717]">
-            R{stats.totalActualAmount.toLocaleString()}
-          </p>
+          {loading || refreshing ? (
+            <Skeleton className="h-8 w-28" />
+          ) : (
+            <p className="text-xl font-bold text-[#3A7717]">
+              {formatMoney(stats.totalActualAmount)}
+            </p>
+          )}
         </div>
       </div>
 
@@ -2450,7 +2471,36 @@ Kapuka Tradings`;
       </div>
 
       <div className="space-y-3">
-        {filteredRequests.length === 0 ? (
+        {loading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="bg-white rounded-2xl p-4 shadow-sm border border-[#BFF202]/20"
+            >
+              <div className="flex items-start justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="w-12 h-12 rounded-xl shrink-0" />
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-5 w-16 rounded-lg" />
+                    </div>
+                    <Skeleton className="h-4 w-36" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                </div>
+                <div className="text-right space-y-1">
+                  <Skeleton className="h-7 w-24 ml-auto" />
+                  <Skeleton className="h-3 w-16 ml-auto" />
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
+                <Skeleton className="flex-1 h-9 rounded-lg" />
+                <Skeleton className="flex-1 h-9 rounded-lg" />
+              </div>
+            </div>
+          ))
+        ) : filteredRequests.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-2xl border border-[#BFF202]/20">
             <div className="w-20 h-20 bg-[#EAFDE7] rounded-full flex items-center justify-center mx-auto mb-4">
               <Clock className="w-10 h-10 text-gray-400" />
@@ -2502,15 +2552,15 @@ Kapuka Tradings`;
                     {hasActualAmount ? (
                       <>
                         <p className="text-xl font-bold text-[#3A7717]">
-                          R{displayAmount.toLocaleString()}
+                          {formatMoney(displayAmount)}
                         </p>
                         <p className="text-xs text-gray-400 line-through">
-                          R{request.amount?.toLocaleString()}
+                          {formatMoney(request.amount ?? 0)}
                         </p>
                       </>
                     ) : (
                       <p className="text-xl font-bold text-[#01312D]">
-                        R{request.amount?.toLocaleString()}
+                        {formatMoney(request.amount ?? 0)}
                       </p>
                     )}
                     <p className="text-xs text-gray-500">
@@ -2578,7 +2628,7 @@ Kapuka Tradings`;
       {showApproveModal && <ApprovalModal />}
       {showWhatsAppModal && approvedRequest && <WhatsAppModal />}
       {showSentModal && sentRequest && <SentModal />}
-      {showRejectModal && <RejectionModal />}
+      {showRejectModal && rejectingRequest && renderRejectionModal()}
       <SuccessModal />
       <ErrorModal />
     </div>

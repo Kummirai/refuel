@@ -36,6 +36,9 @@ import {
 } from "lucide-react";
 import { PopUploadModal } from "@/components/PopUploadModal";
 import { RepaymentProofModal } from "@/components/RepaymentProofModal";
+import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { formatMoney, toMoney } from "@/lib/money";
 
 type RequestStatus = "pending" | "approved" | "sent" | "completed" | "rejected";
 type RepaymentStatus = "pending" | "approved" | "rejected";
@@ -86,6 +89,7 @@ interface Request {
   pendingRepaymentAmount?: number;
   pendingRepaymentStatus?: RepaymentStatus;
   repayments?: RepaymentRecord[];
+  requestDate: string; // Original request date field
 }
 
 export default function RequestHistoryPage() {
@@ -355,13 +359,20 @@ export default function RequestHistoryPage() {
     ).length,
     completed: requests.filter((r) => r.status === "completed").length,
     rejected: requests.filter((r) => r.status === "rejected").length,
-    totalSpent: requests.reduce(
-      (sum, r) => sum + (r.actualAmount || r.amount),
-      0,
+    totalSpent: toMoney(
+      requests
+        .filter(
+          (r) =>
+            r.status === "approved" ||
+            r.status === "sent" ||
+            r.status === "completed",
+        )
+        .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount), 0),
     ),
-    totalOutstanding: requests.reduce(
-      (sum, r) => sum + (r.remainingBalance || 0),
-      0,
+    totalOutstanding: toMoney(
+      requests
+        .filter((r) => (r.remainingBalance || 0) > 0)
+        .reduce((sum: number, r: any) => sum + (r.remainingBalance || 0), 0),
     ),
   };
 
@@ -451,6 +462,7 @@ export default function RequestHistoryPage() {
 
           <div className="border-t border-gray-100 p-5">
             <button
+              type="button"
               onClick={() => setShowSuccessModal(false)}
               className="w-full bg-[#01312D] text-white py-2 rounded-xl font-semibold hover:bg-[#3A7717] transition-colors"
             >
@@ -494,6 +506,7 @@ export default function RequestHistoryPage() {
 
           <div className="border-t border-gray-100 p-5">
             <button
+              type="button"
               onClick={() => setShowErrorModal(false)}
               className="w-full bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors"
             >
@@ -527,6 +540,8 @@ export default function RequestHistoryPage() {
       ? Math.round((repaidAmount / request.totalRepayable) * 100)
       : 0;
 
+    useBodyScrollLock(true);
+
     if (!IconComponent) {
       return null;
     }
@@ -553,6 +568,7 @@ export default function RequestHistoryPage() {
               </div>
             </div>
             <button
+              type="button"
               onClick={onClose}
               className="p-1 hover:bg-[#eafde7] rounded-lg"
             >
@@ -584,7 +600,7 @@ export default function RequestHistoryPage() {
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-gray-500 text-sm">Package Price</span>
                     <span className="text-xl font-bold text-[#01312D]">
-                      R{request.amount.toLocaleString()}
+                      {formatMoney(request.amount)}
                     </span>
                   </div>
                   {(request.serviceCharge ?? 0) > 0 && (
@@ -593,7 +609,7 @@ export default function RequestHistoryPage() {
                         Service Charge
                       </span>
                       <span className="font-semibold text-[#01312D]">
-                        + R{(request.serviceCharge ?? 0).toLocaleString()}
+                        + {formatMoney(request.serviceCharge ?? 0)}
                       </span>
                     </div>
                   )}
@@ -602,7 +618,7 @@ export default function RequestHistoryPage() {
                       Total Due
                     </span>
                     <span className="text-2xl font-bold text-[#3A7717]">
-                      R{(request.totalDue ?? request.amount).toLocaleString()}
+                      {formatMoney(request.totalDue ?? request.amount)}
                     </span>
                   </div>
                 </>
@@ -613,7 +629,7 @@ export default function RequestHistoryPage() {
                       Requested Amount
                     </span>
                     <span className="text-2xl font-bold text-[#01312D]">
-                      R{request.amount.toLocaleString()}
+                      {formatMoney(request.amount)}
                     </span>
                   </div>
                   {request.actualAmount && (
@@ -622,7 +638,7 @@ export default function RequestHistoryPage() {
                         Actual Amount Used
                       </span>
                       <span className="text-xl font-bold text-[#3A7717]">
-                        R{request.actualAmount.toLocaleString()}
+                        {formatMoney(request.actualAmount)}
                       </span>
                     </div>
                   )}
@@ -649,7 +665,7 @@ export default function RequestHistoryPage() {
                 <div className="flex justify-between">
                   <span className="text-gray-500">Request Date:</span>
                   <span className="font-semibold text-[#01312D]">
-                    {new Date(request.date).toLocaleString()}
+                    {new Date(request.requestDate).toLocaleString()}
                   </span>
                 </div>
                 {request.approvedDate && (
@@ -684,13 +700,13 @@ export default function RequestHistoryPage() {
                     <div className="flex justify-between">
                       <span className="text-gray-600">Total Loan Amount:</span>
                       <span className="font-semibold">
-                        R{request.totalRepayable.toLocaleString()}
+                        {formatMoney(request.totalRepayable)}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Repaid Amount:</span>
                       <span className="font-semibold text-[#3A7717]">
-                        R{repaidAmount.toLocaleString()}
+                        {formatMoney(repaidAmount)}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -698,7 +714,7 @@ export default function RequestHistoryPage() {
                         Outstanding Balance:
                       </span>
                       <span className="font-bold text-red-600">
-                        R{(request.remainingBalance || 0).toLocaleString()}
+                        {formatMoney(request.remainingBalance || 0)}
                       </span>
                     </div>
                     <div className="mt-2">
@@ -727,7 +743,7 @@ export default function RequestHistoryPage() {
                     </p>
                     <p className="text-xs text-blue-700 mt-1">
                       {request.type === "carwash"
-                        ? `Your car wash request has been approved! Please upload your proof of payment to confirm the total of R${(request.totalDue ?? request.amount).toLocaleString()}.`
+                        ? `Your car wash request has been approved! Please upload your proof of payment to confirm the total of ${formatMoney(request.totalDue ?? request.amount)}.`
                         : "Your fuel request has been approved! Please upload your proof of payment receipt to confirm service delivery."}
                     </p>
                   </div>
@@ -764,7 +780,7 @@ export default function RequestHistoryPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-yellow-700">Amount:</span>
                     <span className="font-bold text-yellow-800">
-                      R{request.pendingRepaymentAmount?.toLocaleString()}
+                      {formatMoney(request.pendingRepaymentAmount ?? 0)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -796,15 +812,15 @@ export default function RequestHistoryPage() {
                     >
                       <div>
                         <p className="font-semibold text-[#3A7717]">
-                          R{repayment.amount.toLocaleString()}
+                          {formatMoney(repayment.amount)}
                         </p>
                         <p className="text-xs text-gray-500">
                           {new Date(repayment.submittedAt).toLocaleDateString()}
                         </p>
                         {repayment.remainingBalance !== undefined && (
                           <p className="text-xs text-gray-400">
-                            Remaining Loan: R
-                            {repayment.remainingBalance.toLocaleString()}
+                            Remaining Loan:{" "}
+                            {formatMoney(repayment.remainingBalance)}
                           </p>
                         )}
                       </div>
@@ -884,6 +900,7 @@ export default function RequestHistoryPage() {
             {/* Upload POP Button - For service completion (Fuel & Car Wash) */}
             {needsPopUpload && (
               <button
+                type="button"
                 onClick={() => {
                   onClose();
                   setSelectedRequestForPop(request);
@@ -899,6 +916,7 @@ export default function RequestHistoryPage() {
             {/* Upload Repayment Button - For loan repayments */}
             {needsRepayment && !request.hasPendingRepayment && (
               <button
+                type="button"
                 onClick={() => {
                   onClose();
                   setSelectedRequestForRepayment(request);
@@ -922,6 +940,7 @@ export default function RequestHistoryPage() {
             {/* Download Receipt Button */}
             {(request.popUrl || request.status === "completed") && (
               <button
+                type="button"
                 onClick={() => {
                   if (request.popUrl) {
                     window.open(request.popUrl, "_blank");
@@ -939,7 +958,7 @@ export default function RequestHistoryPage() {
     );
   };
 
-  if (isPending || loading) {
+  if (isPending) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -962,6 +981,7 @@ export default function RequestHistoryPage() {
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
               <button
+                type="button"
                 onClick={() => router.back()}
                 className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center active:scale-95 transition-transform"
               >
@@ -972,6 +992,7 @@ export default function RequestHistoryPage() {
               </h1>
             </div>
             <button
+              type="button"
               onClick={handleRefresh}
               disabled={refreshing}
               className="p-2 bg-[#eafde7] rounded-full active:scale-95 transition-transform"
@@ -986,31 +1007,63 @@ export default function RequestHistoryPage() {
           <div className="grid grid-cols-3 gap-2 mt-4">
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
               <p className="text-xs text-gray-500">Total</p>
-              <p className="text-lg font-bold text-[#01312D]">{stats.total}</p>
+              {loading || refreshing ? (
+                <div className="flex justify-center">
+                  <Skeleton className="h-8 w-20" />
+                </div>
+              ) : (
+                <p className="text-lg font-bold text-[#01312D]">
+                  {stats.total}
+                </p>
+              )}
             </div>
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
               <p className="text-xs text-gray-500">Pending</p>
-              <p className="text-lg font-bold text-yellow-600">
-                {stats.pending}
-              </p>
+              {loading || refreshing ? (
+                <div className="flex justify-center">
+                  <Skeleton className="h-8 w-20" />
+                </div>
+              ) : (
+                <p className="text-lg font-bold text-yellow-600">
+                  {stats.pending}
+                </p>
+              )}
             </div>
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
               <p className="text-xs text-gray-500">Approved</p>
-              <p className="text-lg font-bold text-blue-600">
-                {stats.approved}
-              </p>
+              {loading || refreshing ? (
+                <div className="flex justify-center">
+                  <Skeleton className="h-8 w-20" />
+                </div>
+              ) : (
+                <p className="text-lg font-bold text-blue-600">
+                  {stats.approved}
+                </p>
+              )}
             </div>
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
               <p className="text-xs text-gray-500">Completed</p>
-              <p className="text-lg font-bold text-[#3A7717]">
-                {stats.completed}
-              </p>
+              {loading || refreshing ? (
+                <div className="flex justify-center">
+                  <Skeleton className="h-8 w-20" />
+                </div>
+              ) : (
+                <p className="text-lg font-bold text-[#3A7717]">
+                  {stats.completed}
+                </p>
+              )}
             </div>
             <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
               <p className="text-xs text-gray-500">Outstanding</p>
-              <p className="text-lg font-bold text-red-600">
-                R{stats.totalOutstanding.toLocaleString()}
-              </p>
+              {loading || refreshing ? (
+                <div className="flex justify-center">
+                  <Skeleton className="h-8 w-20" />
+                </div>
+              ) : (
+                <p className="text-lg font-bold text-red-600">
+                  {formatMoney(stats.totalOutstanding)}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -1022,6 +1075,7 @@ export default function RequestHistoryPage() {
             (filter) => (
               <button
                 key={filter}
+                type="button"
                 onClick={() => setSelectedFilter(filter as any)}
                 className={`px-7 py-1.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap  ${
                   selectedFilter === filter
@@ -1051,7 +1105,37 @@ export default function RequestHistoryPage() {
       </div>
       {/* Requests List */}
       <div className="px-5 pt-4 pb-24">
-        {filteredRequests.length === 0 ? (
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20"
+              >
+                <div className="flex flex-col items-start gap-3 justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="w-10 h-10 rounded-xl" />
+                    <div>
+                      <Skeleton className="h-4 w-24 mb-1" />
+                      <Skeleton className="h-3 w-16" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-5 w-20 rounded-full" />
+                </div>
+                <div className="flex justify-between items-between mb-3">
+                  <div>
+                    <Skeleton className="h-7 w-28 mb-1" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-3 border-t border-gray-100">
+                  <Skeleton className="flex-1 h-9 rounded-lg" />
+                  <Skeleton className="flex-1 h-9 rounded-lg" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredRequests.length === 0 ? (
           <div className="text-center py-12">
             <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-md">
               <Clock className="w-10 h-10 text-[#72bf00]" />
@@ -1063,6 +1147,7 @@ export default function RequestHistoryPage() {
                 : "Your request history will appear here"}
             </p>
             <button
+              type="button"
               onClick={() => router.push("/requests")}
               className="mt-4 bg-linear-to-r from-[#01312D] to-[#3A7717] text-white px-6 py-2 rounded-lg font-semibold text-sm"
             >
@@ -1122,34 +1207,32 @@ export default function RequestHistoryPage() {
                   <div className="flex justify-between items-between mb-3">
                     <div>
                       <p className="text-2xl font-bold text-[#01312D]">
-                        R{request.amount.toLocaleString()}
+                        {formatMoney(request.amount)}
                       </p>
                       {hasOutstanding && request.type !== "carwash" && (
                         <p className="text-xs text-red-600 mt-1">
-                          Outstanding Loan: R
-                          {(request.remainingBalance || 0).toLocaleString()}
+                          Outstanding Loan:{" "}
+                          {formatMoney(request.remainingBalance || 0)}
                         </p>
                       )}
                       {request.type === "carwash" &&
                         (request.serviceCharge ?? 0) > 0 && (
                           <p className="text-xs text-[#3A7717] mt-1">
-                            Total due: R
-                            {(
-                              request.totalDue ?? request.amount
-                            ).toLocaleString()}
+                            Total due:{" "}
+                            {formatMoney(request.totalDue ?? request.amount)}
                           </p>
                         )}
                       {request.hasPendingRepayment && (
                         <p className="text-xs text-yellow-600 mt-1 flex items-center gap-1">
                           <Hourglass className="w-3 h-3" />
-                          Repayment pending verification: R
-                          {request.pendingRepaymentAmount?.toLocaleString()}
+                          Repayment pending verification:{" "}
+                          {formatMoney(request.pendingRepaymentAmount ?? 0)}
                         </p>
                       )}
-                      <p className="text-xs text-gray-500">
+                      {/* <p className="text-xs text-gray-500">
                         {date.toLocaleDateString()} at{" "}
                         {date.toLocaleTimeString()}
-                      </p>
+                      </p> */}
                     </div>
                     {request.otp &&
                       (request.status === "approved" ||
@@ -1164,7 +1247,8 @@ export default function RequestHistoryPage() {
 
                   <div className="flex gap-2 pt-3 border-t border-gray-100">
                     <button
-                      className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-sm font-semibold flex items-center justify-center gap-2"
+                      type="button"
+                      className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-xs font-semibold flex items-center justify-center gap-2"
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedRequest(request);
@@ -1176,36 +1260,39 @@ export default function RequestHistoryPage() {
                     </button>
                     {needsPopUpload && (
                       <button
-                        className="flex-1 py-2 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all"
+                        type="button"
+                        className="flex-1 py-2 bg-[#3A7717] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all"
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedRequestForPop(request);
                           setShowPopModal(true);
                         }}
                       >
-                        <Receipt className="w-4 h-4" />
+                        {/*<Receipt className="w-4 h-4" />*/}
                         Upload Receipt
                       </button>
                     )}
                     {needsRepayment && (
                       <button
-                        className="flex-1 py-2 bg-[#01312D] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-all"
+                        type="button"
+                        className="flex-1 py-2 bg-[#01312D] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-all"
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedRequestForRepayment(request);
                           setShowRepaymentModal(true);
                         }}
                       >
-                        <Banknote className="w-4 h-4" />
+                        {/*<Banknote className="w-4 h-4" />*/}
                         Repay Loan
                       </button>
                     )}
                     {(request.popUrl || request.status === "completed") && (
                       <button
-                        className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-sm font-semibold flex items-center justify-center gap-2"
+                        type="button"
+                        className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-xs font-semibold flex items-center justify-center gap-2"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <Download className="w-4 h-4" />
+                        {/*<Download className="w-4 h-4" />*/}
                         Receipt
                       </button>
                     )}
@@ -1223,7 +1310,6 @@ export default function RequestHistoryPage() {
           onClose={() => setShowDetailModal(false)}
         />
       )}
-      // In the PopUploadModal props section (around line 999-1012), update to:
       {showPopModal && selectedRequestForPop && (
         <PopUploadModal
           isOpen={showPopModal}

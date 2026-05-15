@@ -1,6 +1,7 @@
 // src/app/api/driver/requests/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
+import { toMoney } from "@/lib/money";
 import { sendAdminNotificationEmail } from "@/lib/email";
 
 export async function GET(request: NextRequest) {
@@ -41,10 +42,10 @@ export async function GET(request: NextRequest) {
 
         // Calculate remaining balance
         const totalRepayable = request.totalRepayable || request.amount;
-        const calculatedRemainingBalance = Math.max(
+        const calculatedRemainingBalance = toMoney(Math.max(
           0,
           totalRepayable - totalRepaid,
-        );
+        ));
 
         // Check for pending repayment
         const hasPendingRepayment = repaymentProofs.some(
@@ -115,6 +116,7 @@ export async function POST(request: NextRequest) {
       driverEmail,
       package: packageName,
       packageDescription,
+      hasReceipt
     } = body;
 
     // Validate required fields
@@ -158,12 +160,13 @@ export async function POST(request: NextRequest) {
       totalRepayable: totalRepayable || amount,
       interestRate: interestRate || 13,
       repaymentDays: repaymentDays || 7,
-      dailyPayment: dailyPayment || Math.ceil((amount * 1.13) / 7),
+      dailyPayment: dailyPayment || toMoney((amount * 1.13) / 7),
       package: packageName || null,
       packageDescription: packageDescription || null,
       status: "pending",
       requestDate: new Date(),
       createdAt: new Date(),
+      hasReceipt: hasReceipt || false,
     };
 
     console.log("Saving request data:", requestData);
@@ -182,7 +185,7 @@ export async function POST(request: NextRequest) {
       const driverProfilesCollection = db.collection("driverProfiles");
       await driverProfilesCollection.updateOne(
         { userId: userId },
-        { $inc: { totalRequests: 1, totalSpent: amount } },
+        { $inc: { totalRequests: 1, totalSpent: toMoney(amount) } },
         { upsert: true },
       );
     } catch (updateError) {

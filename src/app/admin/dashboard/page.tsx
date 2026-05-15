@@ -4,6 +4,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toPng } from "html-to-image";
+import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
+import { formatMoney, toMoney } from "@/lib/money";
 import {
   Users,
   ClipboardList,
@@ -13,16 +15,10 @@ import {
   Clock,
   XCircle,
   Eye,
-  ArrowUp,
-  ArrowDown,
   Search,
   Star,
-  Phone,
-  Mail,
   Car,
   Calendar,
-  AlertTriangle,
-  ThumbsUp,
   RefreshCw,
   Fuel,
   Smartphone,
@@ -41,10 +37,9 @@ import {
   Wallet,
   TrendingDown,
   PiggyBank,
-  Upload,
-  Download,
   Shield,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 type RequestType = "fuel" | "airtime" | "cash" | "carwash";
 type RequestStatus = "pending" | "approved" | "completed" | "rejected";
@@ -126,10 +121,20 @@ export default function AdminDashboard() {
     "request",
   );
 
+  const isAnyModalOpen = showSuccessModal || showErrorModal || showRejectModal;
+  useBodyScrollLock(isAnyModalOpen);
+
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [appliedFrom, setAppliedFrom] = useState("");
+  const [appliedTo, setAppliedTo] = useState("");
+
   // Financial stats
   const [financialStats, setFinancialStats] = useState({
     moneyRequested: 0,
-    interestGained: 0,
+    actualInterest: 0,
+    potentialInterest: 0,
+    totalRepaid: 0,
   });
 
   const [stats, setStats] = useState({
@@ -162,7 +167,16 @@ export default function AdminDashboard() {
     fetchDashboardData();
   }, []);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (from?: string, to?: string) => {
+    const queryParams = new URLSearchParams();
+    const effectiveFrom = from || appliedFrom;
+    const effectiveTo = to || appliedTo;
+    if (effectiveFrom)
+      queryParams.set("from", new Date(effectiveFrom).toISOString());
+    if (effectiveTo)
+      queryParams.set("to", new Date(effectiveTo + "T23:59:59").toISOString());
+    const queryString = queryParams.toString();
+
     try {
       const statsRes = await fetch("/api/admin/stats");
       if (statsRes.ok) {
@@ -180,7 +194,7 @@ export default function AdminDashboard() {
         setRecentVerifications(driversData.recent || []);
       }
 
-      const requestsRes = await fetch("/api/admin/requests");
+      const requestsRes = await fetch(`/api/admin/requests?${queryString}`);
       if (requestsRes.ok) {
         const requestsData = await requestsRes.json();
         const allRequests = requestsData.requests || [];
@@ -188,24 +202,38 @@ export default function AdminDashboard() {
 
         // Calculate financial stats from all requests
         let totalMoneyRequested = 0;
-        let totalInterestGained = 0;
+        let totalActualInterest = 0;
+        let totalPotentialInterest = 0;
+        let totalRepaid = 0;
 
         allRequests.forEach((request: any) => {
           const amount = request.actualAmount || request.amount || 0;
-          totalMoneyRequested += amount;
-          if (request.interest) {
-            totalInterestGained += request.interest;
-          } else if (
-            request.status === "completed" ||
-            request.status === "approved"
-          ) {
-            totalInterestGained += amount * 0.13;
+          totalMoneyRequested = toMoney(totalMoneyRequested + amount);
+          totalRepaid = toMoney(totalRepaid + (request.repaidAmount || 0));
+
+          const interest = request.interest || Math.round(amount * 0.13);
+          const totalRepayable = request.totalRepayable || amount + interest;
+          const repaidAmount = request.repaidAmount || 0;
+          const remainingBalance =
+            request.remainingBalance || totalRepayable - repaidAmount;
+          const isPaid = request.isPaid || remainingBalance <= 0;
+
+          if (isPaid) {
+            totalActualInterest = toMoney(totalActualInterest + interest);
+          } else if (repaidAmount > 0) {
+            const paidRatio = repaidAmount / totalRepayable;
+            totalActualInterest = toMoney(totalActualInterest + (interest * paidRatio));
+            totalPotentialInterest = toMoney(totalPotentialInterest + (interest * (1 - paidRatio)));
+          } else {
+            totalPotentialInterest = toMoney(totalPotentialInterest + interest);
           }
         });
 
         setFinancialStats({
           moneyRequested: totalMoneyRequested,
-          interestGained: totalInterestGained,
+          actualInterest: totalActualInterest,
+          potentialInterest: totalPotentialInterest,
+          totalRepaid: totalRepaid,
         });
       }
     } catch (error) {
@@ -214,6 +242,13 @@ export default function AdminDashboard() {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  const handleApplyDateRange = () => {
+    setAppliedFrom(fromDate);
+    setAppliedTo(toDate);
+    setLoading(true);
+    fetchDashboardData(fromDate, toDate);
   };
 
   const handleRefresh = async () => {
@@ -652,9 +687,7 @@ export default function AdminDashboard() {
   };
 
   // Rejection Modal
-  const RejectionModal = () => {
-    if (!showRejectModal) return null;
-
+  const renderRejectionModal = () => {
     const itemName =
       rejectType === "request"
         ? rejectingRequest?.driverName || "this request"
@@ -837,14 +870,14 @@ export default function AdminDashboard() {
                 <div className="flex justify-between pt-2 border-t border-[#bff202]/20">
                   <span className="text-gray-500">Requested Amount:</span>
                   <span className="font-semibold text-[#01312D]">
-                    R{request.amount?.toLocaleString()}
+                    {formatMoney(request.amount ?? 0)}
                   </span>
                 </div>
                 {hasActualAmount && (
                   <div className="flex justify-between">
                     <span className="text-gray-500">Actual Amount Paid:</span>
                     <span className="font-semibold text-[#3A7717]">
-                      R{request.actualAmount?.toLocaleString()}
+                      {formatMoney(request.actualAmount ?? 0)}
                     </span>
                   </div>
                 )}
@@ -852,7 +885,7 @@ export default function AdminDashboard() {
                   <div className="flex justify-between">
                     <span className="text-gray-500">Total Repayable:</span>
                     <span className="font-semibold text-[#3A7717]">
-                      R{request.totalRepayable?.toLocaleString()}
+                      {formatMoney(request.totalRepayable ?? 0)}
                     </span>
                   </div>
                 )}
@@ -860,7 +893,7 @@ export default function AdminDashboard() {
                   <div className="flex justify-between">
                     <span className="text-gray-500">Daily Payment:</span>
                     <span className="font-semibold text-[#01312D]">
-                      R{request.dailyPayment?.toLocaleString()}/day
+                      {formatMoney(request.dailyPayment ?? 0)}/day
                     </span>
                   </div>
                 )}
@@ -1397,7 +1430,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-[#3A7717]">
-                    R{(driver.totalSpent || 0).toLocaleString()}
+                    {formatMoney(driver.totalSpent || 0)}
                   </p>
                   <p className="text-xs text-gray-500">Total Spent</p>
                 </div>
@@ -1441,7 +1474,7 @@ export default function AdminDashboard() {
 
     const displayAmount =
       approvedRequest.actualAmount || approvedRequest.amount;
-    const message = `Hello ${approvedRequest.driverName},\n\nYour request for ${getTypeLabel(approvedRequest.type)} has been APPROVED! ✅\n\n🔐 OTP: ${approvedRequest.otp || generatedOtp}\n💰 Amount: R${displayAmount.toLocaleString()}\n🚗 Vehicle: ${approvedRequest.carRegistration}\n\nThank you for using Kapuka! 🚀`;
+    const message = `Hello ${approvedRequest.driverName},\n\nYour request for ${getTypeLabel(approvedRequest.type)} has been APPROVED! ✅\n\n🔐 OTP: ${approvedRequest.otp || generatedOtp}\n💰 Amount: ${formatMoney(displayAmount)}\n🚗 Vehicle: ${approvedRequest.carRegistration}\n\nThank you for using Kapuka! 🚀`;
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1537,36 +1570,36 @@ export default function AdminDashboard() {
     );
   };
 
-  const StatCard = ({ title, value, icon: Icon, color, prefix = "" }: any) => (
+  const StatCard = ({
+    title,
+    value,
+    icon: Icon,
+    color,
+    prefix = "",
+    loading,
+  }: any) => (
     <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20 hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start">
         <div>
-          <p className="text-gray-500 text-sm">{title}</p>
-          <p className="text-2xl font-bold text-[#01312D] mt-1">
-            {prefix}
-            {value.toLocaleString()}
-          </p>
+          <p className="text-gray-500 text-[13px]">{title}</p>
+          {loading ? (
+            <Skeleton className="h-8 w-28 mt-1" />
+          ) : (
+            <p className="text-2xl font-bold text-[#01312D] mt-1">
+              {prefix === "R" ? formatMoney(value) : prefix + value.toLocaleString()}
+            </p>
+          )}
         </div>
         <div
-          className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}
+          className={`w-8 h-8 rounded-xl flex items-center justify-center ${color}`}
         >
-          <Icon className="w-6 h-6 text-white" />
+          <Icon className="w-4 h-4 text-white" />
         </div>
       </div>
     </div>
   );
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
-          <p className="text-[#01312D]">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
+  const isLoading = loading || refreshing;
   const filteredDrivers = drivers.filter(
     (driver) =>
       driver.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1595,22 +1628,111 @@ export default function AdminDashboard() {
         </button>
       </div>
 
-      {/* Financial Stats Row - 2 Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <StatCard
-          title="Money Requested"
-          value={financialStats.moneyRequested}
-          icon={Wallet}
-          color="bg-[#01312D]"
-          prefix="R"
-        />
-        <StatCard
-          title="Interest Gained"
-          value={financialStats.interestGained}
-          icon={TrendingUp}
-          color="bg-[#72bf00]"
-          prefix="R"
-        />
+      {/* ===== FILTERED SECTION ===== */}
+      <div className="bg-[#eafde7]/40 rounded-2xl p-5 border-2 border-[#bff202]/30 space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-[#3A7717] animate-pulse" />
+          <span className="text-xs font-bold uppercase tracking-wider text-[#3A7717]">
+            Set Dates to check financials
+          </span>
+        </div>
+
+        {/* Date Range Filter */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
+          <div className="flex justify-between sm:flex-row flex-col sm:items-end gap-5">
+            <div className="flex flex-1 flex-col sm:flex-row gap-3 w-full">
+              <div className="w-full sm:flex-1 sm:min-w-[150px]">
+                <label className="block text-xs font-semibold text-gray-500 mb-1">
+                  From
+                </label>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-[#bff202]/70 rounded-lg text-sm focus:outline-none focus:border-[#72bf00] bg-white"
+                />
+              </div>
+
+              <div className="w-full sm:flex-1 sm:min-w-[150px]">
+                <label className="block text-xs font-semibold text-gray-500 mb-1">
+                  To
+                </label>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-[#bff202]/70 rounded-lg text-sm focus:outline-none focus:border-[#72bf00] bg-white"
+                />
+              </div>
+            </div>
+
+            <div className="flex w-full sm:w-auto gap-3">
+              <button
+                onClick={handleApplyDateRange}
+                className="flex-1 sm:flex-none px-7.5 py-2.5 bg-[#01312D] text-white rounded-lg text-[13px] font-medium hover:bg-[#3A7717] transition-colors"
+              >
+                Apply
+              </button>
+              <button
+                onClick={() => {
+                  setFromDate("");
+                  setToDate("");
+                  setAppliedFrom("");
+                  setAppliedTo("");
+                  setLoading(true);
+                  fetchDashboardData();
+                }}
+                className="flex-1 sm:flex-none px-7.5 py-2.5 bg-gray-200 text-[#01312D] rounded-lg text-[13px] font-medium hover:bg-gray-300 transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Financial Stats Row - 4 Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            title="Money Requested"
+            value={financialStats.moneyRequested}
+            icon={Wallet}
+            color="bg-[#01312D]"
+            prefix="R"
+            loading={isLoading}
+          />
+          <StatCard
+            title="Money Paid Back"
+            value={financialStats.totalRepaid}
+            icon={PiggyBank}
+            color="bg-[#3A7717]"
+            prefix="R"
+            loading={isLoading}
+          />
+          <StatCard
+            title="Interest Paid"
+            value={financialStats.actualInterest}
+            icon={TrendingUp}
+            color="bg-[#72bf00]"
+            prefix="R"
+            loading={isLoading}
+          />
+          <StatCard
+            title="Unpaid Interest"
+            value={financialStats.potentialInterest}
+            icon={TrendingDown}
+            color="bg-amber-500"
+            prefix="R"
+            loading={isLoading}
+          />
+        </div>
+      </div>
+
+      {/* ===== UNFILTERED STATS ===== */}
+      <div className="flex items-center gap-2">
+        <div className="w-2 h-2 rounded-full bg-gray-400" />
+        <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
+          Overall Stats
+        </span>
       </div>
 
       {/* Second Row - Other Stats */}
@@ -1620,24 +1742,28 @@ export default function AdminDashboard() {
           value={stats.totalDrivers}
           icon={Users}
           color="bg-[#01312D]"
+          loading={isLoading}
         />
         <StatCard
           title="Pending Verifications"
           value={stats.pendingVerifications}
           icon={Clock}
           color="bg-yellow-500"
+          loading={isLoading}
         />
         <StatCard
           title="Pending Requests"
           value={stats.pendingRequests}
           icon={ClipboardList}
           color="bg-[#72bf00]"
+          loading={isLoading}
         />
         <StatCard
           title="Completed Requests"
           value={stats.completedRequests}
           icon={CheckCircle}
           color="bg-[#3A7717]"
+          loading={isLoading}
         />
       </div>
 
@@ -1671,7 +1797,20 @@ export default function AdminDashboard() {
               </p>
             </div>
             <div className="divide-y divide-[#bff202]/10">
-              {recentVerifications.length === 0 ? (
+              {loading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="p-4 flex items-center justify-between"
+                  >
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                    <Skeleton className="h-8 w-20 rounded-lg" />
+                  </div>
+                ))
+              ) : recentVerifications.length === 0 ? (
                 <div className="p-8 text-center">
                   <p className="text-gray-500 text-sm">
                     No pending verifications
@@ -1714,8 +1853,21 @@ export default function AdminDashboard() {
               </p>
             </div>
             <div className="divide-y divide-[#bff202]/10">
-              {recentRequests.filter((r) => r.status === "pending").length ===
-              0 ? (
+              {loading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="p-4 flex items-center justify-between"
+                  >
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                    <Skeleton className="h-8 w-20 rounded-lg" />
+                  </div>
+                ))
+              ) : recentRequests.filter((r) => r.status === "pending")
+                  .length === 0 ? (
                 <div className="p-8 text-center">
                   <p className="text-gray-500 text-sm">No pending requests</p>
                 </div>
@@ -1780,6 +1932,9 @@ export default function AdminDashboard() {
                       Status
                     </th>
                     <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
+                      Rating
+                    </th>
+                    <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
                       Requests
                     </th>
                     <th className="text-left p-4 text-sm font-semibold text-[#01312D]">
@@ -1791,49 +1946,87 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#bff202]/10">
-                  {filteredDrivers.map((driver) => (
-                    <tr
-                      key={driver.id}
-                      className="hover:bg-[#eafde7] transition-colors cursor-pointer"
-                      onClick={() => {
-                        setSelectedDriver(driver);
-                        setShowDriverModal(true);
-                      }}
-                    >
-                      <td className="p-4">
-                        <p className="font-semibold text-[#01312D]">
-                          {driver.name}
-                        </p>
-                        <p className="text-xs text-gray-500">{driver.email}</p>
-                      </td>
-                      <td className="p-4">
-                        <p className="text-sm font-medium text-[#01312D]">
-                          {driver.carModel}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {driver.carRegistration}
-                        </p>
-                      </td>
-                      <td className="p-4">
-                        {getStatusBadge(driver.verificationStatus)}
-                      </td>
-                      <td className="p-4">
-                        <span className="font-semibold text-[#01312D]">
-                          {driver.totalRequests || 0}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <span className="font-semibold text-[#3A7717]">
-                          R{(driver.totalSpent || 0).toLocaleString()}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <button className="px-3 py-1.5 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center gap-1">
-                          <Eye className="w-4 h-4" /> View
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {loading
+                    ? Array.from({ length: 5 }).map((_, i) => (
+                        <tr key={i}>
+                          <td className="p-4">
+                            <Skeleton className="h-4 w-32" />
+                          </td>
+                          <td className="p-4">
+                            <Skeleton className="h-4 w-24" />
+                          </td>
+                          <td className="p-4">
+                            <Skeleton className="h-6 w-20 rounded-lg" />
+                          </td>
+                          <td className="p-4">
+                            <Skeleton className="h-4 w-12" />
+                          </td>
+                          <td className="p-4">
+                            <Skeleton className="h-4 w-8" />
+                          </td>
+                          <td className="p-4">
+                            <Skeleton className="h-4 w-16" />
+                          </td>
+                          <td className="p-4">
+                            <Skeleton className="h-8 w-16 rounded-lg" />
+                          </td>
+                        </tr>
+                      ))
+                    : filteredDrivers.map((driver) => (
+                        <tr
+                          key={driver.id}
+                          className="hover:bg-[#eafde7] transition-colors cursor-pointer"
+                          onClick={() => {
+                            setSelectedDriver(driver);
+                            setShowDriverModal(true);
+                          }}
+                        >
+                          <td className="p-4">
+                            <p className="font-semibold text-[#01312D]">
+                              {driver.name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {driver.email}
+                            </p>
+                          </td>
+                          <td className="p-4">
+                            <p className="text-sm font-medium text-[#01312D]">
+                              {driver.carModel}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {driver.carRegistration}
+                            </p>
+                          </td>
+                          <td className="p-4">
+                            {getStatusBadge(driver.verificationStatus)}
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-1">
+                              <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                              <span className="font-bold text-[#01312D]">
+                                {driver.rating
+                                  ? driver.rating.toFixed(1)
+                                  : "N/A"}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <span className="font-semibold text-[#01312D]">
+                              {driver.totalRequests || 0}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <span className="font-semibold text-[#3A7717]">
+                              {formatMoney(driver.totalSpent || 0)}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <button className="px-3 py-1.5 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center gap-1">
+                              <Eye className="w-4 h-4" /> View
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
                 </tbody>
               </table>
             </div>
@@ -1862,7 +2055,7 @@ export default function AdminDashboard() {
       )}
       {showApproveModal && <ApprovalModal />}
       {showWhatsAppModal && approvedRequest && <WhatsAppModal />}
-      {showRejectModal && <RejectionModal />}
+      {showRejectModal && renderRejectionModal()}
       <SuccessModal />
       <ErrorModal />
     </div>

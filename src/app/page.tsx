@@ -15,7 +15,6 @@ import {
   Shield,
   ChevronRight,
   Zap,
-  ThumbsUp,
   Truck,
   Headphones,
   Sparkles,
@@ -31,8 +30,8 @@ import {
   History,
   UserCircle,
   Calendar,
-  CreditCard,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function HomePage() {
   const router = useRouter();
@@ -43,14 +42,27 @@ export default function HomePage() {
   const [verificationStatus, setVerificationStatus] = useState<
     "approved" | "pending" | "rejected" | "not_submitted"
   >("not_submitted");
+  const [loadError, setLoadError] = useState(false);
+
+  // Safety timeout for loading state (crucial for older Safari/iPhone)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading) {
+        console.warn("Loading timed out, forcing display");
+        setLoading(false);
+      }
+    }, 5000); // 5 second timeout
+
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   useEffect(() => {
     if (!isPending) {
-      if (session) {
-        const role = (session.user as any)?.role;
-        setUserRole(role || null);
+      if (session && session.user) {
+        const user = session.user as any;
+        setUserRole(user.role || null);
 
-        if (role === "admin") {
+        if (user.role === "admin") {
           setLoading(false);
         } else {
           fetchUserProfile();
@@ -272,7 +284,7 @@ export default function HomePage() {
     );
   };
 
-  if (loading || isPending) {
+  if (isPending) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -285,6 +297,7 @@ export default function HomePage() {
 
   const isLoggedIn = !!session;
   const isAdmin = userRole === "admin";
+  const showSkeleton = loading && isLoggedIn;
 
   return (
     <div className="min-h-screen bg-[#eafde7] relative overflow-hidden">
@@ -331,10 +344,10 @@ export default function HomePage() {
               {isLoggedIn && (
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 active:scale-95 active:bg-red-700 transition-all duration-150 whitespace-nowrap touch-manipulation"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-[#eafde7] text-[#01312D] border-2 border-[#01312D]/10 hover:border-[#01312D]/30 active:scale-95 transition-all duration-200 shadow-sm active:shadow-inner whitespace-nowrap touch-manipulation"
                   style={{ WebkitTapHighlightColor: "transparent" }}
                 >
-                  <LogOut className="w-3.5 h-3.5" />
+                  <LogOut className="w-4 h-4 text-[#3A7717]" />
                   Logout
                 </button>
               )}
@@ -343,13 +356,41 @@ export default function HomePage() {
 
           {/* Welcome Messages */}
           {isLoggedIn && !isAdmin && (
-            <div className="mt-4 bg-white/80 rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
-              <p className="text-sm text-[#01312D]">
-                Welcome back,{" "}
-                <span className="font-bold">
-                  {session?.user?.name || "Driver"}!
-                </span>
-              </p>
+            <div className="mt-4 bg-white/80 rounded-2xl p-4 shadow-sm border border-[#bff202]/20 backdrop-blur-sm">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-sm text-[#01312D] flex items-center gap-1">
+                    Welcome back,{" "}
+                    {showSkeleton ? (
+                      <Skeleton className="h-6 w-24 inline-block" />
+                    ) : (
+                      <span className="font-bold text-lg">
+                        {session?.user?.name?.split(" ")[0] || "Driver"}!
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#3A7717] font-medium mt-0.5 opacity-80">
+                    Manage your services & track earnings
+                  </p>
+                </div>
+                {showSkeleton ? (
+                  <div className="bg-[#bff202]/20 px-3 py-2 rounded-xl flex flex-col items-center justify-center border border-[#bff202]/30 min-w-[70px]">
+                    <Skeleton className="h-5 w-16" />
+                  </div>
+                ) : userProfile?.rating !== undefined ? (
+                  <div className="bg-[#bff202]/20 px-3 py-2 rounded-xl flex flex-col items-center justify-center border border-[#bff202]/30 min-w-[70px]">
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <Star className="w-4 h-4 text-[#3A7717] fill-[#3A7717]" />
+                      <span className="font-black text-[#01312D] text-lg">
+                        {userProfile.rating ? userProfile.rating.toFixed(1) : "5.0"}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-[#3A7717] uppercase tracking-tighter">
+                      Reliability
+                    </span>
+                  </div>
+                ) : null}
+              </div>
             </div>
           )}
 
@@ -413,6 +454,7 @@ export default function HomePage() {
         {/* Get Started Button */}
         <div className="flex justify-center mb-12">
           <button
+            type="button"
             onClick={handleGetStarted}
             className="group relative bg-linear-to-r from-[#01312D] to-[#3A7717] text-white px-10 py-3.5 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
           >
@@ -426,7 +468,20 @@ export default function HomePage() {
         <DocumentsSubmittedBadge />
 
         {/* VERIFICATION STATUS BADGE */}
-        {isLoggedIn && !isAdmin && <VerificationStatusBadge />}
+        {isLoggedIn && !isAdmin && (showSkeleton ? (
+          <div className="rounded-2xl p-4 border border-[#bff202]/20 mb-6">
+            <div className="flex items-center gap-3">
+              <Skeleton className="w-10 h-10 rounded-full shrink-0" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-64" />
+              </div>
+              <Skeleton className="h-9 w-28 rounded-lg shrink-0" />
+            </div>
+          </div>
+        ) : (
+          <VerificationStatusBadge />
+        ))}
 
         {/* Available Services Section */}
         {(!isLoggedIn || (isLoggedIn && !isAdmin)) && (

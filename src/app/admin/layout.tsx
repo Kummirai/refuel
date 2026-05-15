@@ -13,14 +13,18 @@ import {
   LogOut,
   Menu,
   X,
+  Loader2,
   Bell,
   Shield,
-  Loader2,
   CheckCircle,
   Clock,
   AlertCircle,
   XCircle,
+  FileText,
+  Receipt,
+  Send,
 } from "lucide-react";
+import { formatMoney } from "@/lib/money";
 
 export default function AdminLayout({
   children,
@@ -37,27 +41,34 @@ export default function AdminLayout({
   const [pendingVerificationsCount, setPendingVerificationsCount] = useState(0);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [pendingRepaymentsCount, setPendingRepaymentsCount] = useState(0);
+  const [pendingReceiptsCount, setPendingReceiptsCount] = useState(0);
+  const [noReceiptCount, setNoReceiptCount] = useState(0);
 
   // Store full data for detailed view
   const [pendingVerifications, setPendingVerifications] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [pendingRepayments, setPendingRepayments] = useState<any[]>([]);
-
+  const [pendingReceipts, setPendingReceipts] = useState<any[]>([]);
   const fetchAllCounts = async () => {
     try {
-      const [verificationsRes, requestsRes, repaymentsRes] = await Promise.all([
-        fetch("/api/admin/verifications/count"),
-        fetch("/api/admin/requests/count"),
-        fetch("/api/admin/repayments/count"),
-      ]);
+      const [verificationsRes, requestsRes, repaymentsRes, receiptRes] =
+        await Promise.all([
+          fetch("/api/admin/verifications/count"),
+          fetch("/api/admin/requests/count"),
+          fetch("/api/admin/repayments/count"),
+          fetch("/api/admin/receipts/count"),
+        ]);
 
       const verifications = await verificationsRes.json();
       const requests = await requestsRes.json();
       const repayments = await repaymentsRes.json();
+      const receipts = await receiptRes.json();
 
       setPendingVerificationsCount(verifications.pending || 0);
       setPendingRequestsCount(requests.pending || 0);
       setPendingRepaymentsCount(repayments.pending || 0);
+      setPendingReceiptsCount(receipts.pending || 0);
+      setNoReceiptCount(receipts.noReceipt || 0);
     } catch (error) {
       console.error("Error fetching counts:", error);
     }
@@ -65,19 +76,23 @@ export default function AdminLayout({
 
   const fetchPendingDetails = async () => {
     try {
-      const [verificationsRes, requestsRes, repaymentsRes] = await Promise.all([
-        fetch("/api/admin/verifications?status=pending&limit=5"),
-        fetch("/api/admin/requests?status=pending&limit=5"),
-        fetch("/api/admin/repayments?status=pending&limit=5"),
-      ]);
+      const [verificationsRes, requestsRes, repaymentsRes, receiptsRes] =
+        await Promise.all([
+          fetch("/api/admin/verifications/pending?limit=5"),
+          fetch("/api/admin/requests?status=pending&limit=5"),
+          fetch("/api/admin/repayments?status=pending&limit=5"),
+          fetch("/api/admin/receipts?status=pending&limit=5"),
+        ]);
 
       const verifications = await verificationsRes.json();
       const requests = await requestsRes.json();
       const repayments = await repaymentsRes.json();
+      const receipts = await receiptsRes.json();
 
       setPendingVerifications(verifications.data || verifications || []);
       setPendingRequests(requests.data || requests || []);
       setPendingRepayments(repayments.data || repayments || []);
+      setPendingReceipts(receipts.data || receipts || []);
     } catch (error) {
       console.error("Error fetching pending details:", error);
     }
@@ -143,24 +158,23 @@ export default function AdminLayout({
     router.push("/");
   };
 
-  if (isPending) {
+  if (!isAuthorized) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-[#3A7717] animate-spin mx-auto mb-4" />
-          <p className="text-[#01312D]">Verifying access...</p>
+          <Loader2 className="w-10 h-10 text-[#3A7717] animate-spin mx-auto" />
+          <p className="mt-4 text-[#01312D] font-medium">Verifying access...</p>
         </div>
       </div>
     );
   }
 
-  if (!isAuthorized) {
-    return null;
-  }
-
   const user = session?.user as any;
   const totalNotifications =
-    pendingVerificationsCount + pendingRequestsCount + pendingRepaymentsCount;
+    pendingVerificationsCount +
+    pendingRequestsCount +
+    pendingRepaymentsCount +
+    pendingReceiptsCount;
 
   const navItems = [
     {
@@ -180,11 +194,19 @@ export default function AdminLayout({
     },
     {
       icon: ClipboardList,
-      label: "Service Requests",
+      label: "Requests",
       path: "/admin/service-requests",
       active: pathname === "/admin/service-requests",
       badge: pendingRequestsCount,
       badgeColor: "bg-blue-500",
+    },
+    {
+      icon: Receipt,
+      label: "Receipts",
+      path: "/admin/receipts",
+      active: pathname === "/admin/receipts",
+      badge: pendingReceiptsCount,
+      badgeColor: "bg-purple-500",
     },
     {
       icon: DollarSign,
@@ -193,6 +215,13 @@ export default function AdminLayout({
       active: pathname === "/admin/repayments",
       badge: pendingRepaymentsCount,
       badgeColor: "bg-green-500",
+    },
+    {
+      icon: Send,
+      label: "Invoices",
+      path: "/admin/invoices",
+      active: pathname === "/admin/invoices",
+      badge: null,
     },
     {
       icon: Settings,
@@ -334,19 +363,20 @@ export default function AdminLayout({
                             {pendingRequestsCount !== 1 ? "s" : ""} awaiting
                             approval
                           </p>
-                          {pendingRequests.slice(0, 2).map((req: any, idx) => (
-                            <div
-                              key={idx}
-                              className="mt-2 text-xs text-gray-400 flex items-center gap-2"
-                            >
-                              <Clock className="w-3 h-3" />
-                              <span>
-                                {req.serviceType || "Service"} -{" "}
-                                {req.driverName || "Driver"} • R
-                                {req.amount?.toLocaleString()}
-                              </span>
-                            </div>
-                          ))}
+                          {Array.isArray(pendingRequests) &&
+                            pendingRequests.slice(0, 2).map((req: any, idx) => (
+                              <div
+                                key={idx}
+                                className="mt-2 text-xs text-gray-400 flex items-center gap-2"
+                              >
+                                <Clock className="w-3 h-3" />
+                                <span>
+                                  {req.serviceType || "Service"} -{" "}
+                                  {req.driverName || "Driver"} •{" "}
+                                  {formatMoney(req.amount)}
+                                </span>
+                              </div>
+                            ))}
                           {pendingRequestsCount > 2 && (
                             <p className="text-xs text-blue-600 mt-1">
                               +{pendingRequestsCount - 2} more
@@ -392,9 +422,9 @@ export default function AdminLayout({
                               >
                                 <AlertCircle className="w-3 h-3" />
                                 <span>
-                                  {rep.driverName || "Driver"} - R
-                                  {rep.remainingAmount?.toLocaleString()}{" "}
-                                  remaining • Due{" "}
+                                  {rep.driverName || "Driver"} -{" "}
+                                  {formatMoney(rep.remainingAmount)} remaining •
+                                  Due{" "}
                                   {rep.dueDate
                                     ? new Date(rep.dueDate).toLocaleDateString()
                                     : "N/A"}
@@ -411,59 +441,113 @@ export default function AdminLayout({
                     </button>
                   </div>
                 )}
+
+                {/* Receipts Section */}
+                {pendingReceiptsCount > 0 && (
+                  <div className="p-4 hover:bg-purple-50/50 transition-colors">
+                    <button
+                      onClick={() => handleNavigate("/admin/receipts")}
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <FileText className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-[#01312D]">
+                              Receipts
+                            </span>
+                            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                              {pendingReceiptsCount} pending
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {pendingReceiptsCount} receipt
+                            {pendingReceiptsCount !== 1 ? "s" : ""} to approve
+                          </p>
+                          {pendingReceipts
+                            .slice(0, 2)
+                            .map((receipt: any, idx) => (
+                              <div
+                                key={idx}
+                                className="mt-2 text-xs text-gray-400 flex items-center gap-2"
+                              >
+                                <AlertCircle className="w-3 h-3" />
+                                <span>
+                                  {receipt.driverName || "Driver"} -{" "}
+                                  {formatMoney(receipt.amount)} • Due{" "}
+                                  {receipt.dueDate
+                                    ? new Date(
+                                        receipt.dueDate,
+                                      ).toLocaleDateString()
+                                    : "N/A"}
+                                </span>
+                              </div>
+                            ))}
+                          {pendingReceiptsCount > 2 && (
+                            <p className="text-xs text-purple-600 mt-1">
+                              +{pendingReceiptsCount - 2} more
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                )}
+
+                {/* Footer */}
+                <div className="p-3 bg-gray-50 border-t border-gray-100">
+                  <div className="grid grid-cols-3 gap-2">
+                    {pendingVerificationsCount > 0 && (
+                      <button
+                        onClick={() => handleNavigate("/admin/verifications")}
+                        className="text-center p-2 rounded-lg hover:bg-yellow-100 transition-colors"
+                      >
+                        <Users className="w-4 h-4 text-yellow-600 mx-auto" />
+                        <span className="text-xs text-gray-600 mt-1 block">
+                          Verifications
+                        </span>
+                      </button>
+                    )}
+                    {pendingRequestsCount > 0 && (
+                      <button
+                        onClick={() =>
+                          handleNavigate("/admin/service-requests")
+                        }
+                        className="text-center p-2 rounded-lg hover:bg-blue-100 transition-colors"
+                      >
+                        <ClipboardList className="w-4 h-4 text-blue-600 mx-auto" />
+                        <span className="text-xs text-gray-600 mt-1 block">
+                          Requests
+                        </span>
+                      </button>
+                    )}
+                    {pendingRepaymentsCount > 0 && (
+                      <button
+                        onClick={() => handleNavigate("/admin/repayments")}
+                        className="text-center p-2 rounded-lg hover:bg-green-100 transition-colors"
+                      >
+                        <DollarSign className="w-4 h-4 text-green-600 mx-auto" />
+                        <span className="text-xs text-gray-600 mt-1 block">
+                          Repayments
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Close button for mobile */}
+                <div className="p-3 border-t border-gray-100 lg:hidden">
+                  <button
+                    onClick={() => setShowNotifications(false)}
+                    className="w-full py-2 bg-gray-100 text-gray-600 rounded-lg font-semibold text-sm"
+                  >
+                    Close
+                  </button>
+                </div>
               </>
             )}
-          </div>
-
-          {/* Footer */}
-          {totalNotifications > 0 && (
-            <div className="p-3 bg-gray-50 border-t border-gray-100">
-              <div className="grid grid-cols-3 gap-2">
-                {pendingVerificationsCount > 0 && (
-                  <button
-                    onClick={() => handleNavigate("/admin/verifications")}
-                    className="text-center p-2 rounded-lg hover:bg-yellow-100 transition-colors"
-                  >
-                    <Users className="w-4 h-4 text-yellow-600 mx-auto" />
-                    <span className="text-xs text-gray-600 mt-1 block">
-                      Verifications
-                    </span>
-                  </button>
-                )}
-                {pendingRequestsCount > 0 && (
-                  <button
-                    onClick={() => handleNavigate("/admin/service-requests")}
-                    className="text-center p-2 rounded-lg hover:bg-blue-100 transition-colors"
-                  >
-                    <ClipboardList className="w-4 h-4 text-blue-600 mx-auto" />
-                    <span className="text-xs text-gray-600 mt-1 block">
-                      Requests
-                    </span>
-                  </button>
-                )}
-                {pendingRepaymentsCount > 0 && (
-                  <button
-                    onClick={() => handleNavigate("/admin/repayments")}
-                    className="text-center p-2 rounded-lg hover:bg-green-100 transition-colors"
-                  >
-                    <DollarSign className="w-4 h-4 text-green-600 mx-auto" />
-                    <span className="text-xs text-gray-600 mt-1 block">
-                      Repayments
-                    </span>
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Close button for mobile */}
-          <div className="p-3 border-t border-gray-100 lg:hidden">
-            <button
-              onClick={() => setShowNotifications(false)}
-              className="w-full py-2 bg-gray-100 text-gray-600 rounded-lg font-semibold text-sm"
-            >
-              Close
-            </button>
           </div>
         </div>
       </>
@@ -502,7 +586,7 @@ export default function AdminLayout({
             </div>
           </div>
 
-          <nav className="space-y-2 flex-1">
+          <nav className="space-y-2 sm:space-y-1 flex-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (

@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { Readable } from "stream";
 
-// Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -13,7 +13,6 @@ cloudinary.config({
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify user is authenticated
     const session = await auth.api.getSession({
       headers: await headers(),
     });
@@ -30,7 +29,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    // Validate file type
     if (!file.type.startsWith("image/")) {
       return NextResponse.json(
         { error: "File must be an image" },
@@ -38,19 +36,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
+    if (file.size > 20 * 1024 * 1024) {
       return NextResponse.json(
-        { error: "File size must be less than 10MB" },
+        { error: "File size must be less than 20MB" },
         { status: 400 },
       );
     }
 
-    // Convert file to buffer
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const requestId = formData.get("requestId") as string;
 
-    // Determine folder based on type
     let folder = "kapuka/drivers";
     if (type === "drivingLicense") {
       folder = "kapuka/drivers/drivingLicense";
@@ -58,22 +52,29 @@ export async function POST(request: NextRequest) {
       folder = "kapuka/drivers/carRegistration";
     } else if (type === "profilePhoto") {
       folder = "kapuka/drivers/profilePhoto";
+    } else if (type === "pop") {
+      folder = `kapuka/pop/${requestId || "unknown"}`;
+    } else if (type === "repayment") {
+      folder = `kapuka/repayments/${requestId || "unknown"}`;
     }
 
-    // Upload to Cloudinary
     const result = await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
-          folder: folder,
+          folder,
           resource_type: "image",
-          transformation: [{ quality: "auto" }, { fetch_format: "auto" }],
+          transformation: [
+            { quality: "auto" },
+            { fetch_format: "auto" },
+            { width: 1920, crop: "limit" },
+          ],
         },
         (error, result) => {
           if (error) reject(error);
           else resolve(result);
         },
       );
-      uploadStream.end(buffer);
+      Readable.fromWeb(file.stream() as any).pipe(uploadStream);
     });
 
     return NextResponse.json({

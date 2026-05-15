@@ -1,5 +1,6 @@
 // src/lib/email.ts
 import nodemailer from "nodemailer";
+import { formatMoney, toMoney } from "@/lib/money";
 
 // Validate environment variables
 const requiredEnvVars = [
@@ -109,51 +110,279 @@ const formatDate = (date: string | Date): string => {
   });
 };
 
-// Global styles for all email templates
+// Global styles for all email templates - Modern & Clean
 const globalStyles = `
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
-  .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-  .header { background-color: #1a4d2a; padding: 30px 20px; text-align: center; }
-  .header h1 { color: #ffffff; margin: 0; font-size: 24px; font-weight: bold; }
-  .header p { color: #c8e6b5; margin: 8px 0 0; font-size: 14px; }
-  .content { padding: 30px; }
-  .badge { display: inline-block; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 24px; }
-  .badge-pending { background-color: #ea8c2b; color: #ffffff; }
-  .badge-approved { background-color: #25a73d; color: #ffffff; }
-  .badge-rejected { background-color: #b91c1c; color: #ffffff; }
-  .badge-uploaded { background-color: #25a73d; color: #ffffff; }
-  .card { background-color: #f8f9fa; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #e9ecef; }
-  .card-title { color: #1a4d2a; font-size: 16px; font-weight: bold; margin: 0 0 16px 0; padding-bottom: 12px; border-bottom: 2px solid #c8e6b5; }
-  .info-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px; border-bottom: 1px solid #e9ecef; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: #f4f6f9;
+    margin: 0;
+    padding: 24px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container {
+    max-width: 580px;
+    margin: 0 auto;
+    background-color: #ffffff;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+  }
+  .header {
+    background: linear-gradient(135deg, #0d4a2a 0%, #1a6b3e 50%, #0d4a2a 100%);
+    padding: 36px 28px;
+    text-align: center;
+    position: relative;
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #bff202, #72bf00, #bff202);
+  }
+  .header h1 {
+    color: #ffffff;
+    margin: 0;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  .header p {
+    color: rgba(255, 255, 255, 0.85);
+    margin: 6px 0 0;
+    font-size: 15px;
+    font-weight: 400;
+  }
+  .content {
+    padding: 32px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 7px 18px;
+    border-radius: 24px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+  .badge-pending { background-color: #f59e0b; color: #ffffff; }
+  .badge-approved { background-color: #16a34a; color: #ffffff; }
+  .badge-rejected { background-color: #dc2626; color: #ffffff; }
+  .badge-uploaded { background-color: #16a34a; color: #ffffff; }
+  .badge-info { background-color: #3b82f6; color: #ffffff; }
+  .card {
+    background-color: #f8fafc;
+    border-radius: 14px;
+    padding: 22px;
+    margin-bottom: 20px;
+    border: 1px solid #e2e8f0;
+  }
+  .card-title {
+    color: #0d4a2a;
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0 0 14px 0;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #dcfce7;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    font-size: 14px;
+    border-bottom: 1px solid #f1f5f9;
+  }
   .info-row:last-child { border-bottom: none; }
-  .label { color: #6c757d; font-weight: 500; }
-  .value { color: #212529; font-weight: 600; }
-  .amount-card { background: linear-gradient(135deg, #e8f5e9 0%, #c8e6b5 100%); border-radius: 16px; padding: 24px; text-align: center; margin: 20px 0; }
-  .amount-label { color: #1a4d2a; font-size: 14px; font-weight: 600; margin: 0 0 8px 0; }
-  .amount-value { font-size: 36px; font-weight: bold; color: #1a4d2a; }
-  .otp-card { background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%); border-radius: 16px; padding: 24px; text-align: center; margin: 20px 0; }
-  .otp-label { color: #ffffff; font-size: 14px; font-weight: 600; margin: 0 0 12px 0; letter-spacing: 1px; }
-  .otp-code { background-color: #ffffff; border-radius: 12px; padding: 16px; font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #1a4d2a; font-family: 'Courier New', monospace; }
-  .otp-note { color: #ffffff; font-size: 12px; margin: 12px 0 0 0; opacity: 0.9; }
-  .validity-box { background-color: #fef3c7; border-left: 4px solid #ea8c2b; padding: 12px 16px; border-radius: 8px; margin: 16px 0; }
-  .validity-text { color: #92400e; font-size: 14px; font-weight: 600; margin: 0; }
-  .time-badge { background-color: #ea8c2b; color: white; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; display: inline-block; margin-top: 8px; }
-  .driver-highlight { background-color: #e8f5e9; border-radius: 12px; padding: 16px; margin: 16px 0; border: 1px solid #c8e6b5; }
-  .driver-name { font-size: 20px; font-weight: bold; color: #1a4d2a; }
-  .car-reg { font-size: 16px; color: #2d6a4f; font-weight: 600; }
-  .button { display: inline-block; background-color: #2d6a4f; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; margin-top: 20px; text-align: center; }
-  .button-secondary { display: inline-block; background-color: #6c757d; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; margin: 10px 5px; text-align: center; }
-  .footer { background-color: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #6c757d; border-top: 1px solid #e9ecef; }
-  .info-highlight { background-color: #e3f2fd; border-radius: 12px; padding: 16px; margin: 16px 0; border-left: 4px solid #2196f3; }
-  .proof-box { background-color: #e8f5e9; border-radius: 12px; padding: 16px; text-align: center; margin: 16px 0; border: 1px solid #c8e6b5; }
-  .remaining-box { background-color: #fef3c7; border-left: 4px solid #ea8c2b; padding: 12px 16px; border-radius: 8px; margin: 16px 0; }
-  .remaining-value { font-size: 20px; color: #b91c1c; font-weight: bold; }
-  .celebration-box { background: linear-gradient(135deg, #e8f5e9 0%, #c8e6b5 100%); border-radius: 16px; padding: 24px; text-align: center; margin: 20px 0; }
-  .reason-box { background-color: #fef2f2; border-left: 4px solid #b91c1c; padding: 16px; border-radius: 8px; margin: 16px 0; }
-  .reason-text { color: #991b1b; font-size: 14px; margin: 0; }
-  .loan-box { background-color: #e3f2fd; border-radius: 12px; padding: 16px; margin: 16px 0; border-left: 4px solid #2196f3; }
-  .success-list { margin: 16px 0 0 20px; color: #212529; font-size: 14px; }
+  .label { color: #64748b; font-weight: 500; }
+  .value { color: #0f172a; font-weight: 600; }
+  .amount-card {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 50%, #bbf7d0 100%);
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+    margin: 20px 0;
+    border: 1px solid #e2e8f0;
+  }
+  .amount-label {
+    color: #0d4a2a;
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 6px 0;
+    letter-spacing: 0.3px;
+  }
+  .amount-value {
+    font-size: 38px;
+    font-weight: 800;
+    color: #0d4a2a;
+    letter-spacing: -1px;
+    line-height: 1.1;
+  }
+  .otp-card {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #fcd34d 100%);
+    border-radius: 16px;
+    padding: 28px 24px;
+    text-align: center;
+    margin: 20px 0;
+    border: 1px solid #fcd34d;
+  }
+  .otp-label {
+    color: #78350f;
+    font-size: 12px;
+    font-weight: 700;
+    margin: 0 0 14px 0;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .otp-code {
+    background-color: #ffffff;
+    border-radius: 14px;
+    padding: 18px 20px;
+    font-size: 40px;
+    font-weight: 800;
+    letter-spacing: 10px;
+    color: #0d4a2a;
+    font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    display: inline-block;
+  }
+  .otp-note {
+    color: #78350f;
+    font-size: 13px;
+    margin: 14px 0 0 0;
+    opacity: 0.85;
+  }
+  .validity-box {
+    background-color: #fef3c7;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 16px 0;
+    border: 1px solid #fde68a;
+  }
+  .validity-text { color: #92400e; font-size: 14px; font-weight: 700; margin: 0; }
+  .time-badge {
+    background-color: #ea580c;
+    color: white;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    display: inline-block;
+    margin-top: 8px;
+    letter-spacing: 0.3px;
+  }
+  .driver-highlight {
+    background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 100%);
+    border-radius: 14px;
+    padding: 20px;
+    margin: 16px 0;
+    border: 1px solid #dcfce7;
+  }
+  .driver-name { font-size: 20px; font-weight: 700; color: #0d4a2a; letter-spacing: -0.3px; }
+  .car-reg { font-size: 15px; color: #16a34a; font-weight: 600; }
+  .button {
+    display: inline-block;
+    background: linear-gradient(135deg, #0d4a2a 0%, #16a34a 100%);
+    color: #ffffff;
+    text-decoration: none;
+    padding: 14px 32px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 14px;
+    margin-top: 20px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(22, 163, 74, 0.2);
+    transition: all 0.2s ease;
+  }
+  .button-secondary {
+    display: inline-block;
+    background-color: #ffffff;
+    color: #0d4a2a;
+    text-decoration: none;
+    padding: 13px 30px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 14px;
+    margin: 10px 4px;
+    text-align: center;
+    border: 2px solid #0d4a2a;
+  }
+  .footer {
+    background-color: #f8fafc;
+    padding: 24px;
+    text-align: center;
+    font-size: 12px;
+    color: #94a3b8;
+    border-top: 1px solid #e2e8f0;
+    line-height: 1.6;
+  }
+  .footer strong { color: #64748b; }
+  .info-highlight {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    border-radius: 14px;
+    padding: 20px;
+    margin: 16px 0;
+    border: 1px solid #bfdbfe;
+  }
+  .proof-box {
+    background-color: #f0fdf4;
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+    margin: 16px 0;
+    border: 1px solid #bbf7d0;
+  }
+  .remaining-box {
+    background-color: #fef3c7;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 16px 0;
+    border: 1px solid #fde68a;
+  }
+  .remaining-value { font-size: 22px; color: #dc2626; font-weight: 800; letter-spacing: -0.5px; }
+  .celebration-box {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 50%, #bbf7d0 100%);
+    border-radius: 16px;
+    padding: 28px 24px;
+    text-align: center;
+    margin: 20px 0;
+    border: 1px solid #86efac;
+  }
+  .reason-box {
+    background-color: #fef2f2;
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin: 16px 0;
+    border: 1px solid #fecaca;
+    border-left: 4px solid #dc2626;
+  }
+  .reason-text { color: #991b1b; font-size: 14px; margin: 0; line-height: 1.5; }
+  .loan-box {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    border-radius: 14px;
+    padding: 20px;
+    margin: 16px 0;
+    border: 1px solid #bfdbfe;
+  }
+  .success-list { margin: 16px 0 0 20px; color: #0f172a; font-size: 14px; line-height: 1.6; }
   .success-list li { margin: 8px 0; }
+  .divider { height: 1px; background: #e2e8f0; margin: 20px 0; }
+  .icon-circle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    font-size: 24px;
+    margin-bottom: 12px;
+  }
 `;
 
 // Admin Notification Email - New Service Request
@@ -190,9 +419,9 @@ const generateAdminEmailHtml = (data: ServiceRequestEmailData): string => {
               <div class="driver-name">${data.driverName}</div>
               <div class="car-reg">${data.carRegistration}</div>
             </div>
-            <div class="info-row"><span class="label">📧 Email:</span><span class="value">${data.driverEmail}</span></div>
-            <div class="info-row"><span class="label">📱 Phone:</span><span class="value">${data.driverPhone}</span></div>
-            ${data.carModel ? `<div class="info-row"><span class="label">🚗 Car Model:</span><span class="value">${data.carModel}</span></div>` : ""}
+            <div class="info-row"><span class="label"> Email:</span><span class="value">${data.driverEmail}</span></div>
+            <div class="info-row"><span class="label"> Phone:</span><span class="value">${data.driverPhone}</span></div>
+            ${data.carModel ? `<div class="info-row"><span class="label"> Car Model:</span><span class="value">${data.carModel}</span></div>` : ""}
           </div>
           
           <div class="card">
@@ -200,8 +429,8 @@ const generateAdminEmailHtml = (data: ServiceRequestEmailData): string => {
             <div class="info-row"><span class="label">Service Type:</span><span class="value">${serviceTypeMap[data.serviceType] || data.serviceType}</span></div>
             <div class="info-row"><span class="label">Request ID:</span><span class="value">${data.requestId.slice(-8).toUpperCase()}</span></div>
             <div class="amount-card" style="margin: 16px 0;">
-              <div class="amount-label">💰 Request Amount</div>
-              <div class="amount-value">R ${data.amount.toLocaleString()}</div>
+              <div class="amount-label"> Request Amount</div>
+              <div class="amount-value">${formatMoney(data.amount)}</div>
             </div>
             <div class="info-row"><span class="label">Request Date:</span><span class="value">${formatDateTime(data.requestDate)}</span></div>
           </div>
@@ -289,8 +518,8 @@ const generateDriverApprovalHtml = (data: {
             <div class="card-title">Request Information</div>
             <div class="info-row"><span class="label">Service Type:</span><span class="value">${serviceTypeMap[data.serviceType] || data.serviceType}</span></div>
             <div class="amount-card" style="margin: 16px 0;">
-              <div class="amount-label">💰 Approved Amount</div>
-              <div class="amount-value">R ${data.amount.toLocaleString()}</div>
+              <div class="amount-label"> Approved Amount</div>
+              <div class="amount-value">${formatMoney(data.amount)}</div>
             </div>
           </div>
           
@@ -301,9 +530,9 @@ const generateDriverApprovalHtml = (data: {
           </div>
           
           <div class="validity-box">
-            <div class="validity-text">⚠️ IMPORTANT: OTP Validity Information</div>
+            <div class="validity-text"> IMPORTANT: OTP Validity Information</div>
             <div style="margin-top: 12px; text-align: center;">
-              <span class="time-badge">⏰ Valid for 1 hour only</span>
+              <span class="time-badge"> Valid for 1 hour only</span>
             </div>
             <div style="margin-top: 12px; font-size: 13px; color: #92400e;">
               This OTP will expire <strong>1 hour</strong> from the time of approval.
@@ -338,7 +567,7 @@ export async function sendDriverApprovalEmail(data: {
     const info = await transporter.sendMail({
       from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
       to: data.driverEmail,
-      subject: `✅ Service Request Approved - ${data.requestId.slice(-8).toUpperCase()}`,
+      subject: ` Service Request Approved - ${data.requestId.slice(-8).toUpperCase()}`,
       html: generateDriverApprovalHtml(data),
       text: `Your request for R${data.amount} has been approved. OTP: ${data.otp} - Valid for 1 hour`,
     });
@@ -396,7 +625,7 @@ const generateDriverRejectionHtml = (data: {
           <div class="card">
             <div class="card-title">Request Information</div>
             <div class="info-row"><span class="label">Service Type:</span><span class="value">${serviceTypeMap[data.serviceType] || data.serviceType}</span></div>
-            <div class="info-row"><span class="label">Amount:</span><span class="value">R ${data.amount.toLocaleString()}</span></div>
+            <div class="info-row"><span class="label">Amount:</span><span class="value">${formatMoney(data.amount)}</span></div>
           </div>
           
           <div class="reason-box">
@@ -432,7 +661,7 @@ export async function sendDriverRejectionEmail(data: {
     const info = await transporter.sendMail({
       from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
       to: data.driverEmail,
-      subject: `❌ Service Request Rejected - ${data.requestId.slice(-8).toUpperCase()}`,
+      subject: ` Service Request Rejected - ${data.requestId.slice(-8).toUpperCase()}`,
       html: generateDriverRejectionHtml(data),
       text: `Your request for R${data.amount} has been rejected. Reason: ${data.reason}`,
     });
@@ -497,9 +726,9 @@ export async function sendVerificationNotificationEmail(data: {
           <div class="driver-highlight">
             <div class="driver-name">${data.driverName || "N/A"}</div>
             <div class="car-reg">${data.carRegistration || "N/A"}</div>
-            <div class="info-row" style="margin-top: 12px;"><span class="label">📧 Email:</span><span class="value">${data.driverEmail || "Not provided"}</span></div>
-            <div class="info-row"><span class="label">📱 Phone:</span><span class="value">${data.driverPhone || "Not provided"}</span></div>
-            <div class="info-row"><span class="label">🚗 Car Model:</span><span class="value">${data.carModel || "Not specified"}</span></div>
+            <div class="info-row" style="margin-top: 12px;"><span class="label"> Email:</span><span class="value">${data.driverEmail || "Not provided"}</span></div>
+            <div class="info-row"><span class="label"> Phone:</span><span class="value">${data.driverPhone || "Not provided"}</span></div>
+            <div class="info-row"><span class="label"> Car Model:</span><span class="value">${data.carModel || "Not specified"}</span></div>
           </div>
           
           <div class="card">
@@ -581,7 +810,7 @@ export async function sendDriverVerificationResultEmail(data: {
             isApproved
               ? `
             <div class="celebration-box">
-              <div style="font-size: 48px; margin-bottom: 8px;">🎉</div>
+              <div style="font-size: 48px; margin-bottom: 8px;"></div>
               <div style="font-weight: bold; font-size: 18px; color: #1a4d2a; margin-bottom: 8px;">Welcome to Kapuka!</div>
               <div style="font-size: 14px; color: #2d6a4f;">Your driver verification has been approved.</div>
             </div>
@@ -623,8 +852,8 @@ export async function sendDriverVerificationResultEmail(data: {
       from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
       to: data.driverEmail,
       subject: isApproved
-        ? `✅ Driver Verification Approved - Kapuka`
-        : `❌ Driver Verification Rejected - Kapuka`,
+        ? ` Driver Verification Approved - Kapuka`
+        : ` Driver Verification Rejected - Kapuka`,
       html: html,
     });
     console.log(`Driver verification ${data.status} email sent`);
@@ -666,25 +895,25 @@ export async function sendAdminRepaymentProofEmail(data: {
         </div>
         <div class="content">
           <div style="text-align: center;">
-            <span class="badge badge-pending">⏳ PENDING REVIEW</span>
+            <span class="badge badge-pending"> PENDING REVIEW</span>
           </div>
           
           <div class="driver-highlight">
             <div class="driver-name">${data.driverName}</div>
             <div class="car-reg">${data.carRegistration}</div>
-            <div class="info-row" style="margin-top: 12px;"><span class="label">📧 Email:</span><span class="value">${data.driverEmail}</span></div>
-            <div class="info-row"><span class="label">📱 Phone:</span><span class="value">${data.driverPhone}</span></div>
+            <div class="info-row" style="margin-top: 12px;"><span class="label"> Email:</span><span class="value">${data.driverEmail}</span></div>
+            <div class="info-row"><span class="label"> Phone:</span><span class="value">${data.driverPhone}</span></div>
           </div>
           
           <div class="amount-card">
-            <div class="amount-label">💰 Repayment Amount</div>
-            <div class="amount-value">R ${data.amount.toLocaleString()}</div>
+            <div class="amount-label"> Repayment Amount</div>
+            <div class="amount-value">${formatMoney(data.amount)}</div>
             <div style="margin-top: 8px; font-size: 14px; color: #2d6a4f;">${data.serviceTypeLabel}</div>
           </div>
           
           <div class="remaining-box">
-            <div style="font-weight: bold; margin-bottom: 8px;">💰 Remaining Balance After This Payment</div>
-            <div class="remaining-value">R ${data.remainingBalance.toLocaleString()}</div>
+            <div style="font-weight: bold; margin-bottom: 8px;"> Remaining Balance After This Payment</div>
+            <div class="remaining-value">${formatMoney(data.remainingBalance)}</div>
           </div>
           
           <div class="card">
@@ -695,11 +924,11 @@ export async function sendAdminRepaymentProofEmail(data: {
           </div>
           
           <div class="proof-box">
-            📎 <a href="${data.proofUrl}" target="_blank" style="color: #2d6a4f; font-weight: 600; text-decoration: underline;">View Proof of Payment Document</a>
+             <a href="${data.proofUrl}" target="_blank" style="color: #2d6a4f; font-weight: 600; text-decoration: underline;">View Proof of Payment Document</a>
           </div>
           
           <div class="validity-box">
-            <div class="validity-text">⚠️ ACTION REQUIRED</div>
+            <div class="validity-text"> ACTION REQUIRED</div>
             <div style="margin-top: 8px; font-size: 13px; color: #92400e;">Please review the proof and approve or reject the repayment.</div>
           </div>
           
@@ -720,9 +949,9 @@ export async function sendAdminRepaymentProofEmail(data: {
     const info = await transporter.sendMail({
       from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
       to: adminEmails,
-      subject: `New Repayment Proof - ${data.driverName} - R${data.amount.toLocaleString()}`,
+      subject: `New Repayment Proof - ${data.driverName} - ${formatMoney(data.amount)}`,
       html: html,
-      text: `New repayment proof submitted by ${data.driverName} for R${data.amount.toLocaleString()}. Remaining balance: R${data.remainingBalance.toLocaleString()}`,
+      text: `New repayment proof submitted by ${data.driverName} for ${formatMoney(data.amount)}. Remaining balance: ${formatMoney(data.remainingBalance)}`,
     });
     console.log("Admin repayment proof email sent to:", adminEmails.join(", "));
     console.log("Email ID:", info.messageId);
@@ -760,7 +989,7 @@ export async function sendDriverRepaymentApprovalEmail(data: {
         </div>
         <div class="content">
           <div style="text-align: center;">
-            <span class="badge badge-approved">${data.isFullyPaid ? "✅ FULLY PAID" : "✓ APPROVED"}</span>
+            <span class="badge badge-approved">${data.isFullyPaid ? " FULLY PAID" : " APPROVED"}</span>
           </div>
           
           <div class="driver-highlight">
@@ -769,8 +998,8 @@ export async function sendDriverRepaymentApprovalEmail(data: {
           </div>
           
           <div class="amount-card">
-            <div class="amount-label">💰 Payment Amount</div>
-            <div class="amount-value">R ${data.amount.toLocaleString()}</div>
+            <div class="amount-label"> Payment Amount</div>
+            <div class="amount-value">${formatMoney(data.amount)}</div>
             <div style="margin-top: 8px;">${data.serviceTypeLabel}</div>
           </div>
           
@@ -778,7 +1007,7 @@ export async function sendDriverRepaymentApprovalEmail(data: {
             data.isFullyPaid
               ? `
             <div class="celebration-box">
-              <div style="font-size: 48px; margin-bottom: 8px;">🎉</div>
+              <div style="font-size: 48px; margin-bottom: 8px;"></div>
               <div style="font-weight: bold; font-size: 18px; color: #1a4d2a; margin-bottom: 8px;">Congratulations!</div>
               <div style="font-size: 14px; color: #2d6a4f;">Your ${data.serviceTypeLabel} loan is now fully paid off.</div>
               <div style="margin-top: 12px; font-size: 12px; color: #6c757d;">Thank you for being a responsible Kapuka customer!</div>
@@ -786,8 +1015,8 @@ export async function sendDriverRepaymentApprovalEmail(data: {
           `
               : `
             <div class="remaining-box">
-              <div style="font-weight: bold; margin-bottom: 8px;">💰 Remaining Balance</div>
-              <div class="remaining-value">R ${data.remainingBalance.toLocaleString()}</div>
+              <div style="font-weight: bold; margin-bottom: 8px;"> Remaining Balance</div>
+              <div class="remaining-value">${formatMoney(data.remainingBalance)}</div>
               <div style="margin-top: 8px; font-size: 12px; color: #92400e;">Continue making payments to clear your balance</div>
             </div>
           `
@@ -811,10 +1040,10 @@ export async function sendDriverRepaymentApprovalEmail(data: {
       from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
       to: data.driverEmail,
       subject: data.isFullyPaid
-        ? `🎉 ${data.serviceTypeLabel} Fully Paid - Kapuka`
-        : `✓ Repayment of R${data.amount.toLocaleString()} Approved - Kapuka`,
+        ? ` ${data.serviceTypeLabel} Fully Paid - Kapuka`
+        : ` Repayment of ${formatMoney(data.amount)} Approved - Kapuka`,
       html: html,
-      text: `Your repayment of R${data.amount.toLocaleString()} has been approved. Remaining balance: R${data.remainingBalance.toLocaleString()}`,
+      text: `Your repayment of ${formatMoney(data.amount)} has been approved. Remaining balance: ${formatMoney(data.remainingBalance)}`,
     });
     console.log("Driver repayment approval email sent:", info.messageId);
     return info;
@@ -850,7 +1079,7 @@ export async function sendDriverRepaymentRejectionEmail(data: {
         </div>
         <div class="content">
           <div style="text-align: center;">
-            <span class="badge badge-rejected">✗ REJECTED</span>
+            <span class="badge badge-rejected"> REJECTED</span>
           </div>
           
           <div class="driver-highlight">
@@ -859,8 +1088,8 @@ export async function sendDriverRepaymentRejectionEmail(data: {
           </div>
           
           <div class="amount-card" style="background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);">
-            <div class="amount-label">💰 Affected Payment</div>
-            <div class="amount-value" style="color: #b91c1c;">R ${data.amount.toLocaleString()}</div>
+            <div class="amount-label"> Affected Payment</div>
+            <div class="amount-value" style="color: #b91c1c;">${formatMoney(data.amount)}</div>
             <div style="margin-top: 8px;">${data.serviceTypeLabel}</div>
           </div>
           
@@ -889,9 +1118,9 @@ export async function sendDriverRepaymentRejectionEmail(data: {
     const info = await transporter.sendMail({
       from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
       to: data.driverEmail,
-      subject: `❌ Repayment Proof Rejected - Kapuka`,
+      subject: ` Repayment Proof Rejected - Kapuka`,
       html: html,
-      text: `Your repayment proof of R${data.amount.toLocaleString()} was rejected. Reason: ${data.reason}`,
+      text: `Your repayment proof of ${formatMoney(data.amount)} was rejected. Reason: ${data.reason}`,
     });
     console.log("Driver repayment rejection email sent:", info.messageId);
     return info;
@@ -927,27 +1156,7 @@ export async function sendAdminReceiptUploadEmail(data: {
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>New Receipt Uploaded</title>
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .header { background-color: #1a4d2a; padding: 30px; text-align: center; }
-        .header h1 { color: white; margin: 0; font-size: 24px; }
-        .header p { color: #c8e6b5; margin: 8px 0 0; }
-        .content { padding: 30px; }
-        .badge { display: inline-block; background-color: #ea8c2b; color: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 24px; }
-        .card { background: #f8f9fa; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #e9ecef; }
-        .card-title { color: #1a4d2a; font-size: 16px; font-weight: bold; margin: 0 0 16px 0; padding-bottom: 12px; border-bottom: 2px solid #c8e6b5; }
-        .info-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px; border-bottom: 1px solid #e9ecef; }
-        .info-row:last-child { border-bottom: none; }
-        .label { color: #6c757d; font-weight: 500; }
-        .value { color: #212529; font-weight: 600; }
-        .amount-value { font-size: 24px; color: #2d6a4f; font-weight: bold; }
-        .actual-amount-value { font-size: 20px; color: #ea8c2b; font-weight: bold; }
-        .proof-box { background: white; border: 2px solid #c8e6b5; border-radius: 12px; padding: 16px; text-align: center; margin: 16px 0; }
-        .button { display: inline-block; background-color: #2d6a4f; color: white; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; margin-top: 20px; }
-        .footer { background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #6c757d; border-top: 1px solid #e9ecef; }
-        .loan-details { background-color: #e8f5e9; border-radius: 12px; padding: 16px; margin-top: 16px; }
-      </style>
+      <style>${globalStyles}</style>
     </head>
     <body>
       <div class="container">
@@ -972,12 +1181,12 @@ export async function sendAdminReceiptUploadEmail(data: {
             <div class="card-title">Service Details</div>
             <div class="info-row"><span class="label">Service Type:</span><span class="value">${data.serviceTypeLabel}</span></div>
             <div class="info-row"><span class="label">Request ID:</span><span class="value">${data.requestId.slice(-8).toUpperCase()}</span></div>
-            <div class="info-row"><span class="label">Requested Amount:</span><span class="value amount-value">R ${data.amount.toLocaleString()}</span></div>
-            <div class="info-row"><span class="label">Actual Amount Used:</span><span class="value actual-amount-value">R ${data.actualAmount.toLocaleString()}</span></div>
+            <div class="info-row"><span class="label">Requested Amount:</span><span class="value amount-value">${formatMoney(data.amount)}</span></div>
+            <div class="info-row"><span class="label">Actual Amount Used:</span><span class="value actual-amount-value">${formatMoney(data.actualAmount)}</span></div>
             ${
               data.totalRepayable
                 ? `
-            <div class="info-row"><span class="label">Total Repayable (with interest):</span><span class="value">R ${data.totalRepayable.toLocaleString()}</span></div>
+            <div class="info-row"><span class="label">Total Repayable (with interest):</span><span class="value">${formatMoney(data.totalRepayable)}</span></div>
             `
                 : ""
             }
@@ -988,30 +1197,31 @@ export async function sendAdminReceiptUploadEmail(data: {
             data.totalRepayable
               ? `
           <div class="loan-details">
-            <div style="font-weight: bold; margin-bottom: 12px; color: #1a4d2a;">📋 Loan Information</div>
-            <div class="info-row"><span class="label">Interest Amount:</span><span class="value">R ${(data.totalRepayable - data.actualAmount).toLocaleString()}</span></div>
-            <div class="info-row"><span class="label">Repayment Schedule:</span><span class="value">Daily payments of R ${((data.totalRepayable || 0) / 7).toFixed(2)} for 7 days</span></div>
+            <div style="font-weight: bold; margin-bottom: 12px; color: #1a4d2a;"> Loan Information</div>
+            <div class="info-row"><span class="label">Interest Amount:</span><span class="value">${formatMoney(toMoney(data.totalRepayable - data.actualAmount))}</span></div>
+            <div class="info-row"><span class="label">Repayment Schedule:</span><span class="value">Daily payments of ${formatMoney(toMoney((data.totalRepayable || 0) / 7))} for 7 days</span></div>
           </div>
           `
               : ""
           }
           
           <div class="proof-box">
-            <div style="font-weight: bold; margin-bottom: 12px; color: #1a4d2a;">📎 Uploaded Receipt</div>
-            <a href="${data.popUrl}" target="_blank" style="color: #2d6a4f; text-decoration: underline; word-break: break-all;">View Receipt Document</a>
-            <div style="margin-top: 8px; font-size: 12px; color: #6c757d;">Click to view the uploaded receipt</div>
+            <div style="font-size: 14px; color: #0d4a2a; margin-bottom: 6px;"> Uploaded Receipt</div>
+            <a href="${data.popUrl}" target="_blank" style="color: #16a34a; font-weight: 700; text-decoration: underline; word-break: break-all;">View Receipt Document  &gt; </a>
+            <div style="margin-top: 6px; font-size: 12px; color: #64748b;">Click to view the uploaded receipt</div>
           </div>
           
           <div style="text-align: center;">
             <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/service-requests" class="button">Review Receipt</a>
           </div>
           
-          <div style="margin-top: 20px; padding: 12px; background-color: #fef3c7; border-radius: 8px; font-size: 12px; color: #92400e;">
-            <strong>⚠️ Action Required:</strong> Please verify the receipt and mark the service request as completed if everything is in order.
+          <div class="validity-box">
+            <div class="validity-text"> Action Required</div>
+            <div style="margin-top: 6px; font-size: 13px; color: #92400e;">Please verify the receipt and mark the service request as completed if everything is in order.</div>
           </div>
         </div>
         <div class="footer">
-          <p>Kapuka Tradings - Automated Notification</p>
+          <p><strong>Kapuka Tradings</strong>  --  Automated Notification</p>
           <p>This is an automated message, please do not reply.</p>
         </div>
       </div>
@@ -1025,7 +1235,7 @@ export async function sendAdminReceiptUploadEmail(data: {
       to: adminEmails,
       subject: `New Receipt Uploaded - ${data.driverName} (${data.serviceTypeLabel})`,
       html: html,
-      text: `${data.driverName} has uploaded a receipt for their ${data.serviceTypeLabel} request. Amount: R${data.actualAmount.toLocaleString()}. Please verify the receipt.`,
+      text: `${data.driverName} has uploaded a receipt for their ${data.serviceTypeLabel} request. Amount: ${formatMoney(data.actualAmount)}. Please verify the receipt.`,
     });
     console.log("Admin receipt upload email sent to:", adminEmails.join(", "));
     console.log("Email ID:", info.messageId);
@@ -1055,26 +1265,7 @@ export async function sendDriverReceiptUploadConfirmation(data: {
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Receipt Uploaded Successfully</title>
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
-        .container { max-width: 550px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .header { background: #25a73d; padding: 30px; text-align: center; }
-        .header h1 { color: white; margin: 0; font-size: 24px; }
-        .content { padding: 30px; }
-        .success-badge { display: inline-block; background: #25a73d; color: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 24px; }
-        .card { background: #f8f9fa; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #e9ecef; }
-        .card-title { color: #1a4d2a; font-size: 16px; font-weight: bold; margin: 0 0 16px 0; padding-bottom: 12px; border-bottom: 2px solid #c8e6b5; }
-        .info-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px; border-bottom: 1px solid #e9ecef; }
-        .info-row:last-child { border-bottom: none; }
-        .label { color: #6c757d; font-weight: 500; }
-        .value { color: #212529; font-weight: 600; }
-        .amount-box { background: linear-gradient(135deg, #e8f5e9 0%, #c8e6b5 100%); border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0; }
-        .amount-value { font-size: 32px; font-weight: bold; color: #1a4d2a; }
-        .pending-box { background: #fef3c7; border-radius: 12px; padding: 16px; text-align: center; margin: 20px 0; }
-        .loan-summary { background: #e3f2fd; border-radius: 12px; padding: 16px; margin-top: 16px; }
-        .button { display: inline-block; background-color: #2d6a4f; color: white; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; margin-top: 20px; }
-        .footer { background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #6c757d; border-top: 1px solid #e9ecef; }
-      </style>
+      <style>${globalStyles}</style>
     </head>
     <body>
       <div class="container">
@@ -1083,42 +1274,43 @@ export async function sendDriverReceiptUploadConfirmation(data: {
         </div>
         <div class="content">
           <div style="text-align: center;">
-            <span class="success-badge">UPLOADED</span>
+            <span class="badge badge-approved">UPLOADED</span>
           </div>
           
-          <p style="font-size: 16px; margin-bottom: 20px;">Hello ${data.driverName},</p>
-          <p style="margin-bottom: 20px;">Your receipt for your <strong>${data.serviceTypeLabel}</strong> has been successfully uploaded and is pending verification.</p>
+          <p style="font-size: 16px; margin: 0 0 20px; color: #0f172a; line-height: 1.6;">Hello ${data.driverName},</p>
+          <p style="margin: 0 0 24px; color: #475569; line-height: 1.6; font-size: 15px;">Your receipt for your <strong style="color: #0d4a2a;">${data.serviceTypeLabel}</strong> has been successfully uploaded and is pending verification.</p>
           
-          <div class="amount-box">
-            <div style="margin-bottom: 8px; font-weight: bold; color: #1a4d2a;">Actual Amount Used</div>
-            <div class="amount-value">R ${data.actualAmount.toLocaleString()}</div>
-            <div style="margin-top: 8px;">${data.serviceTypeLabel} • ${data.carRegistration}</div>
+          <div class="amount-card">
+            <div class="amount-label">Actual Amount Used</div>
+            <div class="amount-value">${formatMoney(data.actualAmount)}</div>
+            <div style="margin-top: 10px; color: #64748b; font-size: 14px;">${data.serviceTypeLabel}  -  ${data.carRegistration}</div>
           </div>
           
           ${
             data.totalRepayable
               ? `
-          <div class="loan-summary">
-            <div style="font-weight: bold; margin-bottom: 12px; color: #1a4d2a;">💰 Loan Summary</div>
-            <div class="info-row"><span class="label">Original Amount:</span><span class="value">R ${data.actualAmount.toLocaleString()}</span></div>
-            <div class="info-row"><span class="label">Total Repayable:</span><span class="value">R ${data.totalRepayable.toLocaleString()}</span></div>
-            <div class="info-row"><span class="label">Interest (15%):</span><span class="value">R ${(data.totalRepayable - data.actualAmount).toLocaleString()}</span></div>
+          <div class="loan-box">
+            <div style="font-weight: bold; margin-bottom: 12px; color: #0d4a2a;"> Loan Summary</div>
+            <div class="info-row"><span class="label">Original Amount:</span><span class="value">${formatMoney(data.actualAmount)}</span></div>
+            <div class="info-row"><span class="label">Total Repayable:</span><span class="value">${formatMoney(data.totalRepayable)}</span></div>
+            <div class="info-row"><span class="label">Interest (15%):</span><span class="value">${formatMoney(toMoney(data.totalRepayable - data.actualAmount))}</span></div>
             <div class="info-row"><span class="label">Repayment Period:</span><span class="value">7 days (daily installments)</span></div>
           </div>
           `
               : ""
           }
           
-          <div class="pending-box">
-            <div style="font-weight: bold; margin-bottom: 8px; color: #92400e;">⏳ Pending Verification</div>
-            <div style="font-size: 14px;">Your receipt will be reviewed by our admin team. You will be notified once verified.</div>
+          <div class="validity-box">
+            <div class="validity-text"> Pending Verification</div>
+            <div style="margin-top: 6px; font-size: 14px; color: #92400e;">Your receipt will be reviewed by our admin team. You will be notified once verified.</div>
           </div>
           
           ${
             data.totalRepayable
               ? `
-          <div style="margin-top: 16px; padding: 12px; background-color: #e8f5e9; border-radius: 8px; font-size: 13px;">
-            <strong>📌 Next Steps:</strong> Once verified, you'll need to make daily repayments of <strong>R ${(data.totalRepayable / 7).toFixed(2)}</strong> for 7 days.
+          <div class="info-highlight">
+            <strong style="color: #1e40af;"> Next Steps:</strong>
+            <div style="margin-top: 6px; color: #1e3a5f; font-size: 14px;">Once verified, you'll need to make daily repayments of <strong>${formatMoney(toMoney(data.totalRepayable / 7))}</strong> for 7 days.</div>
           </div>
           `
               : ""
@@ -1129,7 +1321,7 @@ export async function sendDriverReceiptUploadConfirmation(data: {
           </div>
         </div>
         <div class="footer">
-          <p>Kapuka Tradings - Automated Notification</p>
+          <p><strong>Kapuka Tradings</strong>  --  Automated Notification</p>
           <p>This is an automated message, please do not reply.</p>
         </div>
       </div>
@@ -1143,7 +1335,7 @@ export async function sendDriverReceiptUploadConfirmation(data: {
       to: data.driverEmail,
       subject: `Receipt Uploaded - ${data.serviceTypeLabel} Request`,
       html: html,
-      text: `Your receipt for R${data.actualAmount.toLocaleString()} has been uploaded and is pending verification.`,
+      text: `Your receipt for ${formatMoney(data.actualAmount)} has been uploaded and is pending verification.`,
     });
     console.log(
       "Driver receipt upload confirmation email sent:",
@@ -1155,6 +1347,389 @@ export async function sendDriverReceiptUploadConfirmation(data: {
       "Error sending driver receipt upload confirmation email:",
       error,
     );
+    return null;
+  }
+}
+
+// ==================== INVOICE EMAIL ====================
+
+export interface InvoiceEmailData {
+  driverEmail: string;
+  driverName: string;
+  carRegistration: string;
+  carModel?: string;
+  serviceTypeLabel: string;
+  requestId: string;
+  invoiceDate: string;
+  // Fuel fields
+  actualAmount?: number;
+  interestRate?: number;
+  interestAmount?: number;
+  totalRepayable?: number;
+  dailyPayment?: number;
+  repaymentDays?: number;
+  // Car wash fields
+  packageName?: string;
+  serviceCharge?: number;
+  totalDue?: number;
+}
+
+const generateInvoiceHtml = (data: InvoiceEmailData): string => {
+  const invoiceId = `INV-${data.requestId.slice(-8).toUpperCase()}`;
+  const isFuel = !!data.totalRepayable && data.totalRepayable > (data.actualAmount || 0);
+  const isCarWash = !isFuel;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Invoice - Kapuka Tradings</title>
+      <style>${globalStyles}</style>
+      <style>
+        .invoice-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 2px solid #0d4a2a; }
+        .invoice-title { font-size: 32px; font-weight: 800; color: #0d4a2a; letter-spacing: -1px; margin: 0; }
+        .invoice-subtitle { color: #64748b; font-size: 13px; margin: 4px 0 0; }
+        .invoice-meta { text-align: right; }
+        .invoice-meta-item { font-size: 14px; margin: 2px 0; }
+        .invoice-meta-label { color: #64748b; }
+        .invoice-meta-value { color: #0f172a; font-weight: 600; }
+        .bill-section { margin-bottom: 24px; }
+        .bill-label { color: #64748b; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin: 0 0 8px; }
+        .bill-name { font-size: 18px; font-weight: 700; color: #0f172a; margin: 0; }
+        .bill-detail { color: #475569; font-size: 14px; margin: 2px 0; }
+        .table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .table th { background-color: #f8fafc; color: #0d4a2a; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; text-align: left; padding: 12px 16px; border-bottom: 2px solid #0d4a2a; }
+        .table td { padding: 14px 16px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #0f172a; }
+        .table td:last-child, .table th:last-child { text-align: right; }
+        .table td:nth-child(2), .table th:nth-child(2) { text-align: right; }
+        .totals { margin-top: 16px; border-top: 2px solid #e2e8f0; padding-top: 16px; text-align: right; }
+        .total-row { display: flex; justify-content: flex-end; padding: 6px 0; gap: 40px; }
+        .total-label { color: #64748b; font-size: 14px; }
+        .total-value { color: #0f172a; font-weight: 600; font-size: 14px; min-width: 100px; text-align: right; }
+        .grand-total { border-top: 2px solid #0d4a2a; margin-top: 8px; padding-top: 12px; }
+        .grand-total .total-label { color: #0d4a2a; font-size: 16px; font-weight: 700; }
+        .grand-total .total-value { color: #0d4a2a; font-size: 20px; font-weight: 800; }
+        .terms { background-color: #f8fafc; border-radius: 12px; padding: 16px; margin: 20px 0; font-size: 13px; color: #64748b; line-height: 1.5; }
+        .terms strong { color: #0f172a; }
+        .status-paid { display: inline-block; background-color: #16a34a; color: #ffffff; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Kapuka Tradings</h1>
+          <p>Official Tax Invoice</p>
+        </div>
+        <div class="content">
+          <div class="invoice-header">
+            <div>
+              <h2 class="invoice-title">INVOICE</h2>
+              <p class="invoice-subtitle">${data.serviceTypeLabel} Service</p>
+            </div>
+            <div class="invoice-meta">
+              <div class="invoice-meta-item"><span class="invoice-meta-label">Invoice #:</span> <span class="invoice-meta-value">${invoiceId}</span></div>
+              <div class="invoice-meta-item"><span class="invoice-meta-label">Date:</span> <span class="invoice-meta-value">${formatDate(data.invoiceDate)}</span></div>
+              <div style="margin-top: 8px;"><span class="status-paid">AMOUNT DUE</span></div>
+            </div>
+          </div>
+
+          <div class="bill-section">
+            <p class="bill-label">Bill To</p>
+            <p class="bill-name">${data.driverName}</p>
+            <p class="bill-detail">${data.carRegistration}${data.carModel ? ` | ${data.carModel}` : ""}</p>
+          </div>
+
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                isCarWash && data.packageName
+                  ? `
+              <tr>
+                <td>Car Wash - ${data.packageName} Package</td>
+                <td>${formatMoney(data.actualAmount! - (data.serviceCharge || 0))}</td>
+              </tr>
+              ${data.serviceCharge && data.serviceCharge > 0 ? `
+              <tr>
+                <td>Service Charge</td>
+                <td>${formatMoney(data.serviceCharge)}</td>
+              </tr>
+              ` : ""}
+              `
+                  : `
+              <tr>
+                <td>Fuel - Actual Amount Used</td>
+                <td>${formatMoney(data.actualAmount!)}</td>
+              </tr>
+              ${data.interestAmount && data.interestAmount > 0 ? `
+              <tr>
+                <td>Interest (${data.interestRate || 13}%)</td>
+                <td>${formatMoney(data.interestAmount)}</td>
+              </tr>
+              ` : ""}
+              `
+              }
+            </tbody>
+          </table>
+
+          <div class="totals">
+            <div class="total-row">
+              <span class="total-label">Subtotal:</span>
+              <span class="total-value">${formatMoney(data.actualAmount!)}</span>
+            </div>
+            ${
+              data.interestAmount && data.interestAmount > 0
+                ? `<div class="total-row"><span class="total-label">Interest (${data.interestRate || 13}%):</span><span class="total-value">${formatMoney(data.interestAmount)}</span></div>`
+                : ""
+            }
+            ${
+              data.serviceCharge && data.serviceCharge > 0
+                ? `<div class="total-row"><span class="total-label">Service Charge:</span><span class="total-value">${formatMoney(data.serviceCharge)}</span></div>`
+                : ""
+            }
+            <div class="total-row grand-total">
+              <span class="total-label">Total Due:</span>
+              <span class="total-value">${formatMoney(data.totalRepayable || data.totalDue || data.actualAmount!)}</span>
+            </div>
+          </div>
+
+          ${
+            isFuel && data.dailyPayment && data.repaymentDays
+              ? `
+          <div class="terms">
+            <strong>Payment Terms:</strong><br>
+            This invoice is for a fuel loan. The total repayable amount of <strong>${formatMoney(data.totalRepayable!)}</strong> includes interest at ${data.interestRate || 13}%.<br>
+            The amount due must be paid in full within <strong>${data.repaymentDays} days</strong>.<br>
+            Please ensure payment is made on time to avoid penalties.
+          </div>
+          `
+              : `
+          <div class="terms">
+            <strong>Payment Terms:</strong><br>
+            This invoice has been fully paid. No further action is required.<br>
+            Thank you for choosing Kapuka Tradings.
+          </div>
+          `
+          }
+
+          <div class="validity-box">
+            <div class="validity-text"> Invoice Status: Amount Due</div>
+            <div style="margin-top: 6px; font-size: 13px; color: #92400e;">Please ensure payment is made according to the terms above.</div>
+          </div>
+
+          <div style="text-align: center;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/requests/history" class="button">View Request History</a>
+          </div>
+        </div>
+        <div class="footer">
+          <p><strong>Kapuka Tradings</strong> -- Automated Invoice</p>
+          <p>This is an automatically generated invoice. Please do not reply to this email.</p>
+          <p>For queries, contact: ${process.env.EMAIL_FROM ? `Kapuka Support` : "support@kapuka.com"}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
+export async function sendDriverInvoiceEmail(data: InvoiceEmailData) {
+  const invoiceId = `INV-${data.requestId.slice(-8).toUpperCase()}`;
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
+      to: data.driverEmail,
+      subject: `Invoice ${invoiceId} - ${data.serviceTypeLabel} Service - Kapuka Tradings`,
+      html: generateInvoiceHtml(data),
+      text: `Invoice ${invoiceId}\n\nDear ${data.driverName},\n\nThank you for your payment. Please find your invoice attached.\n\nService: ${data.serviceTypeLabel}\nAmount: ${formatMoney(data.actualAmount || 0)}\nTotal: ${formatMoney(data.totalRepayable || data.totalDue || data.actualAmount || 0)}\n\nThank you for choosing Kapuka Tradings.`,
+    });
+    console.log("Driver invoice email sent:", info.messageId);
+    return info;
+  } catch (error) {
+    console.error("Error sending driver invoice email:", error);
+    return null;
+  }
+}
+
+// ==================== WEEKLY INVOICE SUMMARY ====================
+
+const serviceTypeLabelMap: Record<string, string> = {
+  fuel: "Fuel",
+  airtime: "Airtime",
+  cash: "Cash Loan",
+  carwash: "Car Wash",
+};
+
+export async function sendDriverWeeklyInvoiceEmail(data: {
+  driverEmail: string;
+  driverName: string;
+  totalOutstanding: number;
+  items: {
+    type: string;
+    carNumber: string;
+    amount: number;
+    totalRepayable: number;
+    remainingBalance: number;
+  }[];
+}) {
+  const statementId = `WKS-${Date.now().toString(36).toUpperCase()}`;
+  const tableRows = data.items
+    .map(
+      (item) => `
+    <tr>
+      <td>${serviceTypeLabelMap[item.type] || item.type} - ${item.carNumber}</td>
+      <td>${formatMoney(item.amount)}</td>
+      <td>${formatMoney(item.totalRepayable)}</td>
+      <td>${formatMoney(item.totalRepayable - item.amount)}</td>
+      <td style="color: #dc2626; font-weight: 700;">${formatMoney(item.remainingBalance)}</td>
+    </tr>`,
+    )
+    .join("");
+
+  const totalInterest = data.items.reduce(
+    (sum, item) => sum + (item.totalRepayable - item.amount),
+    0,
+  );
+  const totalAmount = data.items.reduce((sum, item) => sum + item.amount, 0);
+  const totalRepayableAll = data.items.reduce(
+    (sum, item) => sum + item.totalRepayable,
+    0,
+  );
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Weekly Statement - Kapuka Tradings</title>
+      <style>${globalStyles}</style>
+      <style>
+        .invoice-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 2px solid #0d4a2a; }
+        .invoice-title { font-size: 28px; font-weight: 800; color: #0d4a2a; letter-spacing: -1px; margin: 0; }
+        .invoice-subtitle { color: #64748b; font-size: 13px; margin: 4px 0 0; }
+        .invoice-meta { text-align: right; }
+        .invoice-meta-item { font-size: 14px; margin: 2px 0; }
+        .invoice-meta-label { color: #64748b; }
+        .invoice-meta-value { color: #0f172a; font-weight: 600; }
+        .bill-section { margin-bottom: 24px; }
+        .bill-label { color: #64748b; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin: 0 0 8px; }
+        .bill-name { font-size: 18px; font-weight: 700; color: #0f172a; margin: 0; }
+        .bill-detail { color: #475569; font-size: 14px; margin: 2px 0; }
+        .table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .table th { background-color: #f8fafc; color: #0d4a2a; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; text-align: left; padding: 12px 10px; border-bottom: 2px solid #0d4a2a; }
+        .table td { padding: 12px 10px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #0f172a; }
+        .table th:last-child, .table td:last-child { text-align: right; }
+        .table th:nth-child(2), .table td:nth-child(2) { text-align: right; }
+        .table th:nth-child(3), .table td:nth-child(3) { text-align: right; }
+        .table th:nth-child(4), .table td:nth-child(4) { text-align: right; }
+        .totals { margin-top: 16px; border-top: 2px solid #e2e8f0; padding-top: 16px; text-align: right; }
+        .total-row { display: flex; justify-content: flex-end; padding: 6px 0; gap: 40px; }
+        .total-label { color: #64748b; font-size: 14px; }
+        .total-value { color: #0f172a; font-weight: 600; font-size: 14px; min-width: 100px; text-align: right; }
+        .grand-total { border-top: 2px solid #0d4a2a; margin-top: 8px; padding-top: 12px; }
+        .grand-total .total-label { color: #0d4a2a; font-size: 16px; font-weight: 700; }
+        .grand-total .total-value { color: #dc2626; font-size: 22px; font-weight: 800; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Kapuka Tradings</h1>
+          <p>Weekly Statement of Account</p>
+        </div>
+        <div class="content">
+          <div class="invoice-header">
+            <div>
+              <h2 class="invoice-title">STATEMENT</h2>
+              <p class="invoice-subtitle">Outstanding Balances</p>
+            </div>
+            <div class="invoice-meta">
+              <div class="invoice-meta-item"><span class="invoice-meta-label">Statement #:</span> <span class="invoice-meta-value">${statementId}</span></div>
+              <div class="invoice-meta-item"><span class="invoice-meta-label">Date:</span> <span class="invoice-meta-value">${formatDate(new Date().toISOString())}</span></div>
+              <div class="invoice-meta-item"><span class="invoice-meta-label">Items:</span> <span class="invoice-meta-value">${data.items.length}</span></div>
+            </div>
+          </div>
+
+          <div class="bill-section">
+            <p class="bill-label">Bill To</p>
+            <p class="bill-name">${data.driverName}</p>
+            <p class="bill-detail">${data.driverEmail}</p>
+          </div>
+
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>Amount</th>
+                <th>Total Repayable</th>
+                <th>Interest</th>
+                <th>Outstanding</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+
+          <div class="totals">
+            <div class="total-row">
+              <span class="total-label">Total Amount:</span>
+              <span class="total-value">${formatMoney(totalAmount)}</span>
+            </div>
+            <div class="total-row">
+              <span class="total-label">Total Interest:</span>
+              <span class="total-value">${formatMoney(totalInterest)}</span>
+            </div>
+            <div class="total-row">
+              <span class="total-label">Total Repayable:</span>
+              <span class="total-value">${formatMoney(totalRepayableAll)}</span>
+            </div>
+            <div class="total-row grand-total">
+              <span class="total-label">Total Outstanding:</span>
+              <span class="total-value">${formatMoney(data.totalOutstanding)}</span>
+            </div>
+          </div>
+
+          <div class="validity-box">
+            <div class="validity-text"> Payment Required</div>
+            <div style="margin-top: 6px; font-size: 13px; color: #92400e;">Please ensure all outstanding amounts are paid promptly to avoid any interruptions to your service.</div>
+          </div>
+
+          <div style="text-align: center;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/requests/history" class="button">View Payment History</a>
+          </div>
+        </div>
+        <div class="footer">
+          <p><strong>Kapuka Tradings</strong> -- Weekly Statement</p>
+          <p>This is an automated statement. Please do not reply to this email.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const itemCount = data.items.length;
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
+      to: data.driverEmail,
+      subject: `Weekly Statement - ${formatMoney(data.totalOutstanding)} Outstanding - Kapuka Tradings`,
+      html: html,
+      text: `Weekly Statement\n\nDear ${data.driverName},\n\nTotal Outstanding: ${formatMoney(data.totalOutstanding)}\nItems: ${itemCount}\n\nPlease log in to view details.\n\nKapuka Tradings`,
+    });
+    console.log("Weekly statement email sent:", info.messageId);
+    return info;
+  } catch (error) {
+    console.error("Error sending weekly statement:", error);
     return null;
   }
 }
@@ -1180,12 +1755,12 @@ export async function sendRepaymentCompletedEmail(data: {
     <body>
       <div class="container">
         <div class="header" style="background-color: #25a73d;">
-          <h1>Loan Fully Paid! 🎉</h1>
+          <h1>Loan Fully Paid! </h1>
           <p>Congratulations on completing your repayment</p>
         </div>
         <div class="content">
           <div style="text-align: center;">
-            <span class="badge badge-approved">✅ FULLY PAID</span>
+            <span class="badge badge-approved"> FULLY PAID</span>
           </div>
           
           <div class="driver-highlight">
@@ -1194,14 +1769,14 @@ export async function sendRepaymentCompletedEmail(data: {
           </div>
           
           <div class="celebration-box">
-            <div style="font-size: 48px; margin-bottom: 8px;">🎉</div>
+            <div style="font-size: 48px; margin-bottom: 8px;"></div>
             <div style="font-weight: bold; font-size: 18px; color: #1a4d2a; margin-bottom: 8px;">Congratulations!</div>
             <div style="font-size: 14px; color: #2d6a4f;">Your ${data.serviceTypeLabel} loan has been fully paid off.</div>
           </div>
           
           <div class="amount-card">
-            <div class="amount-label">💰 Total Amount Repaid</div>
-            <div class="amount-value">R ${data.totalPaid.toLocaleString()}</div>
+            <div class="amount-label"> Total Amount Repaid</div>
+            <div class="amount-value">${formatMoney(data.totalPaid)}</div>
             <div style="margin-top: 8px;">${data.serviceTypeLabel}</div>
           </div>
           
@@ -1213,7 +1788,7 @@ export async function sendRepaymentCompletedEmail(data: {
           </div>
           
           <div class="info-highlight">
-            <div style="font-weight: bold; margin-bottom: 8px;">📌 What's Next?</div>
+            <div style="font-weight: bold; margin-bottom: 8px;"> What's Next?</div>
             <div style="font-size: 13px;">
               Thank you for being a responsible Kapuka customer! You can now request new services.
             </div>
@@ -1236,9 +1811,9 @@ export async function sendRepaymentCompletedEmail(data: {
     const info = await transporter.sendMail({
       from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
       to: data.driverEmail,
-      subject: `🎉 ${data.serviceTypeLabel} Fully Paid - Kapuka`,
+      subject: ` ${data.serviceTypeLabel} Fully Paid - Kapuka`,
       html: html,
-      text: `Congratulations! Your ${data.serviceTypeLabel} has been fully paid off. Total paid: R${data.totalPaid.toLocaleString()}`,
+      text: `Congratulations! Your ${data.serviceTypeLabel} has been fully paid off. Total paid: ${formatMoney(data.totalPaid)}`,
     });
     console.log("Repayment completed email sent:", info.messageId);
     return info;
@@ -1247,3 +1822,95 @@ export async function sendRepaymentCompletedEmail(data: {
     return null;
   }
 }
+
+// ==================== PROFILE CHANGE NOTIFICATION ====================
+
+const generateProfileChangeAdminHtml = (data: {
+  driverName: string;
+  driverEmail: string;
+  changes: { field: string; newValue: string }[];
+}): string => {
+  const changesRows = data.changes
+    .map(
+      (change) => `
+    <div class="info-row">
+      <span class="label">${change.field}:</span>
+      <span class="value">${change.newValue || "N/A"}</span>
+    </div>`,
+    )
+    .join("");
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Profile Update Notification</title>
+      <style>${globalStyles}</style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header" style="background-color: #1a4d2a;">
+          <h1>Kapuka Tradings</h1>
+          <p>Driver Profile Updated</p>
+        </div>
+        <div class="content">
+          <div style="text-align: center;">
+            <span class="badge badge-pending">PROFILE UPDATE</span>
+          </div>
+
+          <div class="driver-highlight">
+            <div class="driver-name">${data.driverName}</div>
+            <div class="info-row" style="margin-top: 12px;"><span class="label"> Email:</span><span class="value">${data.driverEmail}</span></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Updated Information</div>
+            ${changesRows}
+          </div>
+
+          <div style="text-align: center;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/dashboard" class="button">Go to Admin Dashboard</a>
+          </div>
+        </div>
+        <div class="footer">
+          <p>Kapuka Tradings - Automated Notification</p>
+          <p>This is an automated message, please do not reply.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
+export async function sendAdminProfileChangeEmail(data: {
+  driverName: string;
+  driverEmail: string;
+  changes: { field: string; newValue: string }[];
+}) {
+  const adminEmails = getAdminEmails();
+
+  const fieldList = data.changes.map((c) => c.field).join(", ");
+  const changesText = data.changes
+    .map((c) => `${c.field}: ${c.newValue}`)
+    .join("\n");
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
+      to: adminEmails,
+      subject: `Driver Profile Updated - ${data.driverName} (${fieldList})`,
+      html: generateProfileChangeAdminHtml(data),
+      text: `Driver ${data.driverName} (${data.driverEmail}) updated their profile:\n\n${changesText}`,
+    });
+    console.log("Profile change notification sent to:", adminEmails.join(", "));
+    console.log("Email ID:", info.messageId);
+    return info;
+  } catch (error) {
+    console.error("Error sending profile change email:", error);
+    return null;
+  }
+}
+
+
