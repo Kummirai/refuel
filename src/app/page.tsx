@@ -453,15 +453,19 @@ export default function HomePage() {
 
         {/* Get Started Button */}
         <div className="flex justify-center mb-12">
-          <button
-            type="button"
-            onClick={handleGetStarted}
-            className="group relative bg-linear-to-r from-[#01312D] to-[#3A7717] text-white px-10 py-3.5 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
-          >
-            <span className="relative z-10">{getButtonText()}</span>
-            <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
-            <div className="absolute inset-0 bg-linear-to-r from-[#3A7717] to-[#72bf00] opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full"></div>
-          </button>
+          {showSkeleton ? (
+            <Skeleton className="h-14 w-64 rounded-full" />
+          ) : (
+            <button
+              type="button"
+              onClick={handleGetStarted}
+              className="group relative bg-linear-to-r from-[#01312D] to-[#3A7717] text-white px-10 py-3.5 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
+            >
+              <span className="relative z-10">{getButtonText()}</span>
+              <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
+              <div className="absolute inset-0 bg-linear-to-r from-[#3A7717] to-[#72bf00] opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full"></div>
+            </button>
+          )}
         </div>
 
         {/* Documents Submitted Badge */}
