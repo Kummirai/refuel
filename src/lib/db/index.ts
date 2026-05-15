@@ -11,20 +11,31 @@ if (!MONGODB_DB) {
   throw new Error("Please define MONGODB_DB environment variable");
 }
 
-let cachedClient: MongoClient | null = null;
-let cachedDb: any = null;
+const globalWithMongo = global as typeof globalThis & {
+  _mongoClient?: MongoClient;
+  _mongoDb?: any;
+};
+
+let cachedClient: MongoClient | null = globalWithMongo._mongoClient || null;
+let cachedDb: any = globalWithMongo._mongoDb || null;
 
 export async function connectToDatabase() {
   if (cachedClient && cachedDb) {
     return { client: cachedClient, db: cachedDb };
   }
 
-  const client = new MongoClient(MONGODB_URI);
+  const client = new MongoClient(MONGODB_URI, {
+    maxPoolSize: 10,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 30000,
+  });
   await client.connect();
   const db = client.db(MONGODB_DB);
 
   cachedClient = client;
   cachedDb = db;
+  globalWithMongo._mongoClient = client;
+  globalWithMongo._mongoDb = db;
 
   // Create collections and indexes if they don't exist
   const collections = await db.listCollections().toArray();
