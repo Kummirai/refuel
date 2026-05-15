@@ -16,34 +16,38 @@ const globalWithMongo = global as typeof globalThis & {
   _mongoDb?: any;
 };
 
-let cachedClient: MongoClient | null = globalWithMongo._mongoClient || null;
-let cachedDb: any = globalWithMongo._mongoDb || null;
-
-const client = new MongoClient(MONGODB_URI, {
-  maxPoolSize: 15,
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 30000,
-});
-let connected = false;
+function createClient() {
+  return new MongoClient(MONGODB_URI, {
+    maxPoolSize: 1,
+    minPoolSize: 0,
+    maxIdleTimeMS: 10000,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 30000,
+  });
+}
 
 export function getClient() {
+  if (globalWithMongo._mongoClient) {
+    return globalWithMongo._mongoClient;
+  }
+  const client = createClient();
+  globalWithMongo._mongoClient = client;
   return client;
 }
 
 export async function connectToDatabase() {
-  if (cachedClient && cachedDb) {
-    return { client: cachedClient, db: cachedDb };
+  if (globalWithMongo._mongoClient && globalWithMongo._mongoDb) {
+    return { client: globalWithMongo._mongoClient, db: globalWithMongo._mongoDb };
   }
 
-  if (!connected) {
-    await client.connect();
-    connected = true;
+  if (!globalWithMongo._mongoClient) {
+    globalWithMongo._mongoClient = createClient();
   }
+  const client = globalWithMongo._mongoClient;
+
+  await client.connect();
   const db = client.db(MONGODB_DB);
 
-  cachedClient = client;
-  cachedDb = db;
-  globalWithMongo._mongoClient = client;
   globalWithMongo._mongoDb = db;
 
   // Create collections and indexes if they don't exist

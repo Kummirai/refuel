@@ -1722,7 +1722,7 @@ export default function AdminDashboard() {
             loading={isLoading}
           />
           <StatCard
-            title="Profit"
+            title="Profits Received So Far"
             value={financialStats.actualInterest}
             icon={TrendingUp}
             color="bg-[#72bf00]"
@@ -1730,8 +1730,10 @@ export default function AdminDashboard() {
             loading={isLoading}
           />
           <StatCard
-            title="Expected Total Profit"
-            value={financialStats.actualInterest + financialStats.potentialInterest}
+            title="Expected Total Profits"
+            value={
+              financialStats.actualInterest + financialStats.potentialInterest
+            }
             icon={TrendingDown}
             color="bg-amber-500"
             prefix="R"
