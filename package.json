@@ -6,8 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "backup": "ts-node scripts/backup.ts",
+    "restore": "ts-node scripts/restore.ts"
   },
+  "type": "module",
   "dependencies": {
     "@auth/mongodb-adapter": "^3.11.2",
     "@hookform/resolvers": "^5.2.2",

@@ -19,17 +19,26 @@ const globalWithMongo = global as typeof globalThis & {
 let cachedClient: MongoClient | null = globalWithMongo._mongoClient || null;
 let cachedDb: any = globalWithMongo._mongoDb || null;
 
+const client = new MongoClient(MONGODB_URI, {
+  maxPoolSize: 15,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 30000,
+});
+let connected = false;
+
+export function getClient() {
+  return client;
+}
+
 export async function connectToDatabase() {
   if (cachedClient && cachedDb) {
     return { client: cachedClient, db: cachedDb };
   }
 
-  const client = new MongoClient(MONGODB_URI, {
-    maxPoolSize: 3,
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 30000,
-  });
-  await client.connect();
+  if (!connected) {
+    await client.connect();
+    connected = true;
+  }
   const db = client.db(MONGODB_DB);
 
   cachedClient = client;
@@ -69,4 +78,19 @@ export async function connectToDatabase() {
   }
 
   return { client, db };
+}
+
+export async function getUsersCollection() {
+  const { db } = await connectToDatabase();
+  return db.collection("users");
+}
+
+export async function getDriverProfilesCollection() {
+  const { db } = await connectToDatabase();
+  return db.collection("driverProfiles");
+}
+
+export async function getServiceRequestsCollection() {
+  const { db } = await connectToDatabase();
+  return db.collection("serviceRequests");
 }

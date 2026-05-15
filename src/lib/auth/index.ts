@@ -1,11 +1,10 @@
 // src/lib/auth/index.ts
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
-import { MongoClient } from "mongodb";
 import { nextCookies } from "better-auth/next-js";
+import { getClient } from "@/lib/db";
 
-const client = new MongoClient(process.env.MONGODB_URI!);
-const db = client.db(process.env.MONGODB_DB!);
+const db = getClient().db(process.env.MONGODB_DB!);
 
 export const auth = betterAuth({
   database: mongodbAdapter(db),
