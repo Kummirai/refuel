@@ -18,7 +18,7 @@ const globalWithMongo = global as typeof globalThis & {
 
 function createClient() {
   return new MongoClient(MONGODB_URI, {
-    maxPoolSize: 1,
+    maxPoolSize: 10,
     minPoolSize: 0,
     maxIdleTimeMS: 10000,
     serverSelectionTimeoutMS: 5000,

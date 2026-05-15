@@ -180,23 +180,23 @@ export default function AdminDashboard() {
     const queryString = queryParams.toString();
 
     try {
-      const statsRes = await fetch("/api/admin/stats");
+      const [statsRes, driversRes, requestsRes] = await Promise.all([
+        fetch("/api/admin/stats"),
+        fetch("/api/admin/drivers"),
+        fetch(`/api/admin/requests?${queryString}`),
+      ]);
+
       if (statsRes.ok) {
         const statsData = await statsRes.json();
         setStats(statsData);
       }
 
-      const driversRes = await fetch("/api/admin/drivers");
       if (driversRes.ok) {
         const driversData = await driversRes.json();
-
-        console.log(driversData);
-
         setDrivers(driversData.drivers || []);
         setRecentVerifications(driversData.recent || []);
       }
 
-      const requestsRes = await fetch(`/api/admin/requests?${queryString}`);
       if (requestsRes.ok) {
         const requestsData = await requestsRes.json();
         const allRequests = requestsData.requests || [];
