@@ -1731,7 +1731,7 @@ export default function AdminDashboard() {
           />
           <StatCard
             title="Expected Total Profit"
-            value={financialStats.potentialInterest}
+            value={financialStats.actualInterest + financialStats.potentialInterest}
             icon={TrendingDown}
             color="bg-amber-500"
             prefix="R"
