@@ -53,7 +53,11 @@ interface ReceiptRequest {
   popUrl: string | null;
   popUploadedAt: string | null;
   hasReceipt: boolean;
+  receiptStatus?: string;
   receiptVerifiedAt: string | null;
+  receiptRejectionReason: string | null;
+  receiptRejectedAt: string | null;
+  correctedByAdmin: boolean;
   totalRepayable: number;
   remainingBalance: number;
   dueDate: string;
