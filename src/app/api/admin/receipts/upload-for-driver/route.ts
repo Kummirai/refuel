@@ -97,6 +97,18 @@ export async function POST(request: NextRequest) {
 
         if (amount > 0) {
           updateData.actualAmount = amount;
+
+          const interestRate = existing.interestRate || 13;
+          const repaymentDays = existing.repaymentDays || 7;
+          const totalRepayable = toMoney(amount * (1 + interestRate / 100));
+          const interestAmount = toMoney(totalRepayable - amount);
+
+          updateData.totalRepayable = totalRepayable;
+          updateData.interest = interestAmount;
+          updateData.interestRate = interestRate;
+          updateData.dailyPayment = toMoney(totalRepayable / repaymentDays);
+          updateData.remainingBalance = totalRepayable;
+          updateData.isPaid = false;
         }
 
         if (!existing.completedDate) {
@@ -163,6 +175,19 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
+
+    if (amount > 0) {
+      const interestRate = 13;
+      const repaymentDays = 7;
+      const totalRepayable = toMoney(amount * (1 + interestRate / 100));
+      const interestAmount = toMoney(totalRepayable - amount);
+      insertData.totalRepayable = totalRepayable;
+      insertData.interest = interestAmount;
+      insertData.interestRate = interestRate;
+      insertData.dailyPayment = toMoney(totalRepayable / repaymentDays);
+      insertData.remainingBalance = totalRepayable;
+      insertData.isPaid = false;
+    }
 
     const insertResult = await serviceRequestsCollection.insertOne(insertData);
 
