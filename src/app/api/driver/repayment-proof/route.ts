@@ -7,10 +7,7 @@ import { ObjectId } from "mongodb";
 import { sendAdminRepaymentProofEmail } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
-  console.log("you reached this point");
-
   try {
-    // Verify user is authenticated
     const session = await auth.api.getSession({
       headers: await headers(),
     });
@@ -22,6 +19,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       requestId,
+      requestIds,
       amount,
       remainingBalance,
       isFullyPaid,
@@ -29,10 +27,9 @@ export async function POST(request: NextRequest) {
       proofPublicId,
     } = body;
 
-    console.log("Request ID from client:", requestId);
-    console.log("Session user ID:", session.user.id);
+    const ids = requestIds && requestIds.length > 0 ? requestIds : requestId ? [requestId] : [];
 
-    if (!requestId || !amount || !proofUrl) {
+    if (ids.length === 0 || !amount || !proofUrl) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 },
@@ -45,83 +42,47 @@ export async function POST(request: NextRequest) {
     const usersCollection = db.collection("user");
     const driverProfilesCollection = db.collection("driverProfiles");
 
-    // Find the service request by _id (since it's stored as ObjectId)
-    let serviceRequest = null;
-    try {
-      // Try to find by _id as ObjectId
-      if (ObjectId.isValid(requestId)) {
-        serviceRequest = await serviceRequestsCollection.findOne({
-          _id: new ObjectId(requestId),
-        });
-      }
+    // Find all service requests
+    const serviceRequests = await serviceRequestsCollection
+      .find({
+        _id: { $in: ids.map((id: string) => {
+          try { return new ObjectId(id); } catch { return id; }
+        })},
+      })
+      .toArray();
 
-      // If not found, try as string
-      if (!serviceRequest) {
-        serviceRequest = await serviceRequestsCollection.findOne({
-          _id: requestId,
-        });
-      }
-
-      // If still not found, try by id field (if exists)
-      if (!serviceRequest) {
-        serviceRequest = await serviceRequestsCollection.findOne({
-          id: requestId,
-        });
-      }
-    } catch (err) {
-      console.error("Error finding service request:", err);
+    const idToRequest = new Map(serviceRequests.map((r: any) => [r._id.toString(), r]));
+    const notFound = ids.filter((id: string) => !idToRequest.has(id));
+    if (notFound.length > 0) {
+      return NextResponse.json(
+        { error: `Requests not found: ${notFound.join(", ")}` },
+        { status: 404 },
+      );
     }
 
-    console.log("Service request found:", !!serviceRequest);
-    if (serviceRequest) {
-      console.log("Service request:", {
-        _id: serviceRequest._id,
-        type: serviceRequest.type,
-        driverName: serviceRequest.driverName,
-        carNumber: serviceRequest.carNumber,
-        userId: serviceRequest.userId,
-      });
-    }
-
-    // Get driver details from user collection
+    // Get driver details
     let user = null;
     try {
-      // Try to find by _id as ObjectId
       if (ObjectId.isValid(session.user.id)) {
-        user = await usersCollection.findOne({
-          _id: new ObjectId(session.user.id),
-        });
+        user = await usersCollection.findOne({ _id: new ObjectId(session.user.id) });
       } else {
-        user = await usersCollection.findOne({
-          _id: session.user.id,
-        });
+        user = await usersCollection.findOne({ _id: session.user.id });
       }
     } catch (err) {
       console.error("Error finding user:", err);
     }
 
-    console.log("User found:", !!user);
-    if (user) {
-      console.log("User:", {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-      });
-    }
-
-    // Get driver profile for additional info if needed
     let driverProfile = null;
     if (user) {
       driverProfile = await driverProfilesCollection.findOne({
         userId: user._id.toString(),
       });
-      console.log("Driver profile found:", !!driverProfile);
     }
 
     // Create repayment proof record
-    const repaymentProof = {
-      requestId,
+    const repaymentProof: Record<string, any> = {
+      requestId: ids[0],
+      requestIds: ids.length > 1 ? ids : undefined,
       userId: session.user.id,
       amount,
       remainingBalance,
@@ -134,77 +95,57 @@ export async function POST(request: NextRequest) {
     };
 
     const result = await repaymentsCollection.insertOne(repaymentProof);
-    console.log("Repayment proof created with ID:", result.insertedId);
+    const proofId = result.insertedId.toString();
 
-    // Update the service request with pending repayment flag
-    let updateQuery = {};
-    try {
-      if (ObjectId.isValid(requestId)) {
-        updateQuery = { _id: new ObjectId(requestId) };
-      } else {
-        updateQuery = { _id: requestId };
+    // Update all service requests with pending repayment flag
+    for (const id of ids) {
+      try {
+        await serviceRequestsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: {
+              hasPendingRepayment: true,
+              pendingRepaymentAmount: amount,
+              pendingRepaymentId: proofId,
+              updatedAt: new Date(),
+            },
+          },
+        );
+      } catch (err) {
+        console.error(`Error updating service request ${id}:`, err);
       }
-
-      await serviceRequestsCollection.updateOne(updateQuery, {
-        $set: {
-          hasPendingRepayment: true,
-          pendingRepaymentAmount: amount,
-          pendingRepaymentId: result.insertedId.toString(),
-          updatedAt: new Date(),
-        },
-      });
-      console.log("Service request updated successfully");
-    } catch (err) {
-      console.error("Error updating service request:", err);
     }
 
     // Send email notification to admin
-    if (user && serviceRequest) {
-      const serviceTypeLabel = getServiceTypeLabel(serviceRequest.type);
-
+    const firstRequest = serviceRequests[0];
+    if (user && firstRequest) {
       const driverName =
         driverProfile?.fullName ||
         user.name ||
-        serviceRequest.driverName ||
+        firstRequest.driverName ||
         "Unknown";
-      const driverEmail = user.email || serviceRequest.driverEmail || "Unknown";
-      const driverPhone = user.phone || serviceRequest.driverPhone || "Unknown";
+      const driverEmail = user.email || firstRequest.driverEmail || "Unknown";
+      const driverPhone = user.phone || firstRequest.driverPhone || "Unknown";
       const carRegistration =
-        serviceRequest.carNumber ||
+        firstRequest.carNumber ||
         driverProfile?.carRegistrationNumber ||
         "Unknown";
+      const types = serviceRequests.map((r: any) => r.type).join(", ");
 
-      console.log("Sending email with:", {
+      await sendAdminRepaymentProofEmail({
         driverName,
         driverEmail,
         driverPhone,
         carRegistration,
-        serviceType: serviceRequest.type,
+        serviceType: types || "Unknown",
+        serviceTypeLabel: ids.length > 1 ? `Bulk Repayment (${ids.length} requests)` : getServiceTypeLabel(firstRequest.type),
         amount,
         remainingBalance,
-      });
-
-      await sendAdminRepaymentProofEmail({
-        driverName: driverName,
-        driverEmail: driverEmail,
-        driverPhone: driverPhone,
-        carRegistration: carRegistration,
-        serviceType: serviceRequest.type || "Unknown",
-        serviceTypeLabel: serviceTypeLabel,
-        amount: amount,
-        remainingBalance: remainingBalance,
-        proofUrl: proofUrl,
+        proofUrl,
         submittedAt: new Date().toISOString(),
-        repaymentId: requestId,
+        repaymentId: proofId,
       }).catch((err) => {
         console.error("Failed to send admin notification email:", err);
-      });
-    } else {
-      console.log("Missing data for email:", {
-        hasUser: !!user,
-        hasServiceRequest: !!serviceRequest,
-        userId: session.user.id,
-        requestId: requestId,
       });
     }
 

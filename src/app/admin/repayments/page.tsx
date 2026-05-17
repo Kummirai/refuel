@@ -32,6 +32,7 @@ import {
   SprayCan,
   FileText,
   Hourglass,
+  Layers,
   ArrowDown,
   Upload,
   X,
@@ -87,6 +88,8 @@ interface PaymentHistory {
 
 interface RepaymentProof {
   id: string;
+  requestIds?: string[];
+  approvedRequestIds?: string[];
   amount: number;
   status: "pending" | "approved" | "rejected";
   submittedAt: string;
@@ -562,6 +565,8 @@ export default function LoanRepaymentsPage() {
     repayment: Repayment,
     amount: number,
   ) => {
+    const isBulkProof = proof.requestIds && proof.requestIds.length > 1;
+
     if (amount <= 0 || amount > repayment.remainingAmount) {
       setErrorMessage(
         `Amount must be between 1 and ${repayment.remainingAmount}`,
@@ -572,12 +577,14 @@ export default function LoanRepaymentsPage() {
 
     setProcessing(true);
     try {
+      // For bulk proofs, approve only this individual request
       const approveRes = await fetch("/api/admin/repayment-proofs", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           proofId: proof.id,
           status: "approved",
+          ...(isBulkProof && { requestId: repayment.id }),
         }),
       });
 
@@ -589,14 +596,16 @@ export default function LoanRepaymentsPage() {
         return;
       }
 
+      // Record payment for this specific request
       const payRes = await fetch("/api/admin/repayments/pay", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           repaymentId: repayment.id,
-          amount: amount,
+          amount,
           method: "cash",
           date: new Date().toISOString().split("T")[0],
+          ...(isBulkProof && { proofId: proof.id }),
         }),
       });
 
@@ -633,6 +642,8 @@ export default function LoanRepaymentsPage() {
       return;
     }
 
+    const isBulkProof = selectedProof.requestIds && selectedProof.requestIds.length > 1;
+
     setProcessing(true);
     try {
       const response = await fetch("/api/admin/repayment-proofs", {
@@ -642,6 +653,7 @@ export default function LoanRepaymentsPage() {
           proofId: selectedProof.id,
           status: "rejected",
           reason: rejectionReason,
+          ...(isBulkProof && selectedRepayment && { requestId: selectedRepayment.id }),
         }),
       });
 
@@ -986,6 +998,12 @@ export default function LoanRepaymentsPage() {
     const pendingProofs =
       repayment.pendingRepaymentProofs?.filter((p) => p.status === "pending") ||
       [];
+    const bulkProofs = pendingProofs.filter(
+      (p) => p.requestIds && p.requestIds.length > 1,
+    );
+    const isThisRequestApproved = bulkProofs.some(
+      (p) => p.approvedRequestIds?.includes(repayment.id),
+    );
     const isCompleted =
       repayment.status === "paid" || repayment.status === "completed";
     const progress = Math.round(
@@ -1091,8 +1109,32 @@ export default function LoanRepaymentsPage() {
                 <h3 className="font-bold text-[#01312D] flex items-center gap-2">
                   <Hourglass className="w-5 h-5 text-yellow-600" /> Pending Proof Review
                 </h3>
-                {pendingProofs.map((proof) => (
-                  <div key={proof.id} className="bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-4 space-y-4">
+                  {pendingProofs.map((proof) => {
+                  const isBulk = proof.requestIds && proof.requestIds.length > 1;
+                  const approvedCount = proof.approvedRequestIds?.length || 0;
+                  const remainingCount = isBulk ? (proof.requestIds!.length - approvedCount) : 0;
+                  const isThisRequestApproved = proof.approvedRequestIds?.includes(repayment.id);
+                  return (
+                  <div key={proof.id} className={`bg-yellow-50 border-2 rounded-2xl p-4 space-y-4 ${isBulk ? "border-purple-300" : "border-yellow-200"}`}>
+                    {/* Bulk Repayment Badge */}
+                    {isBulk && (
+                      <div className="space-y-2">
+                        <div className="bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5">
+                          <Layers className="w-3.5 h-3.5" />
+                          Bulk Repayment — {proof.requestIds!.length} requests
+                        </div>
+                        <div className="flex gap-2 text-[11px] font-bold">
+                          <span className="text-green-700 bg-green-100 px-2 py-1 rounded-lg">
+                            {approvedCount} approved
+                          </span>
+                          {remainingCount > 0 && (
+                            <span className="text-yellow-700 bg-yellow-100 px-2 py-1 rounded-lg">
+                              {remainingCount} remaining
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     {/* Amount Info */}
                     <div className="bg-white rounded-xl p-4">
                       <div className="flex justify-between mb-2">
@@ -1107,12 +1149,10 @@ export default function LoanRepaymentsPage() {
                           {new Date(proof.submittedAt).toLocaleString()}
                         </span>
                       </div>
-                      {proof.remainingBalance !== undefined && (
+                      {isThisRequestApproved && (
                         <div className="flex justify-between mt-2 pt-2 border-t border-gray-200">
-                          <span className="text-gray-600">Remaining Balance:</span>
-                          <span className="font-semibold text-red-600">
-                            {formatMoney(proof.remainingBalance)}
-                          </span>
+                          <span className="text-green-700 font-bold">This request</span>
+                          <span className="font-bold text-green-700">Approved ✓</span>
                         </div>
                       )}
                     </div>
@@ -1132,7 +1172,8 @@ export default function LoanRepaymentsPage() {
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -1315,7 +1356,7 @@ export default function LoanRepaymentsPage() {
                       onClick={() =>
                         handleApproveAndPay(pendingProofs[0], repayment, parseFloat(payAmount))
                       }
-                      disabled={processing || !payAmount || parseFloat(payAmount) <= 0}
+                      disabled={processing || !payAmount || parseFloat(payAmount) <= 0 || isThisRequestApproved}
                       className="flex-1 bg-[#3A7717] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all disabled:opacity-50"
                     >
                       {processing ? (
@@ -1323,18 +1364,18 @@ export default function LoanRepaymentsPage() {
                       ) : (
                         <CheckCircle className="w-5 h-5" />
                       )}
-                      Approve & Pay — {formatMoney(parseFloat(payAmount || "0"))}
+                      {isThisRequestApproved ? "Already Approved" : `Approve & Pay — ${formatMoney(parseFloat(payAmount || "0"))}`}
                     </button>
                     <button
                       onClick={() => {
                         setSelectedProof(pendingProofs[0]);
                         setShowRejectModal(true);
                       }}
-                      disabled={processing}
-                      className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-600 transition-all"
+                      disabled={processing || isThisRequestApproved}
+                      className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-600 transition-all disabled:opacity-50"
                     >
                       <XCircle className="w-5 h-5" />
-                      Reject
+                      {isThisRequestApproved ? "Approved" : "Reject"}
                     </button>
                     <button
                       onClick={() => handleMarkAsCompleted(repayment)}

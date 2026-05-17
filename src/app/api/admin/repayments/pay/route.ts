@@ -6,7 +6,7 @@ import { toMoney } from "@/lib/money";
 
 export async function POST(request: Request) {
   try {
-    const { repaymentId, amount, method, reference, date, proofUrl, proofPublicId } =
+    const { repaymentId, amount, method, reference, date, proofUrl, proofPublicId, proofId } =
       await request.json();
 
     if (!repaymentId || !amount || amount <= 0) {
@@ -22,6 +22,7 @@ export async function POST(request: Request) {
     const serviceRequestsCollection = db.collection("serviceRequests");
     const loanPaymentsCollection = db.collection("loanPayments");
     const repaymentRequestsCollection = db.collection("repaymentRequests");
+    const repaymentProofsCollection = db.collection("repaymentProofs");
 
     // Get the loan/service request
     const loan = await serviceRequestsCollection.findOne({
@@ -73,7 +74,50 @@ export async function POST(request: Request) {
       });
     }
 
-    // 3. Update the repayment request status if it exists and is now fully paid
+    // 3. If this payment is for a bulk proof, track individual approval
+    if (proofId) {
+      const proof = await repaymentProofsCollection.findOne({
+        _id: new ObjectId(proofId),
+      });
+      if (proof && proof.requestIds && proof.requestIds.length > 0) {
+        // Add this repaymentId to the proof's approvedRequestIds
+        const approvedRequestIds = proof.approvedRequestIds || [];
+        if (!approvedRequestIds.includes(repaymentId)) {
+          approvedRequestIds.push(repaymentId);
+        }
+
+        // Clear pending flags for this specific request
+        await serviceRequestsCollection.updateOne(
+          { _id: new ObjectId(repaymentId) },
+          {
+            $unset: {
+              hasPendingRepayment: "",
+              pendingRepaymentAmount: "",
+              pendingRepaymentId: "",
+            },
+          },
+        );
+
+        // Check if all linked requests are now approved
+        const allApproved = proof.requestIds.every(
+          (id: string) => approvedRequestIds.includes(id),
+        );
+
+        await repaymentProofsCollection.updateOne(
+          { _id: new ObjectId(proofId) },
+          {
+            $set: {
+              approvedRequestIds,
+              status: allApproved ? "approved" : proof.status,
+              approvedAt: allApproved ? new Date() : proof.approvedAt,
+              updatedAt: new Date(),
+            },
+          },
+        );
+      }
+    }
+
+    // 4. Update the repayment request status if it exists and is now fully paid
     if (isFullyPaid) {
       const repaymentRequest = await repaymentRequestsCollection.findOne({
         requestId: repaymentId,
@@ -95,7 +139,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // 3. Update loan with new repaid amount
+    // 5. Update loan with new repaid amount
     const updateFields: any = {
       repaidAmount: newRepaid,
       remainingBalance: toMoney(Math.max(0, totalRepayable - newRepaid)),
@@ -106,7 +150,6 @@ export async function POST(request: Request) {
     if (isFullyPaid) {
       updateFields.isPaid = true;
       updateFields.paidDate = new Date();
-      // Note: status remains as is (completed means service was delivered)
     }
 
     await serviceRequestsCollection.updateOne(

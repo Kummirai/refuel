@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { PopUploadModal } from "@/components/PopUploadModal";
 import { RepaymentProofModal } from "@/components/RepaymentProofModal";
+import { BulkRepaymentModal } from "@/components/BulkRepaymentModal";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatMoney, toMoney } from "@/lib/money";
@@ -109,6 +110,11 @@ export default function RequestHistoryPage() {
   const [showRepaymentModal, setShowRepaymentModal] = useState(false);
   const [selectedRequestForRepayment, setSelectedRequestForRepayment] =
     useState<Request | null>(null);
+
+  // Bulk repayment state
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedBulkIds, setSelectedBulkIds] = useState<Set<string>>(new Set());
+  const [showBulkRepaymentModal, setShowBulkRepaymentModal] = useState(false);
 
   // Modal states for alerts
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -991,16 +997,32 @@ export default function RequestHistoryPage() {
                 Request History
               </h1>
             </div>
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="p-2 bg-[#eafde7] rounded-full active:scale-95 transition-transform"
-            >
-              <RefreshCw
-                className={`w-5 h-5 text-[#3A7717] ${refreshing ? "animate-spin" : ""}`}
-              />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setBulkMode(!bulkMode);
+                  setSelectedBulkIds(new Set());
+                }}
+                className={`px-3 py-2 rounded-full text-xs font-semibold transition-all ${
+                  bulkMode
+                    ? "bg-[#01312D] text-white"
+                    : "bg-[#eafde7] text-[#01312D]"
+                }`}
+              >
+                {bulkMode ? "Cancel" : "Bulk Repay"}
+              </button>
+              <button
+                type="button"
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="p-2 bg-[#eafde7] rounded-full active:scale-95 transition-transform"
+              >
+                <RefreshCw
+                  className={`w-5 h-5 text-[#3A7717] ${refreshing ? "animate-spin" : ""}`}
+                />
+              </button>
+            </div>
           </div>
 
           {/* Stats Cards */}
@@ -1176,14 +1198,57 @@ export default function RequestHistoryPage() {
               return (
                 <div
                   key={request.id}
-                  className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 hover:shadow-md transition-shadow cursor-pointer"
+                  className={`bg-white rounded-2xl p-4 shadow-sm border ${
+                    bulkMode && selectedBulkIds.has(request.id)
+                      ? "border-[#3A7717] ring-2 ring-[#3A7717]/30"
+                      : bulkMode && needsRepayment
+                        ? "border-[#bff202]/20 cursor-pointer hover:border-[#3A7717]"
+                        : "border-[#bff202]/20 hover:shadow-md transition-shadow cursor-pointer"
+                  }`}
                   onClick={() => {
-                    setSelectedRequest(request);
-                    setShowDetailModal(true);
+                    if (bulkMode && needsRepayment) {
+                      setSelectedBulkIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(request.id)) {
+                          next.delete(request.id);
+                        } else {
+                          next.add(request.id);
+                        }
+                        return next;
+                      });
+                    } else {
+                      setSelectedRequest(request);
+                      setShowDetailModal(true);
+                    }
                   }}
                 >
-                  <div className="flex flex-col items-start gap-3 justify-between mb-3">
+                  <div className="flex items-start gap-3 justify-between mb-3">
                     <div className="flex items-center gap-3">
+                      {bulkMode && needsRepayment && (
+                        <div
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                            selectedBulkIds.has(request.id)
+                              ? "bg-[#3A7717] border-[#3A7717]"
+                              : "border-gray-300"
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedBulkIds((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(request.id)) {
+                                next.delete(request.id);
+                              } else {
+                                next.add(request.id);
+                              }
+                              return next;
+                            });
+                          }}
+                        >
+                          {selectedBulkIds.has(request.id) && (
+                            <CheckCircle className="w-4 h-4 text-white" />
+                          )}
+                        </div>
+                      )}
                       <div
                         className={`w-10 h-10 rounded-xl flex items-center justify-center ${typeColor}`}
                       >
@@ -1372,6 +1437,72 @@ export default function RequestHistoryPage() {
       )}
       <SuccessModal />
       <ErrorModal />
+
+      {/* Bulk Repayment Modal */}
+      {showBulkRepaymentModal && (
+        <BulkRepaymentModal
+          isOpen={showBulkRepaymentModal}
+          onClose={() => {
+            setShowBulkRepaymentModal(false);
+            setSelectedBulkIds(new Set());
+            setBulkMode(false);
+          }}
+          selectedRequests={requests
+            .filter((r) => selectedBulkIds.has(r.id))
+            .map((r) => ({
+              id: r.id,
+              type: r.type,
+              carNumber: r.carNumber,
+              amount: r.amount,
+              totalRepayable: r.totalRepayable || r.amount,
+              remainingBalance: r.remainingBalance || r.totalRepayable || r.amount,
+            }))}
+          onSuccess={() => {
+            fetchRequests();
+            setShowBulkRepaymentModal(false);
+            setSelectedBulkIds(new Set());
+            setBulkMode(false);
+            setSuccessMessage(
+              "Your bulk repayment proof has been submitted for approval!",
+            );
+            setShowSuccessModal(true);
+          }}
+        />
+      )}
+
+      {/* Floating Pay Selected Button */}
+      {bulkMode && selectedBulkIds.size > 0 && (
+        <div className="fixed bottom-20 left-0 right-0 z-50 px-5">
+          <div className="bg-white rounded-2xl shadow-xl border border-[#BFF202]/20 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-sm text-gray-500">
+                  {selectedBulkIds.size} request{selectedBulkIds.size > 1 ? "s" : ""} selected
+                </p>
+                <p className="text-lg font-bold text-[#3A7717]">
+                  {formatMoney(
+                    requests
+                      .filter((r) => selectedBulkIds.has(r.id))
+                      .reduce(
+                        (sum, r) =>
+                          sum +
+                          (r.remainingBalance || r.totalRepayable || r.amount || 0),
+                        0,
+                      ),
+                  )}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowBulkRepaymentModal(true)}
+                className="bg-[#01312D] text-white px-6 py-3 rounded-xl font-semibold hover:bg-[#3A7717] transition-all active:scale-95"
+              >
+                Pay Selected
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bottom Navigation with Notification Badge */}
       <BottomNavigation approvedCount={stats.approved} isAdmin={false} />
     </div>

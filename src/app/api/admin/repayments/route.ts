@@ -35,9 +35,14 @@ export async function GET() {
           }
         }
 
-        // Fetch repayment proofs for this request
+        // Fetch repayment proofs for this request (single or bulk)
         const proofs = await repaymentProofsCollection
-          .find({ requestId: loan._id.toString() })
+          .find({
+            $or: [
+              { requestId: loan._id.toString() },
+              { requestIds: loan._id.toString() },
+            ],
+          })
           .sort({ submittedAt: -1 })
           .toArray();
 
@@ -45,6 +50,8 @@ export async function GET() {
           .filter((p: any) => p.status === "pending")
           .map((p: any) => ({
             id: p._id.toString(),
+            requestIds: p.requestIds || undefined,
+            approvedRequestIds: p.approvedRequestIds || undefined,
             amount: p.amount,
             status: p.status,
             submittedAt: p.submittedAt,

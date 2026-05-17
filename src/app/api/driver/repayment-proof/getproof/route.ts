@@ -25,11 +25,14 @@ export async function GET(request: NextRequest) {
     const { db } = await connectToDatabase();
     const repaymentProofsCollection = db.collection("repaymentProofs");
 
-    // Find all repayment proofs for this request
+    // Find all repayment proofs for this request (single or bulk)
     const proofs = await repaymentProofsCollection
       .find({
-        requestId: requestId,
         userId: session.user.id,
+        $or: [
+          { requestId: requestId },
+          { requestIds: requestId },
+        ],
       })
       .sort({ submittedAt: -1 })
       .toArray();
@@ -37,6 +40,7 @@ export async function GET(request: NextRequest) {
     // Format the response
     const formattedProofs = proofs.map((proof: any) => ({
       id: proof._id.toString(),
+      requestIds: proof.requestIds || undefined,
       amount: proof.amount,
       status: proof.status,
       submittedAt: proof.submittedAt,
