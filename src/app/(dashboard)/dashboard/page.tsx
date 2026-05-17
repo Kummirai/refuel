@@ -236,8 +236,8 @@ export default function DriverDashboard() {
   return (
     <div className="min-h-screen bg-[#eafde7] pb-24">
       {/* Header */}
-      <div className="bg-white border-b border-[#bff202]/20 sticky top-0 z-20">
-        <div className="px-5 py-4">
+      <div className="sticky top-0 z-20">
+        <div className="bg-white border-b border-[#bff202]/20 px-5 py-4 max-w-3xl mx-auto">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-bold text-[#01312D]">
@@ -261,7 +261,7 @@ export default function DriverDashboard() {
         </div>
       </div>
 
-      <div className="px-5 pt-6 pb-24">
+      <div className="px-5 pt-6 max-w-3xl mx-auto w-full">
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <div className="bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">

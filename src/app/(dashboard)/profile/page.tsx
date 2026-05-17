@@ -498,7 +498,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-[#eafde7] pb-24">
       {/* Header with Cover Photo */}
-      <div className="relative">
+      <div className="relative max-w-3xl mx-auto">
         <div className="h-32 bg-gradient-to-r from-[#01312D] to-[#3A7717] relative">
           <button className="absolute bottom-2 right-2 bg-black/50 p-1.5 rounded-full">
             <Camera className="w-4 h-4 text-white" />
@@ -542,7 +542,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Profile Info */}
-      <div className="px-5 pt-16 pb-4 bg-white border-b border-[#bff202]/20">
+      <div className="px-5 pt-16 pb-4 bg-white border-b border-[#bff202]/20 max-w-3xl mx-auto w-full">
         <div className="flex justify-between items-start">
           <div>
             <div className="text-2xl font-bold text-[#01312D]">
@@ -567,7 +567,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-2 p-5">
+      <div className="grid grid-cols-4 gap-2 p-5 max-w-3xl mx-auto">
         <div className="bg-white rounded-xl p-3 text-center shadow-sm border border-[#bff202]/20">
           <div className="w-8 h-8 bg-[#eafde7] rounded-full flex items-center justify-center mx-auto mb-1">
             <History className="w-4 h-4 text-[#3A7717]" />
@@ -608,13 +608,13 @@ export default function ProfilePage() {
 
       {/* Verification Banner for unverified users */}
       {loading ? (
-        <div className="px-5 mb-4">
+        <div className="px-5 mb-4 max-w-3xl mx-auto w-full">
           <div className="rounded-2xl p-4">
             <Skeleton className="h-20 w-full" />
           </div>
         </div>
       ) : userData.verificationStatus !== "approved" && (
-        <div className="px-5 mb-4">
+        <div className="px-5 mb-4 max-w-3xl mx-auto w-full">
           <div className="bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-2xl p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -648,7 +648,7 @@ export default function ProfilePage() {
       )}
 
       {/* Tabs */}
-      <div className="px-5 border-b border-[#bff202]/20 bg-white">
+      <div className="px-5 border-b border-[#bff202]/20 bg-white max-w-3xl mx-auto w-full">
         <div className="flex gap-6">
           <button
             onClick={() => setActiveTab("profile")}
@@ -687,7 +687,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Tab Content */}
-      <div className="p-5">
+      <div className="p-5 max-w-3xl mx-auto w-full">
         {/* Profile Tab */}
         {activeTab === "profile" && (
           <div className="space-y-4">
@@ -1340,8 +1340,8 @@ export default function ProfilePage() {
       )}
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 z-50 shadow-lg">
-        <div className="flex justify-around items-center">
+      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 w-full max-w-3xl bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 shadow-lg">
+        <div className="flex justify-around items-center max-w-md mx-auto">
           <button
             onClick={() => router.push("/")}
             className="flex flex-col items-center gap-0.5 py-1 group"

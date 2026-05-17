@@ -575,8 +575,8 @@ export default function VerifyPage() {
   return (
     <div className="min-h-screen bg-[#eafde7] flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b border-[#bff202]/20 sticky top-0 z-10">
-        <div className="px-5 py-4">
+      <div className="sticky top-0 z-10">
+        <div className="bg-white border-b border-[#bff202]/20 px-5 py-4 max-w-3xl mx-auto">
           <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -598,7 +598,7 @@ export default function VerifyPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 px-5 pt-6 pb-24">
+      <div className="flex-1 px-5 pt-6 pb-24 max-w-3xl mx-auto w-full">
         <div className="max-w-3xl mx-auto">
           {/* Progress Steps */}
           <div className="mb-10">

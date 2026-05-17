@@ -782,7 +782,7 @@ function RequestsPageContent() {
           </div>
         </div>
       )}
-      <main className="relative z-10">
+      <main className="relative z-10 max-w-3xl mx-auto w-full">
         <div className="bg-white border-b border-[#bff202]/20 sticky top-0 z-20">
           <div className="px-5 py-4 flex items-center gap-3">
             <button
@@ -797,7 +797,7 @@ function RequestsPageContent() {
           </div>
         </div>
 
-        <div className="px-5 pt-6">
+        <div className="px-5 pt-6 max-w-3xl mx-auto w-full">
           {/* Driver Info Card */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 mb-6">
             <div className="flex items-center gap-3 mb-3">
@@ -1105,7 +1105,7 @@ export default function RequestsPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-[#eafde7] px-5 py-8">
-          <div className="max-w-lg mx-auto space-y-6">
+          <div className="max-w-3xl mx-auto space-y-6">
             <Skeleton className="h-8 w-48" />
             <Skeleton className="h-40 w-full rounded-2xl" />
             <Skeleton className="h-14 w-full rounded-xl" />

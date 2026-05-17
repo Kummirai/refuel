@@ -984,8 +984,8 @@ export default function RequestHistoryPage() {
   return (
     <div className="min-h-screen bg-[#eafde7]">
       {/* Header */}
-      <div className="bg-white border-b border-[#bff202]/20 sticky top-0 z-20">
-        <div className="px-5 py-4">
+      <div className="sticky top-0 z-20">
+        <div className="bg-white border-b border-[#bff202]/20 px-5 py-4 max-w-3xl mx-auto">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
               <button
@@ -1089,7 +1089,7 @@ export default function RequestHistoryPage() {
         </div>
       </div>
       {/* Filter Tabs */}
-      <div className="px-5 pt-4 pb-2 overflow-x-auto no-scrollbar">
+      <div className="px-5 pt-4 pb-2 overflow-x-auto no-scrollbar max-w-3xl mx-auto">
         <div className="flex gap-2 flex-wrap items-center justify-center">
           {["all", "pending", "approved", "completed", "rejected"].map(
             (filter) => (
@@ -1124,7 +1124,7 @@ export default function RequestHistoryPage() {
         </div>
       </div>
       {/* Requests List */}
-      <div className="px-5 pt-4 pb-24">
+      <div className="px-5 pt-4 pb-24 max-w-3xl mx-auto w-full">
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (

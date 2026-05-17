@@ -1,5 +1,5 @@
 // src/app/layout.tsx - 
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
@@ -15,6 +15,10 @@ export const metadata: Metadata = {
   description: "Get fuel, cash & car wash instantly",
 };
 
+export const viewport: Viewport = {
+  themeColor: "#3A7717",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -22,7 +26,23 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={jarkata.variable}>
-      <body className={jarkata.className}>{children}</body>
+      <head>
+        <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
+      </head>
+      <body className={jarkata.className}>
+        {children}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ("serviceWorker" in navigator) {
+                window.addEventListener("load", () => {
+                  navigator.serviceWorker.register("/sw.js");
+                });
+              }
+            `,
+          }}
+        />
+      </body>
     </html>
   );
 }
