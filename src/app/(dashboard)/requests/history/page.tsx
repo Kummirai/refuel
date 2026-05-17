@@ -113,7 +113,9 @@ export default function RequestHistoryPage() {
 
   // Bulk repayment state
   const [bulkMode, setBulkMode] = useState(false);
-  const [selectedBulkIds, setSelectedBulkIds] = useState<Set<string>>(new Set());
+  const [selectedBulkIds, setSelectedBulkIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [showBulkRepaymentModal, setShowBulkRepaymentModal] = useState(false);
 
   // Modal states for alerts
@@ -1004,15 +1006,11 @@ export default function RequestHistoryPage() {
                   setBulkMode(!bulkMode);
                   setSelectedBulkIds(new Set());
                 }}
-                className={`px-3 py-2 rounded-full text-xs font-semibold transition-all ${
-                  bulkMode
-                    ? "bg-[#01312D] text-white"
-                    : "bg-[#eafde7] text-[#01312D]"
-                }`}
+                className={`px-3 py-2 rounded-full text-xs font-semibold transition-all bg-[#01312D] text-white `}
               >
                 {bulkMode ? "Cancel" : "Bulk Repay"}
               </button>
-              <button
+              {/* <button
                 type="button"
                 onClick={handleRefresh}
                 disabled={refreshing}
@@ -1021,7 +1019,7 @@ export default function RequestHistoryPage() {
                 <RefreshCw
                   className={`w-5 h-5 text-[#3A7717] ${refreshing ? "animate-spin" : ""}`}
                 />
-              </button>
+              </button> */}
             </div>
           </div>
 
@@ -1455,7 +1453,8 @@ export default function RequestHistoryPage() {
               carNumber: r.carNumber,
               amount: r.amount,
               totalRepayable: r.totalRepayable || r.amount,
-              remainingBalance: r.remainingBalance || r.totalRepayable || r.amount,
+              remainingBalance:
+                r.remainingBalance || r.totalRepayable || r.amount,
             }))}
           onSuccess={() => {
             fetchRequests();
@@ -1477,7 +1476,8 @@ export default function RequestHistoryPage() {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-sm text-gray-500">
-                  {selectedBulkIds.size} request{selectedBulkIds.size > 1 ? "s" : ""} selected
+                  {selectedBulkIds.size} request
+                  {selectedBulkIds.size > 1 ? "s" : ""} selected
                 </p>
                 <p className="text-lg font-bold text-[#3A7717]">
                   {formatMoney(
@@ -1486,7 +1486,10 @@ export default function RequestHistoryPage() {
                       .reduce(
                         (sum, r) =>
                           sum +
-                          (r.remainingBalance || r.totalRepayable || r.amount || 0),
+                          (r.remainingBalance ||
+                            r.totalRepayable ||
+                            r.amount ||
+                            0),
                         0,
                       ),
                   )}
