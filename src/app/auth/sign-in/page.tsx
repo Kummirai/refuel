@@ -125,7 +125,7 @@ export default function SignInPage() {
       </div>
 
       {/* Main Content */}
-      <div className="relative z-10 px-5 pt-8 pb-12">
+      <div className="relative z-10 px-5 pt-8 pb-12 max-w-md mx-auto">
         {/* Logo & Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-linear-to-r from-[#01312D] to-[#3A7717] rounded-2xl shadow-xl mb-4">

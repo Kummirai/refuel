@@ -250,8 +250,8 @@ export default function VerificationStatusPage() {
   return (
     <div className="min-h-screen bg-[#eafde7] pb-12">
       {/* Header */}
-      <div className="bg-white border-b border-[#bff202]/20 sticky top-0 z-20">
-        <div className="px-5 py-4">
+      <div className="sticky top-0 z-20">
+        <div className="bg-white border-b border-[#bff202]/20 px-5 py-4 max-w-3xl mx-auto">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
@@ -272,7 +272,7 @@ export default function VerificationStatusPage() {
       </div>
 
       {/* Main Content */}
-      <div className="px-5 pt-6 pb-24">
+      <div className="px-5 pt-6 pb-24 max-w-3xl mx-auto w-full">
         {/* Status Card */}
         <div className={`rounded-2xl p-6 border ${getStatusColor()} mb-6`}>
           <div className="text-center">
