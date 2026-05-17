@@ -11,7 +11,7 @@ const jarkata = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Kapuka - Driver Services",
+  title: "Kapuka Tradings",
   description: "Get fuel, cash & car wash instantly",
 };
 
@@ -27,7 +27,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={jarkata.variable}>
       <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
       <body className={jarkata.className}>
         {children}
