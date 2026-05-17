@@ -307,7 +307,7 @@ export default function HomePage() {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#72bf00]/5 rounded-full blur-3xl"></div>
 
       {/* Main Content */}
-      <main className="relative z-10 px-5 pt-6 pb-24">
+      <main className="relative z-10 px-5 pt-6 pb-24 max-w-3xl mx-auto w-full">
         {/* Header Section */}
         <div className="mb-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
