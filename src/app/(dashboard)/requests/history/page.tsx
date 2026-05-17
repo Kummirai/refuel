@@ -1196,7 +1196,7 @@ export default function RequestHistoryPage() {
               return (
                 <div
                   key={request.id}
-                  className={`bg-white rounded-2xl p-4 shadow-sm border ${
+                  className={`bg-white rounded-2xl p-4 shadow-sm border overflow-hidden ${
                     bulkMode && selectedBulkIds.has(request.id)
                       ? "border-[#3A7717] ring-2 ring-[#3A7717]/30"
                       : bulkMode && needsRepayment
@@ -1220,8 +1220,8 @@ export default function RequestHistoryPage() {
                     }
                   }}
                 >
-                  <div className="flex items-start gap-3 justify-between mb-3">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-start gap-3 mb-2">
+                    <div className="flex items-center gap-3 min-w-0">
                       {bulkMode && needsRepayment && (
                         <div
                           className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
@@ -1248,19 +1248,21 @@ export default function RequestHistoryPage() {
                         </div>
                       )}
                       <div
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center ${typeColor}`}
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${typeColor}`}
                       >
                         {IconComponent && <IconComponent className="w-5 h-5" />}
                       </div>
-                      <div>
-                        <p className="font-bold text-[#01312D] capitalize">
+                      <div className="min-w-0">
+                        <p className="font-bold text-[#01312D] capitalize truncate">
                           {getTypeLabel(request.type)}
                         </p>
-                        <p className="text-xs text-gray-500">{request.id}</p>
+                        <p className="text-xs text-gray-500 truncate">{request.id}</p>
                       </div>
                     </div>
+                  </div>
+                  <div className="mb-3">
                     <div
-                      className={`px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${statusColor}`}
+                      className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold items-center gap-1 ${statusColor}`}
                     >
                       {getStatusIcon(request.status)}
                       <span>{getStatusText(request.status)}</span>
