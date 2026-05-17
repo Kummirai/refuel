@@ -1006,7 +1006,7 @@ export default function RequestHistoryPage() {
                   setBulkMode(!bulkMode);
                   setSelectedBulkIds(new Set());
                 }}
-                className={`px-3 py-2 rounded-full text-xs font-semibold transition-all bg-[#01312D] text-white `}
+                className={`px-7 py-2 rounded-full text-xs font-semibold transition-all bg-[#01312D] text-white `}
               >
                 {bulkMode ? "Cancel" : "Bulk Repay"}
               </button>
@@ -1256,7 +1256,9 @@ export default function RequestHistoryPage() {
                         <p className="font-bold text-[#01312D] capitalize truncate">
                           {getTypeLabel(request.type)}
                         </p>
-                        <p className="text-xs text-gray-500 truncate">{request.id}</p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {request.id}
+                        </p>
                       </div>
                     </div>
                   </div>

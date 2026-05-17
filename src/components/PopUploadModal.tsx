@@ -197,7 +197,7 @@ export function PopUploadModal({
     }
 
     if (!popUrl) {
-      setError("Please upload proof of payment");
+      setError("Please upload a receipt");
       return;
     }
 
@@ -265,7 +265,7 @@ export function PopUploadModal({
       console.log("Response:", data);
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to submit POP");
+        throw new Error(data.error || "Failed to submit receipt");
       }
 
       onSuccess();
@@ -273,7 +273,7 @@ export function PopUploadModal({
       resetForm();
     } catch (err: any) {
       console.error("Submit error:", err);
-      setError(err.message || "Failed to submit POP. Please try again.");
+      setError(err.message || "Failed to submit receipt. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -312,7 +312,7 @@ export function PopUploadModal({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-[#01312D]">
-              Upload Proof of Payment
+              Upload Receipt
             </h2>
             <p className="text-sm text-gray-500 mt-0.5">
               Request ID: {requestId}
@@ -381,7 +381,7 @@ export function PopUploadModal({
                     </div>
                   </div>
                   <p className="text-xs text-blue-700 mt-2">
-                    Please upload your bank transfer receipt or proof of
+                    Please upload your bank transfer receipt
                     payment. If the actual amount differs, enter the correct
                     amount below.
                     <strong>
@@ -516,7 +516,7 @@ export function PopUploadModal({
         {/* POP Upload */}
         <div className="mb-6">
           <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-            Upload Proof of Payment <span className="text-red-500">*</span>
+            Upload Receipt <span className="text-red-500">*</span>
           </label>
 
           <input
@@ -545,7 +545,7 @@ export function PopUploadModal({
                 <>
                   <Upload className="w-12 h-12 text-[#72bf00] mx-auto mb-3" />
                   <p className="text-sm text-[#01312D] font-semibold">
-                    Click to upload POP
+                    Click to upload receipt
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
                     JPG or PNG (automatically compressed)
@@ -571,7 +571,7 @@ export function PopUploadModal({
               ) : (
                 <img
                   src={popUrl}
-                  alt="POP Preview"
+                  alt="Receipt Preview"
                   className="w-full h-40 object-cover rounded-lg"
                 />
               )}
@@ -626,7 +626,7 @@ export function PopUploadModal({
             ) : (
               <>
                 <CheckCircle className="w-4 h-4" />
-                Submit POP
+                Submit Receipt
               </>
             )}
           </button>
