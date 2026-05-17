@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Get fuel, cash & car wash instantly",
     start_url: "/",
     display: "standalone",
-    background_color: "#01312D",
+    background_color: "#ffffff",
     theme_color: "#3A7717",
     orientation: "portrait",
     icons: [
