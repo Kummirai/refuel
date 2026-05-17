@@ -1427,6 +1427,7 @@ const generateInvoiceHtml = (data: InvoiceEmailData): string => {
             <div>
               <h2 class="invoice-title">INVOICE</h2>
               <p class="invoice-subtitle">${data.serviceTypeLabel} Service</p>
+              <div style="color: #dc2626; font-weight: 800; font-size: 13px; margin-top: 4px;">Remember to do immediate payment.</div>
             </div>
             <div class="invoice-meta">
               <div class="invoice-meta-item"><span class="invoice-meta-label">Invoice #:</span> <span class="invoice-meta-value">${invoiceId}</span></div>
@@ -1520,8 +1521,20 @@ const generateInvoiceHtml = (data: InvoiceEmailData): string => {
           }
 
           <div class="validity-box">
-            <div class="validity-text"> Invoice Status: Amount Due</div>
-            <div style="margin-top: 6px; font-size: 13px; color: #92400e;">Please ensure payment is made according to the terms above.</div>
+            <div class="validity-text"> Banking Details</div>
+            <div style="margin-top: 8px; font-size: 13px; line-height: 1.6; color: #333;">
+              <strong>Bank:</strong> FNB/RMB<br>
+              <strong>Account Holder:</strong> Japhet Sibuyi<br>
+              <strong>Account Type:</strong> FNB Aspire Current Account<br>
+              <strong>Account Number:</strong> 63131222307<br>
+              <strong>Branch Code:</strong> 250655<br>
+              <strong style="color: #dc2626;">Reference:</strong> Please use your <strong style="color: #dc2626;">car registration (${data.carRegistration})</strong> as payment reference
+            </div>
+          </div>
+
+          <div class="validity-box" style="background-color: #fef3c7; border-color: #fde68a;">
+            <div class="validity-text" style="color: #92400e;"> Reminder: Immediate Payment Required</div>
+            <div style="margin-top: 6px; font-size: 13px; color: #92400e;">Please process payment immediately to avoid any service interruptions.</div>
           </div>
 
           <div style="text-align: center;">
@@ -1548,7 +1561,7 @@ export async function sendDriverInvoiceEmail(data: InvoiceEmailData) {
       to: data.driverEmail,
       subject: `Invoice ${invoiceId} - ${data.serviceTypeLabel} Service - Kapuka Tradings`,
       html: generateInvoiceHtml(data),
-      text: `Invoice ${invoiceId}\n\nDear ${data.driverName},\n\nThank you for your payment. Please find your invoice attached.\n\nService: ${data.serviceTypeLabel}\nAmount: ${formatMoney(data.actualAmount || 0)}\nTotal: ${formatMoney(data.totalRepayable || data.totalDue || data.actualAmount || 0)}\n\nThank you for choosing Kapuka Tradings.`,
+      text: `Invoice ${invoiceId}\n\nDear ${data.driverName},\n\nThank you for your payment. Please find your invoice attached.\n\nService: ${data.serviceTypeLabel}\nAmount: ${formatMoney(data.actualAmount || 0)}\nTotal: ${formatMoney(data.totalRepayable || data.totalDue || data.actualAmount || 0)}\n\nBANKING DETAILS:\nBank: FNB/RMB\nAccount Holder: Japhet Sibuyi\nAccount Type: FNB Aspire Current Account\nAccount Number: 63131222307\nBranch Code: 250655\nReference: Use your car registration (${data.carRegistration})\n\nRemember to do immediate payment.\n\nThank you for choosing Kapuka Tradings.`,
     });
     console.log("Driver invoice email sent:", info.messageId);
     return info;
@@ -1650,6 +1663,7 @@ export async function sendDriverWeeklyInvoiceEmail(data: {
             <div>
               <h2 class="invoice-title">STATEMENT</h2>
               <p class="invoice-subtitle">Outstanding Balances</p>
+              <div style="color: #dc2626; font-weight: 800; font-size: 13px; margin-top: 4px;">Remember to do immediate payment.</div>
             </div>
             <div class="invoice-meta">
               <div class="invoice-meta-item"><span class="invoice-meta-label">Statement #:</span> <span class="invoice-meta-value">${statementId}</span></div>
@@ -1699,8 +1713,20 @@ export async function sendDriverWeeklyInvoiceEmail(data: {
           </div>
 
           <div class="validity-box">
-            <div class="validity-text"> Payment Required</div>
-            <div style="margin-top: 6px; font-size: 13px; color: #92400e;">Please ensure all outstanding amounts are paid promptly to avoid any interruptions to your service.</div>
+            <div class="validity-text"> Banking Details</div>
+            <div style="margin-top: 8px; font-size: 13px; line-height: 1.6; color: #333;">
+              <strong>Bank:</strong> FNB/RMB<br>
+              <strong>Account Holder:</strong> Japhet Sibuyi<br>
+              <strong>Account Type:</strong> FNB Aspire Current Account<br>
+              <strong>Account Number:</strong> 63131222307<br>
+              <strong>Branch Code:</strong> 250655<br>
+              <strong style="color: #dc2626;">Reference:</strong> Please use your <strong style="color: #dc2626;">car registration</strong> as payment reference
+            </div>
+          </div>
+
+          <div class="validity-box" style="background-color: #fef3c7; border-color: #fde68a;">
+            <div class="validity-text" style="color: #92400e;"> Reminder: Immediate Payment Required</div>
+            <div style="margin-top: 6px; font-size: 13px; color: #92400e;">Please ensure all outstanding amounts are paid promptly to avoid any service interruptions.</div>
           </div>
 
           <div style="text-align: center;">
@@ -1724,7 +1750,7 @@ export async function sendDriverWeeklyInvoiceEmail(data: {
       to: data.driverEmail,
       subject: `Weekly Statement - ${formatMoney(data.totalOutstanding)} Outstanding - Kapuka Tradings`,
       html: html,
-      text: `Weekly Statement\n\nDear ${data.driverName},\n\nTotal Outstanding: ${formatMoney(data.totalOutstanding)}\nItems: ${itemCount}\n\nPlease log in to view details.\n\nKapuka Tradings`,
+      text: `Weekly Statement\n\nDear ${data.driverName},\n\nTotal Outstanding: ${formatMoney(data.totalOutstanding)}\nItems: ${itemCount}\n\nBANKING DETAILS:\nBank: FNB/RMB\nAccount Holder: Japhet Sibuyi\nAccount Type: FNB Aspire Current Account\nAccount Number: 63131222307\nBranch Code: 250655\nReference: Use your car registration as payment reference\n\nRemember to do immediate payment.\n\nPlease log in to view details.\n\nKapuka Tradings`,
     });
     console.log("Weekly statement email sent:", info.messageId);
     return info;

@@ -584,6 +584,7 @@ Kapuka Tradings Team`;
                   <div>
                     <div style={{ fontSize: "32px", fontWeight: "800", color: "#0d4a2a", letterSpacing: "-1px" }}>INVOICE</div>
                     <div style={{ color: "#64748b", fontSize: "13px" }}>Statement of outstanding balances</div>
+                    <div style={{ color: "#dc2626", fontWeight: "800", fontSize: "13px", marginTop: "4px" }}>Remember to do immediate payment.</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ color: "#64748b", fontSize: "12px" }}>Date</div>
@@ -658,10 +659,23 @@ Kapuka Tradings Team`;
                   </div>
                 </div>
 
+                {/* Banking Details */}
+                <div style={{ backgroundColor: "#f0fdf4", borderRadius: "12px", padding: "16px", marginBottom: "16px", border: "1px solid #bbf7d0" }}>
+                  <div style={{ color: "#166534", fontSize: "13px", fontWeight: "700", marginBottom: "8px" }}>Banking Details</div>
+                  <div style={{ color: "#333", fontSize: "13px", lineHeight: "1.6" }}>
+                    <strong>Bank:</strong> FNB/RMB<br />
+                    <strong>Account Holder:</strong> Japhet Sibuyi<br />
+                    <strong>Account Type:</strong> FNB Aspire Current Account<br />
+                    <strong>Account Number:</strong> 63131222307<br />
+                    <strong>Branch Code:</strong> 250655<br />
+                    <strong style={{ color: "#dc2626" }}>Reference:</strong> Use your <strong style={{ color: "#dc2626" }}>car registration</strong> as payment reference
+                  </div>
+                </div>
+
                 {/* Terms Box */}
                 <div style={{ backgroundColor: "#f8fafc", borderRadius: "12px", padding: "16px", marginBottom: "16px" }}>
                   <div style={{ color: "#64748b", fontSize: "13px", lineHeight: "1.5" }}>
-                    <strong style={{ color: "#0f172a" }}>Payment Terms:</strong> Amount due in full within the agreed repayment period. Late payments may incur additional charges.
+                    <strong style={{ color: "#0f172a" }}>Payment Terms:</strong> Amount due in full within the agreed repayment period.
                   </div>
                 </div>
 
