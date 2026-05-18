@@ -173,8 +173,6 @@ export async function GET(request: NextRequest) {
       totalRevenue,
       totalRepayable,
       totalRepaid,
-    }, {
-      headers: { "Cache-Control": "public, max-age=15, s-maxage=30" },
     });
   } catch (error) {
     console.error("Error fetching requests:", error);

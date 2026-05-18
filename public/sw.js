@@ -2,7 +2,7 @@ const CACHE_NAME = "kapuka-v1";
 
 const STATIC_ASSETS = [
   "/",
-  "/manifest.json",
+  "/manifest.webmanifest",
   "/icons/icon-192.svg",
   "/icons/icon-512.svg",
 ];
@@ -32,11 +32,20 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          if (response.ok || response.status === 304) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
           return response;
         })
-        .catch(() => caches.match(request))
+        .catch(() =>
+          caches.match(request).then((cached) =>
+            cached || new Response(JSON.stringify({ error: "offline" }), {
+              status: 503,
+              headers: { "Content-Type": "application/json" },
+            })
+          )
+        )
     );
     return;
   }

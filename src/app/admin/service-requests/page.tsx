@@ -137,7 +137,7 @@ export default function AdminServiceRequestsPage() {
 
   const fetchRequests = async () => {
     try {
-      const response = await fetch("/api/admin/requests");
+      const response = await fetch("/api/admin/requests", { cache: "no-store" });
       if (response.ok) {
         const data = await response.json();
         const requestsWithId = (data.requests || []).map((req: any) => ({
@@ -203,6 +203,14 @@ export default function AdminServiceRequestsPage() {
     if (!approvingRequest) return;
 
     setApprovalLoading(true);
+    // Optimistic update: move request to approved immediately
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === approvingRequest.id
+          ? { ...r, status: "approved" as RequestStatus, otp: generatedOtp }
+          : r,
+      ),
+    );
     try {
       const response = await fetch("/api/admin/requests/approve", {
         method: "POST",
@@ -222,13 +230,29 @@ export default function AdminServiceRequestsPage() {
         setApprovedRequest(updatedRequest);
         setShowApproveModal(false);
         setShowWhatsAppModal(true);
-        await fetchRequests();
+        fetchRequests();
       } else {
+        // Revert optimistic update on error
+        setRequests((prev) =>
+          prev.map((r) =>
+            r.id === approvingRequest.id
+              ? { ...r, status: "pending" as RequestStatus, otp: undefined }
+              : r,
+          ),
+        );
         const error = await response.json();
         setErrorMessage(error.error || "Failed to approve request");
         setShowErrorModal(true);
       }
     } catch (error) {
+      // Revert optimistic update on error
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === approvingRequest.id
+            ? { ...r, status: "pending" as RequestStatus, otp: undefined }
+            : r,
+        ),
+      );
       console.error("Error approving request:", error);
       setErrorMessage("Failed to approve request");
       setShowErrorModal(true);
@@ -239,6 +263,14 @@ export default function AdminServiceRequestsPage() {
 
   const handleMarkAsSent = async (request: ServiceRequest) => {
     setSentLoading(true);
+    // Optimistic update: move request to sent immediately
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === request.id
+          ? { ...r, status: "sent" as RequestStatus }
+          : r,
+      ),
+    );
     try {
       const response = await fetch("/api/admin/requests/sent", {
         method: "POST",
@@ -254,11 +286,19 @@ export default function AdminServiceRequestsPage() {
           `Request ${request.id.slice(-6).toUpperCase()} marked as SENT! The driver has been notified.`,
         );
         setShowSuccessModal(true);
-        await fetchRequests();
+        fetchRequests();
         setShowSentModal(false);
         setSentRequest(null);
         setShowModal(false);
       } else {
+        // Revert optimistic update on error
+        setRequests((prev) =>
+          prev.map((r) =>
+            r.id === request.id
+              ? { ...r, status: "approved" as RequestStatus }
+              : r,
+          ),
+        );
         let errorMessage = "Failed to mark as sent";
         try {
           const error = await response.json();
@@ -271,6 +311,14 @@ export default function AdminServiceRequestsPage() {
         setShowErrorModal(true);
       }
     } catch (error) {
+      // Revert optimistic update on error
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === request.id
+            ? { ...r, status: "approved" as RequestStatus }
+            : r,
+        ),
+      );
       console.error("Error marking as sent:", error);
       setErrorMessage("Failed to mark as sent. Please check your connection.");
       setShowErrorModal(true);
