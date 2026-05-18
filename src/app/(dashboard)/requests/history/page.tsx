@@ -379,7 +379,7 @@ export default function RequestHistoryPage() {
             (r.status === "approved" ||
               r.status === "sent" ||
               r.status === "completed") &&
-            r.hasReceipt === true &&
+            (r.hasReceipt === true || r.popUrl) &&
             (r.remainingBalance || 0) > 0,
         )
         .reduce((sum: number, r: any) => sum + (r.remainingBalance || 0), 0),
@@ -391,7 +391,7 @@ export default function RequestHistoryPage() {
       (r.status === "approved" ||
         r.status === "sent" ||
         r.status === "completed") &&
-      r.hasReceipt === true &&
+      (r.hasReceipt === true || r.popUrl) &&
       (r.remainingBalance || 0) > 0,
   );
 
