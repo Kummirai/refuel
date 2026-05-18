@@ -40,17 +40,17 @@ export default function DriverDashboard() {
   const { data: requestsData, error: requestsError, isLoading: requestsLoading, isValidating: requestsValidating, mutate: mutateRequests } = useSWR(
     userId ? `/api/driver/requests?userId=${userId}` : null,
     fetcher,
-    { refreshInterval: 30_000, dedupingInterval: 15_000 },
+    { refreshInterval: 30_000, dedupingInterval: 30_000 },
   );
-  const { data: profile, isLoading: profileLoading } = useSWR(
+  const { data: profile, isLoading: profileLoading, error: profileError } = useSWR(
     userId ? `/api/driver/profile?userId=${userId}` : null,
     fetcher,
-    { refreshInterval: 60_000, dedupingInterval: 30_000 },
+    { refreshInterval: 60_000, dedupingInterval: 60_000 },
   );
-  const { data: activeLoan } = useSWR(
+  const { data: activeLoan, isLoading: loanLoading } = useSWR(
     userId ? `/api/driver/loans/active?userId=${userId}` : null,
     fetcher,
-    { refreshInterval: 60_000, dedupingInterval: 30_000 },
+    { refreshInterval: 60_000, dedupingInterval: 60_000 },
   );
 
   const loading = (!requestsData && requestsLoading) || (!profile && profileLoading) || isPending;
@@ -200,6 +200,20 @@ export default function DriverDashboard() {
         </div>
       </div>
 
+      {requestsError || profileError ? (
+        <div className="px-5 pt-4 max-w-3xl mx-auto w-full">
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2 mb-2">
+            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+            <p className="text-sm text-red-700">
+              Failed to load some data.{" "}
+              <button onClick={handleRefresh} className="underline font-semibold">
+                Tap to retry
+              </button>
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <div className="px-5 pt-6 max-w-3xl mx-auto w-full">
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -291,7 +305,7 @@ export default function DriverDashboard() {
         </div>
 
         {/* Active Loan Banner */}
-        {activeLoan || loading ? (
+        {activeLoan ? (
           <div className="bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-2xl p-4 shadow-lg mb-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-bold text-[#01312D]">Active Loan</h3>
@@ -300,60 +314,64 @@ export default function DriverDashboard() {
               </span>
             </div>
             <div className="space-y-2">
-              {loading ? (
-                <>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-[#01312D]">Loan Amount</span>
-                    <Skeleton className="h-5 w-20" />
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-[#01312D]">Remaining</span>
-                    <Skeleton className="h-5 w-20" />
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-[#01312D]">Next Payment</span>
-                    <Skeleton className="h-5 w-20" />
-                  </div>
-                  <div className="mt-2">
-                    <Skeleton className="h-2 w-full rounded-full" />
-                    <Skeleton className="h-10 w-full mt-3 rounded-xl" />
-                  </div>
-                </>
-              ) : activeLoan ? (
-                <>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-[#01312D]">Loan Amount</span>
-                    <span className="font-bold text-[#01312D]">
-                      {formatMoney(activeLoan.amount)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-[#01312D]">Remaining</span>
-                    <span className="font-bold text-[#01312D]">
-                      {formatMoney(activeLoan.remaining)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-[#01312D]">Next Payment</span>
-                    <span className="font-semibold text-[#01312D]">
-                      {formatMoney(activeLoan.dailyPayment)}
-                    </span>
-                  </div>
-                  <div className="mt-2">
-                    <div className="bg-[#01312D]/20 rounded-full h-2 overflow-hidden">
-                      <div
-                        className="bg-[#01312D] h-2 rounded-full"
-                        style={{
-                          width: `${((activeLoan.amount - activeLoan.remaining) / activeLoan.amount) * 100}%`,
-                        }}
-                      ></div>
-                    </div>
-                    <button className="w-full mt-3 bg-[#01312D] text-white py-2 rounded-xl font-semibold text-sm">
-                      Make Payment
-                    </button>
-                  </div>
-                </>
-              ) : null}
+              <div className="flex justify-between">
+                <span className="text-sm text-[#01312D]">Loan Amount</span>
+                <span className="font-bold text-[#01312D]">
+                  {formatMoney(activeLoan.amount)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-[#01312D]">Remaining</span>
+                <span className="font-bold text-[#01312D]">
+                  {formatMoney(activeLoan.remaining)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-[#01312D]">Next Payment</span>
+                <span className="font-semibold text-[#01312D]">
+                  {formatMoney(activeLoan.dailyPayment)}
+                </span>
+              </div>
+              <div className="mt-2">
+                <div className="bg-[#01312D]/20 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-[#01312D] h-2 rounded-full"
+                    style={{
+                      width: `${((activeLoan.amount - activeLoan.remaining) / activeLoan.amount) * 100}%`,
+                    }}
+                  ></div>
+                </div>
+                <button className="w-full mt-3 bg-[#01312D] text-white py-2 rounded-xl font-semibold text-sm">
+                  Make Payment
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : loanLoading ? (
+          <div className="bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-2xl p-4 shadow-lg mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-bold text-[#01312D]">Active Loan</h3>
+              <span className="text-xs bg-[#01312D]/20 px-2 py-1 rounded-full text-[#01312D]">
+                13% Interest
+              </span>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm text-[#01312D]">Loan Amount</span>
+                <Skeleton className="h-5 w-20" />
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-[#01312D]">Remaining</span>
+                <Skeleton className="h-5 w-20" />
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-[#01312D]">Next Payment</span>
+                <Skeleton className="h-5 w-20" />
+              </div>
+              <div className="mt-2">
+                <Skeleton className="h-2 w-full rounded-full" />
+                <Skeleton className="h-10 w-full mt-3 rounded-xl" />
+              </div>
             </div>
           </div>
         ) : null}

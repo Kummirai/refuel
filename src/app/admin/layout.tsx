@@ -40,11 +40,11 @@ export default function AdminLayout({
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  // SWR: batch all notification counts into one request, refresh every 60s
+  // SWR: batch all notification counts into one request, refresh every 15s
   const { data: counts, mutate: refreshCounts } = useSWR(
     isAuthorized ? "/api/admin/notifications/count" : null,
     fetcher,
-    { refreshInterval: 30_000, dedupingInterval: 15_000 },
+    { refreshInterval: 15_000, dedupingInterval: 15_000 },
   );
 
   const pendingVerificationsCount = counts?.verifications ?? 0;
@@ -93,7 +93,7 @@ export default function AdminLayout({
     }
   }, [isAuthorized, showNotifications]);
 
-  // Listen for manual refresh events (e.g. after approve/reject)
+  // Listen for manual refresh events (e.g. after approve/reject) to refetch pending details
   useEffect(() => {
     if (!isAuthorized) return;
     const handleRefresh = () => {

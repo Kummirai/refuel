@@ -1,10 +1,10 @@
 // src/app/admin/dashboard/page.tsx
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toPng } from "html-to-image";
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
 import { fetcher } from "@/lib/fetch";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import { formatMoney, toMoney } from "@/lib/money";
@@ -130,16 +130,7 @@ export default function AdminDashboard() {
   const [appliedFrom, setAppliedFrom] = useState("");
   const [appliedTo, setAppliedTo] = useState("");
 
-  // Financial stats
-  const [financialStats, setFinancialStats] = useState({
-    moneyRequested: 0,
-    actualInterest: 0,
-    potentialInterest: 0,
-    totalRepaid: 0,
-    principalRepaid: 0,
-  });
-
-  const [stats, setStats] = useState({
+  const defaultStats = {
     totalDrivers: 0,
     pendingVerifications: 0,
     verifiedDrivers: 0,
@@ -152,96 +143,105 @@ export default function AdminDashboard() {
     averageRating: 0,
     activeLoans: 0,
     totalLoanAmount: 0,
-  });
+  };
 
-  const [drivers, setDrivers] = useState<any[]>([]);
-  const [recentVerifications, setRecentVerifications] = useState<any[]>([]);
-  const [recentRequests, setRecentRequests] = useState<any[]>([]);
+  const defaultFinancialStats = {
+    moneyRequested: 0,
+    actualInterest: 0,
+    potentialInterest: 0,
+    totalRepaid: 0,
+    principalRepaid: 0,
+  };
 
-  // Function to refresh notification counts in the sidebar
+  // Optimistically decrement a notification count field, then revalidate from server
+  const optimisticDecrement = (field: string) => {
+    mutate(
+      "/api/admin/notifications/count",
+      (current: any) => current ? { ...current, [field]: Math.max(0, current[field] - 1) } : current,
+      false,
+    );
+    mutate("/api/admin/notifications/count");
+  };
+
   const refreshNotificationCounts = () => {
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("refreshAdminCounts"));
-    }
+    mutate("/api/admin/notifications/count");
   };
 
   // SWR with shared cache deduplication
-  const { data: statsData, isLoading: statsLoading, isValidating: statsValidating, mutate: mutateStats } = useSWR(
+  const { data: statsData, isLoading: statsLoading, isValidating: statsValidating, mutate: mutateStats, error: statsError } = useSWR(
     "/api/admin/stats",
     fetcher,
-    { refreshInterval: 60_000, dedupingInterval: 30_000 },
+    { refreshInterval: 60_000, dedupingInterval: 60_000 },
   );
-  const { data: driversData, isLoading: driversLoading, mutate: mutateDrivers } = useSWR(
+  const { data: driversData, isLoading: driversLoading, mutate: mutateDrivers, error: driversError } = useSWR(
     "/api/admin/drivers",
     fetcher,
-    { refreshInterval: 120_000, dedupingInterval: 60_000 },
+    { refreshInterval: 120_000, dedupingInterval: 120_000 },
   );
-  const { data: requestsData, isLoading: requestsLoading, isValidating: requestsValidating, mutate: mutateRequests } = useSWR(
-    "/api/admin/requests",
+  const requestsUrl = appliedFrom || appliedTo
+    ? `/api/admin/requests?from=${appliedFrom}&to=${appliedTo}`
+    : "/api/admin/requests";
+
+  const { data: requestsData, isLoading: requestsLoading, isValidating: requestsValidating, mutate: mutateRequests, error: requestsError } = useSWR(
+    requestsUrl,
     fetcher,
-    { refreshInterval: 30_000, dedupingInterval: 15_000 },
+    { refreshInterval: 30_000, dedupingInterval: 30_000 },
   );
 
   const loading = statsLoading || driversLoading || requestsLoading;
   const refreshing = (statsValidating || requestsValidating) && !loading;
 
-  // Derive state from SWR data
-  useEffect(() => {
-    if (statsData) setStats(statsData);
-  }, [statsData]);
+  const stats = useMemo(() => statsData || defaultStats, [statsData]);
 
-  useEffect(() => {
-    if (driversData) {
-      setDrivers(driversData.drivers || []);
-      setRecentVerifications(driversData.recent || []);
-    }
-  }, [driversData]);
+  const drivers = useMemo(() => driversData?.drivers || [], [driversData]);
+  const recentVerifications = useMemo(() => driversData?.recent || [], [driversData]);
 
-  useEffect(() => {
-    if (requestsData) {
-      const allRequests = requestsData.requests || [];
-      setRecentRequests(requestsData.recent || []);
+  const recentRequests = useMemo(() => requestsData?.recent || [], [requestsData]);
 
-      let totalMoneyRequested = 0;
-      let totalActualInterest = 0;
-      let totalPotentialInterest = 0;
-      let totalRepaid = 0;
+  const financialStats = useMemo(() => {
+    if (!requestsData) return defaultFinancialStats;
 
-      allRequests.forEach((request: any) => {
-        const amount = request.actualAmount || request.amount || 0;
-        totalMoneyRequested = toMoney(totalMoneyRequested + amount);
-        totalRepaid = toMoney(totalRepaid + (request.repaidAmount || 0));
+    const allRequests = requestsData.requests || [];
 
-        const interest = request.interest || Math.round(amount * 0.13);
-        const totalRepayable = request.totalRepayable || amount + interest;
-        const repaidAmount = request.repaidAmount || 0;
-        const remainingBalance =
-          request.remainingBalance || totalRepayable - repaidAmount;
-        const isPaid = request.isPaid || remainingBalance <= 0;
+    let totalMoneyRequested = 0;
+    let totalActualInterest = 0;
+    let totalPotentialInterest = 0;
+    let totalRepaid = 0;
 
-        if (isPaid) {
-          totalActualInterest = toMoney(totalActualInterest + interest);
-        } else if (repaidAmount > 0) {
-          const paidRatio = repaidAmount / totalRepayable;
-          totalActualInterest = toMoney(
-            totalActualInterest + interest * paidRatio,
-          );
-          totalPotentialInterest = toMoney(
-            totalPotentialInterest + interest * (1 - paidRatio),
-          );
-        } else {
-          totalPotentialInterest = toMoney(totalPotentialInterest + interest);
-        }
-      });
+    allRequests.forEach((request: any) => {
+      const amount = request.actualAmount || request.amount || 0;
+      totalMoneyRequested = toMoney(totalMoneyRequested + amount);
+      totalRepaid = toMoney(totalRepaid + (request.repaidAmount || 0));
 
-      setFinancialStats({
-        moneyRequested: totalMoneyRequested,
-        actualInterest: totalActualInterest,
-        potentialInterest: totalPotentialInterest,
-        totalRepaid: totalRepaid,
-        principalRepaid: toMoney(totalRepaid - totalActualInterest),
-      });
-    }
+      const interest = request.interest || Math.round(amount * 0.13);
+      const totalRepayable = request.totalRepayable || amount + interest;
+      const repaidAmount = request.repaidAmount || 0;
+      const remainingBalance =
+        request.remainingBalance || totalRepayable - repaidAmount;
+      const isPaid = request.isPaid || remainingBalance <= 0;
+
+      if (isPaid) {
+        totalActualInterest = toMoney(totalActualInterest + interest);
+      } else if (repaidAmount > 0) {
+        const paidRatio = repaidAmount / totalRepayable;
+        totalActualInterest = toMoney(
+          totalActualInterest + interest * paidRatio,
+        );
+        totalPotentialInterest = toMoney(
+          totalPotentialInterest + interest * (1 - paidRatio),
+        );
+      } else {
+        totalPotentialInterest = toMoney(totalPotentialInterest + interest);
+      }
+    });
+
+    return {
+      moneyRequested: totalMoneyRequested,
+      actualInterest: totalActualInterest,
+      potentialInterest: totalPotentialInterest,
+      totalRepaid: totalRepaid,
+      principalRepaid: toMoney(totalRepaid - totalActualInterest),
+    };
   }, [requestsData]);
 
   const handleApplyDateRange = () => {
@@ -250,13 +250,11 @@ export default function AdminDashboard() {
   };
 
   const revalidateAll = () => {
-    mutateStats();
-    mutateDrivers();
-    mutateRequests();
+    return Promise.all([mutateStats(), mutateDrivers(), mutateRequests()]);
   };
 
   const handleRefresh = async () => {
-    await Promise.all([mutateStats(), mutateDrivers(), mutateRequests()]);
+    await revalidateAll();
     refreshNotificationCounts();
   };
 
@@ -301,7 +299,8 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        refreshNotificationCounts();
+        optimisticDecrement("requests");
+        window.dispatchEvent(new Event("refreshAdminCounts"));
         const updatedRequest = {
           ...approvingRequest,
           otp: generatedOtp,
@@ -347,7 +346,8 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        refreshNotificationCounts();
+        optimisticDecrement("requests");
+        window.dispatchEvent(new Event("refreshAdminCounts"));
         setSuccessMessage(
           `✅ Request ${rejectingRequest.id.slice(-6).toUpperCase()} rejected successfully`,
         );
@@ -394,7 +394,8 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        refreshNotificationCounts();
+        optimisticDecrement("verifications");
+        window.dispatchEvent(new Event("refreshAdminCounts"));
         setSuccessMessage(
           `❌ Rejected ${rejectingVerification.name}'s verification`,
         );
@@ -468,7 +469,8 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        refreshNotificationCounts();
+        optimisticDecrement("verifications");
+        window.dispatchEvent(new Event("refreshAdminCounts"));
         setSuccessMessage(`✅ Approved ${verification.name}'s verification`);
         setShowSuccessModal(true);
         revalidateAll();
@@ -1610,7 +1612,7 @@ export default function AdminDashboard() {
 
   const isLoading = loading || refreshing;
   const filteredDrivers = drivers.filter(
-    (driver) =>
+    (driver: any) =>
       driver.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       driver.carRegistration?.toLowerCase().includes(searchTerm.toLowerCase()),
@@ -1636,6 +1638,18 @@ export default function AdminDashboard() {
           Refresh
         </button>
       </div>
+
+      {statsError || driversError || requestsError ? (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+          <p className="text-sm text-red-700">
+            Failed to load some data.{" "}
+            <button onClick={handleRefresh} className="underline font-semibold">
+              Tap to retry
+            </button>
+          </p>
+        </div>
+      ) : null}
 
       {/* ===== FILTERED SECTION ===== */}
       <div className="bg-[#eafde7]/40 rounded-2xl p-5 border-2 border-[#bff202]/30 space-y-4">
@@ -1688,7 +1702,6 @@ export default function AdminDashboard() {
                   setToDate("");
                   setAppliedFrom("");
                   setAppliedTo("");
-                  revalidateAll();
                 }}
                 className="flex-1 sm:flex-none px-7.5 py-2.5 bg-gray-200 text-[#01312D] rounded-lg text-[13px] font-medium hover:bg-gray-300 transition-colors"
               >
@@ -1827,7 +1840,7 @@ export default function AdminDashboard() {
                   </p>
                 </div>
               ) : (
-                recentVerifications.map((item) => (
+                recentVerifications.map((item: any) => (
                   <div
                     key={item.id}
                     className="p-4 flex items-center justify-between hover:bg-[#eafde7] transition-colors cursor-pointer"
@@ -1876,15 +1889,15 @@ export default function AdminDashboard() {
                     <Skeleton className="h-8 w-20 rounded-lg" />
                   </div>
                 ))
-              ) : recentRequests.filter((r) => r.status === "pending")
+              ) : recentRequests.filter((r: any) => r.status === "pending")
                   .length === 0 ? (
                 <div className="p-8 text-center">
                   <p className="text-gray-500 text-sm">No pending requests</p>
                 </div>
               ) : (
                 recentRequests
-                  .filter((r) => r.status === "pending")
-                  .map((item) => (
+                  .filter((r: any) => r.status === "pending")
+                  .map((item: any) => (
                     <div
                       key={item.id}
                       className="p-4 flex items-center justify-between hover:bg-[#eafde7] transition-colors cursor-pointer"
@@ -1982,7 +1995,7 @@ export default function AdminDashboard() {
                           </td>
                         </tr>
                       ))
-                    : filteredDrivers.map((driver) => (
+                    : filteredDrivers.map((driver: any) => (
                         <tr
                           key={driver.id}
                           className="hover:bg-[#eafde7] transition-colors cursor-pointer"

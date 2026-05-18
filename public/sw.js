@@ -27,6 +27,9 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Only cache same-origin requests — external CDN images (Cloudinary, etc.) pass through
+  if (url.origin !== self.location.origin) return;
+
   // Network-first for API calls
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(
@@ -50,7 +53,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Cache-first for static assets
+  // Cache-first for same-origin static assets (JS, CSS, fonts, etc.)
   event.respondWith(
     caches.match(request).then((cached) => cached || fetch(request))
   );
