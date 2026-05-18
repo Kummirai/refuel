@@ -1,9 +1,11 @@
 // src/app/dashboard/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetch";
 import BottomNavigation from "@/components/BottomNavigation";
 import {
   Car,
@@ -33,113 +35,50 @@ import { formatMoney, toMoney } from "@/lib/money";
 export default function DriverDashboard() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [profile, setProfile] = useState<any>(null);
-  const [stats, setStats] = useState({
-    totalRequests: 0,
-    totalSpent: 0,
-    activeLoans: 0,
-    completedRequests: 0,
-    pendingRequests: 0,
-    rating: 0,
-  });
-  const [recentRequests, setRecentRequests] = useState<any[]>([]);
-  const [activeLoan, setActiveLoan] = useState<any>(null);
+  const userId = session?.user?.id;
 
-  // In your component, add approved count state
-  const [approvedCount, setApprovedCount] = useState(0);
+  const { data: requestsData, error: requestsError, isLoading: requestsLoading, isValidating: requestsValidating, mutate: mutateRequests } = useSWR(
+    userId ? `/api/driver/requests?userId=${userId}` : null,
+    fetcher,
+    { refreshInterval: 30_000, dedupingInterval: 30_000 },
+  );
+  const { data: profile, isLoading: profileLoading, error: profileError } = useSWR(
+    userId ? `/api/driver/profile?userId=${userId}` : null,
+    fetcher,
+    { refreshInterval: 60_000, dedupingInterval: 60_000 },
+  );
+  const { data: activeLoan, isLoading: loanLoading } = useSWR(
+    userId ? `/api/driver/loans/active?userId=${userId}` : null,
+    fetcher,
+    { refreshInterval: 60_000, dedupingInterval: 60_000 },
+  );
 
-  // Fetch approved count
+  const loading = (!requestsData && requestsLoading) || (!profile && profileLoading) || isPending;
+  const refreshing = requestsValidating && !requestsLoading;
+
+  const stats = useMemo(() => {
+    if (!requestsData) return { totalRequests: 0, totalSpent: 0, activeLoans: 0, completedRequests: 0, pendingRequests: 0, rating: 0 };
+    const total = requestsData.length;
+    const totalSpent = toMoney(requestsData
+      .filter((r: any) => r.status === "approved" || r.status === "sent" || r.status === "completed")
+      .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount), 0));
+    const pending = requestsData.filter((r: any) => r.status === "pending").length;
+    const completed = requestsData.filter((r: any) => r.status === "completed").length;
+    const activeLoans = requestsData.filter((r: any) => r.type === "cash" && r.status === "approved").length;
+    return { totalRequests: total, totalSpent, pendingRequests: pending, completedRequests: completed, activeLoans, rating: profile?.rating || 0 };
+  }, [requestsData, profile]);
+
+  const recentRequests = useMemo(() => (requestsData || []).slice(0, 5), [requestsData]);
+  const approvedCount = useMemo(() => (requestsData || []).filter((r: any) => r.status === "approved" || r.status === "sent").length, [requestsData]);
+
   useEffect(() => {
-    if (session?.user?.id) {
-      fetch(`/api/driver/requests?userId=${session.user.id}`)
-        .then((res) => res.json())
-        .then((data) => {
-          const approved = data.filter(
-            (r: any) => r.status === "approved" || r.status === "sent",
-          ).length;
-          setApprovedCount(approved);
-        })
-        .catch((err) => console.error("Error fetching approved count:", err));
+    if (!isPending && !session) {
+      router.push("/auth/sign-in");
     }
-  }, [session]);
+  }, [session, isPending, router]);
 
-  useEffect(() => {
-    if (!isPending) {
-      if (!session) {
-        router.push("/auth/sign-in");
-      } else {
-        fetchDashboardData();
-      }
-    }
-  }, [session, isPending]);
-
-  const fetchDashboardData = async () => {
-    try {
-      // Fetch driver profile
-      const profileRes = await fetch(
-        `/api/driver/profile?userId=${session?.user?.id}`,
-      );
-      let profileRating = 0;
-      if (profileRes.ok) {
-        const profileData = await profileRes.json();
-        setProfile(profileData);
-        profileRating = profileData.rating || 0;
-      }
-
-      // Fetch user's service requests
-      const requestsRes = await fetch(
-        `/api/driver/requests?userId=${session?.user?.id}`,
-      );
-      if (requestsRes.ok) {
-        const requestsData = await requestsRes.json();
-        setRecentRequests(requestsData.slice(0, 5) || []);
-
-        // Calculate stats from actual request data (not from profile)
-        const total = requestsData.length;
-        const totalSpent = toMoney(requestsData
-          .filter((r: any) => r.status === "approved" || r.status === "sent" || r.status === "completed")
-          .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount), 0));
-        const pending = requestsData.filter(
-          (r: any) => r.status === "pending",
-        ).length;
-        const completed = requestsData.filter(
-          (r: any) => r.status === "completed",
-        ).length;
-        const activeLoans = requestsData.filter(
-          (r: any) => r.type === "cash" && r.status === "approved",
-        ).length;
-
-        setStats({
-          totalRequests: total,
-          totalSpent,
-          pendingRequests: pending,
-          completedRequests: completed,
-          activeLoans: activeLoans,
-          rating: profileRating,
-        });
-      }
-
-      // Fetch active loan
-      const loanRes = await fetch(
-        `/api/driver/loans/active?userId=${session?.user?.id}`,
-      );
-      if (loanRes.ok) {
-        const loanData = await loanRes.json();
-        setActiveLoan(loanData);
-      }
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchDashboardData();
+  const handleRefresh = () => {
+    mutateRequests();
   };
 
   const getStatusBadge = (status: string) => {
@@ -261,6 +200,20 @@ export default function DriverDashboard() {
         </div>
       </div>
 
+      {requestsError || profileError ? (
+        <div className="px-5 pt-4 max-w-3xl mx-auto w-full">
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2 mb-2">
+            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+            <p className="text-sm text-red-700">
+              Failed to load some data.{" "}
+              <button onClick={handleRefresh} className="underline font-semibold">
+                Tap to retry
+              </button>
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <div className="px-5 pt-6 max-w-3xl mx-auto w-full">
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -352,7 +305,7 @@ export default function DriverDashboard() {
         </div>
 
         {/* Active Loan Banner */}
-        {activeLoan || loading ? (
+        {activeLoan ? (
           <div className="bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-2xl p-4 shadow-lg mb-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-bold text-[#01312D]">Active Loan</h3>
@@ -361,60 +314,64 @@ export default function DriverDashboard() {
               </span>
             </div>
             <div className="space-y-2">
-              {loading ? (
-                <>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-[#01312D]">Loan Amount</span>
-                    <Skeleton className="h-5 w-20" />
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-[#01312D]">Remaining</span>
-                    <Skeleton className="h-5 w-20" />
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-[#01312D]">Next Payment</span>
-                    <Skeleton className="h-5 w-20" />
-                  </div>
-                  <div className="mt-2">
-                    <Skeleton className="h-2 w-full rounded-full" />
-                    <Skeleton className="h-10 w-full mt-3 rounded-xl" />
-                  </div>
-                </>
-              ) : activeLoan ? (
-                <>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-[#01312D]">Loan Amount</span>
-                    <span className="font-bold text-[#01312D]">
-                      {formatMoney(activeLoan.amount)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-[#01312D]">Remaining</span>
-                    <span className="font-bold text-[#01312D]">
-                      {formatMoney(activeLoan.remaining)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-[#01312D]">Next Payment</span>
-                    <span className="font-semibold text-[#01312D]">
-                      {formatMoney(activeLoan.dailyPayment)}
-                    </span>
-                  </div>
-                  <div className="mt-2">
-                    <div className="bg-[#01312D]/20 rounded-full h-2 overflow-hidden">
-                      <div
-                        className="bg-[#01312D] h-2 rounded-full"
-                        style={{
-                          width: `${((activeLoan.amount - activeLoan.remaining) / activeLoan.amount) * 100}%`,
-                        }}
-                      ></div>
-                    </div>
-                    <button className="w-full mt-3 bg-[#01312D] text-white py-2 rounded-xl font-semibold text-sm">
-                      Make Payment
-                    </button>
-                  </div>
-                </>
-              ) : null}
+              <div className="flex justify-between">
+                <span className="text-sm text-[#01312D]">Loan Amount</span>
+                <span className="font-bold text-[#01312D]">
+                  {formatMoney(activeLoan.amount)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-[#01312D]">Remaining</span>
+                <span className="font-bold text-[#01312D]">
+                  {formatMoney(activeLoan.remaining)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-[#01312D]">Next Payment</span>
+                <span className="font-semibold text-[#01312D]">
+                  {formatMoney(activeLoan.dailyPayment)}
+                </span>
+              </div>
+              <div className="mt-2">
+                <div className="bg-[#01312D]/20 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-[#01312D] h-2 rounded-full"
+                    style={{
+                      width: `${((activeLoan.amount - activeLoan.remaining) / activeLoan.amount) * 100}%`,
+                    }}
+                  ></div>
+                </div>
+                <button className="w-full mt-3 bg-[#01312D] text-white py-2 rounded-xl font-semibold text-sm">
+                  Make Payment
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : loanLoading ? (
+          <div className="bg-gradient-to-r from-[#bff202] to-[#72bf00] rounded-2xl p-4 shadow-lg mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-bold text-[#01312D]">Active Loan</h3>
+              <span className="text-xs bg-[#01312D]/20 px-2 py-1 rounded-full text-[#01312D]">
+                13% Interest
+              </span>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm text-[#01312D]">Loan Amount</span>
+                <Skeleton className="h-5 w-20" />
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-[#01312D]">Remaining</span>
+                <Skeleton className="h-5 w-20" />
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-[#01312D]">Next Payment</span>
+                <Skeleton className="h-5 w-20" />
+              </div>
+              <div className="mt-2">
+                <Skeleton className="h-2 w-full rounded-full" />
+                <Skeleton className="h-10 w-full mt-3 rounded-xl" />
+              </div>
             </div>
           </div>
         ) : null}
@@ -504,7 +461,7 @@ export default function DriverDashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {recentRequests.map((request) => {
+              {recentRequests.map((request: any) => {
                 const Icon = getTypeIcon(request.type);
                 const typeColor = getTypeColor(request.type);
                 return (

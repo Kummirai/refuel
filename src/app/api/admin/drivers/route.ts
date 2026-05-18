@@ -177,6 +177,8 @@ export async function GET() {
       verified: verifiedCount,
       pending: pendingCount,
       rejected: rejectedCount,
+    }, {
+      headers: { "Cache-Control": "public, max-age=30, s-maxage=60" },
     });
   } catch (error) {
     console.error("Error fetching drivers:", error);

@@ -1,9 +1,11 @@
 // src/app/admin/dashboard/page.tsx
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toPng } from "html-to-image";
+import useSWR, { mutate } from "swr";
+import { fetcher } from "@/lib/fetch";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import { formatMoney, toMoney } from "@/lib/money";
 import {
@@ -106,8 +108,6 @@ export default function AdminDashboard() {
   const [generatedOtp, setGeneratedOtp] = useState("");
   const [approvalLoading, setApprovalLoading] = useState(false);
   const [whatsappLoading, setWhatsappLoading] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [copiedOtp, setCopiedOtp] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
@@ -130,16 +130,7 @@ export default function AdminDashboard() {
   const [appliedFrom, setAppliedFrom] = useState("");
   const [appliedTo, setAppliedTo] = useState("");
 
-  // Financial stats
-  const [financialStats, setFinancialStats] = useState({
-    moneyRequested: 0,
-    actualInterest: 0,
-    potentialInterest: 0,
-    totalRepaid: 0,
-    principalRepaid: 0,
-  });
-
-  const [stats, setStats] = useState({
+  const defaultStats = {
     totalDrivers: 0,
     pendingVerifications: 0,
     verifiedDrivers: 0,
@@ -152,115 +143,118 @@ export default function AdminDashboard() {
     averageRating: 0,
     activeLoans: 0,
     totalLoanAmount: 0,
-  });
+  };
 
-  const [drivers, setDrivers] = useState<any[]>([]);
-  const [recentVerifications, setRecentVerifications] = useState<any[]>([]);
-  const [recentRequests, setRecentRequests] = useState<any[]>([]);
+  const defaultFinancialStats = {
+    moneyRequested: 0,
+    actualInterest: 0,
+    potentialInterest: 0,
+    totalRepaid: 0,
+    principalRepaid: 0,
+  };
 
-  // Function to refresh notification counts in the sidebar
+  // Optimistically decrement a notification count field, then revalidate from server
+  const optimisticDecrement = (field: string) => {
+    mutate(
+      "/api/admin/notifications/count",
+      (current: any) => current ? { ...current, [field]: Math.max(0, current[field] - 1) } : current,
+      false,
+    );
+    mutate("/api/admin/notifications/count");
+  };
+
   const refreshNotificationCounts = () => {
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("refreshAdminCounts"));
-    }
+    mutate("/api/admin/notifications/count");
   };
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  // SWR with shared cache deduplication
+  const { data: statsData, isLoading: statsLoading, isValidating: statsValidating, mutate: mutateStats, error: statsError } = useSWR(
+    "/api/admin/stats",
+    fetcher,
+    { refreshInterval: 60_000, dedupingInterval: 60_000 },
+  );
+  const { data: driversData, isLoading: driversLoading, mutate: mutateDrivers, error: driversError } = useSWR(
+    "/api/admin/drivers",
+    fetcher,
+    { refreshInterval: 120_000, dedupingInterval: 120_000 },
+  );
+  const requestsUrl = appliedFrom || appliedTo
+    ? `/api/admin/requests?from=${appliedFrom}&to=${appliedTo}`
+    : "/api/admin/requests";
 
-  const fetchDashboardData = async (from?: string, to?: string) => {
-    const queryParams = new URLSearchParams();
-    const effectiveFrom = from || appliedFrom;
-    const effectiveTo = to || appliedTo;
-    if (effectiveFrom)
-      queryParams.set("from", new Date(effectiveFrom).toISOString());
-    if (effectiveTo)
-      queryParams.set("to", new Date(effectiveTo + "T23:59:59").toISOString());
-    const queryString = queryParams.toString();
+  const { data: requestsData, isLoading: requestsLoading, isValidating: requestsValidating, mutate: mutateRequests, error: requestsError } = useSWR(
+    requestsUrl,
+    fetcher,
+    { refreshInterval: 30_000, dedupingInterval: 30_000 },
+  );
 
-    try {
-      const [statsRes, driversRes, requestsRes] = await Promise.all([
-        fetch("/api/admin/stats"),
-        fetch("/api/admin/drivers"),
-        fetch(`/api/admin/requests?${queryString}`),
-      ]);
+  const loading = statsLoading || driversLoading || requestsLoading;
+  const refreshing = (statsValidating || requestsValidating) && !loading;
 
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        setStats(statsData);
+  const stats = useMemo(() => statsData || defaultStats, [statsData]);
+
+  const drivers = useMemo(() => driversData?.drivers || [], [driversData]);
+  const recentVerifications = useMemo(() => driversData?.recent || [], [driversData]);
+
+  const recentRequests = useMemo(() => requestsData?.recent || [], [requestsData]);
+
+  const financialStats = useMemo(() => {
+    if (!requestsData) return defaultFinancialStats;
+
+    const allRequests = requestsData.requests || [];
+
+    let totalMoneyRequested = 0;
+    let totalActualInterest = 0;
+    let totalPotentialInterest = 0;
+    let totalRepaid = 0;
+
+    allRequests.forEach((request: any) => {
+      const amount = request.actualAmount || request.amount || 0;
+      totalMoneyRequested = toMoney(totalMoneyRequested + amount);
+      totalRepaid = toMoney(totalRepaid + (request.repaidAmount || 0));
+
+      const interest = request.interest || Math.round(amount * 0.13);
+      const totalRepayable = request.totalRepayable || amount + interest;
+      const repaidAmount = request.repaidAmount || 0;
+      const remainingBalance =
+        request.remainingBalance || totalRepayable - repaidAmount;
+      const isPaid = request.isPaid || remainingBalance <= 0;
+
+      if (isPaid) {
+        totalActualInterest = toMoney(totalActualInterest + interest);
+      } else if (repaidAmount > 0) {
+        const paidRatio = repaidAmount / totalRepayable;
+        totalActualInterest = toMoney(
+          totalActualInterest + interest * paidRatio,
+        );
+        totalPotentialInterest = toMoney(
+          totalPotentialInterest + interest * (1 - paidRatio),
+        );
+      } else {
+        totalPotentialInterest = toMoney(totalPotentialInterest + interest);
       }
+    });
 
-      if (driversRes.ok) {
-        const driversData = await driversRes.json();
-        setDrivers(driversData.drivers || []);
-        setRecentVerifications(driversData.recent || []);
-      }
-
-      if (requestsRes.ok) {
-        const requestsData = await requestsRes.json();
-        const allRequests = requestsData.requests || [];
-        setRecentRequests(requestsData.recent || []);
-
-        // Calculate financial stats from all requests
-        let totalMoneyRequested = 0;
-        let totalActualInterest = 0;
-        let totalPotentialInterest = 0;
-        let totalRepaid = 0;
-
-        allRequests.forEach((request: any) => {
-          const amount = request.actualAmount || request.amount || 0;
-          totalMoneyRequested = toMoney(totalMoneyRequested + amount);
-          totalRepaid = toMoney(totalRepaid + (request.repaidAmount || 0));
-
-          const interest = request.interest || Math.round(amount * 0.13);
-          const totalRepayable = request.totalRepayable || amount + interest;
-          const repaidAmount = request.repaidAmount || 0;
-          const remainingBalance =
-            request.remainingBalance || totalRepayable - repaidAmount;
-          const isPaid = request.isPaid || remainingBalance <= 0;
-
-          if (isPaid) {
-            totalActualInterest = toMoney(totalActualInterest + interest);
-          } else if (repaidAmount > 0) {
-            const paidRatio = repaidAmount / totalRepayable;
-            totalActualInterest = toMoney(
-              totalActualInterest + interest * paidRatio,
-            );
-            totalPotentialInterest = toMoney(
-              totalPotentialInterest + interest * (1 - paidRatio),
-            );
-          } else {
-            totalPotentialInterest = toMoney(totalPotentialInterest + interest);
-          }
-        });
-
-        setFinancialStats({
-          moneyRequested: totalMoneyRequested,
-          actualInterest: totalActualInterest,
-          potentialInterest: totalPotentialInterest,
-          totalRepaid: totalRepaid,
-          principalRepaid: toMoney(totalRepaid - totalActualInterest),
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+    return {
+      moneyRequested: totalMoneyRequested,
+      actualInterest: totalActualInterest,
+      potentialInterest: totalPotentialInterest,
+      totalRepaid: totalRepaid,
+      principalRepaid: toMoney(totalRepaid - totalActualInterest),
+    };
+  }, [requestsData]);
 
   const handleApplyDateRange = () => {
     setAppliedFrom(fromDate);
     setAppliedTo(toDate);
-    setLoading(true);
-    fetchDashboardData(fromDate, toDate);
+  };
+
+  const revalidateAll = () => {
+    return Promise.all([mutateStats(), mutateDrivers(), mutateRequests()]);
   };
 
   const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchDashboardData();
+    await revalidateAll();
     refreshNotificationCounts();
   };
 
@@ -305,7 +299,8 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        refreshNotificationCounts();
+        optimisticDecrement("requests");
+        window.dispatchEvent(new Event("refreshAdminCounts"));
         const updatedRequest = {
           ...approvingRequest,
           otp: generatedOtp,
@@ -314,7 +309,7 @@ export default function AdminDashboard() {
         setApprovedRequest(updatedRequest);
         setShowApproveModal(false);
         setShowWhatsAppModal(true);
-        await fetchDashboardData();
+        await revalidateAll();
         setShowRequestModal(false);
       } else {
         const error = await response.json();
@@ -351,12 +346,13 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        refreshNotificationCounts();
+        optimisticDecrement("requests");
+        window.dispatchEvent(new Event("refreshAdminCounts"));
         setSuccessMessage(
           `✅ Request ${rejectingRequest.id.slice(-6).toUpperCase()} rejected successfully`,
         );
         setShowSuccessModal(true);
-        fetchDashboardData();
+        revalidateAll();
         setShowRejectModal(false);
         setShowRequestModal(false);
         setRejectionReason("");
@@ -398,12 +394,13 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        refreshNotificationCounts();
+        optimisticDecrement("verifications");
+        window.dispatchEvent(new Event("refreshAdminCounts"));
         setSuccessMessage(
           `❌ Rejected ${rejectingVerification.name}'s verification`,
         );
         setShowSuccessModal(true);
-        fetchDashboardData();
+        revalidateAll();
         setShowVerificationModal(false);
         setShowRejectModal(false);
         setRejectionReason("");
@@ -446,7 +443,7 @@ export default function AdminDashboard() {
           `✅ Request ${request.id.slice(-6).toUpperCase()} marked as completed`,
         );
         setShowSuccessModal(true);
-        fetchDashboardData();
+        revalidateAll();
         setShowRequestModal(false);
       } else {
         const error = await response.json();
@@ -472,10 +469,11 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        refreshNotificationCounts();
+        optimisticDecrement("verifications");
+        window.dispatchEvent(new Event("refreshAdminCounts"));
         setSuccessMessage(`✅ Approved ${verification.name}'s verification`);
         setShowSuccessModal(true);
-        fetchDashboardData();
+        revalidateAll();
         setShowVerificationModal(false);
       } else {
         const error = await response.json();
@@ -1614,7 +1612,7 @@ export default function AdminDashboard() {
 
   const isLoading = loading || refreshing;
   const filteredDrivers = drivers.filter(
-    (driver) =>
+    (driver: any) =>
       driver.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       driver.carRegistration?.toLowerCase().includes(searchTerm.toLowerCase()),
@@ -1640,6 +1638,18 @@ export default function AdminDashboard() {
           Refresh
         </button>
       </div>
+
+      {statsError || driversError || requestsError ? (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+          <p className="text-sm text-red-700">
+            Failed to load some data.{" "}
+            <button onClick={handleRefresh} className="underline font-semibold">
+              Tap to retry
+            </button>
+          </p>
+        </div>
+      ) : null}
 
       {/* ===== FILTERED SECTION ===== */}
       <div className="bg-[#eafde7]/40 rounded-2xl p-5 border-2 border-[#bff202]/30 space-y-4">
@@ -1692,8 +1702,6 @@ export default function AdminDashboard() {
                   setToDate("");
                   setAppliedFrom("");
                   setAppliedTo("");
-                  setLoading(true);
-                  fetchDashboardData();
                 }}
                 className="flex-1 sm:flex-none px-7.5 py-2.5 bg-gray-200 text-[#01312D] rounded-lg text-[13px] font-medium hover:bg-gray-300 transition-colors"
               >
@@ -1832,7 +1840,7 @@ export default function AdminDashboard() {
                   </p>
                 </div>
               ) : (
-                recentVerifications.map((item) => (
+                recentVerifications.map((item: any) => (
                   <div
                     key={item.id}
                     className="p-4 flex items-center justify-between hover:bg-[#eafde7] transition-colors cursor-pointer"
@@ -1881,15 +1889,15 @@ export default function AdminDashboard() {
                     <Skeleton className="h-8 w-20 rounded-lg" />
                   </div>
                 ))
-              ) : recentRequests.filter((r) => r.status === "pending")
+              ) : recentRequests.filter((r: any) => r.status === "pending")
                   .length === 0 ? (
                 <div className="p-8 text-center">
                   <p className="text-gray-500 text-sm">No pending requests</p>
                 </div>
               ) : (
                 recentRequests
-                  .filter((r) => r.status === "pending")
-                  .map((item) => (
+                  .filter((r: any) => r.status === "pending")
+                  .map((item: any) => (
                     <div
                       key={item.id}
                       className="p-4 flex items-center justify-between hover:bg-[#eafde7] transition-colors cursor-pointer"
@@ -1987,7 +1995,7 @@ export default function AdminDashboard() {
                           </td>
                         </tr>
                       ))
-                    : filteredDrivers.map((driver) => (
+                    : filteredDrivers.map((driver: any) => (
                         <tr
                           key={driver.id}
                           className="hover:bg-[#eafde7] transition-colors cursor-pointer"

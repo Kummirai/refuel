@@ -83,7 +83,9 @@ export async function GET(request: NextRequest) {
       }),
     );
 
-    return NextResponse.json(enhancedRequests);
+    return NextResponse.json(enhancedRequests, {
+      headers: { "Cache-Control": "private, max-age=15, s-maxage=30" },
+    });
   } catch (error) {
     console.error("Error fetching requests:", error);
     return NextResponse.json(

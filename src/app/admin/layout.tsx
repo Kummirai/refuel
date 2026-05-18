@@ -1,9 +1,11 @@
 // src/app/admin/layout.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetch";
 import {
   LayoutDashboard,
   Users,
@@ -38,41 +40,24 @@ export default function AdminLayout({
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  const [pendingVerificationsCount, setPendingVerificationsCount] = useState(0);
-  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
-  const [pendingRepaymentsCount, setPendingRepaymentsCount] = useState(0);
-  const [pendingReceiptsCount, setPendingReceiptsCount] = useState(0);
-  const [noReceiptCount, setNoReceiptCount] = useState(0);
+  // SWR: batch all notification counts into one request, refresh every 15s
+  const { data: counts, mutate: refreshCounts } = useSWR(
+    isAuthorized ? "/api/admin/notifications/count" : null,
+    fetcher,
+    { refreshInterval: 15_000, dedupingInterval: 15_000 },
+  );
+
+  const pendingVerificationsCount = counts?.verifications ?? 0;
+  const pendingRequestsCount = counts?.requests ?? 0;
+  const pendingRepaymentsCount = counts?.repayments ?? 0;
+  const pendingReceiptsCount = counts?.receipts ?? 0;
 
   // Store full data for detailed view
   const [pendingVerifications, setPendingVerifications] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [pendingRepayments, setPendingRepayments] = useState<any[]>([]);
   const [pendingReceipts, setPendingReceipts] = useState<any[]>([]);
-  const fetchAllCounts = async () => {
-    try {
-      const [verificationsRes, requestsRes, repaymentsRes, receiptRes] =
-        await Promise.all([
-          fetch("/api/admin/verifications/count"),
-          fetch("/api/admin/requests/count"),
-          fetch("/api/admin/repayments/count"),
-          fetch("/api/admin/receipts/count"),
-        ]);
-
-      const verifications = await verificationsRes.json();
-      const requests = await requestsRes.json();
-      const repayments = await repaymentsRes.json();
-      const receipts = await receiptRes.json();
-
-      setPendingVerificationsCount(verifications.pending || 0);
-      setPendingRequestsCount(requests.pending || 0);
-      setPendingRepaymentsCount(repayments.pending || 0);
-      setPendingReceiptsCount(receipts.pending || 0);
-      setNoReceiptCount(receipts.noReceipt || 0);
-    } catch (error) {
-      console.error("Error fetching counts:", error);
-    }
-  };
+  const pendingDetailsFetched = useRef(false);
 
   const fetchPendingDetails = async () => {
     try {
@@ -98,39 +83,26 @@ export default function AdminLayout({
     }
   };
 
+  // Fetch details only when notification modal opens
   useEffect(() => {
-    if (isAuthorized) {
-      fetchAllCounts();
+    if (isAuthorized && showNotifications && !pendingDetailsFetched.current) {
+      pendingDetailsFetched.current = true;
       fetchPendingDetails();
-      const interval = setInterval(() => {
-        fetchAllCounts();
-        fetchPendingDetails();
-      }, 30000);
-
-      const handleVisibilityChange = () => {
-        if (!document.hidden) {
-          fetchAllCounts();
-          fetchPendingDetails();
-        }
-      };
-      document.addEventListener("visibilitychange", handleVisibilityChange);
-
-      const handleRefresh = () => {
-        fetchAllCounts();
-        fetchPendingDetails();
-      };
-      window.addEventListener("refreshAdminCounts", handleRefresh);
-
-      return () => {
-        clearInterval(interval);
-        document.removeEventListener(
-          "visibilitychange",
-          handleVisibilityChange,
-        );
-        window.removeEventListener("refreshAdminCounts", handleRefresh);
-      };
+    } else if (!showNotifications) {
+      pendingDetailsFetched.current = false;
     }
-  }, [isAuthorized]);
+  }, [isAuthorized, showNotifications]);
+
+  // Listen for manual refresh events (e.g. after approve/reject) to refetch pending details
+  useEffect(() => {
+    if (!isAuthorized) return;
+    const handleRefresh = () => {
+      refreshCounts();
+      if (showNotifications) fetchPendingDetails();
+    };
+    window.addEventListener("refreshAdminCounts", handleRefresh);
+    return () => window.removeEventListener("refreshAdminCounts", handleRefresh);
+  }, [isAuthorized, showNotifications, refreshCounts]);
 
   useEffect(() => {
     if (!isPending) {

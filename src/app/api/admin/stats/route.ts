@@ -91,6 +91,8 @@ export async function GET() {
       activeLoans,
       totalLoanAmount,
       revenueGrowth: 12.5, // This could be calculated from historical data
+    }, {
+      headers: { "Cache-Control": "public, max-age=30, s-maxage=60" },
     });
   } catch (error) {
     console.error("Error fetching stats:", error);

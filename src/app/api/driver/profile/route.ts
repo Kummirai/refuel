@@ -55,6 +55,8 @@ export async function GET(request: NextRequest) {
       ...profile,
       rating: rating,
       rejectionReason: profile?.rejectionReason || null,
+    }, {
+      headers: { "Cache-Control": "private, max-age=30, s-maxage=60" },
     });
   } catch (error) {
     console.error("Error fetching profile:", error);

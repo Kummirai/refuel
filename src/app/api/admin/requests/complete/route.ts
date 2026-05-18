@@ -38,10 +38,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Request not found" }, { status: 404 });
     }
 
-    // Check if request is approved (can only complete approved requests)
-    if (serviceRequest.status !== "approved") {
+    // Check if request is sent (only sent requests can be completed)
+    if (serviceRequest.status !== "sent") {
       return NextResponse.json(
-        { error: "Only approved requests can be marked as completed" },
+        { error: "Only sent requests can be marked as completed" },
         { status: 400 },
       );
     }
