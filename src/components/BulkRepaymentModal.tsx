@@ -168,7 +168,7 @@ export function BulkRepaymentModal({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-[#01312D]">
-              Bulk Repayment
+              Repay Loan
             </h2>
             <p className="text-sm text-gray-500 mt-0.5">
               {selectedRequests.length} request{selectedRequests.length > 1 ? "s" : ""} selected
@@ -401,7 +401,7 @@ export function BulkRepaymentModal({
             ) : (
               <>
                 <CheckCircle className="w-4 h-4" />
-                Submit Bulk Repayment
+                Repay Loan
               </>
             )}
           </button>

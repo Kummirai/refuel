@@ -35,7 +35,6 @@ import {
   Banknote,
 } from "lucide-react";
 import { PopUploadModal } from "@/components/PopUploadModal";
-import { RepaymentProofModal } from "@/components/RepaymentProofModal";
 import { BulkRepaymentModal } from "@/components/BulkRepaymentModal";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -73,6 +72,7 @@ interface Request {
   actualAmount?: number;
   popUrl?: string;
   popUploadedAt?: string;
+  hasReceipt?: boolean;
   dailyPayment?: number;
   repaymentDays?: number;
   serviceCharge?: number;
@@ -107,12 +107,7 @@ export default function RequestHistoryPage() {
   const [showPopModal, setShowPopModal] = useState(false);
   const [selectedRequestForPop, setSelectedRequestForPop] =
     useState<Request | null>(null);
-  const [showRepaymentModal, setShowRepaymentModal] = useState(false);
-  const [selectedRequestForRepayment, setSelectedRequestForRepayment] =
-    useState<Request | null>(null);
 
-  // Bulk repayment state
-  const [bulkMode, setBulkMode] = useState(false);
   const [selectedBulkIds, setSelectedBulkIds] = useState<Set<string>>(
     new Set(),
   );
@@ -379,10 +374,26 @@ export default function RequestHistoryPage() {
     ),
     totalOutstanding: toMoney(
       requests
-        .filter((r) => (r.remainingBalance || 0) > 0)
+        .filter(
+          (r) =>
+            (r.status === "approved" ||
+              r.status === "sent" ||
+              r.status === "completed") &&
+            r.hasReceipt === true &&
+            (r.remainingBalance || 0) > 0,
+        )
         .reduce((sum: number, r: any) => sum + (r.remainingBalance || 0), 0),
     ),
   };
+  const hasPendingRepayment = requests.some((r) => r.hasPendingRepayment);
+  const hasPayableRequests = requests.some(
+    (r) =>
+      (r.status === "approved" ||
+        r.status === "sent" ||
+        r.status === "completed") &&
+      r.hasReceipt === true &&
+      (r.remainingBalance || 0) > 0,
+  );
 
   // Helper function to check if request needs receipt upload
   const needsReceiptUpload = (request: Request) => {
@@ -921,22 +932,6 @@ export default function RequestHistoryPage() {
               </button>
             )}
 
-            {/* Upload Repayment Button - For loan repayments */}
-            {needsRepayment && !request.hasPendingRepayment && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  setSelectedRequestForRepayment(request);
-                  setShowRepaymentModal(true);
-                }}
-                className="w-full bg-[#01312D] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-all"
-              >
-                <Banknote className="w-4 h-4" />
-                Upload Proof of Repayment
-              </button>
-            )}
-
             {/* Pending Repayment Status */}
             {request.hasPendingRepayment && (
               <div className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 bg-yellow-100 text-yellow-700">
@@ -1000,26 +995,24 @@ export default function RequestHistoryPage() {
               </h1>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setBulkMode(!bulkMode);
-                  setSelectedBulkIds(new Set());
-                }}
-                className={`px-7 py-2 rounded-full text-xs font-semibold transition-all bg-[#01312D] text-white `}
-              >
-                {bulkMode ? "Cancel" : "Bulk Repay"}
-              </button>
-              {/* <button
-                type="button"
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="p-2 bg-[#eafde7] rounded-full active:scale-95 transition-transform"
-              >
-                <RefreshCw
-                  className={`w-5 h-5 text-[#3A7717] ${refreshing ? "animate-spin" : ""}`}
-                />
-              </button> */}
+              {stats.totalOutstanding > 0 && !hasPendingRepayment && hasPayableRequests && (
+                <button
+                  type="button"
+                  onClick={() => {
+setSelectedBulkIds(new Set(requests.filter((r) => (r.status === "approved" || r.status === "sent" || r.status === "completed") && r.hasReceipt === true && (r.remainingBalance || 0) > 0 && !r.isPaid && !r.hasPendingRepayment).map((r) => r.id)));
+                    setShowBulkRepaymentModal(true);
+                  }}
+                  className="px-4 py-2 rounded-full text-xs font-semibold transition-all bg-red-600 text-white hover:bg-red-700 flex items-center gap-1.5"
+                >
+                  Pay {formatMoney(stats.totalOutstanding)}
+                </button>
+              )}
+              {hasPendingRepayment && (
+                <div className="px-4 py-2 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 flex items-center gap-1.5">
+                  <Hourglass className="w-3 h-3" />
+                  Payment Pending Approval
+                </div>
+              )}
             </div>
           </div>
 
@@ -1073,7 +1066,15 @@ export default function RequestHistoryPage() {
                 </p>
               )}
             </div>
-            <div className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20">
+            <div
+              className="bg-white rounded-xl p-2 text-center shadow-sm border border-[#bff202]/20 cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => {
+                if (stats.totalOutstanding > 0 && !hasPendingRepayment && hasPayableRequests) {
+                  setSelectedBulkIds(new Set(requests.filter((r) => (r.remainingBalance || 0) > 0 && !r.isPaid && !r.hasPendingRepayment).map((r) => r.id)));
+                  setShowBulkRepaymentModal(true);
+                }
+              }}
+            >
               <p className="text-xs text-gray-500">Outstanding</p>
               {loading || refreshing ? (
                 <div className="flex justify-center">
@@ -1196,57 +1197,14 @@ export default function RequestHistoryPage() {
               return (
                 <div
                   key={request.id}
-                  className={`bg-white rounded-2xl p-4 shadow-sm border overflow-hidden ${
-                    bulkMode && selectedBulkIds.has(request.id)
-                      ? "border-[#3A7717] ring-2 ring-[#3A7717]/30"
-                      : bulkMode && needsRepayment
-                        ? "border-[#bff202]/20 cursor-pointer hover:border-[#3A7717]"
-                        : "border-[#bff202]/20 hover:shadow-md transition-shadow cursor-pointer"
-                  }`}
+                  className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 hover:shadow-md transition-shadow cursor-pointer overflow-hidden"
                   onClick={() => {
-                    if (bulkMode && needsRepayment) {
-                      setSelectedBulkIds((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(request.id)) {
-                          next.delete(request.id);
-                        } else {
-                          next.add(request.id);
-                        }
-                        return next;
-                      });
-                    } else {
-                      setSelectedRequest(request);
-                      setShowDetailModal(true);
-                    }
+                    setSelectedRequest(request);
+                    setShowDetailModal(true);
                   }}
                 >
                   <div className="flex items-start gap-3 mb-2">
                     <div className="flex items-center gap-3 min-w-0">
-                      {bulkMode && needsRepayment && (
-                        <div
-                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                            selectedBulkIds.has(request.id)
-                              ? "bg-[#3A7717] border-[#3A7717]"
-                              : "border-gray-300"
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedBulkIds((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(request.id)) {
-                                next.delete(request.id);
-                              } else {
-                                next.add(request.id);
-                              }
-                              return next;
-                            });
-                          }}
-                        >
-                          {selectedBulkIds.has(request.id) && (
-                            <CheckCircle className="w-4 h-4 text-white" />
-                          )}
-                        </div>
-                      )}
                       <div
                         className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${typeColor}`}
                       >
@@ -1339,20 +1297,6 @@ export default function RequestHistoryPage() {
                         Upload Receipt
                       </button>
                     )}
-                    {needsRepayment && (
-                      <button
-                        type="button"
-                        className="flex-1 py-2 bg-[#01312D] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-all"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedRequestForRepayment(request);
-                          setShowRepaymentModal(true);
-                        }}
-                      >
-                        {/*<Banknote className="w-4 h-4" />*/}
-                        Repay Loan
-                      </button>
-                    )}
                     {(request.popUrl || request.status === "completed") && (
                       <button
                         type="button"
@@ -1408,35 +1352,6 @@ export default function RequestHistoryPage() {
           }}
         />
       )}
-      {showRepaymentModal && selectedRequestForRepayment && (
-        <RepaymentProofModal
-          isOpen={showRepaymentModal}
-          onClose={() => {
-            setShowRepaymentModal(false);
-            setSelectedRequestForRepayment(null);
-          }}
-          requestId={selectedRequestForRepayment.id}
-          requestedAmount={selectedRequestForRepayment.amount}
-          remainingBalance={
-            selectedRequestForRepayment.remainingBalance ||
-            selectedRequestForRepayment.totalRepayable ||
-            selectedRequestForRepayment.amount
-          }
-          totalRepayable={
-            selectedRequestForRepayment.totalRepayable ||
-            selectedRequestForRepayment.amount
-          }
-          onSuccess={() => {
-            fetchRequests();
-            setShowRepaymentModal(false);
-            setSelectedRequestForRepayment(null);
-            setSuccessMessage(
-              "Your Proof of Repayment has been submitted for approval!",
-            );
-            setShowSuccessModal(true);
-          }}
-        />
-      )}
       <SuccessModal />
       <ErrorModal />
 
@@ -1447,7 +1362,6 @@ export default function RequestHistoryPage() {
           onClose={() => {
             setShowBulkRepaymentModal(false);
             setSelectedBulkIds(new Set());
-            setBulkMode(false);
           }}
           selectedRequests={requests
             .filter((r) => selectedBulkIds.has(r.id))
@@ -1464,50 +1378,12 @@ export default function RequestHistoryPage() {
             fetchRequests();
             setShowBulkRepaymentModal(false);
             setSelectedBulkIds(new Set());
-            setBulkMode(false);
             setSuccessMessage(
               "Your bulk repayment proof has been submitted for approval!",
             );
             setShowSuccessModal(true);
           }}
         />
-      )}
-
-      {/* Floating Pay Selected Button */}
-      {bulkMode && selectedBulkIds.size > 0 && (
-        <div className="fixed bottom-20 left-0 right-0 z-50 px-5">
-          <div className="bg-white rounded-2xl shadow-xl border border-[#BFF202]/20 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="text-sm text-gray-500">
-                  {selectedBulkIds.size} request
-                  {selectedBulkIds.size > 1 ? "s" : ""} selected
-                </p>
-                <p className="text-lg font-bold text-[#3A7717]">
-                  {formatMoney(
-                    requests
-                      .filter((r) => selectedBulkIds.has(r.id))
-                      .reduce(
-                        (sum, r) =>
-                          sum +
-                          (r.remainingBalance ||
-                            r.totalRepayable ||
-                            r.amount ||
-                            0),
-                        0,
-                      ),
-                  )}
-                </p>
-              </div>
-              <button
-                onClick={() => setShowBulkRepaymentModal(true)}
-                className="bg-[#01312D] text-white px-6 py-3 rounded-xl font-semibold hover:bg-[#3A7717] transition-all active:scale-95"
-              >
-                Pay Selected
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Bottom Navigation with Notification Badge */}
