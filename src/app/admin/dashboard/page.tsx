@@ -1,9 +1,11 @@
 // src/app/admin/dashboard/page.tsx
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toPng } from "html-to-image";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetch";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import { formatMoney, toMoney } from "@/lib/money";
 import {
@@ -106,8 +108,6 @@ export default function AdminDashboard() {
   const [generatedOtp, setGeneratedOtp] = useState("");
   const [approvalLoading, setApprovalLoading] = useState(false);
   const [whatsappLoading, setWhatsappLoading] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [copiedOtp, setCopiedOtp] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
@@ -165,102 +165,98 @@ export default function AdminDashboard() {
     }
   };
 
+  // SWR with shared cache deduplication
+  const { data: statsData, isLoading: statsLoading, isValidating: statsValidating, mutate: mutateStats } = useSWR(
+    "/api/admin/stats",
+    fetcher,
+    { refreshInterval: 60_000, dedupingInterval: 30_000 },
+  );
+  const { data: driversData, isLoading: driversLoading, mutate: mutateDrivers } = useSWR(
+    "/api/admin/drivers",
+    fetcher,
+    { refreshInterval: 120_000, dedupingInterval: 60_000 },
+  );
+  const { data: requestsData, isLoading: requestsLoading, isValidating: requestsValidating, mutate: mutateRequests } = useSWR(
+    "/api/admin/requests",
+    fetcher,
+    { refreshInterval: 30_000, dedupingInterval: 15_000 },
+  );
+
+  const loading = statsLoading || driversLoading || requestsLoading;
+  const refreshing = (statsValidating || requestsValidating) && !loading;
+
+  // Derive state from SWR data
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    if (statsData) setStats(statsData);
+  }, [statsData]);
 
-  const fetchDashboardData = async (from?: string, to?: string) => {
-    const queryParams = new URLSearchParams();
-    const effectiveFrom = from || appliedFrom;
-    const effectiveTo = to || appliedTo;
-    if (effectiveFrom)
-      queryParams.set("from", new Date(effectiveFrom).toISOString());
-    if (effectiveTo)
-      queryParams.set("to", new Date(effectiveTo + "T23:59:59").toISOString());
-    const queryString = queryParams.toString();
-
-    try {
-      const [statsRes, driversRes, requestsRes] = await Promise.all([
-        fetch("/api/admin/stats"),
-        fetch("/api/admin/drivers"),
-        fetch(`/api/admin/requests?${queryString}`),
-      ]);
-
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        setStats(statsData);
-      }
-
-      if (driversRes.ok) {
-        const driversData = await driversRes.json();
-        setDrivers(driversData.drivers || []);
-        setRecentVerifications(driversData.recent || []);
-      }
-
-      if (requestsRes.ok) {
-        const requestsData = await requestsRes.json();
-        const allRequests = requestsData.requests || [];
-        setRecentRequests(requestsData.recent || []);
-
-        // Calculate financial stats from all requests
-        let totalMoneyRequested = 0;
-        let totalActualInterest = 0;
-        let totalPotentialInterest = 0;
-        let totalRepaid = 0;
-
-        allRequests.forEach((request: any) => {
-          const amount = request.actualAmount || request.amount || 0;
-          totalMoneyRequested = toMoney(totalMoneyRequested + amount);
-          totalRepaid = toMoney(totalRepaid + (request.repaidAmount || 0));
-
-          const interest = request.interest || Math.round(amount * 0.13);
-          const totalRepayable = request.totalRepayable || amount + interest;
-          const repaidAmount = request.repaidAmount || 0;
-          const remainingBalance =
-            request.remainingBalance || totalRepayable - repaidAmount;
-          const isPaid = request.isPaid || remainingBalance <= 0;
-
-          if (isPaid) {
-            totalActualInterest = toMoney(totalActualInterest + interest);
-          } else if (repaidAmount > 0) {
-            const paidRatio = repaidAmount / totalRepayable;
-            totalActualInterest = toMoney(
-              totalActualInterest + interest * paidRatio,
-            );
-            totalPotentialInterest = toMoney(
-              totalPotentialInterest + interest * (1 - paidRatio),
-            );
-          } else {
-            totalPotentialInterest = toMoney(totalPotentialInterest + interest);
-          }
-        });
-
-        setFinancialStats({
-          moneyRequested: totalMoneyRequested,
-          actualInterest: totalActualInterest,
-          potentialInterest: totalPotentialInterest,
-          totalRepaid: totalRepaid,
-          principalRepaid: toMoney(totalRepaid - totalActualInterest),
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+  useEffect(() => {
+    if (driversData) {
+      setDrivers(driversData.drivers || []);
+      setRecentVerifications(driversData.recent || []);
     }
-  };
+  }, [driversData]);
+
+  useEffect(() => {
+    if (requestsData) {
+      const allRequests = requestsData.requests || [];
+      setRecentRequests(requestsData.recent || []);
+
+      let totalMoneyRequested = 0;
+      let totalActualInterest = 0;
+      let totalPotentialInterest = 0;
+      let totalRepaid = 0;
+
+      allRequests.forEach((request: any) => {
+        const amount = request.actualAmount || request.amount || 0;
+        totalMoneyRequested = toMoney(totalMoneyRequested + amount);
+        totalRepaid = toMoney(totalRepaid + (request.repaidAmount || 0));
+
+        const interest = request.interest || Math.round(amount * 0.13);
+        const totalRepayable = request.totalRepayable || amount + interest;
+        const repaidAmount = request.repaidAmount || 0;
+        const remainingBalance =
+          request.remainingBalance || totalRepayable - repaidAmount;
+        const isPaid = request.isPaid || remainingBalance <= 0;
+
+        if (isPaid) {
+          totalActualInterest = toMoney(totalActualInterest + interest);
+        } else if (repaidAmount > 0) {
+          const paidRatio = repaidAmount / totalRepayable;
+          totalActualInterest = toMoney(
+            totalActualInterest + interest * paidRatio,
+          );
+          totalPotentialInterest = toMoney(
+            totalPotentialInterest + interest * (1 - paidRatio),
+          );
+        } else {
+          totalPotentialInterest = toMoney(totalPotentialInterest + interest);
+        }
+      });
+
+      setFinancialStats({
+        moneyRequested: totalMoneyRequested,
+        actualInterest: totalActualInterest,
+        potentialInterest: totalPotentialInterest,
+        totalRepaid: totalRepaid,
+        principalRepaid: toMoney(totalRepaid - totalActualInterest),
+      });
+    }
+  }, [requestsData]);
 
   const handleApplyDateRange = () => {
     setAppliedFrom(fromDate);
     setAppliedTo(toDate);
-    setLoading(true);
-    fetchDashboardData(fromDate, toDate);
+  };
+
+  const revalidateAll = () => {
+    mutateStats();
+    mutateDrivers();
+    mutateRequests();
   };
 
   const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchDashboardData();
+    await Promise.all([mutateStats(), mutateDrivers(), mutateRequests()]);
     refreshNotificationCounts();
   };
 
@@ -314,7 +310,7 @@ export default function AdminDashboard() {
         setApprovedRequest(updatedRequest);
         setShowApproveModal(false);
         setShowWhatsAppModal(true);
-        await fetchDashboardData();
+        await revalidateAll();
         setShowRequestModal(false);
       } else {
         const error = await response.json();
@@ -356,7 +352,7 @@ export default function AdminDashboard() {
           `✅ Request ${rejectingRequest.id.slice(-6).toUpperCase()} rejected successfully`,
         );
         setShowSuccessModal(true);
-        fetchDashboardData();
+        revalidateAll();
         setShowRejectModal(false);
         setShowRequestModal(false);
         setRejectionReason("");
@@ -403,7 +399,7 @@ export default function AdminDashboard() {
           `❌ Rejected ${rejectingVerification.name}'s verification`,
         );
         setShowSuccessModal(true);
-        fetchDashboardData();
+        revalidateAll();
         setShowVerificationModal(false);
         setShowRejectModal(false);
         setRejectionReason("");
@@ -446,7 +442,7 @@ export default function AdminDashboard() {
           `✅ Request ${request.id.slice(-6).toUpperCase()} marked as completed`,
         );
         setShowSuccessModal(true);
-        fetchDashboardData();
+        revalidateAll();
         setShowRequestModal(false);
       } else {
         const error = await response.json();
@@ -475,7 +471,7 @@ export default function AdminDashboard() {
         refreshNotificationCounts();
         setSuccessMessage(`✅ Approved ${verification.name}'s verification`);
         setShowSuccessModal(true);
-        fetchDashboardData();
+        revalidateAll();
         setShowVerificationModal(false);
       } else {
         const error = await response.json();
@@ -1692,8 +1688,7 @@ export default function AdminDashboard() {
                   setToDate("");
                   setAppliedFrom("");
                   setAppliedTo("");
-                  setLoading(true);
-                  fetchDashboardData();
+                  revalidateAll();
                 }}
                 className="flex-1 sm:flex-none px-7.5 py-2.5 bg-gray-200 text-[#01312D] rounded-lg text-[13px] font-medium hover:bg-gray-300 transition-colors"
               >

@@ -132,8 +132,8 @@ export default function AdminReceiptsPage() {
   const fetchAllStats = async () => {
     try {
       const [verifiedRes, pendingRes, noReceiptRes] = await Promise.all([
-        fetch("/api/admin/receipts?status=verified&limit=500"),
-        fetch("/api/admin/receipts?status=pending&limit=500"),
+        fetch("/api/admin/receipts?status=verified&limit=100"),
+        fetch("/api/admin/receipts?status=pending&limit=100"),
         fetch("/api/admin/receipts?status=noreceipt"),
       ]);
 

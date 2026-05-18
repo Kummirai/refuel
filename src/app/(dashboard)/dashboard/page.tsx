@@ -1,9 +1,11 @@
 // src/app/dashboard/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetch";
 import BottomNavigation from "@/components/BottomNavigation";
 import {
   Car,
@@ -33,113 +35,50 @@ import { formatMoney, toMoney } from "@/lib/money";
 export default function DriverDashboard() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [profile, setProfile] = useState<any>(null);
-  const [stats, setStats] = useState({
-    totalRequests: 0,
-    totalSpent: 0,
-    activeLoans: 0,
-    completedRequests: 0,
-    pendingRequests: 0,
-    rating: 0,
-  });
-  const [recentRequests, setRecentRequests] = useState<any[]>([]);
-  const [activeLoan, setActiveLoan] = useState<any>(null);
+  const userId = session?.user?.id;
 
-  // In your component, add approved count state
-  const [approvedCount, setApprovedCount] = useState(0);
+  const { data: requestsData, error: requestsError, isLoading: requestsLoading, isValidating: requestsValidating, mutate: mutateRequests } = useSWR(
+    userId ? `/api/driver/requests?userId=${userId}` : null,
+    fetcher,
+    { refreshInterval: 30_000, dedupingInterval: 15_000 },
+  );
+  const { data: profile, isLoading: profileLoading } = useSWR(
+    userId ? `/api/driver/profile?userId=${userId}` : null,
+    fetcher,
+    { refreshInterval: 60_000, dedupingInterval: 30_000 },
+  );
+  const { data: activeLoan } = useSWR(
+    userId ? `/api/driver/loans/active?userId=${userId}` : null,
+    fetcher,
+    { refreshInterval: 60_000, dedupingInterval: 30_000 },
+  );
 
-  // Fetch approved count
+  const loading = (!requestsData && requestsLoading) || (!profile && profileLoading) || isPending;
+  const refreshing = requestsValidating && !requestsLoading;
+
+  const stats = useMemo(() => {
+    if (!requestsData) return { totalRequests: 0, totalSpent: 0, activeLoans: 0, completedRequests: 0, pendingRequests: 0, rating: 0 };
+    const total = requestsData.length;
+    const totalSpent = toMoney(requestsData
+      .filter((r: any) => r.status === "approved" || r.status === "sent" || r.status === "completed")
+      .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount), 0));
+    const pending = requestsData.filter((r: any) => r.status === "pending").length;
+    const completed = requestsData.filter((r: any) => r.status === "completed").length;
+    const activeLoans = requestsData.filter((r: any) => r.type === "cash" && r.status === "approved").length;
+    return { totalRequests: total, totalSpent, pendingRequests: pending, completedRequests: completed, activeLoans, rating: profile?.rating || 0 };
+  }, [requestsData, profile]);
+
+  const recentRequests = useMemo(() => (requestsData || []).slice(0, 5), [requestsData]);
+  const approvedCount = useMemo(() => (requestsData || []).filter((r: any) => r.status === "approved" || r.status === "sent").length, [requestsData]);
+
   useEffect(() => {
-    if (session?.user?.id) {
-      fetch(`/api/driver/requests?userId=${session.user.id}`)
-        .then((res) => res.json())
-        .then((data) => {
-          const approved = data.filter(
-            (r: any) => r.status === "approved" || r.status === "sent",
-          ).length;
-          setApprovedCount(approved);
-        })
-        .catch((err) => console.error("Error fetching approved count:", err));
+    if (!isPending && !session) {
+      router.push("/auth/sign-in");
     }
-  }, [session]);
+  }, [session, isPending, router]);
 
-  useEffect(() => {
-    if (!isPending) {
-      if (!session) {
-        router.push("/auth/sign-in");
-      } else {
-        fetchDashboardData();
-      }
-    }
-  }, [session, isPending]);
-
-  const fetchDashboardData = async () => {
-    try {
-      // Fetch driver profile
-      const profileRes = await fetch(
-        `/api/driver/profile?userId=${session?.user?.id}`,
-      );
-      let profileRating = 0;
-      if (profileRes.ok) {
-        const profileData = await profileRes.json();
-        setProfile(profileData);
-        profileRating = profileData.rating || 0;
-      }
-
-      // Fetch user's service requests
-      const requestsRes = await fetch(
-        `/api/driver/requests?userId=${session?.user?.id}`,
-      );
-      if (requestsRes.ok) {
-        const requestsData = await requestsRes.json();
-        setRecentRequests(requestsData.slice(0, 5) || []);
-
-        // Calculate stats from actual request data (not from profile)
-        const total = requestsData.length;
-        const totalSpent = toMoney(requestsData
-          .filter((r: any) => r.status === "approved" || r.status === "sent" || r.status === "completed")
-          .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount), 0));
-        const pending = requestsData.filter(
-          (r: any) => r.status === "pending",
-        ).length;
-        const completed = requestsData.filter(
-          (r: any) => r.status === "completed",
-        ).length;
-        const activeLoans = requestsData.filter(
-          (r: any) => r.type === "cash" && r.status === "approved",
-        ).length;
-
-        setStats({
-          totalRequests: total,
-          totalSpent,
-          pendingRequests: pending,
-          completedRequests: completed,
-          activeLoans: activeLoans,
-          rating: profileRating,
-        });
-      }
-
-      // Fetch active loan
-      const loanRes = await fetch(
-        `/api/driver/loans/active?userId=${session?.user?.id}`,
-      );
-      if (loanRes.ok) {
-        const loanData = await loanRes.json();
-        setActiveLoan(loanData);
-      }
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchDashboardData();
+  const handleRefresh = () => {
+    mutateRequests();
   };
 
   const getStatusBadge = (status: string) => {
@@ -504,7 +443,7 @@ export default function DriverDashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {recentRequests.map((request) => {
+              {recentRequests.map((request: any) => {
                 const Icon = getTypeIcon(request.type);
                 const typeColor = getTypeColor(request.type);
                 return (
