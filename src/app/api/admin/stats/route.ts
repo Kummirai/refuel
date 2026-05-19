@@ -1,99 +1,92 @@
 // src/app/api/admin/stats/route.ts
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
-import { ObjectId } from "mongodb";
 import { toMoney } from "@/lib/money";
 
 export async function GET() {
   try {
     const { db } = await connectToDatabase();
 
-    // Get collections
-    const usersCollection = db.collection("user");
-    const driverProfilesCollection = db.collection("driverProfiles");
     const serviceRequestsCollection = db.collection("serviceRequests");
+    const driverProfilesCollection = db.collection("driverProfiles");
+    const usersCollection = db.collection("user");
 
-    // Get all users with role 'driver'
-    const allDrivers = await usersCollection.find({ role: "driver" }).toArray();
-    const totalDrivers = allDrivers.length;
+    // Single aggregation combining all stats
+    const [requestStats] = await serviceRequestsCollection.aggregate([
+      {
+        $facet: {
+          totals: [
+            {
+              $group: {
+                _id: null,
+                total: { $sum: 1 },
+                pending: { $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] } },
+                completed: { $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] } },
+                completedRevenue: {
+                  $sum: {
+                    $cond: [
+                      { $eq: ["$status", "completed"] },
+                      { $ifNull: ["$actualAmount", "$amount", 0] },
+                      0,
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+          activeLoans: [
+            { $match: { type: "cash", status: "approved", completedDate: { $exists: false } } },
+            {
+              $group: {
+                _id: null,
+                count: { $sum: 1 },
+                totalAmount: { $sum: { $ifNull: ["$amount", 0] } },
+              },
+            },
+          ],
+        },
+      },
+    ]).toArray();
 
-    // Get verification stats from driverProfiles
-    const pendingVerifications = await driverProfilesCollection.countDocuments({
-      verificationStatus: "pending",
-    });
-    const verifiedDrivers = await driverProfilesCollection.countDocuments({
-      verificationStatus: "approved",
-    });
-    const rejectedVerifications = await driverProfilesCollection.countDocuments(
-      { verificationStatus: "rejected" },
-    );
+    const totals = requestStats.totals[0] || { total: 0, pending: 0, completed: 0, completedRevenue: 0 };
+    const loans = requestStats.activeLoans[0] || { count: 0, totalAmount: 0 };
 
-    // Get request stats
-    const totalRequests = await serviceRequestsCollection.countDocuments();
-    const pendingRequests = await serviceRequestsCollection.countDocuments({
-      status: "pending",
-    });
-    const completedRequests = await serviceRequestsCollection.countDocuments({
-      status: "completed",
-    });
+    // Driver counts via aggregation
+    const [driverStats] = await driverProfilesCollection.aggregate([
+      {
+        $group: {
+          _id: null,
+          pendingVerifications: { $sum: { $cond: [{ $eq: ["$verificationStatus", "pending"] }, 1, 0] } },
+          verifiedDrivers: { $sum: { $cond: [{ $eq: ["$verificationStatus", "approved"] }, 1, 0] } },
+          rejectedVerifications: { $sum: { $cond: [{ $eq: ["$verificationStatus", "rejected"] }, 1, 0] } },
+          averageRating: { $avg: { $cond: [{ $gt: ["$rating", 0] }, "$rating", null] } },
+        },
+      },
+    ]).toArray();
 
-    // Calculate total revenue from completed requests
-    const completedRequestsData = await serviceRequestsCollection
-      .find({ status: "completed" })
-      .toArray();
-    const totalRevenue = toMoney(
-      completedRequestsData.reduce(
-        (sum: any, req: any) => sum + (req.amount || 0),
-        0,
-      )
-    );
+    const driverStatsResult = driverStats[0] || {
+      pendingVerifications: 0, verifiedDrivers: 0, rejectedVerifications: 0, averageRating: null,
+    };
 
-    // Calculate average rating
-    const driversWithRatings = await driverProfilesCollection
-      .find({ rating: { $gt: 0 } })
-      .toArray();
-    const averageRating =
-      driversWithRatings.length > 0
-        ? driversWithRatings.reduce(
-            (sum: any, d: any) => sum + (d.rating || 0),
-            0,
-          ) / driversWithRatings.length
-        : 0;
-
-    // Get active loans (cash requests that are approved but not completed)
-    const activeLoans = await serviceRequestsCollection.countDocuments({
-      type: "cash",
-      status: "approved",
-      completedDate: { $exists: false },
-    });
-
-    // Get total loan amount
-    const loanData = await serviceRequestsCollection
-      .find({ type: "cash", status: "approved" })
-      .toArray();
-    const totalLoanAmount = toMoney(
-      loanData.reduce(
-        (sum: any, loan: any) => sum + (loan.amount || 0),
-        0,
-      )
-    );
+    // Total driver count
+    const totalDrivers = await usersCollection.countDocuments({ role: "driver" });
 
     return NextResponse.json({
       totalDrivers,
-      pendingVerifications,
-      verifiedDrivers,
-      rejectedVerifications,
-      totalRequests,
-      pendingRequests,
-      completedRequests,
-      totalRevenue,
-      averageRating: Number(averageRating.toFixed(1)),
-      activeLoans,
-      totalLoanAmount,
-      revenueGrowth: 12.5, // This could be calculated from historical data
-    }, {
-      headers: { "Cache-Control": "public, max-age=30, s-maxage=60" },
-    });
+      pendingVerifications: driverStatsResult.pendingVerifications,
+      verifiedDrivers: driverStatsResult.verifiedDrivers,
+      rejectedVerifications: driverStatsResult.rejectedVerifications,
+      totalRequests: totals.total,
+      pendingRequests: totals.pending,
+      completedRequests: totals.completed,
+      totalRevenue: toMoney(totals.completedRevenue),
+      averageRating: driverStatsResult.averageRating
+        ? Number(driverStatsResult.averageRating.toFixed(1))
+        : 0,
+      activeLoans: loans.count,
+      totalLoanAmount: toMoney(loans.totalAmount),
+      revenueGrowth: 12.5,
+    },);
   } catch (error) {
     console.error("Error fetching stats:", error);
     return NextResponse.json(

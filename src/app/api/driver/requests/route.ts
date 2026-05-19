@@ -25,67 +25,75 @@ export async function GET(request: NextRequest) {
       .sort({ requestDate: -1 })
       .toArray();
 
+    // Batch fetch all repayment proofs for all requests
+    const requestIds = requests.map((r: any) => r._id.toString());
+    const allProofs = requestIds.length > 0
+      ? await repaymentProofsCollection
+          .find({ requestId: { $in: requestIds } })
+          .toArray()
+      : [];
+    const proofsByRequest = new Map<string, any[]>();
+    for (const p of allProofs) {
+      const list = proofsByRequest.get(p.requestId) || [];
+      list.push(p);
+      proofsByRequest.set(p.requestId, list);
+    }
+
     // Enhance each request with calculated repayment data
-    const enhancedRequests = await Promise.all(
-      requests.map(async (request: any) => {
-        const requestId = request._id.toString();
+    const enhancedRequests = requests.map((request: any) => {
+      const requestId = request._id.toString();
 
-        // Get all repayment proofs for this request
-        const repaymentProofs = await repaymentProofsCollection
-          .find({ requestId: requestId })
-          .toArray();
+      // Get all repayment proofs for this request
+      const repaymentProofs = proofsByRequest.get(requestId) || [];
 
-        // Calculate total repaid amount from APPROVED repayments
-        const totalRepaid = repaymentProofs
-          .filter((r: any) => r.status === "approved")
-          .reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
+      // Calculate total repaid amount from APPROVED repayments
+      const totalRepaid = repaymentProofs
+        .filter((r: any) => r.status === "approved")
+        .reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
 
-        // Calculate remaining balance
-        const totalRepayable = request.totalRepayable || request.amount;
-        const calculatedRemainingBalance = toMoney(Math.max(
-          0,
-          totalRepayable - totalRepaid,
-        ));
+      // Calculate remaining balance
+      const totalRepayable = request.totalRepayable || request.amount;
+      const calculatedRemainingBalance = toMoney(Math.max(
+        0,
+        totalRepayable - totalRepaid,
+      ));
 
-        // Check for pending repayment
-        const hasPendingRepayment = repaymentProofs.some(
-          (r: any) => r.status === "pending",
-        );
-        const pendingRepayment = repaymentProofs.find(
-          (r: any) => r.status === "pending",
-        );
+      // Check for pending repayment
+      const hasPendingRepayment = repaymentProofs.some(
+        (r: any) => r.status === "pending",
+      );
+      const pendingRepayment = repaymentProofs.find(
+        (r: any) => r.status === "pending",
+      );
 
-        // Format repayments for response
-        const formattedRepayments = repaymentProofs.map((r: any) => ({
-          id: r._id.toString(),
-          amount: r.amount,
-          status: r.status,
-          submittedAt: r.submittedAt,
-          approvedAt: r.approvedAt,
-          proofUrl: r.proofUrl,
-          proofPublicId: r.proofPublicId,
-          remainingBalance: r.remainingBalance,
-          isFullyPaid: r.isFullyPaid,
-        }));
+      // Format repayments for response
+      const formattedRepayments = repaymentProofs.map((r: any) => ({
+        id: r._id.toString(),
+        amount: r.amount,
+        status: r.status,
+        submittedAt: r.submittedAt,
+        approvedAt: r.approvedAt,
+        proofUrl: r.proofUrl,
+        proofPublicId: r.proofPublicId,
+        remainingBalance: r.remainingBalance,
+        isFullyPaid: r.isFullyPaid,
+      }));
 
-        return {
-          ...request,
-          id: requestId,
-          // Override with calculated values
-          repaidAmount: totalRepaid,
-          remainingBalance: calculatedRemainingBalance,
-          isPaid: calculatedRemainingBalance <= 0,
-          hasPendingRepayment: hasPendingRepayment,
-          pendingRepaymentAmount: pendingRepayment?.amount || 0,
-          pendingRepaymentStatus: pendingRepayment?.status || null,
-          repayments: formattedRepayments,
-        };
-      }),
-    );
-
-    return NextResponse.json(enhancedRequests, {
-      headers: { "Cache-Control": "private, max-age=15, s-maxage=30" },
+      return {
+        ...request,
+        id: requestId,
+        // Override with calculated values
+        repaidAmount: totalRepaid,
+        remainingBalance: calculatedRemainingBalance,
+        isPaid: calculatedRemainingBalance <= 0,
+        hasPendingRepayment: hasPendingRepayment,
+        pendingRepaymentAmount: pendingRepayment?.amount || 0,
+        pendingRepaymentStatus: pendingRepayment?.status || null,
+        repayments: formattedRepayments,
+      };
     });
+
+    return NextResponse.json(enhancedRequests);
   } catch (error) {
     console.error("Error fetching requests:", error);
     return NextResponse.json(

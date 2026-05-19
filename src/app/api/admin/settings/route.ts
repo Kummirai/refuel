@@ -90,9 +90,7 @@ export async function GET() {
     // Remove MongoDB specific fields
     const { _id, type, createdAt, updatedAt, ...settingsData } = settings;
 
-    return NextResponse.json(settingsData || DEFAULT_SETTINGS, {
-      headers: { "Cache-Control": "public, max-age=120, s-maxage=300" },
-    });
+    return NextResponse.json(settingsData || DEFAULT_SETTINGS);
   } catch (error) {
     console.error("Error fetching settings:", error);
     return NextResponse.json(DEFAULT_SETTINGS);

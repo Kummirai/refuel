@@ -3,38 +3,6 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { toMoney } from "@/lib/money";
-import { calculateDriverRating } from "@/lib/utils/rating";
-
-interface User {
-  _id: ObjectId;
-  name: string;
-  email: string;
-  phone: string;
-  role: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-interface DriverProfile {
-  _id: ObjectId;
-  userId: string;
-  carRegistrationNumber?: string;
-  carModel?: string;
-  carYear?: number;
-  verificationStatus?: string;
-  rating?: number;
-  activeLoan?: any;
-  carColor: string;
-  drivingLicenseUrl?: string;
-  carRegistrationUrl?: string;
-  profilePhotoUrl?: string;
-  address?: string;
-  city?: string;
-  createdAt?: Date;
-  fullName?: string;
-  dateOfBirth?: string;
-  pincode?: string;
-}
 
 export async function GET() {
   try {
@@ -45,129 +13,125 @@ export async function GET() {
     const serviceRequestsCollection = db.collection("serviceRequests");
     const repaymentProofsCollection = db.collection("repaymentProofs");
 
-    // Get all drivers (users with role 'driver')
-    const drivers = await usersCollection.find({ role: "driver" }).toArray();
+    // 1. Fetch all drivers
+    const drivers = await usersCollection
+      .find({ role: "driver" })
+      .project({ _id: 1, name: 1, email: 1, phone: 1, createdAt: 1, updatedAt: 1 })
+      .toArray();
+    const driverIds = drivers.map((d: any) => d._id.toString());
 
-    // Get driver profiles and request counts
-    const driversWithData = await Promise.all(
-      drivers.map(async (driver: User) => {
-        const userId = driver._id.toString();
-        const profile = (await driverProfilesCollection.findOne({
-          userId: userId,
-        })) as DriverProfile | null;
+    // 2. Fetch all profiles in batch
+    const profiles = await driverProfilesCollection
+      .find({ userId: { $in: driverIds } })
+      .toArray();
+    const profileMap = new Map(profiles.map((p: any) => [p.userId, p]));
 
-        // Fetch requests and repayments to calculate rating
-        const requests = await serviceRequestsCollection
-          .find({ userId: userId })
-          .toArray();
-        
-        const enhancedRequests = await Promise.all(
-          requests.map(async (req: any) => {
-            const requestId = req._id.toString();
-            const repayments = await repaymentProofsCollection
-              .find({ requestId: requestId })
-              .toArray();
-            
-            const totalRepaid = repayments
-              .filter((r: any) => r.status === "approved")
-              .reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
-            
-            const totalRepayable = req.totalRepayable || req.amount;
-            const remainingBalance = toMoney(Math.max(0, totalRepayable - totalRepaid));
+    // 3. Fetch all requests in batch
+    const requests = await serviceRequestsCollection
+      .find({ userId: { $in: driverIds } })
+      .project({ userId: 1, amount: 1 })
+      .toArray();
+    const requestsByUser = new Map<string, any[]>();
+    const allRequestIds: string[] = [];
+    for (const req of requests) {
+      const list = requestsByUser.get(req.userId) || [];
+      list.push(req);
+      requestsByUser.set(req.userId, list);
+      allRequestIds.push(req._id.toString());
+    }
 
-            return {
-              ...req,
-              repayments,
-              remainingBalance,
-              isPaid: remainingBalance <= 0
-            };
-          })
-        );
+    // 4. Fetch all repayment proofs in batch
+    const proofs = await repaymentProofsCollection
+      .find({ requestId: { $in: allRequestIds }, status: "approved" })
+      .project({ requestId: 1, amount: 1 })
+      .toArray();
+    const proofsByRequest = new Map<string, any[]>();
+    for (const proof of proofs) {
+      const list = proofsByRequest.get(proof.requestId) || [];
+      list.push(proof);
+      proofsByRequest.set(proof.requestId, list);
+    }
 
-        const totalSpent = toMoney(
-          requests.reduce(
-            (sum: number, req: any) => sum + (req.amount || 0),
-            0,
-          )
-        );
+    // Assemble response
+    const driversWithData = drivers.map((driver: any) => {
+      const userId = driver._id.toString();
+      const profile: any = profileMap.get(userId);
+      const userRequests = requestsByUser.get(userId) || [];
+      const totalRequests = userRequests.length;
+      const totalSpent = toMoney(
+        userRequests.reduce((sum: number, r: any) => sum + (r.amount || 0), 0),
+      );
 
-        const rating = calculateDriverRating(profile, enhancedRequests);
+      return {
+        id: driver._id,
+        userId,
+        name: driver.name,
+        email: driver.email,
+        phone: driver.phone,
+        carRegistration: profile?.carRegistrationNumber || "Not provided",
+        carModel: profile?.carModel || "Not provided",
+        carYear: profile?.carYear || "Not provided",
+        carColor: profile?.carColor || "Not provided",
+        verificationStatus: profile?.verificationStatus || "not_submitted",
+        rating: profile?.rating || 0,
+        totalRequests,
+        totalSpent,
+        activeLoan: profile?.activeLoan || null,
+        joinedDate: driver.createdAt,
+        lastActive: driver.updatedAt,
+      };
+    });
 
-        return {
-          id: driver._id,
-          userId: userId,
-          name: driver.name,
-          email: driver.email,
-          phone: driver.phone,
-          carRegistration: profile?.carRegistrationNumber || "Not provided",
-          carModel: profile?.carModel || "Not provided",
-          carYear: profile?.carYear || "Not provided",
-          carColor: profile?.carColor || "Not provided",
-          verificationStatus: profile?.verificationStatus || "not_submitted",
-          rating: rating,
-          totalRequests: requests.length,
-          totalSpent,
-          activeLoan: profile?.activeLoan || null,
-          joinedDate: driver.createdAt,
-          lastActive: driver.updatedAt,
-        };
-      }),
-    );
-
-    // Get recent pending verifications (last 5)
-    const recentVerificationsRaw = (await driverProfilesCollection
+    // 5. Recent pending verifications (batch lookup)
+    const recentVerificationsRaw = await driverProfilesCollection
       .find({ verificationStatus: "pending" })
       .sort({ createdAt: -1 })
       .limit(5)
-      .toArray()) as DriverProfile[];
+      .toArray();
 
-    const recentVerifications = await Promise.all(
-      recentVerificationsRaw.map(async (verification: DriverProfile) => {
-        // Get the user document to get email and phone
-        let user = null;
-        try {
-          user = await usersCollection.findOne({
-            _id: new ObjectId(verification.userId),
-          });
-        } catch {
-          // If ObjectId conversion fails, try as string
-          user = await usersCollection.findOne({
-            _id: verification.userId as any,
-          });
-        }
+    const recentVerificationUserIds = recentVerificationsRaw
+      .map((v: any) => {
+        try { return new ObjectId(v.userId); } catch { return v.userId; }
+      });
+    const recentUsers = await usersCollection
+      .find({ _id: { $in: recentVerificationUserIds } })
+      .project({ name: 1, email: 1, phone: 1 })
+      .toArray();
+    const userMap = new Map(recentUsers.map((u: any) => [u._id.toString(), u]));
 
-        return {
-          id: verification._id,
-          name: verification.fullName || user?.name || "Unknown",
-          email: user?.email || "Unknown",
-          phone: user?.phone || "Unknown",
-          date: verification.createdAt,
-          submittedAt: verification.createdAt,
-          verificationStatus: verification.verificationStatus,
-          carRegistration: verification.carRegistrationNumber,
-          carModel: verification.carModel,
-          carColor: verification.carColor,
-          carYear: verification.carYear,
-          address: verification.address,
-          city: verification.city,
-          pincode: verification.pincode,
-          dateOfBirth: verification.dateOfBirth,
-          drivingLicenseUrl: verification.drivingLicenseUrl,
-          carRegistrationUrl: verification.carRegistrationUrl,
-          profilePhotoUrl: verification.profilePhotoUrl,
-        };
-      }),
-    );
+    const recentVerifications = recentVerificationsRaw.map((v: any) => {
+      const user: any = userMap.get(v.userId) || userMap.get(v.userId.toString());
+      return {
+        id: v._id,
+        name: v.fullName || user?.name || "Unknown",
+        email: user?.email || "Unknown",
+        phone: user?.phone || "Unknown",
+        date: v.createdAt,
+        submittedAt: v.createdAt,
+        verificationStatus: v.verificationStatus,
+        carRegistration: v.carRegistrationNumber,
+        carModel: v.carModel,
+        carColor: v.carColor,
+        carYear: v.carYear,
+        address: v.address,
+        city: v.city,
+        pincode: v.pincode,
+        dateOfBirth: v.dateOfBirth,
+        drivingLicenseUrl: v.drivingLicenseUrl,
+        carRegistrationUrl: v.carRegistrationUrl,
+        profilePhotoUrl: v.profilePhotoUrl,
+      };
+    });
 
     // Calculate stats
     const verifiedCount = driversWithData.filter(
-      (d) => d.verificationStatus === "approved",
+      (d: any) => d.verificationStatus === "approved",
     ).length;
     const pendingCount = driversWithData.filter(
-      (d) => d.verificationStatus === "pending",
+      (d: any) => d.verificationStatus === "pending",
     ).length;
     const rejectedCount = driversWithData.filter(
-      (d) => d.verificationStatus === "rejected",
+      (d: any) => d.verificationStatus === "rejected",
     ).length;
 
     return NextResponse.json({

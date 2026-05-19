@@ -73,13 +73,20 @@ export async function connectToDatabase() {
       .createIndex({ verificationStatus: 1 });
   }
 
-  // Service Requests collection
-  if (!collectionNames.includes("serviceRequests")) {
-    await db.createCollection("serviceRequests");
-    await db.collection("serviceRequests").createIndex({ userId: 1 });
-    await db.collection("serviceRequests").createIndex({ status: 1 });
-    await db.collection("serviceRequests").createIndex({ requestDate: -1 });
-  }
+  // Service Requests collection — indexes (idempotent, runs every time)
+  await db.collection("serviceRequests").createIndex({ userId: 1 });
+  await db.collection("serviceRequests").createIndex({ status: 1 });
+  await db.collection("serviceRequests").createIndex({ requestDate: -1 });
+  await db.collection("serviceRequests").createIndex({ userId: 1, status: 1 });
+  await db.collection("serviceRequests").createIndex({ completedDate: -1, hasReceipt: 1 });
+
+  // Repayment Proofs collection
+  await db.collection("repaymentProofs").createIndex({ requestId: 1 });
+  await db.collection("repaymentProofs").createIndex({ requestIds: 1 });
+  await db.collection("repaymentProofs").createIndex({ status: 1 });
+
+  // User collection — queried by role for driver listing
+  await db.collection("user").createIndex({ role: 1 });
 
   return { client, db };
 }
