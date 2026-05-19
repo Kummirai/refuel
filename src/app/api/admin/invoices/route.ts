@@ -35,20 +35,26 @@ export async function GET() {
     > = {};
 
     for (const req of allRequests) {
+      if (req.isPaid) continue;
+
       const totalRepayable = req.totalRepayable || req.amount || 0;
       const requestId = req._id.toString();
 
-      const approvedRepayments = await repaymentProofsCollection
-        .find({ requestId, status: "approved" })
-        .toArray();
-      const totalRepaid = approvedRepayments.reduce(
-        (sum: number, r: any) => sum + (r.amount || 0),
-        0,
-      );
-
-      const remainingBalance = toMoney(
-        Math.max(0, totalRepayable - totalRepaid),
-      );
+      // Use remainingBalance from the request doc if set (covers loanPayments-based payments)
+      let remainingBalance: number;
+      if (req.remainingBalance !== undefined) {
+        remainingBalance = req.remainingBalance;
+      } else {
+        const approvedRepayments = await repaymentProofsCollection
+          .find({ requestId, status: "approved" })
+          .toArray();
+        const totalRepaid = approvedRepayments.reduce(
+          (sum: number, r: any) => sum + (r.amount || 0),
+          0,
+        );
+        remainingBalance = Math.max(0, totalRepayable - totalRepaid);
+      }
+      remainingBalance = toMoney(remainingBalance);
 
       if (remainingBalance <= 0) continue;
 

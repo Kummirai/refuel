@@ -3,13 +3,21 @@ const CACHE_NAME = "kapuka-v1";
 const STATIC_ASSETS = [
   "/",
   "/manifest.webmanifest",
-  "/icons/icon-192.svg",
-  "/icons/icon-512.svg",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.allSettled(
+        STATIC_ASSETS.map((url) =>
+          cache.add(url).catch(() => {
+            console.warn("[SW] Failed to cache", url);
+          })
+        )
+      )
+    )
   );
   self.skipWaiting();
 });
@@ -27,10 +35,8 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Only cache same-origin requests — external CDN images (Cloudinary, etc.) pass through
   if (url.origin !== self.location.origin) return;
 
-  // Network-first for API calls
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(
       fetch(request)
@@ -53,7 +59,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Cache-first for same-origin static assets (JS, CSS, fonts, etc.)
   event.respondWith(
     caches.match(request).then((cached) => cached || fetch(request))
   );

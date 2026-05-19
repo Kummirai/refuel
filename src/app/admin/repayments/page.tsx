@@ -695,6 +695,38 @@ export default function LoanRepaymentsPage() {
     }
   };
 
+  const handleApproveProof = async (proof: RepaymentProof) => {
+    setProcessing(true);
+    try {
+      const res = await fetch("/api/admin/repayment-proofs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          proofId: proof.id,
+          status: "approved",
+        }),
+      });
+      if (res.ok) {
+        setSuccessMessage("✅ Proof approved successfully");
+        setShowSuccessModal(true);
+        fetchRepayments();
+        setShowDetailsModal(false);
+        setSelectedRepayment(null);
+        setSelectedProof(null);
+      } else {
+        const err = await res.json();
+        setErrorMessage(err.error || "Failed to approve proof");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error approving proof:", error);
+      setErrorMessage("Failed to approve proof");
+      setShowErrorModal(true);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handleRejectRepaymentProof = async () => {
     if (!selectedProof) return;
 
@@ -782,6 +814,38 @@ export default function LoanRepaymentsPage() {
       } else {
         const err = await payRes.json();
         setErrorMessage(err.error || "Failed to record payment");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error approving single request:", error);
+      setErrorMessage("Failed to approve request");
+      setShowErrorModal(true);
+    } finally {
+      setProcessingRequestId(null);
+    }
+  };
+
+  const handleApproveSingleProofOnly = async (proof: RepaymentProof, requestId: string) => {
+    setProcessingRequestId(requestId);
+    try {
+      const res = await fetch("/api/admin/repayment-proofs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          proofId: proof.id,
+          status: "approved",
+          requestId,
+        }),
+      });
+      if (res.ok) {
+        setSuccessMessage("✅ Request approved");
+        setShowSuccessModal(true);
+        fetchRepayments();
+        setShowDetailsModal(false);
+        setSelectedRepayment(null);
+      } else {
+        const err = await res.json();
+        setErrorMessage(err.error || "Failed to approve request");
         setShowErrorModal(true);
       }
     } catch (error) {
@@ -1327,18 +1391,33 @@ export default function LoanRepaymentsPage() {
                                         />
                                       </div>
                                       <div className="flex gap-2">
-                                        <button
-                                          onClick={() => handleApproveSingleRequest(proof, lr.id, parseFloat(correctedAmounts[lr.id] ?? String(lr.remainingBalance)))}
-                                          disabled={processingRequestId === lr.id || !(correctedAmounts[lr.id] ?? lr.remainingBalance) || parseFloat(correctedAmounts[lr.id] ?? String(lr.remainingBalance)) <= 0}
-                                          className="flex-1 bg-[#3A7717] text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-[#2d5a12] transition-all disabled:opacity-50 active:scale-[0.98]"
-                                        >
-                                          {processingRequestId === lr.id ? (
-                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                          ) : (
-                                            <CheckCircle className="w-3.5 h-3.5" />
-                                          )}
-                                          Approve & Pay {formatMoney(parseFloat(correctedAmounts[lr.id] ?? String(lr.remainingBalance)))}
-                                        </button>
+                                        {lr.remainingBalance > 0 ? (
+                                          <button
+                                            onClick={() => handleApproveSingleRequest(proof, lr.id, parseFloat(correctedAmounts[lr.id] ?? String(lr.remainingBalance)))}
+                                            disabled={processingRequestId === lr.id || !(correctedAmounts[lr.id] ?? lr.remainingBalance) || parseFloat(correctedAmounts[lr.id] ?? String(lr.remainingBalance)) <= 0}
+                                            className="flex-1 bg-[#3A7717] text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-[#2d5a12] transition-all disabled:opacity-50 active:scale-[0.98]"
+                                          >
+                                            {processingRequestId === lr.id ? (
+                                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                            ) : (
+                                              <CheckCircle className="w-3.5 h-3.5" />
+                                            )}
+                                            Approve & Pay {formatMoney(parseFloat(correctedAmounts[lr.id] ?? String(lr.remainingBalance)))}
+                                          </button>
+                                        ) : (
+                                          <button
+                                            onClick={() => handleApproveSingleProofOnly(proof, lr.id)}
+                                            disabled={processingRequestId === lr.id}
+                                            className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-blue-700 transition-all disabled:opacity-50 active:scale-[0.98]"
+                                          >
+                                            {processingRequestId === lr.id ? (
+                                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                            ) : (
+                                              <CheckCircle className="w-3.5 h-3.5" />
+                                            )}
+                                            Confirm Proof
+                                          </button>
+                                        )}
                                         <button
                                           onClick={() => handleRejectSingleRequest(proof, lr.id)}
                                           disabled={processingRequestId === lr.id}
@@ -1538,89 +1617,61 @@ export default function LoanRepaymentsPage() {
           </div>
 
           <div className="bg-white border-t border-[#bff202]/20 p-4 sm:p-6 flex flex-col gap-3">
-            {!isCompleted ? (
+            {pendingProofs.length > 0 ? (
               <>
-                {pendingProofs.length > 0 ? (
-                  <>
-                    {repayment.linkedChildren && bulkProofs.length > 0 ? (
-                      <div className="flex flex-col gap-3">
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-3 text-sm text-yellow-800 font-bold text-center">
-                          <Hourglass className="w-4 h-4 inline-block mr-1.5 text-yellow-600" />
-                          Approve each request individually above
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <button
-                          onClick={() =>
-                            handleApproveAndPay(pendingProofs[0], repayment, parseFloat(payAmount))
-                          }
-                          disabled={processing || !payAmount || parseFloat(payAmount) <= 0 || isThisRequestApproved}
-                          className="flex-1 bg-[#3A7717] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all disabled:opacity-50"
-                        >
-                          {processing ? (
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                          ) : (
-                            <CheckCircle className="w-5 h-5" />
-                          )}
-                          {isThisRequestApproved ? "Already Approved" : `Approve & Pay — ${formatMoney(parseFloat(payAmount || "0"))}`}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSelectedProof(pendingProofs[0]);
-                            setShowRejectModal(true);
-                          }}
-                          disabled={processing || isThisRequestApproved}
-                          className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-600 transition-all disabled:opacity-50"
-                        >
-                          <XCircle className="w-5 h-5" />
-                          {isThisRequestApproved ? "Approved" : "Reject"}
-                        </button>
-                        <button
-                          onClick={() => handleMarkAsCompleted(repayment)}
-                          disabled={processing}
-                          className={`flex-1 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${
-                            repayment.remainingAmount === 0
-                              ? "bg-[#bff202] text-[#01312D] hover:bg-[#d4e84a]"
-                              : "bg-orange-50 text-orange-600 hover:bg-orange-100"
-                          }`}
-                        >
-                          {processing ? (
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                          ) : (
-                            <CheckCircle className="w-5 h-5" />
-                          )}
-                          {repayment.remainingAmount === 0 ? "Settle" : "Settle & Write Off"}
-                        </button>
-                      </div>
-                    )}
-                  </>
+                {repayment.linkedChildren && bulkProofs.length > 0 ? (
+                  <div className="flex flex-col gap-3">
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-3 text-sm text-yellow-800 font-bold text-center">
+                      <Hourglass className="w-4 h-4 inline-block mr-1.5 text-yellow-600" />
+                      Approve each request individually above
+                    </div>
+                  </div>
                 ) : (
-                  <>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {repayment.remainingAmount > 0 ? (
+                      <button
+                        onClick={() =>
+                          handleApproveAndPay(pendingProofs[0], repayment, parseFloat(payAmount))
+                        }
+                        disabled={processing || !payAmount || parseFloat(payAmount) <= 0 || isThisRequestApproved}
+                        className="flex-1 bg-[#3A7717] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all disabled:opacity-50"
+                      >
+                        {processing ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <CheckCircle className="w-5 h-5" />
+                        )}
+                        {isThisRequestApproved ? "Already Approved" : `Approve & Pay — ${formatMoney(parseFloat(payAmount || "0"))}`}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleApproveProof(pendingProofs[0])}
+                        disabled={processing || isThisRequestApproved}
+                        className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all disabled:opacity-50"
+                      >
+                        {processing ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <CheckCircle className="w-5 h-5" />
+                        )}
+                        {isThisRequestApproved ? "Already Approved" : "Confirm Proof"}
+                      </button>
+                    )}
                     <button
-                      onClick={() =>
-                        handleMarkAsPaid(
-                          repayment,
-                          parseFloat(payAmount),
-                          "cash",
-                          undefined,
-                          new Date().toISOString().split("T")[0],
-                        )
-                      }
-                      disabled={processing || !payAmount || parseFloat(payAmount) <= 0}
-                      className="w-full bg-[#3A7717] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all disabled:opacity-50"
+                      onClick={() => {
+                        setSelectedProof(pendingProofs[0]);
+                        setShowRejectModal(true);
+                      }}
+                      disabled={processing || isThisRequestApproved}
+                      className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-600 transition-all disabled:opacity-50"
                     >
-                      {processing ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <CheckCircle className="w-5 h-5" />
-                      )}
-                      Confirm Payment — {formatMoney(parseFloat(payAmount || "0"))}
+                      <XCircle className="w-5 h-5" />
+                      {isThisRequestApproved ? "Approved" : "Reject"}
                     </button>
                     <button
                       onClick={() => handleMarkAsCompleted(repayment)}
                       disabled={processing}
-                      className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${
+                      className={`flex-1 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${
                         repayment.remainingAmount === 0
                           ? "bg-[#bff202] text-[#01312D] hover:bg-[#d4e84a]"
                           : "bg-orange-50 text-orange-600 hover:bg-orange-100"
@@ -1631,10 +1682,49 @@ export default function LoanRepaymentsPage() {
                       ) : (
                         <CheckCircle className="w-5 h-5" />
                       )}
-                      {repayment.remainingAmount === 0 ? "Mark as Complete" : "Settle & Write Off"}
+                      {repayment.remainingAmount === 0 ? "Settle" : "Settle & Write Off"}
                     </button>
-                  </>
+                  </div>
                 )}
+              </>
+            ) : !isCompleted ? (
+              <>
+                <button
+                  onClick={() =>
+                    handleMarkAsPaid(
+                      repayment,
+                      parseFloat(payAmount),
+                      "cash",
+                      undefined,
+                      new Date().toISOString().split("T")[0],
+                    )
+                  }
+                  disabled={processing || !payAmount || parseFloat(payAmount) <= 0}
+                  className="w-full bg-[#3A7717] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all disabled:opacity-50"
+                >
+                  {processing ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-5 h-5" />
+                  )}
+                  Confirm Payment — {formatMoney(parseFloat(payAmount || "0"))}
+                </button>
+                <button
+                  onClick={() => handleMarkAsCompleted(repayment)}
+                  disabled={processing}
+                  className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${
+                    repayment.remainingAmount === 0
+                      ? "bg-[#bff202] text-[#01312D] hover:bg-[#d4e84a]"
+                      : "bg-orange-50 text-orange-600 hover:bg-orange-100"
+                  }`}
+                >
+                  {processing ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-5 h-5" />
+                  )}
+                  {repayment.remainingAmount === 0 ? "Mark as Complete" : "Settle & Write Off"}
+                </button>
               </>
             ) : (
               <div className="bg-green-50 text-green-700 py-4 rounded-2xl font-black flex items-center justify-center gap-2 border border-green-200">
