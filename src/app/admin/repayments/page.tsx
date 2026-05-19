@@ -75,6 +75,7 @@ interface Repayment {
   popUploadedAt?: string;
   payments?: PaymentHistory[];
   pendingRepaymentProofs?: RepaymentProof[];
+  linkedChildren?: Repayment[];
 }
 
 interface PaymentHistory {
@@ -96,6 +97,17 @@ interface RepaymentProof {
   proofUrl: string;
   remainingBalance?: number;
   isFullyPaid?: boolean;
+  linkedRequests?: LinkedRequest[];
+}
+
+interface LinkedRequest {
+  id: string;
+  type: string;
+  amount: number;
+  totalRepayable: number;
+  remainingBalance: number;
+  carNumber: string;
+  driverName?: string;
 }
 
 export default function LoanRepaymentsPage() {
@@ -116,6 +128,7 @@ export default function LoanRepaymentsPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
 
   // Bulk selection states
   const [selectedRepayments, setSelectedRepayments] = useState<string[]>([]);
@@ -268,7 +281,42 @@ export default function LoanRepaymentsPage() {
       const response = await fetch("/api/admin/repayments");
       if (response.ok) {
         const data = await response.json();
-        setRepayments(data);
+        // Group repayments that share the same bulk proof
+        const bulkGroups = new Map<string, Repayment[]>();
+        const standalone: Repayment[] = [];
+        for (const r of data) {
+          const bulkProof = (r.pendingRepaymentProofs || []).find(
+            (p: RepaymentProof) => p.requestIds && p.requestIds.length > 1,
+          );
+          if (bulkProof) {
+            const existing = bulkGroups.get(bulkProof.id) || [];
+            existing.push(r);
+            bulkGroups.set(bulkProof.id, existing);
+          } else {
+            standalone.push(r);
+          }
+        }
+        const grouped: Repayment[] = [];
+        for (const [, group] of bulkGroups) {
+          const first = group[0];
+          const proof = first.pendingRepaymentProofs?.find(
+            (p) => p.requestIds && p.requestIds.length > 1,
+          );
+          group.sort((a, b) => a.serviceType.localeCompare(b.serviceType));
+          grouped.push({
+            ...first,
+            id: proof?.id || first.id,
+            serviceType: "bulk",
+            serviceTypeLabel: `Bulk Repayment (${group.length} requests)`,
+            carRegistration: `${group.length} requests • ${group[0].driverName}`,
+            totalRepayable: group.reduce((s, r) => s + r.totalRepayable, 0),
+            repaidAmount: group.reduce((s, r) => s + r.repaidAmount, 0),
+            remainingAmount: group.reduce((s, r) => s + r.remainingAmount, 0),
+            dailyPayment: group.reduce((s, r) => s + r.dailyPayment, 0),
+            linkedChildren: group,
+          } as Repayment);
+        }
+        setRepayments([...grouped, ...standalone]);
       }
     } catch (error) {
       console.error("Error fetching repayments:", error);
@@ -567,10 +615,24 @@ export default function LoanRepaymentsPage() {
   ) => {
     const isBulkProof = proof.requestIds && proof.requestIds.length > 1;
 
-    if (amount <= 0 || amount > repayment.remainingAmount) {
-      setErrorMessage(
-        `Amount must be between 1 and ${repayment.remainingAmount}`,
-      );
+    // For grouped repayments, resolve the actual loan ID from children
+    let targetId = repayment.id;
+    let targetRemaining = repayment.remainingAmount;
+    if (repayment.linkedChildren && isBulkProof) {
+      const approved = proof.approvedRequestIds || [];
+      const unapproved = proof.requestIds!.filter((id) => !approved.includes(id));
+      if (unapproved.length === 0) {
+        setErrorMessage("All linked requests are already approved");
+        setShowErrorModal(true);
+        return;
+      }
+      const child = repayment.linkedChildren.find((c) => c.id === unapproved[0]);
+      targetId = child?.id || unapproved[0];
+      targetRemaining = child?.remainingAmount || repayment.remainingAmount;
+    }
+
+    if (amount <= 0 || amount > targetRemaining) {
+      setErrorMessage(`Amount must be between 1 and ${targetRemaining}`);
       setShowErrorModal(true);
       return;
     }
@@ -584,7 +646,7 @@ export default function LoanRepaymentsPage() {
         body: JSON.stringify({
           proofId: proof.id,
           status: "approved",
-          ...(isBulkProof && { requestId: repayment.id }),
+          ...(isBulkProof && { requestId: targetId }),
         }),
       });
 
@@ -601,7 +663,7 @@ export default function LoanRepaymentsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          repaymentId: repayment.id,
+          repaymentId: targetId,
           amount,
           method: "cash",
           date: new Date().toISOString().split("T")[0],
@@ -679,6 +741,85 @@ export default function LoanRepaymentsPage() {
       setShowErrorModal(true);
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const handleApproveSingleRequest = async (proof: RepaymentProof, requestId: string, amount: number) => {
+    setProcessingRequestId(requestId);
+    try {
+      const approveRes = await fetch("/api/admin/repayment-proofs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          proofId: proof.id,
+          status: "approved",
+          requestId,
+        }),
+      });
+      if (!approveRes.ok) {
+        const err = await approveRes.json();
+        setErrorMessage(err.error || "Failed to approve request");
+        setShowErrorModal(true);
+        return;
+      }
+      const payRes = await fetch("/api/admin/repayments/pay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          repaymentId: requestId,
+          amount,
+          method: "cash",
+          date: new Date().toISOString().split("T")[0],
+          proofId: proof.id,
+        }),
+      });
+      if (payRes.ok) {
+        setSuccessMessage(`✅ Approved & paid ${formatMoney(amount)}`);
+        setShowSuccessModal(true);
+        fetchRepayments();
+        setShowDetailsModal(false);
+        setSelectedRepayment(null);
+      } else {
+        const err = await payRes.json();
+        setErrorMessage(err.error || "Failed to record payment");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error approving single request:", error);
+      setErrorMessage("Failed to approve request");
+      setShowErrorModal(true);
+    } finally {
+      setProcessingRequestId(null);
+    }
+  };
+
+  const handleRejectSingleRequest = async (proof: RepaymentProof, requestId: string) => {
+    try {
+      const res = await fetch("/api/admin/repayment-proofs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          proofId: proof.id,
+          status: "rejected",
+          reason: "Individual request rejected",
+          requestId,
+        }),
+      });
+      if (res.ok) {
+        setSuccessMessage(`❌ Request rejected`);
+        setShowSuccessModal(true);
+        fetchRepayments();
+        setShowDetailsModal(false);
+        setSelectedRepayment(null);
+      } else {
+        const err = await res.json();
+        setErrorMessage(err.error || "Failed to reject request");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error rejecting request:", error);
+      setErrorMessage("Failed to reject request");
+      setShowErrorModal(true);
     }
   };
 
@@ -1009,15 +1150,10 @@ export default function LoanRepaymentsPage() {
     const progress = Math.round(
       (repayment.repaidAmount / repayment.totalRepayable) * 100,
     );
-    const [payAmount, setPayAmount] = useState(repayment.dailyPayment.toString());
+    const [payAmount, setPayAmount] = useState(repayment.remainingAmount.toString());
     const payMax = repayment.remainingAmount;
-    const paySuggestions = [
-      { label: "Daily", amount: repayment.dailyPayment },
-      { label: "Weekly", amount: repayment.dailyPayment * 7 },
-      { label: "Monthly", amount: repayment.dailyPayment * 30 },
-      { label: "Full", amount: repayment.remainingAmount },
-    ].filter((s) => s.amount > 0 && s.amount <= payMax);
-    const balanceAfter = Math.max(0, payMax - (parseFloat(payAmount) || 0));
+    const [correctedAmounts, setCorrectedAmounts] = useState<Record<string, string>>({});
+    const paySuggestions: { label: string; amount: number }[] = [];
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
@@ -1133,6 +1269,92 @@ export default function LoanRepaymentsPage() {
                             </span>
                           )}
                         </div>
+                        {/* Linked Requests Cards */}
+                        {proof.linkedRequests && proof.linkedRequests.length > 0 && (
+                          <div className="space-y-3">
+                            <h4 className="text-xs font-bold text-[#01312D] px-1">Linked Requests — Full Details</h4>
+                            {proof.linkedRequests.map((lr) => {
+                              const isApproved = proof.approvedRequestIds?.includes(lr.id);
+                              const lrProgress = lr.totalRepayable > 0
+                                ? Math.round(((lr.totalRepayable - lr.remainingBalance) / lr.totalRepayable) * 100)
+                                : 0;
+                              return (
+                                <div key={lr.id} className={`rounded-xl p-4 ${isApproved ? "bg-green-50 border border-green-200" : "bg-white border border-gray-200"}`}>
+                                  <div className="flex items-start justify-between gap-2 mb-3">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center shrink-0">
+                                        {lr.type === "fuel" && <Fuel className="w-3.5 h-3.5 text-green-600" />}
+                                        {lr.type === "airtime" && <Smartphone className="w-3.5 h-3.5 text-blue-600" />}
+                                        {lr.type === "cash" && <DollarSign className="w-3.5 h-3.5 text-yellow-600" />}
+                                        {lr.type === "carwash" && <SprayCan className="w-3.5 h-3.5 text-purple-600" />}
+                                      </div>
+                                      <span className="font-black text-[#01312D] text-sm capitalize">{lr.type}</span>
+                                      <span className="text-[11px] text-gray-500">{lr.carNumber}</span>
+                                      <span className="text-[11px] font-bold text-[#01312D]">— {formatMoney(lr.amount || lr.totalRepayable)}</span>
+                                    </div>
+                                    {isApproved && <CheckCircle className="w-4 h-4 text-green-600 shrink-0" />}
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-2 mb-3">
+                                    <div>
+                                      <p className="text-[9px] text-gray-400 font-black uppercase tracking-wider">Total</p>
+                                      <p className="text-sm font-black text-[#01312D]">{formatMoney(lr.totalRepayable)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[9px] text-gray-400 font-black uppercase tracking-wider">Repaid</p>
+                                      <p className="text-sm font-black text-[#3A7717]">{formatMoney(lr.totalRepayable - lr.remainingBalance)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[9px] text-gray-400 font-black uppercase tracking-wider">Remaining</p>
+                                      <p className="text-sm font-black text-red-600">{formatMoney(lr.remainingBalance)}</p>
+                                    </div>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                                    <div className="bg-[#3A7717] h-1.5 rounded-full transition-all" style={{ width: `${lrProgress}%` }}></div>
+                                  </div>
+                                  <p className="text-[9px] text-gray-500 mt-1 font-bold">{lrProgress}% repaid</p>
+                                  {!isApproved && (
+                                    <div className="mt-3 space-y-2">
+                                      <label className="text-[9px] text-gray-400 font-black uppercase tracking-wider">Correct Amount</label>
+                                      <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-[#01312D] text-xs">R</span>
+                                        <input
+                                          type="number"
+                                          value={correctedAmounts[lr.id] ?? lr.remainingBalance}
+                                          onChange={(e) => setCorrectedAmounts((prev) => ({ ...prev, [lr.id]: e.target.value }))}
+                                          className="w-full pl-6 pr-3 py-2 bg-[#eafde7] border border-transparent rounded-xl focus:border-[#bff202] outline-none transition-all text-sm font-black text-[#01312D]"
+                                          placeholder={String(lr.remainingBalance)}
+                                          max={lr.remainingBalance}
+                                        />
+                                      </div>
+                                      <div className="flex gap-2">
+                                        <button
+                                          onClick={() => handleApproveSingleRequest(proof, lr.id, parseFloat(correctedAmounts[lr.id] ?? String(lr.remainingBalance)))}
+                                          disabled={processingRequestId === lr.id || !(correctedAmounts[lr.id] ?? lr.remainingBalance) || parseFloat(correctedAmounts[lr.id] ?? String(lr.remainingBalance)) <= 0}
+                                          className="flex-1 bg-[#3A7717] text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-[#2d5a12] transition-all disabled:opacity-50 active:scale-[0.98]"
+                                        >
+                                          {processingRequestId === lr.id ? (
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                          ) : (
+                                            <CheckCircle className="w-3.5 h-3.5" />
+                                          )}
+                                          Approve & Pay {formatMoney(parseFloat(correctedAmounts[lr.id] ?? String(lr.remainingBalance)))}
+                                        </button>
+                                        <button
+                                          onClick={() => handleRejectSingleRequest(proof, lr.id)}
+                                          disabled={processingRequestId === lr.id}
+                                          className="bg-red-500 text-white px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-red-600 transition-all disabled:opacity-50 active:scale-[0.98]"
+                                        >
+                                          <XCircle className="w-3.5 h-3.5" />
+                                          Reject
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     )}
                     {/* Amount Info */}
@@ -1149,7 +1371,15 @@ export default function LoanRepaymentsPage() {
                           {new Date(proof.submittedAt).toLocaleString()}
                         </span>
                       </div>
-                      {isThisRequestApproved && (
+                      {isBulk && (
+                        <div className="flex justify-between pt-2 border-t border-gray-200">
+                          <span className="text-green-700 font-bold text-xs">{approvedCount} of {proof.requestIds!.length} approved</span>
+                          {approvedCount === proof.requestIds!.length && (
+                            <span className="font-bold text-green-700 text-xs">All Approved ✓</span>
+                          )}
+                        </div>
+                      )}
+                      {!isBulk && isThisRequestApproved && (
                         <div className="flex justify-between mt-2 pt-2 border-t border-gray-200">
                           <span className="text-green-700 font-bold">This request</span>
                           <span className="font-bold text-green-700">Approved ✓</span>
@@ -1310,90 +1540,61 @@ export default function LoanRepaymentsPage() {
           <div className="bg-white border-t border-[#bff202]/20 p-4 sm:p-6 flex flex-col gap-3">
             {!isCompleted ? (
               <>
-                {/* Payment Input */}
-                <div className="flex items-center gap-3 mb-1">
-                  <div className="bg-[#01312D] text-white rounded-xl px-4 py-2 flex-1">
-                    <p className="text-white/60 text-[10px] font-bold uppercase">Outstanding</p>
-                    <p className="text-xl font-black">{formatMoney(payMax)}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-[10px] text-gray-500 font-bold uppercase">After</p>
-                    <p className={`text-lg font-black ${balanceAfter === 0 ? "text-[#3A7717]" : "text-[#01312D]"}`}>
-                      {formatMoney(balanceAfter)}
-                    </p>
-                  </div>
-                </div>
-                <div className="relative mb-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-[#01312D]">R</span>
-                  <input
-                    type="number"
-                    value={payAmount}
-                    onChange={(e) => setPayAmount(e.target.value)}
-                    className="w-full pl-7 pr-3 py-2.5 bg-[#eafde7] border-2 border-transparent rounded-xl focus:border-[#bff202] outline-none transition-all text-base font-black text-[#01312D]"
-                    placeholder="0.00"
-                    max={payMax}
-                  />
-                </div>
-                <div className="flex flex-wrap gap-1.5 mb-1">
-                  {paySuggestions.map((s) => (
-                    <button
-                      key={s.label}
-                      onClick={() => setPayAmount(s.amount.toString())}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border ${
-                        parseFloat(payAmount) === s.amount
-                          ? "bg-[#bff202] border-[#bff202] text-[#01312D]"
-                          : "bg-white border-gray-200 text-gray-500 hover:border-[#bff202]/30"
-                      }`}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-
                 {pendingProofs.length > 0 ? (
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <button
-                      onClick={() =>
-                        handleApproveAndPay(pendingProofs[0], repayment, parseFloat(payAmount))
-                      }
-                      disabled={processing || !payAmount || parseFloat(payAmount) <= 0 || isThisRequestApproved}
-                      className="flex-1 bg-[#3A7717] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all disabled:opacity-50"
-                    >
-                      {processing ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <CheckCircle className="w-5 h-5" />
-                      )}
-                      {isThisRequestApproved ? "Already Approved" : `Approve & Pay — ${formatMoney(parseFloat(payAmount || "0"))}`}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedProof(pendingProofs[0]);
-                        setShowRejectModal(true);
-                      }}
-                      disabled={processing || isThisRequestApproved}
-                      className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-600 transition-all disabled:opacity-50"
-                    >
-                      <XCircle className="w-5 h-5" />
-                      {isThisRequestApproved ? "Approved" : "Reject"}
-                    </button>
-                    <button
-                      onClick={() => handleMarkAsCompleted(repayment)}
-                      disabled={processing}
-                      className={`flex-1 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${
-                        repayment.remainingAmount === 0
-                          ? "bg-[#bff202] text-[#01312D] hover:bg-[#d4e84a]"
-                          : "bg-orange-50 text-orange-600 hover:bg-orange-100"
-                      }`}
-                    >
-                      {processing ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <CheckCircle className="w-5 h-5" />
-                      )}
-                      {repayment.remainingAmount === 0 ? "Settle" : "Settle & Write Off"}
-                    </button>
-                  </div>
+                  <>
+                    {repayment.linkedChildren && bulkProofs.length > 0 ? (
+                      <div className="flex flex-col gap-3">
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-3 text-sm text-yellow-800 font-bold text-center">
+                          <Hourglass className="w-4 h-4 inline-block mr-1.5 text-yellow-600" />
+                          Approve each request individually above
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <button
+                          onClick={() =>
+                            handleApproveAndPay(pendingProofs[0], repayment, parseFloat(payAmount))
+                          }
+                          disabled={processing || !payAmount || parseFloat(payAmount) <= 0 || isThisRequestApproved}
+                          className="flex-1 bg-[#3A7717] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all disabled:opacity-50"
+                        >
+                          {processing ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <CheckCircle className="w-5 h-5" />
+                          )}
+                          {isThisRequestApproved ? "Already Approved" : `Approve & Pay — ${formatMoney(parseFloat(payAmount || "0"))}`}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedProof(pendingProofs[0]);
+                            setShowRejectModal(true);
+                          }}
+                          disabled={processing || isThisRequestApproved}
+                          className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-600 transition-all disabled:opacity-50"
+                        >
+                          <XCircle className="w-5 h-5" />
+                          {isThisRequestApproved ? "Approved" : "Reject"}
+                        </button>
+                        <button
+                          onClick={() => handleMarkAsCompleted(repayment)}
+                          disabled={processing}
+                          className={`flex-1 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${
+                            repayment.remainingAmount === 0
+                              ? "bg-[#bff202] text-[#01312D] hover:bg-[#d4e84a]"
+                              : "bg-orange-50 text-orange-600 hover:bg-orange-100"
+                          }`}
+                        >
+                          {processing ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <CheckCircle className="w-5 h-5" />
+                          )}
+                          {repayment.remainingAmount === 0 ? "Settle" : "Settle & Write Off"}
+                        </button>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <>
                     <button
@@ -1784,124 +1985,236 @@ export default function LoanRepaymentsPage() {
                   )}
 
                   <div className="flex-1">
-                    <div className="flex items-start justify-between flex-wrap gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-[#eafde7] rounded-full flex items-center justify-center">
-                          {repayment.serviceType === "fuel" && (
-                            <Fuel className="w-6 h-6 text-green-600" />
-                          )}
-                          {repayment.serviceType === "airtime" && (
-                            <Smartphone className="w-6 h-6 text-blue-600" />
-                          )}
-                          {repayment.serviceType === "cash" && (
-                            <DollarSign className="w-6 h-6 text-yellow-600" />
-                          )}
-                          {repayment.serviceType === "carwash" && (
-                            <SprayCan className="w-6 h-6 text-purple-600" />
-                          )}
+                    {repayment.linkedChildren ? (
+                      <>
+                        <div className="flex items-start justify-between flex-wrap gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                              <Layers className="w-6 h-6 text-purple-600" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
+                                  Bulk Repayment ({repayment.linkedChildren.length} requests)
+                                </span>
+                                {hasPendingProofs && (
+                                  <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                    <Hourglass className="w-3 h-3" />
+                                    Pending Repayment Proof
+                                  </span>
+                                )}
+                              </div>
+                              <p className="font-semibold text-[#01312D]">
+                                {repayment.driverName}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xl font-bold text-[#3A7717]">
+                              {formatMoney(repayment.remainingAmount)}
+                            </p>
+                            <p className="text-xs text-gray-500">Total Outstanding</p>
+                          </div>
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            {getServiceTypeBadge(
-                              repayment.serviceType,
-                              repayment,
+
+                        {/* Linked children mini-list */}
+                        <div className="mt-3 space-y-2">
+                          {repayment.linkedChildren.map((child) => {
+                            const childHasPendingProofs = child.pendingRepaymentProofs?.some(
+                              (p: RepaymentProof) => p.status === "pending",
+                            );
+                            return (
+                              <div key={child.id} className="bg-gray-50 rounded-xl p-3 flex items-center gap-3 border border-gray-100">
+                                <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shrink-0">
+                                  {child.serviceType === "fuel" && <Fuel className="w-4 h-4 text-green-600" />}
+                                  {child.serviceType === "airtime" && <Smartphone className="w-4 h-4 text-blue-600" />}
+                                  {child.serviceType === "cash" && <DollarSign className="w-4 h-4 text-yellow-600" />}
+                                  {child.serviceType === "carwash" && <SprayCan className="w-4 h-4 text-purple-600" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-[#01312D]">{child.serviceTypeLabel}</span>
+                                    {getStatusBadge(child.status)}
+                                    {childHasPendingProofs && (
+                                      <Hourglass className="w-3 h-3 text-yellow-600 shrink-0" />
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-gray-500">{child.carRegistration}</p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-sm font-semibold text-[#01312D]">{formatMoney(child.remainingAmount)}</p>
+                                  <p className="text-xs text-gray-400">out of {formatMoney(child.totalRepayable)}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-3 border-t border-gray-100">
+                          <div>
+                            <p className="text-xs text-gray-500">Total Amount</p>
+                            <p className="font-semibold text-[#01312D]">
+                              {formatMoney(repayment.totalRepayable)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Repaid</p>
+                            <p className="font-semibold text-[#3A7717]">
+                              {formatMoney(repayment.repaidAmount)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Daily Payment</p>
+                            <p className="font-semibold text-[#01312D]">
+                              {formatMoney(repayment.dailyPayment)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Period</p>
+                            <p className="font-semibold text-[#01312D]">
+                              {repayment.repaymentDays} days
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="mt-3">
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-gray-500">Repayment Progress</span>
+                            <span className="font-semibold text-[#01312D]">
+                              {Math.round((repayment.repaidAmount / repayment.totalRepayable) * 100)}%
+                            </span>
+                          </div>
+                          <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="bg-[#3A7717] h-2 rounded-full transition-all"
+                              style={{ width: `${(repayment.repaidAmount / repayment.totalRepayable) * 100}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                      <div className="flex items-start justify-between flex-wrap gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-[#eafde7] rounded-full flex items-center justify-center">
+                            {repayment.serviceType === "fuel" && (
+                              <Fuel className="w-6 h-6 text-green-600" />
                             )}
-                            {getStatusBadge(repayment.status)}
-                            {hasActualAmount && (
-                              <span className="text-xs bg-[#BFF202]/20 text-[#01312D] px-2 py-0.5 rounded-full">
-                                Amount Adjusted
-                              </span>
+                            {repayment.serviceType === "airtime" && (
+                              <Smartphone className="w-6 h-6 text-blue-600" />
                             )}
-                            {hasPendingProofs && (
-                              <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <Hourglass className="w-3 h-3" />
-                                Pending Repayment Proof
-                              </span>
+                            {repayment.serviceType === "cash" && (
+                              <DollarSign className="w-6 h-6 text-yellow-600" />
+                            )}
+                            {repayment.serviceType === "carwash" && (
+                              <SprayCan className="w-6 h-6 text-purple-600" />
                             )}
                           </div>
-                          <p className="font-semibold text-[#01312D]">
-                            {repayment.driverName}
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              {getServiceTypeBadge(
+                                repayment.serviceType,
+                                repayment,
+                              )}
+                              {getStatusBadge(repayment.status)}
+                              {hasActualAmount && (
+                                <span className="text-xs bg-[#BFF202]/20 text-[#01312D] px-2 py-0.5 rounded-full">
+                                  Amount Adjusted
+                                </span>
+                              )}
+                              {hasPendingProofs && (
+                                <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                  <Hourglass className="w-3 h-3" />
+                                  Pending Repayment Proof
+                                </span>
+                              )}
+                            </div>
+                            <p className="font-semibold text-[#01312D]">
+                              {repayment.driverName}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {repayment.carRegistration}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xl font-bold text-[#3A7717]">
+                            {formatMoney(repayment.remainingAmount)}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {repayment.carRegistration}
+                            Due:{" "}
+                            {new Date(repayment.dueDate).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xl font-bold text-[#3A7717]">
-                          {formatMoney(repayment.remainingAmount)}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Due:{" "}
-                          {new Date(repayment.dueDate).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-3 border-t border-gray-100">
-                      <div>
-                        <p className="text-xs text-gray-500">Total Amount</p>
-                        <p className="font-semibold text-[#01312D]">
-                          {formatMoney(repayment.totalRepayable)}
-                        </p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-3 border-t border-gray-100">
+                        <div>
+                          <p className="text-xs text-gray-500">Total Amount</p>
+                          <p className="font-semibold text-[#01312D]">
+                            {formatMoney(repayment.totalRepayable)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Repaid</p>
+                          <p className="font-semibold text-[#3A7717]">
+                            {formatMoney(repayment.repaidAmount)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Daily Payment</p>
+                          <p className="font-semibold text-[#01312D]">
+                            {formatMoney(repayment.dailyPayment)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Period</p>
+                          <p className="font-semibold text-[#01312D]">
+                            {repayment.repaymentDays} days
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Repaid</p>
-                        <p className="font-semibold text-[#3A7717]">
-                          {formatMoney(repayment.repaidAmount)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Daily Payment</p>
-                        <p className="font-semibold text-[#01312D]">
-                          {formatMoney(repayment.dailyPayment)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Period</p>
-                        <p className="font-semibold text-[#01312D]">
-                          {repayment.repaymentDays} days
-                        </p>
-                      </div>
-                    </div>
 
-                    {/* Show actual amount if different */}
-                    {hasActualAmount && (
-                      <div className="mt-2 text-xs text-gray-500 flex items-center gap-2">
-                        <span className="text-gray-400">
-                          Requested: {formatMoney(repayment.amount)}
-                        </span>
-                        <span>→</span>
-                        <span className="text-[#3A7717] font-medium">
-                          Actual: {formatMoney(repayment.actualAmount!)}
-                        </span>
+                      {/* Show actual amount if different */}
+                      {hasActualAmount && (
+                        <div className="mt-2 text-xs text-gray-500 flex items-center gap-2">
+                          <span className="text-gray-400">
+                            Requested: {formatMoney(repayment.amount)}
+                          </span>
+                          <span>→</span>
+                          <span className="text-[#3A7717] font-medium">
+                            Actual: {formatMoney(repayment.actualAmount!)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Progress Bar */}
+                      <div className="mt-3">
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-gray-500">
+                            Repayment Progress
+                          </span>
+                          <span className="font-semibold text-[#01312D]">
+                            {Math.round(
+                              (repayment.repaidAmount /
+                                repayment.totalRepayable) *
+                                100,
+                            )}
+                            %
+                          </span>
+                        </div>
+                        <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="bg-[#3A7717] h-2 rounded-full transition-all"
+                            style={{
+                              width: `${(repayment.repaidAmount / repayment.totalRepayable) * 100}%`,
+                            }}
+                          ></div>
+                        </div>
                       </div>
+                      </>
                     )}
-
-                    {/* Progress Bar */}
-                    <div className="mt-3">
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-gray-500">
-                          Repayment Progress
-                        </span>
-                        <span className="font-semibold text-[#01312D]">
-                          {Math.round(
-                            (repayment.repaidAmount /
-                              repayment.totalRepayable) *
-                              100,
-                          )}
-                          %
-                        </span>
-                      </div>
-                      <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
-                        <div
-                          className="bg-[#3A7717] h-2 rounded-full transition-all"
-                          style={{
-                            width: `${(repayment.repaidAmount / repayment.totalRepayable) * 100}%`,
-                          }}
-                        ></div>
-                      </div>
-                    </div>
 
                     <div className="flex gap-2 mt-4">
                       <button

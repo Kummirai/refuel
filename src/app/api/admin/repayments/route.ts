@@ -60,6 +60,32 @@ export async function GET() {
             isFullyPaid: p.isFullyPaid,
           }));
 
+        // Enrich pending proofs with linked request details (for bulk repayments)
+        const enrichedPendingProofs = await Promise.all(
+          pendingProofs.map(async (proof: any) => {
+            if (proof.requestIds && proof.requestIds.length > 1) {
+              const linkedRequests = await serviceRequestsCollection
+                .find({
+                  _id: { $in: proof.requestIds.map((id: string) => new ObjectId(id)) },
+                })
+                .toArray();
+              return {
+                ...proof,
+                linkedRequests: linkedRequests.map((r: any) => ({
+                  id: r._id.toString(),
+                  type: r.type,
+                  amount: r.amount,
+                  totalRepayable: r.totalRepayable || r.amount,
+                  remainingBalance: r.remainingBalance || r.totalRepayable || r.amount,
+                  carNumber: r.carNumber,
+                  driverName: r.driverName,
+                })),
+              };
+            }
+            return proof;
+          }),
+        );
+
         // Calculate financial status
         const totalRepayable = loan.totalRepayable || toMoney(loan.amount * 1.13);
         const repaidAmount = loan.repaidAmount || 0;
@@ -150,8 +176,8 @@ export async function GET() {
           popUrl: loan.popUrl,
           popUploadedAt: loan.popUploadedAt,
           payments: loan.payments || [],
-          pendingRepaymentProofs: pendingProofs,
-          hasPendingProofs: pendingProofs.length > 0,
+          pendingRepaymentProofs: enrichedPendingProofs,
+          hasPendingProofs: enrichedPendingProofs.length > 0,
         };
       }),
     );

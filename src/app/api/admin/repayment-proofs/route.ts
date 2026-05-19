@@ -14,8 +14,19 @@ export async function GET(request: NextRequest) {
     const serviceRequestsCollection = db.collection("serviceRequests");
     const usersCollection = db.collection("user");
 
+    const { searchParams } = new URL(request.url);
+    const requestId = searchParams.get("requestId");
+
+    const query: any = {};
+    if (requestId) {
+      query.$or = [
+        { requestId: requestId },
+        { requestIds: requestId },
+      ];
+    }
+
     const proofs = await repaymentProofsCollection
-      .find({})
+      .find(query)
       .sort({ submittedAt: -1 })
       .toArray();
 

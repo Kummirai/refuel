@@ -1,7 +1,6 @@
-// src/components/RepaymentProofModal.tsx
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   DollarSign,
   Upload,
@@ -16,23 +15,26 @@ import { compressImage } from "@/lib/utils/image-compression";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import { formatMoney, toMoney } from "@/lib/money";
 
+interface OutstandingRequest {
+  id: string;
+  type: string;
+  carNumber: string;
+  remainingBalance: number;
+}
+
 interface RepaymentProofModalProps {
   isOpen: boolean;
   onClose: () => void;
-  requestId: string;
-  requestedAmount: number;
-  remainingBalance: number;
-  totalRepayable: number;
+  outstandingRequests: OutstandingRequest[];
+  totalOutstanding: number;
   onSuccess: () => void;
 }
 
 export function RepaymentProofModal({
   isOpen,
   onClose,
-  requestId,
-  requestedAmount,
-  remainingBalance,
-  totalRepayable,
+  outstandingRequests,
+  totalOutstanding,
   onSuccess,
 }: RepaymentProofModalProps) {
   const [repaymentAmount, setRepaymentAmount] = useState<string>("");
@@ -41,9 +43,20 @@ export function RepaymentProofModal({
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [newRemainingBalance, setNewRemainingBalance] =
-    useState(remainingBalance);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const newRemainingBalance = (() => {
+    const amountNum = parseFloat(repaymentAmount);
+    if (!isNaN(amountNum) && amountNum > 0) {
+      const nb = toMoney(totalOutstanding - amountNum);
+      return nb > 0 ? nb : 0;
+    }
+    return totalOutstanding;
+  })();
+
+  useBodyScrollLock(isOpen);
+
+  if (!isOpen) return null;
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -71,7 +84,7 @@ export function RepaymentProofModal({
       const formData = new FormData();
       formData.append("file", compressedFile);
       formData.append("type", "repayment");
-      formData.append("requestId", requestId);
+      formData.append("requestId", outstandingRequests[0].id);
 
       const response = await fetch("/api/driver/upload", {
         method: "POST",
@@ -97,29 +110,16 @@ export function RepaymentProofModal({
     }
   };
 
-  useEffect(() => {
-    const amountNum = parseFloat(repaymentAmount);
-    if (!isNaN(amountNum) && amountNum > 0) {
-      const newBalance = toMoney(remainingBalance - amountNum);
-      setNewRemainingBalance(newBalance > 0 ? newBalance : 0);
-    } else {
-      setNewRemainingBalance(remainingBalance);
-    }
-  }, [repaymentAmount, remainingBalance]);
-
-  useBodyScrollLock(isOpen);
-
-  if (!isOpen) return null;
-
   const handleSubmit = async () => {
-    if (!repaymentAmount || parseFloat(repaymentAmount) <= 0) {
+    const amountNum = parseFloat(repaymentAmount);
+    if (!repaymentAmount || amountNum <= 0) {
       setError("Please enter the repayment amount");
       return;
     }
 
-    if (parseFloat(repaymentAmount) > remainingBalance) {
+    if (amountNum > totalOutstanding) {
       setError(
-        `Amount cannot exceed remaining balance of ${formatMoney(remainingBalance)}`,
+        `Amount cannot exceed total outstanding of ${formatMoney(totalOutstanding)}`,
       );
       return;
     }
@@ -133,15 +133,14 @@ export function RepaymentProofModal({
     setError("");
 
     try {
-      const amountNum = parseFloat(repaymentAmount);
-      const newBalance = toMoney(remainingBalance - amountNum);
+      const newBalance = toMoney(totalOutstanding - amountNum);
       const isFullyPaid = newBalance <= 0;
 
       const response = await fetch("/api/driver/repayment-proof", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          requestId,
+          requestIds: outstandingRequests.map((r) => r.id),
           amount: amountNum,
           remainingBalance: newBalance > 0 ? newBalance : 0,
           isFullyPaid,
@@ -159,9 +158,6 @@ export function RepaymentProofModal({
       onSuccess();
       onClose();
       resetForm();
-      // alert(
-      //   `✅ Repayment of R${amountNum.toLocaleString()} submitted for approval!`,
-      // );
     } catch (err: any) {
       setError(
         err.message || "Failed to submit repayment proof. Please try again.",
@@ -178,16 +174,22 @@ export function RepaymentProofModal({
     setError("");
   };
 
+  const isFullyPaidAfterPayment =
+    repaymentAmount && parseFloat(repaymentAmount) > 0
+      ? toMoney(totalOutstanding - parseFloat(repaymentAmount)) <= 0
+      : false;
+
   return (
     <div className="fixed inset-0 z-[9999] bg-white overflow-y-auto">
       <div className="sticky top-0 bg-white border-b border-[#BFF202]/20 px-5 py-4 z-10 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-[#01312D]">
-              Make a Repayment
+              Pay Outstanding Balance
             </h2>
             <p className="text-sm text-gray-500 mt-0.5">
-              Request ID: {requestId}
+              {outstandingRequests.length} outstanding
+              {outstandingRequests.length > 1 ? " loans" : " loan"}
             </p>
           </div>
           <button
@@ -203,29 +205,46 @@ export function RepaymentProofModal({
       </div>
 
       <div className="px-5 py-6 pb-32">
+        {/* Outstanding Loans Summary */}
         <div className="bg-[#EAFDE7] rounded-xl p-4 mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-gray-600 text-sm">Requested Amount:</span>
-            <span className="font-semibold text-[#01312D]">
-              {formatMoney(requestedAmount)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-gray-600 text-sm">Total Repayable:</span>
-            <span className="font-semibold text-[#01312D]">
-              {formatMoney(totalRepayable)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between pt-2 border-t border-[#BFF202]/20">
+          <h3 className="font-semibold text-[#01312D] text-sm mb-3">
+            Outstanding Loans
+          </h3>
+          {outstandingRequests.length > 0 && (
+            <div className="space-y-2 mb-3">
+              {outstandingRequests.map((req) => (
+                <div
+                  key={req.id}
+                  className="flex justify-between items-center bg-white rounded-lg p-2"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-[#01312D] capitalize">
+                      {req.type} - {req.carNumber}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      ID: {req.id.slice(-8).toUpperCase()}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-red-600">
+                      {formatMoney(req.remainingBalance)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex items-center justify-between pt-3 border-t border-[#BFF202]/20">
             <span className="text-gray-600 text-sm font-semibold">
-              Outstanding Balance:
+              Total Outstanding:
             </span>
             <span className="text-2xl font-bold text-[#3A7717]">
-              {formatMoney(remainingBalance)}
+              {formatMoney(totalOutstanding)}
             </span>
           </div>
         </div>
 
+        {/* Repayment Amount */}
         <div className="mb-6">
           <label className="block text-[#01312D] font-semibold mb-2 text-sm">
             Repayment Amount (R) <span className="text-red-500">*</span>
@@ -242,18 +261,21 @@ export function RepaymentProofModal({
             />
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Max: {formatMoney(remainingBalance)}
+            Max: {formatMoney(totalOutstanding)} (total outstanding)
           </p>
         </div>
 
+        {/* Updated Balance Preview */}
         {repaymentAmount && parseFloat(repaymentAmount) > 0 && (
           <div className="bg-blue-50 rounded-xl p-4 mb-6">
-            <p className="font-semibold text-[#01312D] mb-2">Updated Balance</p>
+            <p className="font-semibold text-[#01312D] mb-2">
+              Updated Balance
+            </p>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">Current Balance:</span>
+                <span className="text-gray-600">Current Outstanding:</span>
                 <span className="font-semibold text-red-600">
-                  {formatMoney(remainingBalance)}
+                  {formatMoney(totalOutstanding)}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -263,11 +285,11 @@ export function RepaymentProofModal({
                 </span>
               </div>
               <div className="flex justify-between pt-2 border-t border-blue-200">
-                <span className="font-semibold">New Balance:</span>
+                <span className="font-semibold">Remaining:</span>
                 <span
-                  className={`font-bold ${newRemainingBalance <= 0 ? "text-[#3A7717]" : "text-[#01312D]"}`}
+                  className={`font-bold ${isFullyPaidAfterPayment ? "text-[#3A7717]" : "text-[#01312D]"}`}
                 >
-                  {newRemainingBalance <= 0
+                  {isFullyPaidAfterPayment
                     ? "R0.00 (Fully Paid!)"
                     : formatMoney(newRemainingBalance)}
                 </span>
@@ -276,6 +298,7 @@ export function RepaymentProofModal({
           </div>
         )}
 
+        {/* Upload Proof */}
         <div className="mb-6">
           <label className="block text-[#01312D] font-semibold mb-2 text-sm">
             Upload Proof of Repayment <span className="text-red-500">*</span>
@@ -372,10 +395,12 @@ export function RepaymentProofModal({
                 </li>
                 <li>Our admin will verify the payment within 24-48 hours</li>
                 <li>
-                  Once verified, your balance will be updated automatically
+                  If you pay less than the full amount, the remaining balance
+                  will be carried forward
                 </li>
                 <li>
-                  You'll receive a notification when your payment is confirmed
+                  You&apos;ll receive a notification when your payment is
+                  confirmed
                 </li>
               </ul>
             </div>
