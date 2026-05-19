@@ -34,6 +34,7 @@ import {
   FileText,
   ImageIcon,
   Truck,
+  Banknote,
 } from "lucide-react";
 import { toPng } from "html-to-image";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -70,6 +71,30 @@ interface ServiceRequest {
   popPublicId?: string;
   popUploadedAt?: string;
   dailyPayment?: number;
+  repaidAmount?: number;
+  remainingBalance?: number;
+  isPaid?: boolean;
+}
+
+interface LinkedRequest {
+  id: string;
+  type: string;
+  amount: number;
+  totalRepayable: number;
+  remainingBalance: number;
+  carNumber: string;
+}
+
+interface RepaymentProof {
+  id: string;
+  requestId?: string;
+  requestIds?: string[];
+  amount: number;
+  status: string;
+  submittedAt: string;
+  proofUrl?: string;
+  remainingBalance?: number;
+  linkedRequests: LinkedRequest[];
 }
 
 // Cloudinary configuration
@@ -563,6 +588,27 @@ export default function AdminServiceRequestsPage() {
     const displayInterest = request.interest || 0;
     const displayTotal = request.totalRepayable || request.amount;
     const displayDailyPayment = request.dailyPayment || 0;
+    const [bulkProofs, setBulkProofs] = useState<RepaymentProof[]>([]);
+    const [proofsLoading, setProofsLoading] = useState(true);
+
+    useEffect(() => {
+      const fetchBulkProofs = async () => {
+        try {
+          const res = await fetch(
+            `/api/admin/repayment-proofs?requestId=${request.id}`,
+          );
+          if (res.ok) {
+            const data = await res.json();
+            setBulkProofs(data.filter((p: RepaymentProof) => p.linkedRequests?.length > 1));
+          }
+        } catch (err) {
+          console.error("Failed to fetch bulk proofs:", err);
+        } finally {
+          setProofsLoading(false);
+        }
+      };
+      fetchBulkProofs();
+    }, [request.id]);
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -804,6 +850,44 @@ export default function AdminServiceRequestsPage() {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Paid With Section - linked requests from same bulk repayment proof */}
+            {!proofsLoading && bulkProofs.length > 0 && (
+              <div className="bg-[#EAFDE7] rounded-xl p-4">
+                <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                  <Banknote className="w-4 h-4 text-[#3A7717]" /> Paid With
+                </h3>
+                <p className="text-xs text-gray-500 mb-3">
+                  This request was paid together with the following requests using the same proof of payment:
+                </p>
+                {bulkProofs.map((proof) => (
+                  <div key={proof.id} className="space-y-2">
+                    {proof.linkedRequests
+                      .filter((lr) => lr.id !== request.id)
+                      .map((lr) => (
+                        <div key={lr.id} className="bg-white rounded-lg p-2 flex justify-between items-center">
+                          <div>
+                            <p className="text-sm font-semibold text-[#01312D] capitalize">
+                              {lr.type} - {lr.carNumber}
+                            </p>
+                            <p className="text-xs text-gray-500">ID: {lr.id.slice(-8).toUpperCase()}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-bold text-red-600">{formatMoney(lr.remainingBalance)}</p>
+                            <p className="text-xs text-gray-500">outstanding</p>
+                          </div>
+                        </div>
+                      ))}
+                    {proof.linkedRequests.filter((lr) => lr.id !== request.id).length > 0 && (
+                      <div className="flex justify-between pt-2 border-t border-[#BFF202]/20 text-sm">
+                        <span className="font-semibold text-[#01312D]">Total paid in this batch:</span>
+                        <span className="font-bold text-[#3A7717]">{formatMoney(proof.amount)}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
 

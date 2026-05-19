@@ -75,6 +75,7 @@ interface Repayment {
   popUploadedAt?: string;
   payments?: PaymentHistory[];
   pendingRepaymentProofs?: RepaymentProof[];
+  linkedChildren?: Repayment[];
 }
 
 interface PaymentHistory {
@@ -96,6 +97,17 @@ interface RepaymentProof {
   proofUrl: string;
   remainingBalance?: number;
   isFullyPaid?: boolean;
+  linkedRequests?: LinkedRequest[];
+}
+
+interface LinkedRequest {
+  id: string;
+  type: string;
+  amount: number;
+  totalRepayable: number;
+  remainingBalance: number;
+  carNumber: string;
+  driverName?: string;
 }
 
 export default function LoanRepaymentsPage() {
@@ -268,7 +280,42 @@ export default function LoanRepaymentsPage() {
       const response = await fetch("/api/admin/repayments");
       if (response.ok) {
         const data = await response.json();
-        setRepayments(data);
+        // Group repayments that share the same bulk proof
+        const bulkGroups = new Map<string, Repayment[]>();
+        const standalone: Repayment[] = [];
+        for (const r of data) {
+          const bulkProof = (r.pendingRepaymentProofs || []).find(
+            (p: RepaymentProof) => p.requestIds && p.requestIds.length > 1,
+          );
+          if (bulkProof) {
+            const existing = bulkGroups.get(bulkProof.id) || [];
+            existing.push(r);
+            bulkGroups.set(bulkProof.id, existing);
+          } else {
+            standalone.push(r);
+          }
+        }
+        const grouped: Repayment[] = [];
+        for (const [, group] of bulkGroups) {
+          const first = group[0];
+          const proof = first.pendingRepaymentProofs?.find(
+            (p) => p.requestIds && p.requestIds.length > 1,
+          );
+          group.sort((a, b) => a.serviceType.localeCompare(b.serviceType));
+          grouped.push({
+            ...first,
+            id: proof?.id || first.id,
+            serviceType: "bulk",
+            serviceTypeLabel: `Bulk Repayment (${group.length} requests)`,
+            carRegistration: `${group.length} requests • ${group[0].driverName}`,
+            totalRepayable: group.reduce((s, r) => s + r.totalRepayable, 0),
+            repaidAmount: group.reduce((s, r) => s + r.repaidAmount, 0),
+            remainingAmount: group.reduce((s, r) => s + r.remainingAmount, 0),
+            dailyPayment: group.reduce((s, r) => s + r.dailyPayment, 0),
+            linkedChildren: group,
+          } as Repayment);
+        }
+        setRepayments([...grouped, ...standalone]);
       }
     } catch (error) {
       console.error("Error fetching repayments:", error);
@@ -1133,6 +1180,49 @@ export default function LoanRepaymentsPage() {
                             </span>
                           )}
                         </div>
+                        {/* Linked Requests Cards */}
+                        {proof.linkedRequests && proof.linkedRequests.length > 0 && (
+                          <div className="space-y-3">
+                            <h4 className="text-xs font-bold text-[#01312D] px-1">Linked Requests — Full Details</h4>
+                            {proof.linkedRequests.map((lr) => {
+                              const isApproved = proof.approvedRequestIds?.includes(lr.id);
+                              const lrProgress = lr.totalRepayable > 0
+                                ? Math.round(((lr.totalRepayable - lr.remainingBalance) / lr.totalRepayable) * 100)
+                                : 0;
+                              return (
+                                <div key={lr.id} className={`rounded-xl p-4 ${isApproved ? "bg-green-50 border border-green-200" : "bg-white border border-gray-200"}`}>
+                                  <div className="flex items-center gap-2 mb-3">
+                                    {lr.type === "fuel" && <Fuel className="w-4 h-4 text-green-600" />}
+                                    {lr.type === "airtime" && <Smartphone className="w-4 h-4 text-blue-600" />}
+                                    {lr.type === "cash" && <DollarSign className="w-4 h-4 text-yellow-600" />}
+                                    {lr.type === "carwash" && <SprayCan className="w-4 h-4 text-purple-600" />}
+                                    <span className="font-bold text-[#01312D] capitalize">{lr.type}</span>
+                                    <span className="text-xs text-gray-500">— {lr.carNumber}</span>
+                                    {isApproved && <CheckCircle className="w-4 h-4 text-green-600 ml-auto" />}
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-2 text-sm mb-3">
+                                    <div>
+                                      <p className="text-[10px] text-gray-400 font-bold uppercase">Total</p>
+                                      <p className="font-bold text-[#01312D]">{formatMoney(lr.totalRepayable)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] text-gray-400 font-bold uppercase">Repaid</p>
+                                      <p className="font-bold text-[#3A7717]">{formatMoney(lr.totalRepayable - lr.remainingBalance)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] text-gray-400 font-bold uppercase">Remaining</p>
+                                      <p className="font-bold text-red-600">{formatMoney(lr.remainingBalance)}</p>
+                                    </div>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                    <div className="bg-[#3A7717] h-2 rounded-full transition-all" style={{ width: `${lrProgress}%` }}></div>
+                                  </div>
+                                  <p className="text-[10px] text-gray-500 mt-1">{lrProgress}% repaid</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     )}
                     {/* Amount Info */}
@@ -1784,124 +1874,236 @@ export default function LoanRepaymentsPage() {
                   )}
 
                   <div className="flex-1">
-                    <div className="flex items-start justify-between flex-wrap gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-[#eafde7] rounded-full flex items-center justify-center">
-                          {repayment.serviceType === "fuel" && (
-                            <Fuel className="w-6 h-6 text-green-600" />
-                          )}
-                          {repayment.serviceType === "airtime" && (
-                            <Smartphone className="w-6 h-6 text-blue-600" />
-                          )}
-                          {repayment.serviceType === "cash" && (
-                            <DollarSign className="w-6 h-6 text-yellow-600" />
-                          )}
-                          {repayment.serviceType === "carwash" && (
-                            <SprayCan className="w-6 h-6 text-purple-600" />
-                          )}
+                    {repayment.linkedChildren ? (
+                      <>
+                        <div className="flex items-start justify-between flex-wrap gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                              <Layers className="w-6 h-6 text-purple-600" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
+                                  Bulk Repayment ({repayment.linkedChildren.length} requests)
+                                </span>
+                                {hasPendingProofs && (
+                                  <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                    <Hourglass className="w-3 h-3" />
+                                    Pending Repayment Proof
+                                  </span>
+                                )}
+                              </div>
+                              <p className="font-semibold text-[#01312D]">
+                                {repayment.driverName}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xl font-bold text-[#3A7717]">
+                              {formatMoney(repayment.remainingAmount)}
+                            </p>
+                            <p className="text-xs text-gray-500">Total Outstanding</p>
+                          </div>
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            {getServiceTypeBadge(
-                              repayment.serviceType,
-                              repayment,
+
+                        {/* Linked children mini-list */}
+                        <div className="mt-3 space-y-2">
+                          {repayment.linkedChildren.map((child) => {
+                            const childHasPendingProofs = child.pendingRepaymentProofs?.some(
+                              (p: RepaymentProof) => p.status === "pending",
+                            );
+                            return (
+                              <div key={child.id} className="bg-gray-50 rounded-xl p-3 flex items-center gap-3 border border-gray-100">
+                                <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shrink-0">
+                                  {child.serviceType === "fuel" && <Fuel className="w-4 h-4 text-green-600" />}
+                                  {child.serviceType === "airtime" && <Smartphone className="w-4 h-4 text-blue-600" />}
+                                  {child.serviceType === "cash" && <DollarSign className="w-4 h-4 text-yellow-600" />}
+                                  {child.serviceType === "carwash" && <SprayCan className="w-4 h-4 text-purple-600" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-[#01312D]">{child.serviceTypeLabel}</span>
+                                    {getStatusBadge(child.status)}
+                                    {childHasPendingProofs && (
+                                      <Hourglass className="w-3 h-3 text-yellow-600 shrink-0" />
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-gray-500">{child.carRegistration}</p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-sm font-semibold text-[#01312D]">{formatMoney(child.remainingAmount)}</p>
+                                  <p className="text-xs text-gray-400">out of {formatMoney(child.totalRepayable)}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-3 border-t border-gray-100">
+                          <div>
+                            <p className="text-xs text-gray-500">Total Amount</p>
+                            <p className="font-semibold text-[#01312D]">
+                              {formatMoney(repayment.totalRepayable)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Repaid</p>
+                            <p className="font-semibold text-[#3A7717]">
+                              {formatMoney(repayment.repaidAmount)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Daily Payment</p>
+                            <p className="font-semibold text-[#01312D]">
+                              {formatMoney(repayment.dailyPayment)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Period</p>
+                            <p className="font-semibold text-[#01312D]">
+                              {repayment.repaymentDays} days
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="mt-3">
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-gray-500">Repayment Progress</span>
+                            <span className="font-semibold text-[#01312D]">
+                              {Math.round((repayment.repaidAmount / repayment.totalRepayable) * 100)}%
+                            </span>
+                          </div>
+                          <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="bg-[#3A7717] h-2 rounded-full transition-all"
+                              style={{ width: `${(repayment.repaidAmount / repayment.totalRepayable) * 100}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                      <div className="flex items-start justify-between flex-wrap gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-[#eafde7] rounded-full flex items-center justify-center">
+                            {repayment.serviceType === "fuel" && (
+                              <Fuel className="w-6 h-6 text-green-600" />
                             )}
-                            {getStatusBadge(repayment.status)}
-                            {hasActualAmount && (
-                              <span className="text-xs bg-[#BFF202]/20 text-[#01312D] px-2 py-0.5 rounded-full">
-                                Amount Adjusted
-                              </span>
+                            {repayment.serviceType === "airtime" && (
+                              <Smartphone className="w-6 h-6 text-blue-600" />
                             )}
-                            {hasPendingProofs && (
-                              <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <Hourglass className="w-3 h-3" />
-                                Pending Repayment Proof
-                              </span>
+                            {repayment.serviceType === "cash" && (
+                              <DollarSign className="w-6 h-6 text-yellow-600" />
+                            )}
+                            {repayment.serviceType === "carwash" && (
+                              <SprayCan className="w-6 h-6 text-purple-600" />
                             )}
                           </div>
-                          <p className="font-semibold text-[#01312D]">
-                            {repayment.driverName}
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              {getServiceTypeBadge(
+                                repayment.serviceType,
+                                repayment,
+                              )}
+                              {getStatusBadge(repayment.status)}
+                              {hasActualAmount && (
+                                <span className="text-xs bg-[#BFF202]/20 text-[#01312D] px-2 py-0.5 rounded-full">
+                                  Amount Adjusted
+                                </span>
+                              )}
+                              {hasPendingProofs && (
+                                <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                  <Hourglass className="w-3 h-3" />
+                                  Pending Repayment Proof
+                                </span>
+                              )}
+                            </div>
+                            <p className="font-semibold text-[#01312D]">
+                              {repayment.driverName}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {repayment.carRegistration}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xl font-bold text-[#3A7717]">
+                            {formatMoney(repayment.remainingAmount)}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {repayment.carRegistration}
+                            Due:{" "}
+                            {new Date(repayment.dueDate).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xl font-bold text-[#3A7717]">
-                          {formatMoney(repayment.remainingAmount)}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Due:{" "}
-                          {new Date(repayment.dueDate).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-3 border-t border-gray-100">
-                      <div>
-                        <p className="text-xs text-gray-500">Total Amount</p>
-                        <p className="font-semibold text-[#01312D]">
-                          {formatMoney(repayment.totalRepayable)}
-                        </p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-3 border-t border-gray-100">
+                        <div>
+                          <p className="text-xs text-gray-500">Total Amount</p>
+                          <p className="font-semibold text-[#01312D]">
+                            {formatMoney(repayment.totalRepayable)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Repaid</p>
+                          <p className="font-semibold text-[#3A7717]">
+                            {formatMoney(repayment.repaidAmount)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Daily Payment</p>
+                          <p className="font-semibold text-[#01312D]">
+                            {formatMoney(repayment.dailyPayment)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Period</p>
+                          <p className="font-semibold text-[#01312D]">
+                            {repayment.repaymentDays} days
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Repaid</p>
-                        <p className="font-semibold text-[#3A7717]">
-                          {formatMoney(repayment.repaidAmount)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Daily Payment</p>
-                        <p className="font-semibold text-[#01312D]">
-                          {formatMoney(repayment.dailyPayment)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Period</p>
-                        <p className="font-semibold text-[#01312D]">
-                          {repayment.repaymentDays} days
-                        </p>
-                      </div>
-                    </div>
 
-                    {/* Show actual amount if different */}
-                    {hasActualAmount && (
-                      <div className="mt-2 text-xs text-gray-500 flex items-center gap-2">
-                        <span className="text-gray-400">
-                          Requested: {formatMoney(repayment.amount)}
-                        </span>
-                        <span>→</span>
-                        <span className="text-[#3A7717] font-medium">
-                          Actual: {formatMoney(repayment.actualAmount!)}
-                        </span>
+                      {/* Show actual amount if different */}
+                      {hasActualAmount && (
+                        <div className="mt-2 text-xs text-gray-500 flex items-center gap-2">
+                          <span className="text-gray-400">
+                            Requested: {formatMoney(repayment.amount)}
+                          </span>
+                          <span>→</span>
+                          <span className="text-[#3A7717] font-medium">
+                            Actual: {formatMoney(repayment.actualAmount!)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Progress Bar */}
+                      <div className="mt-3">
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-gray-500">
+                            Repayment Progress
+                          </span>
+                          <span className="font-semibold text-[#01312D]">
+                            {Math.round(
+                              (repayment.repaidAmount /
+                                repayment.totalRepayable) *
+                                100,
+                            )}
+                            %
+                          </span>
+                        </div>
+                        <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="bg-[#3A7717] h-2 rounded-full transition-all"
+                            style={{
+                              width: `${(repayment.repaidAmount / repayment.totalRepayable) * 100}%`,
+                            }}
+                          ></div>
+                        </div>
                       </div>
+                      </>
                     )}
-
-                    {/* Progress Bar */}
-                    <div className="mt-3">
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-gray-500">
-                          Repayment Progress
-                        </span>
-                        <span className="font-semibold text-[#01312D]">
-                          {Math.round(
-                            (repayment.repaidAmount /
-                              repayment.totalRepayable) *
-                              100,
-                          )}
-                          %
-                        </span>
-                      </div>
-                      <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
-                        <div
-                          className="bg-[#3A7717] h-2 rounded-full transition-all"
-                          style={{
-                            width: `${(repayment.repaidAmount / repayment.totalRepayable) * 100}%`,
-                          }}
-                        ></div>
-                      </div>
-                    </div>
 
                     <div className="flex gap-2 mt-4">
                       <button
