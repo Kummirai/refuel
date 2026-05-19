@@ -116,8 +116,4 @@
         <Setter Property="RefreshColor" Value="{StaticResource KapukaPrimary}" />
     </Style>
 
-    <Style TargetType="ActivityIndicator">
-        <Setter Property="Color" Value="{StaticResource KapukaPrimary}" />
-    </Style>
-
 </ResourceDictionary>

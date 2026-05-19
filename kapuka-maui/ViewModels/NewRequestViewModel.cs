@@ -4,7 +4,6 @@ using KapukaApp.Services;
 
 namespace KapukaApp.ViewModels;
 
-[QueryProperty(nameof(RequestType), "type")]
 public partial class NewRequestViewModel : BaseViewModel
 {
     private readonly KapukaApiService _api;
@@ -39,14 +38,13 @@ public partial class NewRequestViewModel : BaseViewModel
     [ObservableProperty]
     private bool _isCarWash;
 
-    public List<string> FuelTypes { get; } = ["unleaded", "diesel", "premium"];
-    public List<string> CarWashPackages { get; } = ["basic", "premium", "deluxe"];
     public List<double> FuelAmounts { get; } = [200, 300, 500, 750, 1000, 1500, 2000];
+    public List<double> CarWashPackages { get; } = [200, 300, 500, 750, 1000, 1500, 2000];
 
     public NewRequestViewModel(KapukaApiService api)
     {
         _api = api;
-        Title = "New Request";
+        Title = "Request Fuel";
     }
 
     partial void OnRequestTypeChanged(string value)
@@ -54,6 +52,36 @@ public partial class NewRequestViewModel : BaseViewModel
         IsFuel = value == "fuel";
         IsCarWash = value == "carwash";
         Title = IsFuel ? "Request Fuel" : "Car Wash";
+    }
+
+    [RelayCommand]
+    private void SelectFuel()
+    {
+        RequestType = "fuel";
+    }
+
+    [RelayCommand]
+    private void SelectCarWash()
+    {
+        RequestType = "carwash";
+    }
+
+    [RelayCommand]
+    private void SelectAmount(double amount)
+    {
+        Amount = amount;
+    }
+
+    [RelayCommand]
+    private void SelectFuelType(string type)
+    {
+        FuelType = type;
+    }
+
+    [RelayCommand]
+    private void SelectPackage(string package)
+    {
+        SelectedPackage = package;
     }
 
     [RelayCommand]

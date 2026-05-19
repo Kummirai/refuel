@@ -3,24 +3,33 @@
        xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
        xmlns:views="clr-namespace:KapukaApp.Views"
        x:Class="KapukaApp.AppShell"
-       Shell.FlyoutBehavior="Disabled">
+       Shell.FlyoutBehavior="{OnIdiom Phone=Disabled, Desktop=Flyout, Tablet=Flyout}"
+       Shell.FlyoutBackgroundColor="#01312D"
+       Shell.FlyoutWidth="280">
 
-    <!-- Login (no tabs) -->
-    <ShellContent x:Name="LoginShell" Route="login"
+    <!-- Login (no tabs, no flyout) -->
+    <ShellContent Route="login"
                   ContentTemplate="{DataTemplate views:LoginPage}"
                   Shell.NavBarIsVisible="False"
-                  Shell.TabBarIsVisible="False" />
+                  Shell.TabBarIsVisible="False"
+                  Shell.FlyoutItemIsVisible="False" />
 
-    <!-- Main tabs -->
-    <TabBar Route="main">
-        <ShellContent Title="Home" Route="dashboard"
+    <!-- Main items: show as tabs on phone, flyout sidebar on desktop/tablet -->
+    <FlyoutItem Title="Home" Icon="{x:Null}">
+        <ShellContent Route="dashboard"
                       ContentTemplate="{DataTemplate views:DashboardPage}" />
-        <ShellContent Title="History" Route="history"
+    </FlyoutItem>
+    <FlyoutItem Title="History" Icon="{x:Null}">
+        <ShellContent Route="history"
                       ContentTemplate="{DataTemplate views:HistoryPage}" />
-        <ShellContent Title="Request" Route="new-request"
+    </FlyoutItem>
+    <FlyoutItem Title="Request" Icon="{x:Null}">
+        <ShellContent Route="new-request"
                       ContentTemplate="{DataTemplate views:NewRequestPage}" />
-        <ShellContent Title="Profile" Route="profile"
+    </FlyoutItem>
+    <FlyoutItem Title="Profile" Icon="{x:Null}">
+        <ShellContent Route="profile"
                       ContentTemplate="{DataTemplate views:ProfilePage}" />
-    </TabBar>
+    </FlyoutItem>
 
 </Shell>
