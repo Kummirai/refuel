@@ -17,7 +17,6 @@ export async function GET() {
 
     return NextResponse.json(
       { verifications, requests, repayments, receipts },
-      { headers: { "Cache-Control": "public, max-age=15, s-maxage=30" } },
     );
   } catch (error) {
     console.error("Error fetching notification counts:", error);
