@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:views="clr-namespace:KapukaApp.Views"
+       x:Class="KapukaApp.AppShell"
+       Shell.FlyoutBehavior="Disabled">
+
+    <!-- Login (no tabs) -->
+    <ShellContent x:Name="LoginShell" Route="login"
+                  ContentTemplate="{DataTemplate views:LoginPage}"
+                  Shell.NavBarIsVisible="False"
+                  Shell.TabBarIsVisible="False" />
+
+    <!-- Main tabs -->
+    <TabBar Route="main">
+        <ShellContent Title="Home" Route="dashboard"
+                      ContentTemplate="{DataTemplate views:DashboardPage}" />
+        <ShellContent Title="History" Route="history"
+                      ContentTemplate="{DataTemplate views:HistoryPage}" />
+        <ShellContent Title="Request" Route="new-request"
+                      ContentTemplate="{DataTemplate views:NewRequestPage}" />
+        <ShellContent Title="Profile" Route="profile"
+                      ContentTemplate="{DataTemplate views:ProfilePage}" />
+    </TabBar>
+
+</Shell>

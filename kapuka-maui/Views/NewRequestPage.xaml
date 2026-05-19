@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:KapukaApp.ViewModels"
+             x:Class="KapukaApp.Views.NewRequestPage"
+             x:DataType="vm:NewRequestViewModel"
+             BackgroundColor="#f0f5f0"
+             Title="New Request">
+
+    <ScrollView>
+        <VerticalStackLayout Spacing="16" Padding="16" MaximumWidthRequest="480">
+
+            <!-- Type Toggle -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="0" HeightRequest="48">
+                <Button Grid.Column="0" Text="⛽ Fuel"
+                        BackgroundColor="#01312D" TextColor="White"
+                        CornerRadius="12" FontAttributes="Bold"
+                        Command="{Binding RequestType, Converter={x:Null}}" />
+                <Button Grid.Column="1" Text="🧽 Car Wash"
+                        BackgroundColor="#3A7717" TextColor="White"
+                        CornerRadius="12" FontAttributes="Bold" />
+            </Grid>
+
+            <!-- Fuel Form -->
+            <VerticalStackLayout Spacing="14" IsVisible="{Binding IsFuel}">
+                <Label Text="Fuel Amount" FontSize="13" FontAttributes="Bold"
+                       TextColor="#01312D" />
+                <CollectionView ItemsSource="{Binding FuelAmounts}"
+                                SelectionMode="Single"
+                                HeightRequest="100">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Horizontal" ItemSpacing="8" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="x:Double">
+                            <Border StrokeShape="RoundRectangle 12" Stroke="#e0e8e0"
+                                    BackgroundColor="White" Padding="16,10">
+                                <Label Text="{Binding ., StringFormat='R{0:F0}'}"
+                                       FontSize="14" FontAttributes="Bold"
+                                       TextColor="#01312D" />
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <Label Text="Fuel Type" FontSize="13" FontAttributes="Bold"
+                       TextColor="#01312D" />
+                <Picker ItemsSource="{Binding FuelTypes}"
+                        SelectedItem="{Binding FuelType}"
+                        BackgroundColor="White" Title="Select fuel type" />
+            </VerticalStackLayout>
+
+            <!-- Car Wash Form -->
+            <VerticalStackLayout Spacing="14" IsVisible="{Binding IsCarWash}">
+                <Label Text="Package" FontSize="13" FontAttributes="Bold"
+                       TextColor="#01312D" />
+                <Picker ItemsSource="{Binding CarWashPackages}"
+                        SelectedItem="{Binding SelectedPackage}"
+                        BackgroundColor="White" Title="Select package" />
+
+                <Label Text="Amount" FontSize="13" FontAttributes="Bold"
+                       TextColor="#01312D" />
+                <Entry Text="{Binding Amount}" Keyboard="Numeric"
+                       BackgroundColor="White" Placeholder="Enter amount" />
+            </VerticalStackLayout>
+
+            <!-- Common Fields -->
+            <Label Text="Car Number" FontSize="13" FontAttributes="Bold"
+                   TextColor="#01312D" />
+            <Entry Text="{Binding CarNumber}" Placeholder="e.g. LX91YV GP"
+                   BackgroundColor="White" />
+
+            <Label Text="Phone (optional)" FontSize="13" FontAttributes="Bold"
+                   TextColor="#01312D" />
+            <Entry Text="{Binding PhoneNumber}" Keyboard="Telephone"
+                   Placeholder="Contact number" BackgroundColor="White" />
+
+            <Label Text="Location (optional)" FontSize="13" FontAttributes="Bold"
+                   TextColor="#01312D" />
+            <Entry Text="{Binding Location}" Placeholder="e.g. Sandton"
+                   BackgroundColor="White" />
+
+            <!-- Error -->
+            <Label Text="{Binding ErrorMessage}" TextColor="#ff6b6b"
+                   FontSize="13" IsVisible="{Binding ErrorMessage, Converter={x:Null}}" />
+
+            <!-- Submit -->
+            <Button Text="Submit Request" Command="{Binding SubmitCommand}"
+                    BackgroundColor="#bff202" TextColor="#01312D"
+                    FontAttributes="Bold" FontSize="16" HeightRequest="50"
+                    CornerRadius="12" Margin="0,8,0,0" />
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+                               Color="#bff202" HeightRequest="30" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

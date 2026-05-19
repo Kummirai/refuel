@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:KapukaApp.ViewModels"
+             xmlns:conv="clr-namespace:KapukaApp.Converters"
+             x:Class="KapukaApp.Views.LoginPage"
+             x:DataType="vm:LoginViewModel"
+             BackgroundColor="#01312D"
+             Shell.NavBarIsVisible="False">
+
+    <ContentPage.Resources>
+        <conv:InverseBoolConverter x:Key="InverseBool" />
+    </ContentPage.Resources>
+
+    <ScrollView>
+        <VerticalStackLayout Spacing="18" Padding="30" VerticalOptions="Center" MaximumWidthRequest="480">
+
+            <Label Text="Kapuka" FontSize="42" FontAttributes="Bold"
+                   TextColor="#bff202" HorizontalOptions="Center" />
+            <Label Text="Fuel, cash &amp; car wash" FontSize="14"
+                   TextColor="#eafde7" HorizontalOptions="Center" Margin="0,0,0,10" />
+
+            <!-- ── Register Mode ── -->
+            <VerticalStackLayout Spacing="14" IsVisible="{Binding IsRegistering}">
+                <Label Text="Create Account" FontSize="22" FontAttributes="Bold"
+                       TextColor="White" HorizontalOptions="Center" />
+                <Entry Placeholder="Full Name" Text="{Binding Name}"
+                       BackgroundColor="#0a3d37" TextColor="White"
+                       PlaceholderColor="#6b9c96" />
+                <Entry Placeholder="Email" Text="{Binding Email}"
+                       Keyboard="Email" BackgroundColor="#0a3d37"
+                       TextColor="White" PlaceholderColor="#6b9c96" />
+                <Entry Placeholder="Phone (optional)" Text="{Binding Phone}"
+                       Keyboard="Telephone" BackgroundColor="#0a3d37"
+                       TextColor="White" PlaceholderColor="#6b9c96" />
+                <Entry Placeholder="Password" Text="{Binding Password}"
+                       IsPassword="True" BackgroundColor="#0a3d37"
+                       TextColor="White" PlaceholderColor="#6b9c96" />
+                <Button Text="Create Account" Command="{Binding SignUpCommand}"
+                        BackgroundColor="#bff202" TextColor="#01312D"
+                        FontAttributes="Bold" FontSize="16" HeightRequest="50"
+                        CornerRadius="12" />
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+                                   Color="#bff202" HeightRequest="30" />
+            </VerticalStackLayout>
+
+            <!-- ── Login Mode ── -->
+            <VerticalStackLayout Spacing="14" IsVisible="{Binding IsRegistering, Converter={StaticResource InverseBool}}">
+                <Label Text="Sign In" FontSize="22" FontAttributes="Bold"
+                       TextColor="White" HorizontalOptions="Center" />
+                <Entry Placeholder="Email" Text="{Binding Email}"
+                       Keyboard="Email" BackgroundColor="#0a3d37"
+                       TextColor="White" PlaceholderColor="#6b9c96" />
+                <Entry Placeholder="Password" Text="{Binding Password}"
+                       IsPassword="True" BackgroundColor="#0a3d37"
+                       TextColor="White" PlaceholderColor="#6b9c96" />
+                <Button Text="Sign In" Command="{Binding LoginCommand}"
+                        BackgroundColor="#bff202" TextColor="#01312D"
+                        FontAttributes="Bold" FontSize="16" HeightRequest="50"
+                        CornerRadius="12" />
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+                                   Color="#bff202" HeightRequest="30" />
+            </VerticalStackLayout>
+
+            <!-- Error -->
+            <Label Text="{Binding ErrorMessage}" TextColor="#ff6b6b"
+                   FontSize="13" HorizontalOptions="Center"
+                   IsVisible="{Binding ErrorMessage, Converter={StaticResource InverseBool}}" />
+
+            <!-- Toggle -->
+            <HorizontalStackLayout HorizontalOptions="Center" Spacing="4">
+                <Label TextColor="#6b9c96" FontSize="13" VerticalOptions="Center">
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding IsRegistering}" Value="True">
+                            <Setter Property="Text" Value="Already have an account?" />
+                        </DataTrigger>
+                        <DataTrigger TargetType="Label" Binding="{Binding IsRegistering}" Value="False">
+                            <Setter Property="Text" Value="Don't have an account?" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
+                <Label TextColor="#bff202" FontSize="13" FontAttributes="Bold" VerticalOptions="Center">
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding IsRegistering}" Value="True">
+                            <Setter Property="Text" Value="Sign In" />
+                        </DataTrigger>
+                        <DataTrigger TargetType="Label" Binding="{Binding IsRegistering}" Value="False">
+                            <Setter Property="Text" Value="Sign Up" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding ToggleModeCommand}" />
+                    </Label.GestureRecognizers>
+                </Label>
+            </HorizontalStackLayout>
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>
