@@ -102,11 +102,18 @@ export async function POST(request: Request) {
         outstandingByUser[userId].carRegistration = req.carNumber;
       }
 
+      const originalAmount = req.actualAmount || req.amount || 0;
+      const effectiveTotal = remainingBalance;
+      const effectiveAmount =
+        totalRepayable > 0
+          ? toMoney(originalAmount * (remainingBalance / totalRepayable))
+          : originalAmount;
+
       outstandingByUser[userId].items.push({
         type: req.type,
         carNumber: req.carNumber || "Unknown",
-        amount: req.actualAmount || req.amount || 0,
-        totalRepayable,
+        amount: effectiveAmount,
+        totalRepayable: effectiveTotal,
         remainingBalance,
         completedDate: req.completedDate
           ? new Date(req.completedDate).toISOString()
