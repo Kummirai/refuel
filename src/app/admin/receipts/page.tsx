@@ -386,10 +386,10 @@ export default function AdminReceiptsPage() {
         const data = await res.json();
         const pendingReceipt = (data.requests || []).filter(
           (r: any) =>
-            (r.status === "approved" ||
-              r.status === "sent" ||
-              r.status === "completed") &&
-            !r.hasReceipt,
+            (r.status === "approved" || r.status === "sent" || r.status === "completed") &&
+            !r.hasReceipt &&
+            !r.popUrl &&
+            r.receiptStatus !== "verified"
         );
         setAvailableRequests(pendingReceipt);
       }
