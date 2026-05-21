@@ -1,0 +1,39 @@
+Name	Total Paid	Outstanding (Dashboard)
+Abdul Emmanuel Sibeko	R1,004.80	R1,015.93
+Alexander Banda'	R2,260.00	R2,158.47
+Alpha nyasulu	R0.00	R1,130.23
+Bongani Lucas	R2,500.00	R2,037.01
+Bornwell	R0.00	R2,374.53
+Busani Nkala Nkala	R1,217.52	R1,130.00
+Derick Thomas Skhasimbe	R0.00	R1,130.00
+Dumisani Duncan Mnetwa	R1,053.22	R0.00
+Elias moyo	R0.00	R857.61
+Erick Mlungisi Cele	R0.00	R2,634.99
+ERNEST MAHLORI	R0.00	R1,130.00
+Happy	R0.00	R1,437.47
+harris TCHONGWE	R0.00	R931.63
+james alufaneta	R1,130.00	R1,585.84
+Joel Mphikeleu Mabuza	R1,073.67	R1,017.00
+Kzar	R811.28	R734.50
+Linda Samantha Khumalo	R2,260.00	R983.10
+Lindani	R0.00	R1,855.74
+Lungisani sibusiso xulu	R1,841.62	R0.00
+M Maforo	R1,695.00	R0.00
+Mluleki	R1,921.00	R0.00
+Mmongesi	R2,712.00	R1,808.28
+MNCEDISI MOYO	R0.00	R1,752.23
+Muzamani Elias Nkomo	R0.00	R1,279.50
+Muzuvukile Given Zondo	R0.00	R1,762.46
+NQOBANI MOYO	R3,411.98	R0.00
+Nqobizitha	R0.00	R3,723.92
+Ntobeko Madlopha	R0.00	R2,260.00
+Philan Dube	R3,087.21	R1,843.93
+Pritchard Andile Phakathi	R791.00	R1,061.64
+Shelton Mcolisi Ndlovu	R1,658.95	R1,695.00
+Thabani Lot Mlalazi	R0.00	R2,260.23
+Thandazani Nyoni	R902.76	R0.00
+Thembinkosi Dube	R3,759.95	R1,243.00
+Wisdom	R0.00	R1,130.00
+Xihlamariso Surprise	R2,034.00	R1,469.00
+Yethembeni Mlangeni	R2,478.71	R1,265.37
+TOTAL	R39,604.67	R48,698.61
