@@ -1,14 +1,18 @@
 // src/app/api/admin/invoices/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { toMoney } from "@/lib/money";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
     const serviceRequestsCollection = db.collection("serviceRequests");
     const repaymentProofsCollection = db.collection("repaymentProofs");
     const usersCollection = db.collection("user");
+
+    const { searchParams } = new URL(request.url);
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
 
     const allRequests = await serviceRequestsCollection
       .find({ status: "completed" })
@@ -21,6 +25,7 @@ export async function GET() {
         driverEmail: string;
         driverName: string;
         driverPhone: string;
+        carRegistration?: string;
         items: {
           requestId: string;
           type: string;
@@ -37,10 +42,20 @@ export async function GET() {
     for (const req of allRequests) {
       if (req.isPaid) continue;
 
+      const completedDate = req.completedDate
+        ? new Date(req.completedDate)
+        : null;
+
+      if (startDate && completedDate && completedDate < new Date(startDate)) continue;
+      if (endDate && completedDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (completedDate > endOfDay) continue;
+      }
+
       const totalRepayable = req.totalRepayable || req.amount || 0;
       const requestId = req._id.toString();
 
-      // Use remainingBalance from the request doc if set (covers loanPayments-based payments)
       let remainingBalance: number;
       if (req.remainingBalance !== undefined) {
         remainingBalance = req.remainingBalance;
@@ -88,6 +103,10 @@ export async function GET() {
         };
       }
 
+      if (!outstandingByUser[userId].carRegistration && req.carNumber) {
+        outstandingByUser[userId].carRegistration = req.carNumber;
+      }
+
       outstandingByUser[userId].items.push({
         requestId,
         type: req.type,
@@ -104,9 +123,9 @@ export async function GET() {
       );
     }
 
-    const drivers = Object.values(outstandingByUser).sort(
-      (a, b) => b.totalOutstanding - a.totalOutstanding,
-    );
+    const drivers = Object.values(outstandingByUser)
+      .filter((d) => d.items.length > 0)
+      .sort((a, b) => b.totalOutstanding - a.totalOutstanding);
 
     const totalOutstandingAll = drivers.reduce(
       (sum, d) => sum + d.totalOutstanding,

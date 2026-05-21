@@ -26,16 +26,13 @@ export async function GET(request: NextRequest) {
     });
 
     if (activeLoan) {
-      // Calculate remaining amount and daily payment
-      const repaid = toMoney(
-        activeLoan.amount - (activeLoan.remaining || activeLoan.amount)
-      );
-      const remaining = activeLoan.remaining || activeLoan.amount;
-      const dailyPayment = toMoney(remaining / 14); // Assuming 14 days repayment period
+      const remaining = activeLoan.remainingBalance ?? activeLoan.remaining ?? activeLoan.totalRepayable ?? activeLoan.amount;
+      const repaid = toMoney((activeLoan.totalRepayable ?? activeLoan.amount) - remaining);
+      const dailyPayment = toMoney(remaining / 14);
 
       return NextResponse.json({
         id: activeLoan._id,
-        amount: activeLoan.amount,
+        amount: activeLoan.totalRepayable ?? activeLoan.amount,
         remaining: remaining,
         repaid: repaid,
         dailyPayment: dailyPayment,

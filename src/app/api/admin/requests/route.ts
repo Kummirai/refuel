@@ -15,7 +15,11 @@ export async function GET(request: NextRequest) {
     if (from || to) {
       const dateQuery: any = {};
       if (from) dateQuery.$gte = new Date(from);
-      if (to) dateQuery.$lte = new Date(to);
+      if (to) {
+        const endDate = new Date(to);
+        endDate.setHours(23, 59, 59, 999);
+        dateQuery.$lte = endDate;
+      }
       query.requestDate = dateQuery;
     }
 

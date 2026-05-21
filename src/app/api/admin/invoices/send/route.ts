@@ -4,12 +4,16 @@ import { connectToDatabase } from "@/lib/db";
 import { sendDriverWeeklyInvoiceEmail } from "@/lib/email";
 import { toMoney } from "@/lib/money";
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
     const { db } = await connectToDatabase();
     const serviceRequestsCollection = db.collection("serviceRequests");
     const repaymentProofsCollection = db.collection("repaymentProofs");
     const usersCollection = db.collection("user");
+
+    const body = await request.json();
+    const startDate = body?.startDate || null;
+    const endDate = body?.endDate || null;
 
     const allRequests = await serviceRequestsCollection
       .find({ status: "completed" })
@@ -20,18 +24,34 @@ export async function POST() {
       {
         driverEmail: string;
         driverName: string;
+        driverPhone?: string;
+        carRegistration?: string;
         items: {
           type: string;
           carNumber: string;
           amount: number;
           totalRepayable: number;
           remainingBalance: number;
+          completedDate?: string;
         }[];
         totalOutstanding: number;
       }
     > = {};
 
     for (const req of allRequests) {
+      if (req.isPaid) continue;
+
+      const completedDate = req.completedDate
+        ? new Date(req.completedDate)
+        : null;
+
+      if (startDate && completedDate && completedDate < new Date(startDate)) continue;
+      if (endDate && completedDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (completedDate > endOfDay) continue;
+      }
+
       const totalRepayable = req.totalRepayable || req.amount || 0;
       const requestId = req._id.toString();
 
@@ -54,6 +74,7 @@ export async function POST() {
       if (!outstandingByUser[userId]) {
         const driverName = req.driverName || "Driver";
         let driverEmail = req.driverEmail || "";
+        let driverPhone = req.driverPhone || "";
 
         if (!driverEmail) {
           let user;
@@ -65,14 +86,20 @@ export async function POST() {
             user = await usersCollection.findOne({ id: userId });
           }
           driverEmail = user?.email || "";
+          driverPhone = user?.phone || "";
         }
 
         outstandingByUser[userId] = {
           driverEmail,
           driverName,
+          driverPhone,
           items: [],
           totalOutstanding: 0,
         };
+      }
+
+      if (!outstandingByUser[userId].carRegistration && req.carNumber) {
+        outstandingByUser[userId].carRegistration = req.carNumber;
       }
 
       outstandingByUser[userId].items.push({
@@ -81,6 +108,9 @@ export async function POST() {
         amount: req.actualAmount || req.amount || 0,
         totalRepayable,
         remainingBalance,
+        completedDate: req.completedDate
+          ? new Date(req.completedDate).toISOString()
+          : "",
       });
       outstandingByUser[userId].totalOutstanding = toMoney(
         outstandingByUser[userId].totalOutstanding + remainingBalance,
@@ -111,6 +141,32 @@ export async function POST() {
         );
         errors++;
       }
+    }
+
+    const driversList = Object.values(outstandingByUser).map((d) => ({
+      driverName: d.driverName,
+      driverEmail: d.driverEmail,
+      driverPhone: d.driverPhone || "",
+      carRegistration: d.carRegistration || "",
+      outstanding: d.totalOutstanding,
+      items: d.items,
+    }));
+
+    try {
+      await db.collection("invoiceHistory").insertOne({
+        sentAt: new Date(),
+        totalDrivers: driversList.length,
+        totalOutstanding: driversList.reduce((s, d) => s + d.outstanding, 0),
+        sent,
+        errors,
+        dateRange:
+          startDate || endDate
+            ? { startDate: startDate || "", endDate: endDate || "" }
+            : null,
+        drivers: driversList,
+      });
+    } catch (err) {
+      console.error("Failed to save invoice history:", err);
     }
 
     return NextResponse.json({
