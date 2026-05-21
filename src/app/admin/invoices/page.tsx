@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { formatMoney } from "@/lib/money";
 import { toPng } from "html-to-image";
 import {
@@ -16,6 +16,10 @@ import {
   RefreshCw,
   FileText,
   User,
+  Search,
+  Calendar,
+  X,
+  Clock,
 } from "lucide-react";
 
 interface InvoiceItem {
@@ -36,6 +40,24 @@ interface DriverInvoice {
   totalOutstanding: number;
 }
 
+interface InvoiceHistoryBatch {
+  _id: string;
+  sentAt: string;
+  totalDrivers: number;
+  totalOutstanding: number;
+  sent: number;
+  errors: number;
+  dateRange?: { startDate: string; endDate: string } | null;
+  drivers: {
+    driverName: string;
+    driverEmail: string;
+    driverPhone?: string;
+    carRegistration?: string;
+    outstanding: number;
+    items: InvoiceItem[];
+  }[];
+}
+
 const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_UPLOAD_PRESET = "driver_documents";
 
@@ -53,12 +75,30 @@ export default function AdminInvoicesPage() {
   const [whatsappSent, setWhatsappSent] = useState<Set<string>>(new Set());
   const [whatsappLoading, setWhatsappLoading] = useState<Set<string>>(new Set());
   const [captureDriver, setCaptureDriver] = useState<DriverInvoice | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [appliedFrom, setAppliedFrom] = useState("");
+  const [appliedTo, setAppliedTo] = useState("");
+
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<InvoiceHistoryBatch[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedBatch, setSelectedBatch] = useState<InvoiceHistoryBatch | null>(null);
+
+  const hasDateFilter = appliedFrom || appliedTo;
+
+  const filteredDrivers = useMemo(() => {
+    if (!searchQuery) return drivers;
+    const q = searchQuery.toLowerCase();
+    return drivers.filter((d) => d.driverName.toLowerCase().includes(q));
+  }, [drivers, searchQuery]);
 
   const totals = useMemo(() => {
     let amount = 0;
     let interest = 0;
     let total = 0;
-    for (const d of drivers) {
+    for (const d of filteredDrivers) {
       for (const item of d.items) {
         amount += item.amount;
         interest += item.totalRepayable - item.amount;
@@ -66,13 +106,17 @@ export default function AdminInvoicesPage() {
       }
     }
     return { amount, interest, total };
-  }, [drivers]);
+  }, [filteredDrivers]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setWhatsappSent(new Set());
     try {
-      const res = await fetch("/api/admin/invoices");
+      const params = new URLSearchParams();
+      if (appliedFrom) params.set("startDate", appliedFrom);
+      if (appliedTo) params.set("endDate", appliedTo);
+      const url = `/api/admin/invoices${params.toString() ? `?${params.toString()}` : ""}`;
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setDrivers(data.drivers || []);
@@ -83,11 +127,43 @@ export default function AdminInvoicesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [appliedFrom, appliedTo]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
+
+  const handleApplyDateRange = () => {
+    setAppliedFrom(fromDate);
+    setAppliedTo(toDate);
+  };
+
+  const clearDateFilter = () => {
+    setFromDate("");
+    setToDate("");
+    setAppliedFrom("");
+    setAppliedTo("");
+  };
+
+  const fetchHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const res = await fetch("/api/admin/invoices/history");
+      if (res.ok) {
+        const data = await res.json();
+        setHistory(data.history || []);
+      }
+    } catch (err) {
+      console.error("Error fetching invoice history:", err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handleOpenHistory = () => {
+    setShowHistory(true);
+    fetchHistory();
+  };
 
   const handleSendAll = async () => {
     setSending(true);
@@ -96,6 +172,11 @@ export default function AdminInvoicesPage() {
     try {
       const res = await fetch("/api/admin/invoices/send", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(appliedFrom && { startDate: appliedFrom }),
+          ...(appliedTo && { endDate: appliedTo }),
+        }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -272,14 +353,87 @@ Kapuka Tradings Team`;
             Drivers with outstanding balances
           </p>
         </div>
-        <button
-          onClick={fetchData}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleOpenHistory}
+            className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all"
+          >
+            <Clock className="w-4 h-4" />
+            History
+          </button>
+          <button
+            onClick={fetchData}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="relative flex-1 max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Search driver..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-9 pr-4 py-2.5 bg-white rounded-xl border border-[#bff202]/20 text-sm text-[#01312D] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#bff202]/40"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2"
+          >
+            <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+          </button>
+        )}
+      </div>
+
+      {/* Date Range Filter */}
+      <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
+        <div className="flex justify-between sm:flex-row flex-col sm:items-end gap-5">
+          <div className="flex flex-1 flex-col sm:flex-row gap-3 w-full">
+            <div className="w-full sm:flex-1 sm:min-w-[150px]">
+              <label className="block text-xs font-semibold text-gray-500 mb-1">
+                From
+              </label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="w-full px-3 py-2.5 border border-[#bff202]/70 rounded-lg text-sm focus:outline-none focus:border-[#72bf00] bg-white"
+              />
+            </div>
+            <div className="w-full sm:flex-1 sm:min-w-[150px]">
+              <label className="block text-xs font-semibold text-gray-500 mb-1">
+                To
+              </label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="w-full px-3 py-2.5 border border-[#bff202]/70 rounded-lg text-sm focus:outline-none focus:border-[#72bf00] bg-white"
+              />
+            </div>
+          </div>
+          <div className="flex w-full sm:w-auto gap-3">
+            <button
+              onClick={handleApplyDateRange}
+              className="flex-1 sm:flex-none px-7.5 py-2.5 bg-[#01312D] text-white rounded-lg text-[13px] font-medium hover:bg-[#3A7717] transition-colors"
+            >
+              Apply
+            </button>
+            <button
+              onClick={clearDateFilter}
+              className="flex-1 sm:flex-none px-7.5 py-2.5 bg-gray-200 text-[#01312D] rounded-lg text-[13px] font-medium hover:bg-gray-300 transition-colors"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -340,15 +494,29 @@ Kapuka Tradings Team`;
             <CheckCircle className="w-10 h-10 text-[#3A7717]" />
           </div>
           <h3 className="text-lg font-bold text-[#01312D]">
-            All caught up!
+            {hasDateFilter ? "No results for this period" : "All caught up!"}
           </h3>
           <p className="text-gray-500">
-            No drivers have outstanding balances.
+            {hasDateFilter
+              ? "No outstanding invoices found for the selected date range."
+              : "No drivers have outstanding balances."}
+          </p>
+        </div>
+      ) : filteredDrivers.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-3xl border border-[#bff202]/20">
+          <div className="w-16 h-16 bg-[#eafde7] rounded-full flex items-center justify-center mx-auto mb-3">
+            <Search className="w-8 h-8 text-[#3A7717]" />
+          </div>
+          <h3 className="text-lg font-bold text-[#01312D]">
+            No drivers found
+          </h3>
+          <p className="text-gray-500">
+            No drivers match "{searchQuery}"
           </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {drivers.map((driver, idx) => (
+          {filteredDrivers.map((driver, idx) => (
             <div
               key={idx}
               className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/10"
@@ -512,6 +680,7 @@ Kapuka Tradings Team`;
             <div className="text-center sm:text-left">
               <p className="text-sm text-gray-500">
                 Sending to {drivers.length} driver{drivers.length !== 1 ? "s" : ""}
+                {hasDateFilter ? " (filtered by date)" : ""}
               </p>
               <p className="text-lg font-bold text-[#01312D]">
                 Total: {formatMoney(totalOutstanding)}
@@ -545,7 +714,7 @@ Kapuka Tradings Team`;
                 ) : (
                   <>
                     <Send className="w-5 h-5" />
-                    Send Invoice Emails
+                    {hasDateFilter ? "Send Filtered Invoices" : "Send Invoice Emails"}
                   </>
                 )}
               </button>
@@ -697,6 +866,94 @@ Kapuka Tradings Team`;
           </div>
         )}
       </div>
+
+      {/* History Modal */}
+      {showHistory && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setShowHistory(false); setSelectedBatch(null); }}>
+          <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <div>
+                <h2 className="text-lg font-bold text-[#01312D]">Invoice History</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Past invoice email batches</p>
+              </div>
+              <button
+                onClick={() => { setShowHistory(false); setSelectedBatch(null); }}
+                className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5">
+              {historyLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
+                  ))}
+                </div>
+              ) : history.length === 0 ? (
+                <div className="text-center py-16">
+                  <Clock className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 text-sm">No invoices sent yet</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {history.map((batch) => (
+                    <button
+                      key={batch._id}
+                      onClick={() => setSelectedBatch(selectedBatch?._id === batch._id ? null : batch)}
+                      className="w-full text-left bg-gray-50 hover:bg-[#eafde7] rounded-xl p-4 transition-colors border border-gray-100"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-semibold text-[#01312D] text-sm">
+                            {new Date(batch.sentAt).toLocaleDateString("en-ZA", {
+                              day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+                            })}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {batch.sent} sent{batch.errors ? `, ${batch.errors} errors` : ""} &middot; {batch.totalDrivers} driver{batch.totalDrivers !== 1 ? "s" : ""}
+                            {batch.dateRange?.startDate && ` \u00b7 ${new Date(batch.dateRange.startDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} - ${new Date(batch.dateRange.endDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}`}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-[#01312D]">{formatMoney(batch.totalOutstanding)}</p>
+                          <p className="text-xs text-gray-400">{batch.drivers.length} drivers</p>
+                        </div>
+                      </div>
+
+                      {/* Expanded driver details */}
+                      {selectedBatch?._id === batch._id && (
+                        <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+                          {batch.drivers.map((d, i) => (
+                            <div key={i} className="bg-white rounded-lg p-3 border border-gray-100">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="font-semibold text-sm text-[#01312D]">{d.driverName}</span>
+                                <span className="font-bold text-sm text-red-600">{formatMoney(d.outstanding)}</span>
+                              </div>
+                              {d.driverEmail && <p className="text-xs text-gray-400">{d.driverEmail}</p>}
+                              {d.items.length > 0 && (
+                                <div className="mt-2 text-xs text-gray-500 space-y-0.5">
+                                  {d.items.map((item, j) => (
+                                    <div key={j} className="flex justify-between">
+                                      <span>{item.type} ({item.carNumber}){item.completedDate ? ` - ${new Date(item.completedDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}</span>
+                                      <span>{formatMoney(item.totalRepayable)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
