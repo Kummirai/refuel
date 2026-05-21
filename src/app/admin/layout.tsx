@@ -25,6 +25,7 @@ import {
   FileText,
   Receipt,
   Send,
+  Eye,
 } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 
@@ -193,6 +194,13 @@ export default function AdminLayout({
       label: "Invoices",
       path: "/admin/invoices",
       active: pathname === "/admin/invoices",
+      badge: null,
+    },
+    {
+      icon: Eye,
+      label: "Driver View",
+      path: "/admin/driver-view",
+      active: pathname === "/admin/driver-view",
       badge: null,
     },
     {
