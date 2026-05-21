@@ -156,8 +156,9 @@ export default function AdminDriverViewPage() {
                     <Car className="w-3 h-3" /> {loan.carNumber}
                   </p>
                 )}
-                <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="grid grid-cols-4 gap-2 text-xs">
                   <div><p className="text-gray-400">Amount</p><p className="font-semibold">{formatMoney(loan.amount)}</p></div>
+                  <div><p className="text-gray-400">Interest</p><p className="font-semibold text-orange-600">{formatMoney(Math.max(0, loan.totalRepayable - loan.amount))}</p></div>
                   <div><p className="text-gray-400">Repaid</p><p className="font-semibold text-green-600">{formatMoney(loan.repaid)}</p></div>
                   <div>
                     <p className="text-gray-400">Remaining</p>
