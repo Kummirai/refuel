@@ -46,7 +46,11 @@ export async function POST(request: Request) {
         : null;
 
       if (startDate && completedDate && completedDate < new Date(startDate)) continue;
-      if (endDate && completedDate && completedDate > new Date(endDate)) continue;
+      if (endDate && completedDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (completedDate > endOfDay) continue;
+      }
 
       const totalRepayable = req.totalRepayable || req.amount || 0;
       const requestId = req._id.toString();
