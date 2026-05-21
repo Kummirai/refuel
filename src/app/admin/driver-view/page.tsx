@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { formatMoney } from "@/lib/money";
 import {
   Loader2,
@@ -102,8 +102,15 @@ export default function AdminDriverViewPage() {
     return map[type] || type;
   };
 
-  const DriverCard = ({ driver, isSelected, onToggle, getTypeIcon, getTypeLabel, formatMoney }: any) => (
-    <div className={`rounded-2xl border transition-all duration-200 overflow-hidden ${isSelected ? "bg-[#eafde7] border-[#bff202] shadow-md" : "bg-white border-[#bff202]/10"}`}>
+  const DriverCard = ({ driver, isSelected, onToggle, getTypeIcon, getTypeLabel, formatMoney }: any) => {
+    const cardRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+      if (isSelected && cardRef.current) {
+        cardRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }, [isSelected]);
+    return (
+    <div ref={cardRef} className={`rounded-2xl border transition-all duration-200 overflow-hidden ${isSelected ? "bg-[#eafde7] border-[#bff202] shadow-md" : "bg-white border-[#bff202]/10"}`}>
       <button onClick={onToggle} className="w-full text-left p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -165,7 +172,8 @@ export default function AdminDriverViewPage() {
         </div>
       )}
     </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-6">
