@@ -32,7 +32,6 @@ export async function GET() {
 
     for (const r of requests) {
       if (!activeStatuses.includes(r.status)) continue;
-      if (!r.hasReceipt && !r.popUrl) continue;
 
       const userId = r.userId;
       const name = (r.driverName || "Unknown").trim();

@@ -382,7 +382,6 @@ export default function RequestHistoryPage() {
             (r.status === "approved" ||
               r.status === "sent" ||
               r.status === "completed") &&
-            (r.hasReceipt === true || r.popUrl) &&
             (r.remainingBalance || 0) > 0,
         )
         .reduce((sum: number, r: any) => sum + (r.remainingBalance || 0), 0),
@@ -394,7 +393,6 @@ export default function RequestHistoryPage() {
       (r.status === "approved" ||
         r.status === "sent" ||
         r.status === "completed") &&
-      (r.hasReceipt === true || r.popUrl) &&
       (r.remainingBalance || 0) > 0,
   );
 
@@ -1002,7 +1000,7 @@ export default function RequestHistoryPage() {
                 <button
                   type="button"
                   onClick={() => {
-setSelectedBulkIds(new Set(requests.filter((r) => (r.status === "approved" || r.status === "sent" || r.status === "completed") && r.hasReceipt === true && (r.remainingBalance || 0) > 0 && !r.isPaid && !r.hasPendingRepayment).map((r) => r.id)));
+setSelectedBulkIds(new Set(requests.filter((r) => (r.status === "approved" || r.status === "sent" || r.status === "completed") && (r.remainingBalance || 0) > 0 && !r.isPaid && !r.hasPendingRepayment).map((r) => r.id)));
                     setShowBulkRepaymentModal(true);
                   }}
                   className="px-4 py-2 rounded-full text-xs font-semibold transition-all bg-red-600 text-white hover:bg-red-700 flex items-center gap-1.5"
