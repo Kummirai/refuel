@@ -40,8 +40,8 @@ export async function GET() {
       const proofsTotal = reqProofs
         .filter((p: any) => p.status === "approved")
         .reduce((s: number, p: any) => s + (p.amount || 0), 0);
-      const totalRepaid = Math.max(proofsTotal, r.repaidAmount || 0);
       const totalRepayable = r.totalRepayable || r.amount || 0;
+      const totalRepaid = Math.min(Math.max(proofsTotal, r.repaidAmount || 0), totalRepayable);
       const remaining = Math.max(0, totalRepayable - totalRepaid);
 
       if (!groups[userId]) {

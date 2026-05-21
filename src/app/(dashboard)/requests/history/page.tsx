@@ -166,7 +166,7 @@ export default function RequestHistoryPage() {
                 .reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
 
               // Also consider direct repaidAmount on the document (set by admin corrections)
-              const totalRepaid = Math.max(proofsTotal, req.repaidAmount || 0);
+              const totalRepaid = Math.min(Math.max(proofsTotal, req.repaidAmount || 0), totalRepayable);
 
               const calculatedRemainingBalance = Math.max(
                 0,
