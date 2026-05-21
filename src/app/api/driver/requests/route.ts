@@ -47,9 +47,12 @@ export async function GET(request: NextRequest) {
       const repaymentProofs = proofsByRequest.get(requestId) || [];
 
       // Calculate total repaid amount from APPROVED repayments
-      const totalRepaid = repaymentProofs
+      const proofsTotal = repaymentProofs
         .filter((r: any) => r.status === "approved")
         .reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
+
+      // Also consider direct repaidAmount on the document (set by admin corrections)
+      const totalRepaid = Math.max(proofsTotal, request.repaidAmount || 0);
 
       // Calculate remaining balance
       const totalRepayable = request.totalRepayable || request.amount;

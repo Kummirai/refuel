@@ -161,21 +161,24 @@ export default function RequestHistoryPage() {
 
               // CALCULATE remaining balance from approved repayments
               const totalRepayable = req.totalRepayable || req.amount;
-              const totalApprovedRepayments = repayments
+              const proofsTotal = repayments
                 .filter((r: any) => r.status === "approved")
                 .reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
 
+              // Also consider direct repaidAmount on the document (set by admin corrections)
+              const totalRepaid = Math.max(proofsTotal, req.repaidAmount || 0);
+
               const calculatedRemainingBalance = Math.max(
                 0,
-                totalRepayable - totalApprovedRepayments,
+                totalRepayable - totalRepaid,
               );
               const isPaid = calculatedRemainingBalance <= 0;
 
               return {
                 ...req,
                 id: requestId,
-                repaidAmount: totalApprovedRepayments,
-                remainingBalance: calculatedRemainingBalance, // USE CALCULATED VALUE
+                repaidAmount: totalRepaid,
+                remainingBalance: calculatedRemainingBalance,
                 isPaid: isPaid,
                 hasPendingRepayment: hasPendingRepayment,
                 pendingRepaymentAmount: pendingRepayment?.amount || 0,
