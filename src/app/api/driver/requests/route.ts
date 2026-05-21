@@ -51,11 +51,11 @@ export async function GET(request: NextRequest) {
         .filter((r: any) => r.status === "approved")
         .reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
 
-      // Also consider direct repaidAmount on the document (set by admin corrections)
-      const totalRepaid = Math.max(proofsTotal, request.repaidAmount || 0);
-
       // Calculate remaining balance
       const totalRepayable = request.totalRepayable || request.amount;
+
+      // Also consider direct repaidAmount on the document (set by admin corrections)
+      const totalRepaid = Math.min(Math.max(proofsTotal, request.repaidAmount || 0), totalRepayable);
       const calculatedRemainingBalance = toMoney(Math.max(
         0,
         totalRepayable - totalRepaid,

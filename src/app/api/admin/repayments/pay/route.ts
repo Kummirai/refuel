@@ -35,7 +35,8 @@ export async function POST(request: Request) {
 
     const totalRepayable = loan.totalRepayable || toMoney(loan.amount * 1.13);
     const currentRepaid = loan.repaidAmount || 0;
-    const newRepaid = toMoney(currentRepaid + amount);
+    const cappedAmount = toMoney(Math.min(amount, Math.max(0, totalRepayable - currentRepaid)));
+    const newRepaid = toMoney(currentRepaid + cappedAmount);
     const isFullyPaid = newRepaid >= totalRepayable;
 
     // Generate payment ID
