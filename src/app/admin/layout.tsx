@@ -26,6 +26,7 @@ import {
   Receipt,
   Send,
   Eye,
+  Fuel,
 } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 
@@ -201,6 +202,13 @@ export default function AdminLayout({
       label: "Driver View",
       path: "/admin/driver-view",
       active: pathname === "/admin/driver-view",
+      badge: null,
+    },
+    {
+      icon: Fuel,
+      label: "Fuel",
+      path: "/admin/fuel",
+      active: pathname === "/admin/fuel",
       badge: null,
     },
     {
