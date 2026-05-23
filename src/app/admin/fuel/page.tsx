@@ -24,8 +24,12 @@ export default function FuelPage() {
   const [fuelFrom, setFuelFrom] = useState(() => load(LS_FROM));
   const [fuelTo, setFuelTo] = useState(() => load(LS_TO));
 
-  useEffect(() => { save(LS_FROM, fuelFrom); }, [fuelFrom]);
-  useEffect(() => { save(LS_TO, fuelTo); }, [fuelTo]);
+  useEffect(() => {
+    save(LS_FROM, fuelFrom);
+  }, [fuelFrom]);
+  useEffect(() => {
+    save(LS_TO, fuelTo);
+  }, [fuelTo]);
 
   const [showFuelModal, setShowFuelModal] = useState(false);
   const [fuelInput, setFuelInput] = useState("");
@@ -36,7 +40,9 @@ export default function FuelPage() {
     if (fuelFrom) params.set("from", fuelFrom);
     if (fuelTo) params.set("to", fuelTo);
     const qs = params.toString();
-    return qs ? `/api/admin/dashboard/fuel-budget?${qs}` : "/api/admin/dashboard/fuel-budget";
+    return qs
+      ? `/api/admin/dashboard/fuel-budget?${qs}`
+      : "/api/admin/dashboard/fuel-budget";
   }, [fuelFrom, fuelTo]);
 
   const { data: fuelBudgetData, mutate: mutateFuelBudget } = useSWR(
@@ -44,7 +50,10 @@ export default function FuelPage() {
     fetcher,
     { refreshInterval: 60_000, dedupingInterval: 60_000 },
   );
-  const fuelBudget = useMemo(() => fuelBudgetData || { total: 0, used: 0, remaining: 0 }, [fuelBudgetData]);
+  const fuelBudget = useMemo(
+    () => fuelBudgetData || { total: 0, used: 0, remaining: 0 },
+    [fuelBudgetData],
+  );
 
   const handleSetFuelBudget = async () => {
     const total = parseFloat(fuelInput);
@@ -61,7 +70,10 @@ export default function FuelPage() {
         setShowFuelModal(false);
         setFuelInput("");
       }
-    } catch { } finally { setFuelSaving(false); }
+    } catch {
+    } finally {
+      setFuelSaving(false);
+    }
   };
 
   return (
@@ -89,7 +101,8 @@ export default function FuelPage() {
               <div className="flex-1 flex gap-[3px] items-center">
                 {Array.from({ length: 20 }).map((_, i) => {
                   const threshold = (i + 1) / 20;
-                  const filled = (fuelBudget.used / fuelBudget.total) >= threshold;
+                  const filled =
+                    fuelBudget.used / fuelBudget.total >= threshold;
                   return (
                     <div
                       key={i}
@@ -107,22 +120,29 @@ export default function FuelPage() {
                 })}
               </div>
               <span className="text-sm font-medium tabular-nums whitespace-nowrap text-[#01312D]">
-                R{fuelBudget.used.toLocaleString()} / R{fuelBudget.total.toLocaleString()}
+                R{fuelBudget.used.toLocaleString()} / R
+                {fuelBudget.total.toLocaleString()}
               </span>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid sm:grid-cols-3 gap-4">
               <div className="bg-[#eafde7] rounded-xl p-4">
                 <p className="text-xs text-gray-500 mb-1">Used</p>
-                <p className="text-lg font-bold text-[#01312D]">R{fuelBudget.used.toLocaleString()}</p>
+                <p className="text-lg font-bold text-[#01312D]">
+                  R{fuelBudget.used.toLocaleString()}
+                </p>
               </div>
               <div className="bg-[#eafde7] rounded-xl p-4">
                 <p className="text-xs text-gray-500 mb-1">Remaining</p>
-                <p className="text-lg font-bold text-[#01312D]">R{fuelBudget.remaining.toLocaleString()}</p>
+                <p className="text-lg font-bold text-[#01312D]">
+                  R{fuelBudget.remaining.toLocaleString()}
+                </p>
               </div>
               <div className="bg-[#eafde7] rounded-xl p-4">
                 <p className="text-xs text-gray-500 mb-1">Total Budget</p>
-                <p className="text-lg font-bold text-[#01312D]">R{fuelBudget.total.toLocaleString()}</p>
+                <p className="text-lg font-bold text-[#01312D]">
+                  R{fuelBudget.total.toLocaleString()}
+                </p>
               </div>
             </div>
 
@@ -136,7 +156,9 @@ export default function FuelPage() {
           <div className="text-center py-8">
             <Fuel className="w-12 h-12 text-gray-200 mx-auto mb-3" />
             <p className="text-gray-400 text-sm">No fuel budget set yet.</p>
-            <p className="text-gray-400 text-xs mt-1">Click the button above to set your first budget.</p>
+            <p className="text-gray-400 text-xs mt-1">
+              Click the button above to set your first budget.
+            </p>
           </div>
         )}
       </div>
@@ -146,9 +168,11 @@ export default function FuelPage() {
           <Fuel className="w-5 h-5 text-[#3A7717]" />
           <span className="font-semibold text-[#01312D]">Date Range</span>
         </div>
-        <div className="flex gap-3">
+        <div className="grid sm:grid-cols-2 gap-3">
           <div className="flex-1">
-            <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              From
+            </label>
             <input
               type="date"
               value={fuelFrom}
@@ -157,7 +181,9 @@ export default function FuelPage() {
             />
           </div>
           <div className="flex-1">
-            <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              To
+            </label>
             <input
               type="date"
               value={fuelTo}
@@ -175,13 +201,21 @@ export default function FuelPage() {
               <h3 className="text-lg font-bold text-[#01312D] flex items-center gap-2">
                 <Fuel className="w-5 h-5 text-[#3A7717]" /> Fuel Budget
               </h3>
-              <button onClick={() => { setShowFuelModal(false); setFuelInput(""); }} className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
+              <button
+                onClick={() => {
+                  setShowFuelModal(false);
+                  setFuelInput("");
+                }}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
                 <X className="w-5 h-5 text-gray-400" />
               </button>
             </div>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Total Budget (R)</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  Total Budget (R)
+                </label>
                 <input
                   type="number"
                   value={fuelInput}
@@ -192,7 +226,8 @@ export default function FuelPage() {
               </div>
               {fuelBudget.total > 0 && (
                 <p className="text-xs text-gray-400">
-                  Current budget: R{fuelBudget.total.toLocaleString()}. Setting a new one will reset usage tracking.
+                  Current budget: R{fuelBudget.total.toLocaleString()}. Setting
+                  a new one will reset usage tracking.
                 </p>
               )}
               <button
@@ -200,8 +235,14 @@ export default function FuelPage() {
                 disabled={fuelSaving || !fuelInput}
                 className="w-full py-2 bg-[#01312D] text-white rounded-lg font-medium text-sm hover:bg-[#3A7717] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
               >
-                {fuelSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                {fuelSaving ? "Saving..." : fuelBudget.total > 0 ? "Update Budget" : "Set Budget"}
+                {fuelSaving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : null}
+                {fuelSaving
+                  ? "Saving..."
+                  : fuelBudget.total > 0
+                    ? "Update Budget"
+                    : "Set Budget"}
               </button>
             </div>
           </div>
