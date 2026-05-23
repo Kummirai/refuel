@@ -119,10 +119,10 @@ export default function FuelPage() {
                   );
                 })}
               </div>
-              <span className="text-sm font-medium tabular-nums whitespace-nowrap text-[#01312D]">
+              {/* <span className="text-sm font-medium tabular-nums whitespace-nowrap text-[#01312D]">
                 R{fuelBudget.used.toLocaleString()} / R
                 {fuelBudget.total.toLocaleString()}
-              </span>
+              </span>*/}
             </div>
 
             <div className="grid sm:grid-cols-3 gap-4">
