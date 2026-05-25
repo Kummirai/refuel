@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Loan not found" }, { status: 404 });
     }
 
-    const totalRepayable = loan.totalRepayable || toMoney(loan.amount * 1.13);
+    const totalRepayable = toMoney(loan.totalRepayable || toMoney(loan.amount * 1.13));
     const currentRepaid = loan.repaidAmount || 0;
     const cappedAmount = toMoney(Math.min(amount, Math.max(0, totalRepayable - currentRepaid)));
     const newRepaid = toMoney(currentRepaid + cappedAmount);
