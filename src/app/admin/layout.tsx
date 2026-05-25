@@ -194,7 +194,7 @@ export default function AdminLayout({
       icon: Send,
       label: "Invoices",
       path: "/admin/invoices",
-      active: pathname === "/admin/invoices",
+      active: pathname === "/admin/invoices" || pathname.startsWith("/admin/invoices/"),
       badge: null,
     },
     {

@@ -21,6 +21,7 @@ import {
   X,
   Clock,
 } from "lucide-react";
+import Link from "next/link";
 
 interface InvoiceItem {
   type: string;
@@ -38,24 +39,6 @@ interface DriverInvoice {
   carRegistration?: string;
   items: InvoiceItem[];
   totalOutstanding: number;
-}
-
-interface InvoiceHistoryBatch {
-  _id: string;
-  sentAt: string;
-  totalDrivers: number;
-  totalOutstanding: number;
-  sent: number;
-  errors: number;
-  dateRange?: { startDate: string; endDate: string } | null;
-  drivers: {
-    driverName: string;
-    driverEmail: string;
-    driverPhone?: string;
-    carRegistration?: string;
-    outstanding: number;
-    items: InvoiceItem[];
-  }[];
 }
 
 const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -80,11 +63,6 @@ export default function AdminInvoicesPage() {
   const [toDate, setToDate] = useState("");
   const [appliedFrom, setAppliedFrom] = useState("");
   const [appliedTo, setAppliedTo] = useState("");
-
-  const [showHistory, setShowHistory] = useState(false);
-  const [history, setHistory] = useState<InvoiceHistoryBatch[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [selectedBatch, setSelectedBatch] = useState<InvoiceHistoryBatch | null>(null);
 
   const hasDateFilter = appliedFrom || appliedTo;
 
@@ -143,26 +121,6 @@ export default function AdminInvoicesPage() {
     setToDate("");
     setAppliedFrom("");
     setAppliedTo("");
-  };
-
-  const fetchHistory = async () => {
-    setHistoryLoading(true);
-    try {
-      const res = await fetch("/api/admin/invoices/history");
-      if (res.ok) {
-        const data = await res.json();
-        setHistory(data.history || []);
-      }
-    } catch (err) {
-      console.error("Error fetching invoice history:", err);
-    } finally {
-      setHistoryLoading(false);
-    }
-  };
-
-  const handleOpenHistory = () => {
-    setShowHistory(true);
-    fetchHistory();
   };
 
   const handleSendAll = async () => {
@@ -354,13 +312,13 @@ Kapuka Tradings Team`;
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleOpenHistory}
+          <Link
+            href="/admin/invoices/history"
             className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all"
           >
             <Clock className="w-4 h-4" />
             History
-          </button>
+          </Link>
           <button
             onClick={fetchData}
             disabled={loading}
@@ -867,93 +825,6 @@ Kapuka Tradings Team`;
         )}
       </div>
 
-      {/* History Modal */}
-      {showHistory && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setShowHistory(false); setSelectedBatch(null); }}>
-          <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-5 border-b border-gray-100">
-              <div>
-                <h2 className="text-lg font-bold text-[#01312D]">Invoice History</h2>
-                <p className="text-xs text-gray-500 mt-0.5">Past invoice email batches</p>
-              </div>
-              <button
-                onClick={() => { setShowHistory(false); setSelectedBatch(null); }}
-                className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-5">
-              {historyLoading ? (
-                <div className="space-y-3">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
-                  ))}
-                </div>
-              ) : history.length === 0 ? (
-                <div className="text-center py-16">
-                  <Clock className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 text-sm">No invoices sent yet</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {history.map((batch) => (
-                    <button
-                      key={batch._id}
-                      onClick={() => setSelectedBatch(selectedBatch?._id === batch._id ? null : batch)}
-                      className="w-full text-left bg-gray-50 hover:bg-[#eafde7] rounded-xl p-4 transition-colors border border-gray-100"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-semibold text-[#01312D] text-sm">
-                            {new Date(batch.sentAt).toLocaleDateString("en-ZA", {
-                              day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
-                            })}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            {batch.sent} sent{batch.errors ? `, ${batch.errors} errors` : ""} &middot; {batch.totalDrivers} driver{batch.totalDrivers !== 1 ? "s" : ""}
-                            {batch.dateRange?.startDate && ` \u00b7 ${new Date(batch.dateRange.startDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} - ${new Date(batch.dateRange.endDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}`}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-[#01312D]">{formatMoney(batch.totalOutstanding)}</p>
-                          <p className="text-xs text-gray-400">{batch.drivers.length} drivers</p>
-                        </div>
-                      </div>
-
-                      {/* Expanded driver details */}
-                      {selectedBatch?._id === batch._id && (
-                        <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
-                          {batch.drivers.map((d, i) => (
-                            <div key={i} className="bg-white rounded-lg p-3 border border-gray-100">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="font-semibold text-sm text-[#01312D]">{d.driverName}</span>
-                                <span className="font-bold text-sm text-red-600">{formatMoney(d.outstanding)}</span>
-                              </div>
-                              {d.driverEmail && <p className="text-xs text-gray-400">{d.driverEmail}</p>}
-                              {d.items.length > 0 && (
-                                <div className="mt-2 text-xs text-gray-500 space-y-0.5">
-                                  {d.items.map((item, j) => (
-                                    <div key={j} className="flex justify-between">
-                                      <span>{item.type} ({item.carNumber}){item.completedDate ? ` - ${new Date(item.completedDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}</span>
-                                      <span>{formatMoney(item.totalRepayable)}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
