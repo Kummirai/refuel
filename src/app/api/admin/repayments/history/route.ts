@@ -85,6 +85,10 @@ export async function GET(request: NextRequest) {
           // If a proof exists for this payment but it's not approved, skip (payment was reversed)
           if (matchingProof && matchingProof.status !== "approved") continue;
 
+          // Payment has no matching approved proof and the loan's repaidAmount is 0
+          // (zeroed via manual_fix after reversal) → skip this orphaned payment entry
+          if (!matchingProof && repaidAmount <= 0) continue;
+
           const paymentDate = payment.date || payment.createdAt;
           const approvedAt = matchingProof?.approvedAt || paymentDate;
           const isProofApproval = !!matchingProof;
