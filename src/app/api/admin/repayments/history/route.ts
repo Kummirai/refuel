@@ -111,8 +111,10 @@ export async function GET(request: NextRequest) {
         }
       } else if (repaidAmount > 0) {
         // Loan was partially paid via manual_fix/recalc without payments array
-        // Synthesize a single entry from the repaidAmount
-        const paymentDate = sr.updatedAt || sr.createdAt || new Date().toISOString();
+        // Synthesize a single entry from the repaidAmount.
+        // Prefer lastPaymentDate/paidDate; fall back to today since we have
+        // no recorded payment timestamp for manual-fix entries.
+        const paymentDate = sr.lastPaymentDate || sr.paidDate || new Date().toISOString();
         const approvedAt = paymentDate;
 
         entries.push({
