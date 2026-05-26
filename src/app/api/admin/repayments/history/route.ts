@@ -16,12 +16,13 @@ export async function GET(request: NextRequest) {
 
     // Get all service requests that have payments OR have been partially/fully paid
     // (some older records have repaidAmount set directly via manual_fix/recalc
-    // without a corresponding payments array entry)
+    // without a corresponding payments array entry; the repaidAmount may be stored
+    // as various numeric types, so we query broadly and filter in JS below)
     const serviceRequests = await serviceRequestsCollection
       .find({
         $or: [
           { payments: { $exists: true, $ne: [] } },
-          { repaidAmount: { $gt: 0 } },
+          { repaidAmount: { $exists: true } },
         ],
       })
       .toArray();
@@ -69,6 +70,8 @@ export async function GET(request: NextRequest) {
       const driverPhone = sr.driverPhone || driver?.phone || "";
       const loanId = sr._id.toString();
 
+      const repaidAmount = Number(sr.repaidAmount) || 0;
+
       if (sr.payments && sr.payments.length > 0) {
         for (const payment of sr.payments) {
           // Find the matching proof for this payment (by public ID or URL)
@@ -106,7 +109,7 @@ export async function GET(request: NextRequest) {
             proofId: matchingProof?._id?.toString(),
           });
         }
-      } else if (sr.repaidAmount > 0) {
+      } else if (repaidAmount > 0) {
         // Loan was partially paid via manual_fix/recalc without payments array
         // Synthesize a single entry from the repaidAmount
         const paymentDate = sr.updatedAt || sr.createdAt || new Date().toISOString();
@@ -122,12 +125,12 @@ export async function GET(request: NextRequest) {
           carNumber: sr.carNumber || "Not provided",
           serviceType: sr.type || "unknown",
           serviceTypeLabel: getServiceTypeLabel(sr.type),
-          amount: sr.repaidAmount,
+          amount: repaidAmount,
           method: "manual",
           paymentDate,
           approvedAt,
           approvedDate: new Date(approvedAt).toISOString().split("T")[0],
-          remainingBalance: sr.remainingBalance ?? sr.totalRepayable ?? 0,
+          remainingBalance: Number(sr.remainingBalance) ?? Number(sr.totalRepayable) ?? 0,
           isProofApproval: false,
           proofId: undefined,
         });
