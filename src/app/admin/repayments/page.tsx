@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { compressImage } from "@/lib/utils/image-compression";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import {
@@ -12,6 +13,7 @@ import {
   History, Download, Receipt, Fuel, Smartphone, SprayCan,
   FileText, Hourglass, Layers, ArrowDown, Upload, X,
   Trash2, Save, AlertTriangle, ExternalLink, ZoomIn,
+
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatMoney, toMoney } from "@/lib/money";
@@ -733,7 +735,7 @@ export default function LoanRepaymentsPage() {
                                 <div className="flex gap-2">
                                   {lr.remainingBalance > 0 ? (
                                     <button onClick={() => handleApproveSingleRequest(proof, lr.id, parseFloat(correctedAmounts[lr.id] ?? String(lr.remainingBalance)))}
-                                      disabled={processingRequestId === lr.id || !(correctedAmounts[lr.id] ?? lr.remainingBalance) || parseFloat(correctedAmounts[lr.id] ?? "0") <= 0}
+                                      disabled={processingRequestId === lr.id || !(correctedAmounts[lr.id] ?? lr.remainingBalance) || parseFloat(correctedAmounts[lr.id] ?? String(lr.remainingBalance)) <= 0}
                                       className="flex-1 bg-[#3A7717] text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-[#2d5a12] disabled:opacity-50 active:scale-[0.98]">
                                       {processingRequestId === lr.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
                                       Approve & Pay {formatMoney(parseFloat(correctedAmounts[lr.id] ?? String(lr.remainingBalance)))}
@@ -1009,6 +1011,9 @@ export default function LoanRepaymentsPage() {
               <CheckCircle className="w-4 h-4" /> Select All
             </button>
           )}
+          <Link href="/admin/repayments/history" className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all">
+            <History className="w-4 h-4" /> History
+          </Link>
           <button onClick={handleRefresh} disabled={refreshing} className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all">
             <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
           </button>
