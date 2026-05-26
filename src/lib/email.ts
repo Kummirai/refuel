@@ -41,7 +41,9 @@ const getAdminEmails = (): string[] => {
   return emails;
 };
 
-// Configure email transporter for Brevo
+// Configure email transporter for Brevo (SMTP)
+// Connection pooling is enabled only in development; in serverless (Vercel)
+// each invocation is isolated so pooled sockets cannot be reused.
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || "smtp-relay.brevo.netlify.app",
   port: parseInt(process.env.EMAIL_PORT || "587"),
@@ -53,13 +55,13 @@ const transporter = nodemailer.createTransport({
   tls: {
     rejectUnauthorized: false,
   },
-  connectionTimeout: 10000,
-  socketTimeout: 10000,
-  pool: true,
+  connectionTimeout: 30000,
+  socketTimeout: 30000,
+  pool: process.env.NODE_ENV === "development",
   maxConnections: 5,
   rateDelta: 1000,
   rateLimit: 10,
-});
+} as any);
 
 if (process.env.NODE_ENV === "development") {
   transporter.verify((error, success) => {

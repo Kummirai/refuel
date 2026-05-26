@@ -14,9 +14,17 @@ export async function GET(request: NextRequest) {
     const usersCollection = db.collection("user");
     const repaymentProofsCollection = db.collection("repaymentProofs");
 
-    // Get all service requests that have payments
+    // Get all service requests that have payments OR have been partially/fully paid
+    // (some older records have repaidAmount set directly via manual_fix/recalc
+    // without a corresponding payments array entry; the repaidAmount may be stored
+    // as various numeric types, so we query broadly and filter in JS below)
     const serviceRequests = await serviceRequestsCollection
-      .find({ payments: { $exists: true, $ne: [] } })
+      .find({
+        $or: [
+          { payments: { $exists: true, $ne: [] } },
+          { repaidAmount: { $exists: true } },
+        ],
+      })
       .toArray();
 
     // Fetch user details for unique user IDs
@@ -53,32 +61,68 @@ export async function GET(request: NextRequest) {
     }
 
     // Build entries from each service request's payments array
+    // (also synthesize entries for loans with repaidAmount but no payments array)
     const entries: any[] = [];
     for (const sr of serviceRequests) {
       const driver = userMap.get(sr.userId);
       const driverName = sr.driverName || driver?.name || "Unknown";
       const driverEmail = sr.driverEmail || driver?.email || "";
       const driverPhone = sr.driverPhone || driver?.phone || "";
+      const loanId = sr._id.toString();
 
-      for (const payment of (sr.payments || [])) {
-        // Find the matching proof for this payment (by public ID or URL)
-        let matchingProof: any = null;
-        if (payment.proofPublicId) {
-          matchingProof = proofByPublicId.get(payment.proofPublicId) || null;
-        } else if (payment.proofUrl) {
-          matchingProof = proofByUrl.get(payment.proofUrl) || null;
+      const repaidAmount = Number(sr.repaidAmount) || 0;
+
+      if (sr.payments && sr.payments.length > 0) {
+        for (const payment of sr.payments) {
+          // Find the matching proof for this payment (by public ID or URL)
+          let matchingProof: any = null;
+          if (payment.proofPublicId) {
+            matchingProof = proofByPublicId.get(payment.proofPublicId) || null;
+          } else if (payment.proofUrl) {
+            matchingProof = proofByUrl.get(payment.proofUrl) || null;
+          }
+
+          // If a proof exists for this payment but it's not approved, skip (payment was reversed)
+          if (matchingProof && matchingProof.status !== "approved") continue;
+
+          // Payment has no matching approved proof and the loan's repaidAmount is 0
+          // (zeroed via manual_fix after reversal) → skip this orphaned payment entry
+          if (!matchingProof && repaidAmount <= 0) continue;
+
+          const paymentDate = payment.date || payment.createdAt;
+          const approvedAt = matchingProof?.approvedAt || paymentDate;
+          const isProofApproval = !!matchingProof;
+
+          entries.push({
+            id: payment.id,
+            loanId,
+            driverId: sr.userId,
+            driverName,
+            driverEmail,
+            driverPhone,
+            carNumber: sr.carNumber || "Not provided",
+            serviceType: sr.type || "unknown",
+            serviceTypeLabel: getServiceTypeLabel(sr.type),
+            amount: payment.amount,
+            method: payment.method || "cash",
+            paymentDate,
+            approvedAt,
+            approvedDate: new Date(approvedAt).toISOString().split("T")[0],
+            remainingBalance: sr.remainingBalance ?? sr.totalRepayable ?? 0,
+            isProofApproval,
+            proofId: matchingProof?._id?.toString(),
+          });
         }
-
-        // If a proof exists for this payment but it's not approved, skip (payment was reversed)
-        if (matchingProof && matchingProof.status !== "approved") continue;
-
-        const paymentDate = payment.date || payment.createdAt;
-        const approvedAt = matchingProof?.approvedAt || paymentDate;
-        const isProofApproval = !!matchingProof;
+      } else if (repaidAmount > 0) {
+        // Loan was partially paid via manual_fix/recalc without payments array
+        // Synthesize a single entry from the repaidAmount using the last
+        // modification timestamp as the payment date approximation.
+        const paymentDate = sr.lastPaymentDate || sr.paidDate || sr.updatedAt || sr.createdAt || new Date().toISOString();
+        const approvedAt = paymentDate;
 
         entries.push({
-          id: payment.id,
-          loanId: sr._id.toString(),
+          id: `manual-${loanId}`,
+          loanId,
           driverId: sr.userId,
           driverName,
           driverEmail,
@@ -86,14 +130,14 @@ export async function GET(request: NextRequest) {
           carNumber: sr.carNumber || "Not provided",
           serviceType: sr.type || "unknown",
           serviceTypeLabel: getServiceTypeLabel(sr.type),
-          amount: payment.amount,
-          method: payment.method || "cash",
+          amount: repaidAmount,
+          method: "manual",
           paymentDate,
           approvedAt,
           approvedDate: new Date(approvedAt).toISOString().split("T")[0],
-          remainingBalance: sr.remainingBalance,
-          isProofApproval,
-          proofId: matchingProof?._id?.toString(),
+          remainingBalance: Number(sr.remainingBalance) ?? Number(sr.totalRepayable) ?? 0,
+          isProofApproval: false,
+          proofId: undefined,
         });
       }
     }
