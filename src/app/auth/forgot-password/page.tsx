@@ -1,9 +1,9 @@
-// src/app/(auth)/forgot-password/page.tsx
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { authClient } from "@/lib/auth-client";
 import {
   Mail,
   ArrowRight,
@@ -25,15 +25,22 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     setError("");
 
-    // Simulate password reset - will be replaced with Supabase
-    setTimeout(() => {
-      if (email) {
-        setSuccess(true);
-      } else {
-        setError("Please enter a valid email address");
+    try {
+      const { error: resetError } = await authClient.requestPasswordReset({
+        email,
+        redirectTo: "/auth/reset-password",
+      });
+
+      if (resetError) {
+        throw new Error(resetError.message || "Failed to send reset email");
       }
+
+      setSuccess(true);
+    } catch (err: any) {
+      setError(err.message || "Something went wrong. Please try again.");
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   return (

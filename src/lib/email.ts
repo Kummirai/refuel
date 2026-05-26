@@ -1851,6 +1851,84 @@ export async function sendRepaymentCompletedEmail(data: {
   }
 }
 
+// ==================== PASSWORD RESET EMAIL ====================
+
+const generatePasswordResetHtml = (data: {
+  driverName: string;
+  resetUrl: string;
+}): string => {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Reset Your Password - Kapuka</title>
+      <style>${globalStyles}</style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header" style="background: linear-gradient(135deg, #0d4a2a 0%, #1a6b3e 50%, #0d4a2a 100%);">
+          <div style="font-size: 48px; margin-bottom: 12px;"></div>
+          <h1>Reset Your Password</h1>
+          <p>You requested a password reset</p>
+        </div>
+        <div class="content">
+          <p style="font-size: 16px; margin: 0 0 20px; color: #0f172a; line-height: 1.6;">Hello ${data.driverName},</p>
+          <p style="margin: 0 0 24px; color: #475569; line-height: 1.6; font-size: 15px;">
+            We received a request to reset your password. Click the button below to set a new password. 
+            This link will expire in <strong>1 hour</strong>.
+          </p>
+
+          <div style="text-align: center;">
+            <a href="${data.resetUrl}" class="button" style="font-size: 16px; padding: 16px 40px;">Reset Password</a>
+          </div>
+
+          <p style="margin: 32px 0 0; color: #64748b; font-size: 13px; line-height: 1.6;">
+            If you didn't request a password reset, please ignore this email. No changes have been made to your account.
+          </p>
+
+          <div style="border-left: 4px solid #bff202; padding: 16px 20px; margin: 24px 0; background-color: #f8fafc; border-radius: 0 12px 12px 0;">
+            <p style="margin: 0; font-size: 13px; color: #64748b; word-break: break-all;">
+              If the button doesn't work, copy and paste this link into your browser:<br>
+              <a href="${data.resetUrl}" style="color: #16a34a; text-decoration: underline;">${data.resetUrl}</a>
+            </p>
+          </div>
+        </div>
+        <div class="footer">
+          <p>Kapuka Tradings - Automated Notification</p>
+          <p>This is an automated message, please do not reply.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
+export async function sendPasswordResetEmail(data: {
+  email: string;
+  name: string;
+  resetUrl: string;
+}) {
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
+      to: data.email,
+      subject: "Reset Your Password - Kapuka Tradings",
+      html: generatePasswordResetHtml({
+        driverName: data.name,
+        resetUrl: data.resetUrl,
+      }),
+      text: `Reset your password\n\nHello ${data.name},\n\nClick the link below to reset your password. It expires in 1 hour.\n\n${data.resetUrl}\n\nIf you didn't request this, ignore this email.\n\nKapuka Tradings`,
+    });
+    console.log("Password reset email sent:", info.messageId);
+    return info;
+  } catch (error) {
+    console.error("Error sending password reset email:", error);
+    return null;
+  }
+}
+
 // ==================== PROFILE CHANGE NOTIFICATION ====================
 
 const generateProfileChangeAdminHtml = (data: {
