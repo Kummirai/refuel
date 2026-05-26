@@ -439,7 +439,7 @@ export default function RepaymentHistoryPage() {
                         <table className="w-full text-xs">
                           <thead>
                             <tr className="bg-gray-50">
-                              <th className="text-left px-3 py-2 font-bold text-gray-500 uppercase">Service</th>
+                              <th className="text-left px-3 py-2 font-bold text-gray-500 uppercase hidden sm:table-cell">Service</th>
                               <th className="text-left px-3 py-2 font-bold text-gray-500 uppercase hidden sm:table-cell">Vehicle</th>
                               <th className="text-left px-3 py-2 font-bold text-gray-500 uppercase">Time</th>
                               <th className="text-right px-3 py-2 font-bold text-gray-500 uppercase">Amount</th>
@@ -450,7 +450,7 @@ export default function RepaymentHistoryPage() {
                           <tbody>
                             {group.entries.map((entry) => (
                               <tr key={entry.id} className="border-b border-gray-50">
-                                <td className="px-3 py-2">
+                                <td className="px-3 py-2 hidden sm:table-cell">
                                   <span className="flex items-center gap-1">
                                     {getTypeIcon(entry.serviceType)}
                                     <span className="font-medium text-[#01312D]">{entry.serviceTypeLabel}</span>
