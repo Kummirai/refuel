@@ -1,8 +1,8 @@
-// src/lib/auth/index.ts
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { nextCookies } from "better-auth/next-js";
 import { getClient } from "@/lib/db";
+import { sendPasswordResetEmail } from "@/lib/email";
 
 const db = getClient().db(process.env.MONGODB_DB!);
 
@@ -11,9 +11,15 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET!,
   emailAndPassword: {
     enabled: true,
-    async sendResetPassword(url, user) {
-      // Send reset password email
-      console.log(`Reset password URL: ${url}`);
+    async sendResetPassword(data) {
+      const { user, token } = data as { user: { email: string; name?: string }; token: string };
+      const baseUrl = process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "";
+      const resetUrl = `${baseUrl}/auth/reset-password?token=${token}`;
+      await sendPasswordResetEmail({
+        email: user.email,
+        name: user.name || user.email,
+        resetUrl,
+      });
     },
   },
   user: {
