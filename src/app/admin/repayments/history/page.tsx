@@ -143,6 +143,7 @@ function DriverDetailView({
                 <th className="text-right px-4 py-3 text-[10px] font-bold text-gray-500 uppercase">Amount</th>
                 <th className="text-right px-4 py-3 text-[10px] font-bold text-gray-500 uppercase">Method</th>
                 <th className="text-center px-4 py-3 text-[10px] font-bold text-gray-500 uppercase">Source</th>
+                <th className="text-center px-4 py-3 text-[10px] font-bold text-gray-500 uppercase">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -166,6 +167,17 @@ function DriverDetailView({
                     ) : (
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
                         <Clock className="w-3 h-3" /> Manual
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {entry.remainingBalance <= 0 ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                        <CheckCircle className="w-3 h-3" /> Paid
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                        <Clock className="w-3 h-3" /> Partial
                       </span>
                     )}
                   </td>
@@ -432,6 +444,7 @@ export default function RepaymentHistoryPage() {
                               <th className="text-left px-3 py-2 font-bold text-gray-500 uppercase">Time</th>
                               <th className="text-right px-3 py-2 font-bold text-gray-500 uppercase">Amount</th>
                               <th className="text-right px-3 py-2 font-bold text-gray-500 uppercase">Method</th>
+                              <th className="text-center px-3 py-2 font-bold text-gray-500 uppercase">Status</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -447,6 +460,17 @@ export default function RepaymentHistoryPage() {
                                 <td className="px-3 py-2 text-gray-400 whitespace-nowrap">{formatDateTime(entry.approvedAt)}</td>
                                 <td className="px-3 py-2 text-right font-semibold text-[#01312D]">{formatMoney(entry.amount)}</td>
                                 <td className="px-3 py-2 text-right capitalize text-gray-500">{entry.method.replace("_", " ")}</td>
+                                <td className="px-3 py-2 text-center">
+                                  {entry.remainingBalance <= 0 ? (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                                      <CheckCircle className="w-3 h-3" /> Paid
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                                      <Clock className="w-3 h-3" /> Partial
+                                    </span>
+                                  )}
+                                </td>
                               </tr>
                             ))}
                           </tbody>
