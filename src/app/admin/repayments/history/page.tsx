@@ -305,22 +305,27 @@ export default function RepaymentHistoryPage() {
       </div>
 
       {/* Stats */}
-      {history && !loading && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
-            <p className="text-xs text-gray-500">Total Repaid</p>
-            <p className="text-2xl font-bold text-[#3A7717]">{formatMoney(history.stats.totalAmount)}</p>
+      {history && !loading && (() => {
+        const filteredTotal = filteredGroups.reduce((s, g) => s + g.totalAmount, 0);
+        const filteredEntries = filteredGroups.reduce((s, g) => s + g.entries.length, 0);
+        const filteredDrivers = new Set(filteredGroups.map(g => g.driverId)).size;
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
+              <p className="text-xs text-gray-500">Total Repaid</p>
+              <p className="text-2xl font-bold text-[#3A7717]">{formatMoney(filteredTotal)}</p>
+            </div>
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
+              <p className="text-xs text-gray-500">Payments Recorded</p>
+              <p className="text-2xl font-bold text-[#01312D]">{filteredEntries}</p>
+            </div>
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
+              <p className="text-xs text-gray-500">Unique Drivers</p>
+              <p className="text-2xl font-bold text-[#01312D]">{filteredDrivers}</p>
+            </div>
           </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
-            <p className="text-xs text-gray-500">Payments Recorded</p>
-            <p className="text-2xl font-bold text-[#01312D]">{history.stats.totalEntries}</p>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
-            <p className="text-xs text-gray-500">Unique Drivers</p>
-            <p className="text-2xl font-bold text-[#01312D]">{history.stats.uniqueDrivers}</p>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
