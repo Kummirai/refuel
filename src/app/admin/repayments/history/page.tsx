@@ -134,32 +134,32 @@ function DriverDetailView({
           </h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs sm:text-sm">
             <thead>
               <tr className="bg-gray-50">
-                <th className="text-left px-4 py-3 text-[10px] font-bold text-gray-500 uppercase">Service</th>
-                <th className="text-left px-4 py-3 text-[10px] font-bold text-gray-500 uppercase">Vehicle</th>
-                <th className="text-left px-4 py-3 text-[10px] font-bold text-gray-500 uppercase">Time</th>
-                <th className="text-right px-4 py-3 text-[10px] font-bold text-gray-500 uppercase">Amount</th>
-                <th className="text-right px-4 py-3 text-[10px] font-bold text-gray-500 uppercase">Method</th>
-                <th className="text-center px-4 py-3 text-[10px] font-bold text-gray-500 uppercase">Source</th>
-                <th className="text-center px-4 py-3 text-[10px] font-bold text-gray-500 uppercase">Status</th>
+                <th className="text-left px-3 sm:px-4 py-3 text-[10px] font-bold text-gray-500 uppercase hidden sm:table-cell">Service</th>
+                <th className="text-left px-3 sm:px-4 py-3 text-[10px] font-bold text-gray-500 uppercase hidden sm:table-cell">Vehicle</th>
+                <th className="text-left px-3 sm:px-4 py-3 text-[10px] font-bold text-gray-500 uppercase">Time</th>
+                <th className="text-right px-3 sm:px-4 py-3 text-[10px] font-bold text-gray-500 uppercase">Amount</th>
+                <th className="text-right px-3 sm:px-4 py-3 text-[10px] font-bold text-gray-500 uppercase hidden sm:table-cell">Method</th>
+                <th className="text-center px-3 sm:px-4 py-3 text-[10px] font-bold text-gray-500 uppercase hidden sm:table-cell">Source</th>
+                <th className="text-center px-3 sm:px-4 py-3 text-[10px] font-bold text-gray-500 uppercase">Status</th>
               </tr>
             </thead>
             <tbody>
               {group.entries.map((entry) => (
                 <tr key={entry.id} className="border-b border-gray-100 hover:bg-[#eafde7]/30 transition-colors">
-                  <td className="px-4 py-3">
+                  <td className="px-3 sm:px-4 py-3 hidden sm:table-cell">
                     <span className="flex items-center gap-1.5">
                       {getTypeIcon(entry.serviceType)}
                       <span className="font-medium text-[#01312D]">{entry.serviceTypeLabel}</span>
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{entry.carNumber}</td>
-                  <td className="px-4 py-3 text-gray-500 text-xs">{formatDateTime(entry.approvedAt)}</td>
-                  <td className="px-4 py-3 text-right font-bold text-[#01312D]">{formatMoney(entry.amount)}</td>
-                  <td className="px-4 py-3 text-right capitalize text-gray-600">{entry.method.replace("_", " ")}</td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-3 sm:px-4 py-3 text-gray-600 hidden sm:table-cell">{entry.carNumber}</td>
+                  <td className="px-3 sm:px-4 py-3 text-gray-500 text-[10px] sm:text-xs whitespace-nowrap">{formatDateTime(entry.approvedAt)}</td>
+                  <td className="px-3 sm:px-4 py-3 text-right font-bold text-[#01312D]">{formatMoney(entry.amount)}</td>
+                  <td className="px-3 sm:px-4 py-3 text-right capitalize text-gray-600 hidden sm:table-cell">{entry.method.replace("_", " ")}</td>
+                  <td className="px-3 sm:px-4 py-3 text-center hidden sm:table-cell">
                     {entry.isProofApproval ? (
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
                         <CheckCircle className="w-3 h-3" /> Proof
@@ -170,13 +170,13 @@ function DriverDetailView({
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-3 sm:px-4 py-3 text-center">
                     {entry.remainingBalance <= 0 ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-100 px-1.5 sm:px-2 py-0.5 rounded-full whitespace-nowrap">
                         <CheckCircle className="w-3 h-3" /> Paid
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 sm:px-2 py-0.5 rounded-full whitespace-nowrap">
                         <Clock className="w-3 h-3" /> Partial
                       </span>
                     )}
@@ -402,15 +402,15 @@ export default function RepaymentHistoryPage() {
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-[#01312D] truncate">{group.driverName}</p>
-                        <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1.5">
-                          <Calendar className="w-3 h-3" />
-                          {formatDate(group.approvedDate)}
-                          <span className="text-gray-300 mx-1">·</span>
-                          {group.entries.length} payment{group.entries.length !== 1 ? "s" : ""}
+                        <p className="text-xs text-gray-500 mt-0.5 flex flex-wrap items-center gap-x-1.5">
+                          <Calendar className="w-3 h-3 shrink-0" />
+                          <span className="whitespace-nowrap">{formatDate(group.approvedDate)}</span>
+                          <span className="text-gray-300 shrink-0">·</span>
+                          <span className="whitespace-nowrap">{group.entries.length} payment{group.entries.length !== 1 ? "s" : ""}</span>
                           {group.driverEmail && (
                             <>
-                              <span className="text-gray-300 mx-1">·</span>
-                              {group.driverEmail}
+                              <span className="text-gray-300 shrink-0">·</span>
+                              <span className="truncate max-w-[160px] sm:max-w-none">{group.driverEmail}</span>
                             </>
                           )}
                         </p>
@@ -440,10 +440,10 @@ export default function RepaymentHistoryPage() {
                           <thead>
                             <tr className="bg-gray-50">
                               <th className="text-left px-3 py-2 font-bold text-gray-500 uppercase">Service</th>
-                              <th className="text-left px-3 py-2 font-bold text-gray-500 uppercase">Vehicle</th>
+                              <th className="text-left px-3 py-2 font-bold text-gray-500 uppercase hidden sm:table-cell">Vehicle</th>
                               <th className="text-left px-3 py-2 font-bold text-gray-500 uppercase">Time</th>
                               <th className="text-right px-3 py-2 font-bold text-gray-500 uppercase">Amount</th>
-                              <th className="text-right px-3 py-2 font-bold text-gray-500 uppercase">Method</th>
+                              <th className="text-right px-3 py-2 font-bold text-gray-500 uppercase hidden sm:table-cell">Method</th>
                               <th className="text-center px-3 py-2 font-bold text-gray-500 uppercase">Status</th>
                             </tr>
                           </thead>
@@ -456,17 +456,17 @@ export default function RepaymentHistoryPage() {
                                     <span className="font-medium text-[#01312D]">{entry.serviceTypeLabel}</span>
                                   </span>
                                 </td>
-                                <td className="px-3 py-2 text-gray-500">{entry.carNumber}</td>
-                                <td className="px-3 py-2 text-gray-400 whitespace-nowrap">{formatDateTime(entry.approvedAt)}</td>
+                                <td className="px-3 py-2 text-gray-500 hidden sm:table-cell">{entry.carNumber}</td>
+                                <td className="px-3 py-2 text-gray-400 whitespace-nowrap text-[10px] sm:text-xs">{formatDateTime(entry.approvedAt)}</td>
                                 <td className="px-3 py-2 text-right font-semibold text-[#01312D]">{formatMoney(entry.amount)}</td>
-                                <td className="px-3 py-2 text-right capitalize text-gray-500">{entry.method.replace("_", " ")}</td>
+                                <td className="px-3 py-2 text-right capitalize text-gray-500 hidden sm:table-cell">{entry.method.replace("_", " ")}</td>
                                 <td className="px-3 py-2 text-center">
                                   {entry.remainingBalance <= 0 ? (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-100 px-1.5 sm:px-2 py-0.5 rounded-full">
                                       <CheckCircle className="w-3 h-3" /> Paid
                                     </span>
                                   ) : (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 sm:px-2 py-0.5 rounded-full">
                                       <Clock className="w-3 h-3" /> Partial
                                     </span>
                                   )}
