@@ -121,8 +121,11 @@ export default function AdminDashboard() {
   const [rejectType, setRejectType] = useState<"request" | "verification">(
     "request",
   );
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingDriver, setDeletingDriver] = useState<any>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const isAnyModalOpen = showSuccessModal || showErrorModal || showRejectModal;
+  const isAnyModalOpen = showSuccessModal || showErrorModal || showRejectModal || showDeleteConfirm;
   useBodyScrollLock(isAnyModalOpen);
 
   const [fromDate, setFromDate] = useState("");
@@ -420,6 +423,38 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDeleteDriver = async () => {
+    if (!deletingDriver) return;
+
+    setDeleteLoading(true);
+    try {
+      const response = await fetch("/api/admin/drivers/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: deletingDriver.userId }),
+      });
+
+      if (response.ok) {
+        setSuccessMessage(`Deleted ${deletingDriver.name}'s account`);
+        setShowSuccessModal(true);
+        setShowDeleteConfirm(false);
+        setDeletingDriver(null);
+        setShowDriverModal(false);
+        revalidateAll();
+      } else {
+        const error = await response.json();
+        setErrorMessage(error.error || "Failed to delete user");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      setErrorMessage("Failed to delete user");
+      setShowErrorModal(true);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const handleConfirmRejection = () => {
     if (rejectType === "request") {
       handleRejectRequest();
@@ -684,6 +719,72 @@ export default function AdminDashboard() {
               className="w-full bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors"
             >
               Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Delete Confirmation Modal
+  const DeleteConfirmModal = () => {
+    if (!showDeleteConfirm || !deletingDriver) return null;
+
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => {
+            setShowDeleteConfirm(false);
+            setDeletingDriver(null);
+          }}
+        ></div>
+        <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl">
+          <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-t-2xl p-5">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">Delete Driver</h2>
+                <p className="text-white/80 text-sm">This action cannot be undone</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 text-center">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-10 h-10 text-red-600" />
+            </div>
+            <p className="text-[#01312D] font-semibold mb-2">
+              Are you sure you want to delete {deletingDriver.name}?
+            </p>
+            <p className="text-sm text-gray-500">
+              This will permanently remove their account, profile, and all associated data.
+            </p>
+          </div>
+
+          <div className="border-t border-gray-100 p-5 flex gap-3">
+            <button
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                setDeletingDriver(null);
+              }}
+              className="flex-1 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDeleteDriver}
+              disabled={deleteLoading}
+              className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+            >
+              {deleteLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <AlertCircle className="w-4 h-4" />
+              )}
+              Delete
             </button>
           </div>
         </div>
@@ -1460,10 +1561,19 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5">
+          <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
+            <button
+              onClick={() => {
+                setDeletingDriver(driver);
+                setShowDeleteConfirm(true);
+              }}
+              className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors"
+            >
+              Delete Driver
+            </button>
             <button
               onClick={onClose}
-              className="w-full bg-gray-500 text-white py-2 rounded-xl font-semibold"
+              className="flex-1 bg-gray-500 text-white py-2 rounded-xl font-semibold"
             >
               Close
             </button>
@@ -2044,9 +2154,21 @@ export default function AdminDashboard() {
                             </span>
                           </td>
                           <td className="p-4">
-                            <button className="px-3 py-1.5 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center gap-1">
-                              <Eye className="w-4 h-4" /> View
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button className="px-3 py-1.5 bg-[#eafde7] text-[#01312D] rounded-lg text-sm font-semibold flex items-center gap-1">
+                                <Eye className="w-4 h-4" /> View
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeletingDriver(driver);
+                                  setShowDeleteConfirm(true);
+                                }}
+                                className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-100 transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -2079,6 +2201,7 @@ export default function AdminDashboard() {
       {showApproveModal && <ApprovalModal />}
       {showWhatsAppModal && approvedRequest && <WhatsAppModal />}
       {showRejectModal && renderRejectionModal()}
+      <DeleteConfirmModal />
       <SuccessModal />
       <ErrorModal />
     </div>
