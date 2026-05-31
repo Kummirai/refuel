@@ -18,6 +18,7 @@ export async function POST(request: Request) {
     const serviceRequestsCollection = db.collection("serviceRequests");
     const loanPaymentsCollection = db.collection("loanPayments");
     const repaymentRequestsCollection = db.collection("repaymentRequests");
+    const repaymentProofsCollection = db.collection("repaymentProofs");
 
     // Get the loan/service request
     const loan = await serviceRequestsCollection.findOne({
@@ -67,6 +68,26 @@ export async function POST(request: Request) {
         );
       }
 
+      // Also approve any pending repayment proofs for this loan
+      await repaymentProofsCollection.updateMany(
+        {
+          $or: [
+            { requestId: repaymentId },
+            { requestIds: repaymentId },
+          ],
+          status: "pending",
+        },
+        {
+          $set: {
+            status: "approved",
+            approvedAt: new Date(),
+            approvedBy: "admin",
+            updatedAt: new Date(),
+          },
+          $addToSet: { approvedRequestIds: repaymentId },
+        },
+      );
+
       // 3. Update loan as fully paid
       await serviceRequestsCollection.updateOne(
         { _id: new ObjectId(repaymentId) },
@@ -97,6 +118,26 @@ export async function POST(request: Request) {
             isPaid: true,
             paidDate: new Date(),
           },
+        },
+      );
+
+      // Also approve any pending repayment proofs
+      await repaymentProofsCollection.updateMany(
+        {
+          $or: [
+            { requestId: repaymentId },
+            { requestIds: repaymentId },
+          ],
+          status: "pending",
+        },
+        {
+          $set: {
+            status: "approved",
+            approvedAt: new Date(),
+            approvedBy: "admin",
+            updatedAt: new Date(),
+          },
+          $addToSet: { approvedRequestIds: repaymentId },
         },
       );
     }
