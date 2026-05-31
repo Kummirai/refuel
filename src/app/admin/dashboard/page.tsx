@@ -1140,6 +1140,17 @@ export default function AdminDashboard() {
       city: verification.city || "Not provided",
       pincode: verification.pincode || "Not provided",
       dateOfBirth: verification.dateOfBirth || "Not provided",
+      ownershipStatus: verification.ownershipStatus || "own",
+      referenceName: verification.referenceName || "Not provided",
+      referencePhone: verification.referencePhone || "Not provided",
+      carOwnerName: verification.carOwnerName || "Not provided",
+      carOwnerPhone: verification.carOwnerPhone || "Not provided",
+      carOwnerAddress: verification.carOwnerAddress || "Not provided",
+      agreeAccuracy: verification.agreeAccuracy || false,
+      agreeRefTenure: verification.agreeRefTenure || false,
+      agreeOwnerContact: verification.agreeOwnerContact || false,
+      agreeRepayment: verification.agreeRepayment || false,
+      agreeEscalation: verification.agreeEscalation || false,
       drivingLicenseUrl: verification.drivingLicenseUrl,
       carRegistrationUrl: verification.carRegistrationUrl,
       profilePhotoUrl: verification.profilePhotoUrl,
@@ -1295,6 +1306,74 @@ export default function AdminDashboard() {
                     </p>
                   </div>
                 </div>
+                <div>
+                  <p className="text-gray-500">Ownership Status</p>
+                  <p className="font-semibold text-[#01312D] capitalize">
+                    {mappedVerification.ownershipStatus === "rent" ? "Renting" : "Owner"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Reference & Owner Info */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <Users className="w-4 h-4 text-[#3A7717]" /> Reference & Owner Info
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div className="space-y-2">
+                  <p className="font-bold text-[#3A7717] border-b border-[#3A7717]/10 pb-1">Kapuka Member Reference</p>
+                  <div>
+                    <p className="text-gray-500">Name</p>
+                    <p className="font-semibold text-[#01312D]">{mappedVerification.referenceName}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Phone</p>
+                    <p className="font-semibold text-[#01312D]">{mappedVerification.referencePhone}</p>
+                  </div>
+                </div>
+                {mappedVerification.ownershipStatus === "rent" && (
+                  <div className="space-y-2">
+                    <p className="font-bold text-[#3A7717] border-b border-[#3A7717]/10 pb-1">Car Owner Details</p>
+                    <div>
+                      <p className="text-gray-500">Name</p>
+                      <p className="font-semibold text-[#01312D]">{mappedVerification.carOwnerName}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Phone</p>
+                      <p className="font-semibold text-[#01312D]">{mappedVerification.carOwnerPhone}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Address</p>
+                      <p className="font-semibold text-[#01312D] text-xs">{mappedVerification.carOwnerAddress}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Policy Agreements */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-[#3A7717]" /> Policy Agreements
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {[
+                  { label: "Information Accuracy", checked: mappedVerification.agreeAccuracy },
+                  { label: "Ref Tenure (1+ month)", checked: mappedVerification.agreeRefTenure },
+                  { label: "Owner Consent", checked: mappedVerification.agreeOwnerContact, hide: mappedVerification.ownershipStatus !== "rent" },
+                  { label: "Repayment Schedule", checked: mappedVerification.agreeRepayment },
+                  { label: "Escalation Policy", checked: mappedVerification.agreeEscalation },
+                ].map((item, i) => !item.hide && (
+                  <div key={i} className="flex items-center gap-2 bg-white/50 p-2 rounded-lg border border-[#3A7717]/5">
+                    {item.checked ? (
+                      <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                    )}
+                    <span className="text-xs font-medium text-[#01312D]">{item.label}</span>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -1386,7 +1465,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Action Buttons */}
-          {/* <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
+          <div className="sticky bottom-0 bg-white border-t border-[#bff202]/20 p-5 flex gap-3">
             {mappedVerification.verificationStatus === "pending" && (
               <>
                 <button
@@ -1409,7 +1488,7 @@ export default function AdminDashboard() {
             >
               Close
             </button>
-          </div> */}
+          </div>
         </div>
       </div>
     );
@@ -1456,9 +1535,9 @@ export default function AdminDashboard() {
               <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
                 <User className="w-4 h-4 text-[#3A7717]" /> Personal Information
               </h3>
-              <div className="grid gap-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p className="text-gray-500">Name</p>
+                  <p className="text-gray-500">Full Name</p>
                   <p className="font-semibold text-[#01312D]">
                     {driver.name || "N/A"}
                   </p>
@@ -1470,33 +1549,75 @@ export default function AdminDashboard() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-gray-500">Phone</p>
+                  <p className="text-gray-500">Phone Number</p>
                   <p className="font-semibold text-[#01312D]">
                     {driver.phone || "N/A"}
                   </p>
                 </div>
                 <div>
+                  <p className="text-gray-500">Date of Birth</p>
+                  <p className="font-semibold text-[#01312D]">
+                    {driver.dateOfBirth !== "Not provided"
+                      ? new Date(driver.dateOfBirth).toLocaleDateString()
+                      : "Not provided"}
+                  </p>
+                </div>
+                <div>
                   <p className="text-gray-500">Member Since</p>
                   <p className="font-semibold text-[#01312D]">
-                    {new Date(driver.joinedDate).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
+                    {driver.joinedDate
+                      ? new Date(driver.joinedDate).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })
+                      : "N/A"}
                   </p>
                 </div>
               </div>
             </div>
+
+            {/* Location Info */}
+            {(driver.address !== "Not provided" ||
+              driver.city !== "Not provided" ||
+              driver.pincode !== "Not provided") && (
+              <div className="bg-[#eafde7] rounded-xl p-4">
+                <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-[#3A7717]" /> Location
+                  Information
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <p className="text-gray-500">Address</p>
+                    <p className="font-semibold text-[#01312D]">
+                      {driver.address}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">City</p>
+                    <p className="font-semibold text-[#01312D]">
+                      {driver.city}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Postal Code</p>
+                    <p className="font-semibold text-[#01312D]">
+                      {driver.pincode}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Vehicle Info */}
             <div className="bg-[#eafde7] rounded-xl p-4">
               <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
                 <Car className="w-4 h-4 text-[#3A7717]" /> Vehicle Information
               </h3>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
                 <div>
                   <p className="text-gray-500">Registration Number</p>
-                  <p className="font-semibold text-[#01312D]">
+                  <p className="font-semibold text-[#01312D] uppercase">
                     {driver.carRegistration || "N/A"}
                   </p>
                 </div>
@@ -1518,14 +1639,81 @@ export default function AdminDashboard() {
                     {driver.carColor || "N/A"}
                   </p>
                 </div>
+                <div>
+                  <p className="text-gray-500">Ownership Status</p>
+                  <p className="font-semibold text-[#01312D] capitalize">
+                    {driver.ownershipStatus === "rent" ? "Renting" : "Owner"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Reference & Owner Info */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <Users className="w-4 h-4 text-[#3A7717]" /> Reference & Owner Info
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div className="space-y-2">
+                  <p className="font-bold text-[#3A7717] border-b border-[#3A7717]/10 pb-1">Kapuka Member Reference</p>
+                  <div>
+                    <p className="text-gray-500">Name</p>
+                    <p className="font-semibold text-[#01312D]">{driver.referenceName}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Phone</p>
+                    <p className="font-semibold text-[#01312D]">{driver.referencePhone}</p>
+                  </div>
+                </div>
+                {driver.ownershipStatus === "rent" && (
+                  <div className="space-y-2">
+                    <p className="font-bold text-[#3A7717] border-b border-[#3A7717]/10 pb-1">Car Owner Details</p>
+                    <div>
+                      <p className="text-gray-500">Name</p>
+                      <p className="font-semibold text-[#01312D]">{driver.carOwnerName}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Phone</p>
+                      <p className="font-semibold text-[#01312D]">{driver.carOwnerPhone}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Address</p>
+                      <p className="font-semibold text-[#01312D] text-xs">{driver.carOwnerAddress}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Policy Agreements */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-[#3A7717]" /> Policy Agreements
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {[
+                  { label: "Information Accuracy", checked: driver.agreeAccuracy },
+                  { label: "Ref Tenure (1+ month)", checked: driver.agreeRefTenure },
+                  { label: "Owner Consent", checked: driver.agreeOwnerContact, hide: driver.ownershipStatus !== "rent" },
+                  { label: "Repayment Schedule", checked: driver.agreeRepayment },
+                  { label: "Escalation Policy", checked: driver.agreeEscalation },
+                ].map((item, i) => !item.hide && (
+                  <div key={i} className="flex items-center gap-2 bg-white/50 p-2 rounded-lg border border-[#3A7717]/5">
+                    {item.checked ? (
+                      <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                    )}
+                    <span className="text-xs font-medium text-[#01312D]">{item.label}</span>
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* Stats */}
             <div className="bg-[#eafde7] rounded-xl p-4">
               <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-[#3A7717]" /> Driver
-                Statistics
+                <TrendingUp className="w-4 h-4 text-[#3A7717]" /> Driver Statistics
               </h3>
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div>
@@ -1549,10 +1737,49 @@ export default function AdminDashboard() {
               </div>
             </div>
 
+            {/* Documents Section */}
             <div className="bg-[#eafde7] rounded-xl p-4">
               <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
-                <Shield className="w-4 h-4 text-[#3A7717]" /> Verification
-                Status
+                <FileText className="w-4 h-4 text-[#3A7717]" /> Uploaded Documents
+              </h3>
+              {driver.drivingLicenseUrl || driver.carRegistrationUrl || driver.profilePhotoUrl ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {driver.drivingLicenseUrl && (
+                    <div className="bg-white rounded-lg p-3 text-center">
+                      <FileText className="w-8 h-8 text-[#3A7717] mx-auto mb-2" />
+                      <p className="text-xs text-gray-500 mb-1">Driver's License</p>
+                      <a href={driver.drivingLicenseUrl} target="_blank" rel="noopener noreferrer" className="text-[#3A7717] text-xs hover:underline inline-flex items-center gap-1">
+                        <Eye className="w-3 h-3" /> View
+                      </a>
+                    </div>
+                  )}
+                  {driver.carRegistrationUrl && (
+                    <div className="bg-white rounded-lg p-3 text-center">
+                      <FileText className="w-8 h-8 text-[#3A7717] mx-auto mb-2" />
+                      <p className="text-xs text-gray-500 mb-1">Car Registration</p>
+                      <a href={driver.carRegistrationUrl} target="_blank" rel="noopener noreferrer" className="text-[#3A7717] text-xs hover:underline inline-flex items-center gap-1">
+                        <Eye className="w-3 h-3" /> View
+                      </a>
+                    </div>
+                  )}
+                  {driver.profilePhotoUrl && (
+                    <div className="bg-white rounded-lg p-3 text-center">
+                      <img src={driver.profilePhotoUrl} alt="Profile" className="w-16 h-16 rounded-full mx-auto mb-2 object-cover" />
+                      <p className="text-xs text-gray-500 mb-1">Profile Photo</p>
+                      <a href={driver.profilePhotoUrl} target="_blank" rel="noopener noreferrer" className="text-[#3A7717] text-xs hover:underline inline-flex items-center gap-1">
+                        <Eye className="w-3 h-3" /> View
+                      </a>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-2">No documents uploaded</p>
+              )}
+            </div>
+
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-[#3A7717]" /> Verification Status
               </h3>
               <div className="flex items-center justify-between">
                 <span className="text-gray-500">Current Status:</span>

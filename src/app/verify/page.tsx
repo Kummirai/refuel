@@ -266,6 +266,17 @@ export default function VerifyPage() {
     carModel: "",
     carYear: "",
     carColor: "",
+    ownershipStatus: "own",
+    referenceName: "",
+    referencePhone: "",
+    carOwnerName: "",
+    carOwnerPhone: "",
+    carOwnerAddress: "",
+    agreeAccuracy: false,
+    agreeRefTenure: false,
+    agreeOwnerContact: false,
+    agreeRepayment: false,
+    agreeEscalation: false,
   });
 
   const [uploadedUrls, setUploadedUrls] = useState({
@@ -291,13 +302,29 @@ export default function VerifyPage() {
     );
   };
 
+  const allAgreed = () => {
+    const basic = formData.agreeAccuracy && formData.agreeRefTenure && formData.agreeRepayment && formData.agreeEscalation;
+    if (formData.ownershipStatus === "rent") return basic && formData.agreeOwnerContact;
+    return basic;
+  };
+
   const isStep2Completed = () => {
-    return !!(
+    const basicVehicle = !!(
       formData.carRegistrationNumber &&
       formData.carModel &&
       formData.carYear &&
       formData.carColor
     );
+    
+    if (!basicVehicle) return false;
+
+    const hasRef = !!(formData.referenceName && formData.referencePhone);
+    if (!hasRef) return false;
+
+    if (formData.ownershipStatus === "own") return allAgreed();
+
+    const hasOwner = !!(formData.carOwnerName && formData.carOwnerPhone && formData.carOwnerAddress);
+    return hasOwner && allAgreed();
   };
 
   const isStep3Completed = () => {
@@ -357,6 +384,17 @@ export default function VerifyPage() {
             carModel: profile.carModel || "",
             carYear: profile.carYear || "",
             carColor: profile.carColor || "",
+            ownershipStatus: profile.ownershipStatus || "own",
+            referenceName: profile.referenceName || "",
+            referencePhone: profile.referencePhone || "",
+            carOwnerName: profile.carOwnerName || "",
+            carOwnerPhone: profile.carOwnerPhone || "",
+            carOwnerAddress: profile.carOwnerAddress || "",
+            agreeAccuracy: profile.agreeAccuracy || false,
+            agreeRefTenure: profile.agreeRefTenure || false,
+            agreeOwnerContact: profile.agreeOwnerContact || false,
+            agreeRepayment: profile.agreeRepayment || false,
+            agreeEscalation: profile.agreeEscalation || false,
           });
 
           if (
@@ -438,6 +476,17 @@ export default function VerifyPage() {
           carModel: formData.carModel,
           carYear: formData.carYear,
           carColor: formData.carColor,
+          ownershipStatus: formData.ownershipStatus,
+          referenceName: formData.referenceName,
+          referencePhone: formData.referencePhone,
+          carOwnerName: formData.carOwnerName,
+          carOwnerPhone: formData.carOwnerPhone,
+          carOwnerAddress: formData.carOwnerAddress,
+          agreeAccuracy: formData.agreeAccuracy,
+          agreeRefTenure: formData.agreeRefTenure,
+          agreeOwnerContact: formData.agreeOwnerContact,
+          agreeRepayment: formData.agreeRepayment,
+          agreeEscalation: formData.agreeEscalation,
           drivingLicenseUrl: uploadedUrls.driversLicense,
           carRegistrationUrl: uploadedUrls.carRegistration,
           profilePhotoUrl: uploadedUrls.profilePhoto,
@@ -774,9 +823,10 @@ export default function VerifyPage() {
             </div>
           )}
 
-          {/* Step 2 - Vehicle Info */}
+          {/* Step 2 - Vehicle & Reference Info */}
           {step === 2 && (
             <div className="space-y-4">
+              {/* Vehicle Information */}
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
                 <h2 className="text-lg font-bold text-[#01312D] mb-4 flex items-center gap-2">
                   <Car className="w-5 h-5 text-[#3A7717]" /> Vehicle Information
@@ -796,7 +846,7 @@ export default function VerifyPage() {
                           carRegistrationNumber: e.target.value.toUpperCase(),
                         })
                       }
-                      placeholder="e.g., KA01AB1234"
+                      placeholder="e.g., ABC123GP"
                       className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] uppercase"
                     />
                   </div>
@@ -810,7 +860,7 @@ export default function VerifyPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, carModel: e.target.value })
                       }
-                      placeholder="e.g., Toyota Innova"
+                      placeholder="e.g., Toyota Corolla"
                       className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
                     />
                   </div>
@@ -825,7 +875,7 @@ export default function VerifyPage() {
                         onChange={(e) =>
                           setFormData({ ...formData, carYear: e.target.value })
                         }
-                        placeholder="2024"
+                        placeholder="2020"
                         className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
                       />
                     </div>
@@ -833,32 +883,211 @@ export default function VerifyPage() {
                       <label className="block text-[#01312D] font-semibold mb-2 text-sm">
                         Color
                       </label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={formData.carColor}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              carColor: e.target.value,
-                            })
-                          }
-                          placeholder="e.g., White"
-                          className="flex-1 px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
-                        />
-                        {formData.carColor && (
-                          <div
-                            className="w-12 h-12 rounded-xl border border-gray-200"
-                            style={{
-                              backgroundColor: formData.carColor.toLowerCase(),
-                            }}
-                          />
-                        )}
-                      </div>
+                      <input
+                        type="text"
+                        value={formData.carColor}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            carColor: e.target.value,
+                          })
+                        }
+                        placeholder="e.g., White"
+                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                      />
                     </div>
                   </div>
                 </div>
+
+                <div className="my-6 border-t border-gray-100" />
+
+                <h2 className="text-md font-bold text-[#01312D] mb-4">
+                  Ownership Details
+                </h2>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, ownershipStatus: "own" })}
+                    className={`flex-1 py-3 rounded-xl font-semibold border transition-all ${
+                      formData.ownershipStatus === "own"
+                        ? "bg-[#01312D] text-white border-[#01312D]"
+                        : "bg-white text-[#01312D] border-gray-200"
+                    }`}
+                  >
+                    I own the car
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, ownershipStatus: "rent" })}
+                    className={`flex-1 py-3 rounded-xl font-semibold border transition-all ${
+                      formData.ownershipStatus === "rent"
+                        ? "bg-[#01312D] text-white border-[#01312D]"
+                        : "bg-white text-[#01312D] border-gray-200"
+                    }`}
+                  >
+                    I am renting
+                  </button>
+                </div>
               </div>
+
+              {/* Reference Information */}
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
+                <h2 className="text-lg font-bold text-[#01312D] mb-1 flex items-center gap-2">
+                  <User className="w-5 h-5 text-[#3A7717]" /> Kapuka Member Reference
+                </h2>
+                <p className="text-xs text-gray-500 mb-4">Provide details of an existing Kapuka member (1+ month member).</p>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                      Member Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.referenceName}
+                      onChange={(e) =>
+                        setFormData({ ...formData, referenceName: e.target.value })
+                      }
+                      placeholder="Enter member's full name"
+                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                      Member Phone Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.referencePhone}
+                      onChange={(e) =>
+                        setFormData({ ...formData, referencePhone: e.target.value })
+                      }
+                      placeholder="Enter member's phone number"
+                      className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Car Owner Information (Only if renting) */}
+              {formData.ownershipStatus === "rent" && (
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
+                  <h2 className="text-lg font-bold text-[#01312D] mb-4">
+                    Car Owner Information
+                  </h2>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                        Owner Full Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.carOwnerName}
+                        onChange={(e) =>
+                          setFormData({ ...formData, carOwnerName: e.target.value })
+                        }
+                        placeholder="Enter owner's full name"
+                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                        Owner Phone Number <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        value={formData.carOwnerPhone}
+                        onChange={(e) =>
+                          setFormData({ ...formData, carOwnerPhone: e.target.value })
+                        }
+                        placeholder="Enter owner's phone number"
+                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                        Owner Address <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        value={formData.carOwnerAddress}
+                        onChange={(e) =>
+                          setFormData({ ...formData, carOwnerAddress: e.target.value })
+                        }
+                        placeholder="Enter owner's address"
+                        rows={2}
+                        className="w-full px-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] resize-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Policy Agreement Checklist */}
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#bff202]/20">
+                <h2 className="text-lg font-bold text-[#01312D] mb-1 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-[#3A7717]" /> Policy Agreement Checklist
+                </h2>
+                <p className="text-xs text-gray-500 mb-4">Please read and acknowledge each point below.</p>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                    <input
+                      type="checkbox"
+                      checked={formData.agreeAccuracy}
+                      onChange={() => setFormData({ ...formData, agreeAccuracy: !formData.agreeAccuracy })}
+                      className="mt-1 w-5 h-5 accent-[#3A7717] rounded"
+                    />
+                    <label className="text-sm text-[#01312D] font-medium leading-tight cursor-pointer">
+                      I certify that all information provided is true and accurate.
+                    </label>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                    <input
+                      type="checkbox"
+                      checked={formData.agreeRefTenure}
+                      onChange={() => setFormData({ ...formData, agreeRefTenure: !formData.agreeRefTenure })}
+                      className="mt-1 w-5 h-5 accent-[#3A7717] rounded"
+                    />
+                    <label className="text-sm text-[#01312D] font-medium leading-tight cursor-pointer">
+                      I understand that my Kapuka Member Reference must have been active for at least 1 month.
+                    </label>
+                  </div>
+                  {formData.ownershipStatus === "rent" && (
+                    <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                      <input
+                        type="checkbox"
+                        checked={formData.agreeOwnerContact}
+                        onChange={() => setFormData({ ...formData, agreeOwnerContact: !formData.agreeOwnerContact })}
+                        className="mt-1 w-5 h-5 accent-[#3A7717] rounded"
+                      />
+                      <label className="text-sm text-[#01312D] font-medium leading-tight cursor-pointer">
+                        I consent to Kapuka contacting my car owner to verify my payment history.
+                      </label>
+                    </div>
+                  )}
+                  <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                    <input
+                      type="checkbox"
+                      checked={formData.agreeRepayment}
+                      onChange={() => setFormData({ ...formData, agreeRepayment: !formData.agreeRepayment })}
+                      className="mt-1 w-5 h-5 accent-[#3A7717] rounded"
+                    />
+                    <label className="text-sm text-[#01312D] font-medium leading-tight cursor-pointer">
+                      I agree to follow the repayment schedule and cooperate with the Kapuka team.
+                    </label>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                    <input
+                      type="checkbox"
+                      checked={formData.agreeEscalation}
+                      onChange={() => setFormData({ ...formData, agreeEscalation: !formData.agreeEscalation })}
+                      className="mt-1 w-5 h-5 accent-[#3A7717] rounded"
+                    />
+                    <label className="text-sm text-[#01312D] font-medium leading-tight cursor-pointer">
+                      I acknowledge that failing to cooperate in paying back will result in a 2-week grace period before escalation.
+                    </label>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex gap-3">
                 <button
                   type="button"

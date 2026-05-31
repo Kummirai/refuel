@@ -79,6 +79,24 @@ export async function GET() {
         activeLoan: profile?.activeLoan || null,
         joinedDate: driver.createdAt,
         lastActive: driver.updatedAt,
+        address: profile?.address || "Not provided",
+        city: profile?.city || "Not provided",
+        pincode: profile?.pincode || "Not provided",
+        dateOfBirth: profile?.dateOfBirth || "Not provided",
+        ownershipStatus: profile?.ownershipStatus || "own",
+        referenceName: profile?.referenceName || "Not provided",
+        referencePhone: profile?.referencePhone || "Not provided",
+        carOwnerName: profile?.carOwnerName || "Not provided",
+        carOwnerPhone: profile?.carOwnerPhone || "Not provided",
+        carOwnerAddress: profile?.carOwnerAddress || "Not provided",
+        agreeAccuracy: profile?.agreeAccuracy || false,
+        agreeRefTenure: profile?.agreeRefTenure || false,
+        agreeOwnerContact: profile?.agreeOwnerContact || false,
+        agreeRepayment: profile?.agreeRepayment || false,
+        agreeEscalation: profile?.agreeEscalation || false,
+        drivingLicenseUrl: profile?.drivingLicenseUrl,
+        carRegistrationUrl: profile?.carRegistrationUrl,
+        profilePhotoUrl: profile?.profilePhotoUrl,
       };
     });
 
@@ -120,6 +138,17 @@ export async function GET() {
         drivingLicenseUrl: v.drivingLicenseUrl,
         carRegistrationUrl: v.carRegistrationUrl,
         profilePhotoUrl: v.profilePhotoUrl,
+        ownershipStatus: v.ownershipStatus,
+        referenceName: v.referenceName,
+        referencePhone: v.referencePhone,
+        carOwnerName: v.carOwnerName,
+        carOwnerPhone: v.carOwnerPhone,
+        carOwnerAddress: v.carOwnerAddress,
+        agreeAccuracy: v.agreeAccuracy,
+        agreeRefTenure: v.agreeRefTenure,
+        agreeOwnerContact: v.agreeOwnerContact,
+        agreeRepayment: v.agreeRepayment,
+        agreeEscalation: v.agreeEscalation,
       };
     });
 
