@@ -6,7 +6,7 @@ import { toMoney } from "@/lib/money";
 
 export async function POST(request: Request) {
   try {
-    const { repaymentId, amount, method, reference, date, proofUrl, proofPublicId, proofId } =
+    const { repaymentId, amount, method, reference, date, proofUrl, proofPublicId } =
       await request.json();
 
     if (!repaymentId || !amount || amount <= 0) {
@@ -75,48 +75,50 @@ export async function POST(request: Request) {
       });
     }
 
-    // 3. If this payment is for a bulk proof, track individual approval
-    if (proofId) {
-      const proof = await repaymentProofsCollection.findOne({
-        _id: new ObjectId(proofId),
-      });
-      if (proof && proof.requestIds && proof.requestIds.length > 0) {
-        // Add this repaymentId to the proof's approvedRequestIds
-        const approvedRequestIds = proof.approvedRequestIds || [];
-        if (!approvedRequestIds.includes(repaymentId)) {
-          approvedRequestIds.push(repaymentId);
-        }
+    // 3. Auto-approve any pending repayment proofs linked to this loan
+    const pendingProofs = await repaymentProofsCollection.find({
+      $or: [
+        { requestId: repaymentId },
+        { requestIds: repaymentId },
+      ],
+      status: "pending",
+    }).toArray();
 
-        // Clear pending flags for this specific request
-        await serviceRequestsCollection.updateOne(
-          { _id: new ObjectId(repaymentId) },
-          {
-            $unset: {
-              hasPendingRepayment: "",
-              pendingRepaymentAmount: "",
-              pendingRepaymentId: "",
-            },
-          },
-        );
-
-        // Check if all linked requests are now approved
-        const allApproved = proof.requestIds.every(
-          (id: string) => approvedRequestIds.includes(id),
-        );
-
-        await repaymentProofsCollection.updateOne(
-          { _id: new ObjectId(proofId) },
-          {
-            $set: {
-              approvedRequestIds,
-              status: allApproved ? "approved" : proof.status,
-              approvedAt: allApproved ? new Date() : proof.approvedAt,
-              updatedAt: new Date(),
-            },
-          },
-        );
+    for (const proof of pendingProofs) {
+      const approvedRequestIds = proof.approvedRequestIds || [];
+      if (!approvedRequestIds.includes(repaymentId)) {
+        approvedRequestIds.push(repaymentId);
       }
+
+      const allLinkedIds = proof.requestIds || (proof.requestId ? [proof.requestId] : []);
+      const allApproved = allLinkedIds.every((id: string) =>
+        approvedRequestIds.includes(id),
+      );
+
+      await repaymentProofsCollection.updateOne(
+        { _id: proof._id },
+        {
+          $set: {
+            approvedRequestIds,
+            status: allApproved ? "approved" : proof.status,
+            approvedAt: allApproved ? new Date() : proof.approvedAt,
+            updatedAt: new Date(),
+          },
+        },
+      );
     }
+
+    // Clear pending flags on this service request regardless of proofId
+    await serviceRequestsCollection.updateOne(
+      { _id: new ObjectId(repaymentId) },
+      {
+        $unset: {
+          hasPendingRepayment: "",
+          pendingRepaymentAmount: "",
+          pendingRepaymentId: "",
+        },
+      },
+    );
 
     // 4. Update the repayment request status if it exists and is now fully paid
     if (isFullyPaid) {

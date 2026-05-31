@@ -240,15 +240,14 @@ export default function HomePage() {
 
           <button
             onClick={config.buttonAction}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap ${
-              verificationStatus === "pending"
-                ? "bg-yellow-600 text-white"
-                : verificationStatus === "rejected"
-                  ? "bg-red-600 text-white"
-                  : verificationStatus === "approved"
-                    ? "bg-[#3A7717] text-white"
-                    : "bg-[#01312D] text-white"
-            }`}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap ${verificationStatus === "pending"
+              ? "bg-yellow-600 text-white"
+              : verificationStatus === "rejected"
+                ? "bg-red-600 text-white"
+                : verificationStatus === "approved"
+                  ? "bg-[#3A7717] text-white"
+                  : "bg-[#01312D] text-white"
+              }`}
           >
             {config.buttonText} →
           </button>
@@ -326,11 +325,10 @@ export default function HomePage() {
             <div className="flex items-center gap-2 flex-wrap justify-end">
               {isLoggedIn && (
                 <div
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-150 ${
-                    isAdmin
-                      ? "bg-[#bff202] text-[#01312D]"
-                      : "bg-[#bff202] text-[#01312D]"
-                  }`}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-150 ${isAdmin
+                    ? "bg-[#bff202] text-[#01312D]"
+                    : "bg-[#bff202] text-[#01312D]"
+                    }`}
                 >
                   {isAdmin ? (
                     <Shield className="w-3 h-3" />
@@ -509,11 +507,10 @@ export default function HomePage() {
                 <button
                   onClick={() => handleServiceRequest("fuel")}
                   disabled={isLoggedIn && verificationStatus !== "approved"}
-                  className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
-                    isLoggedIn && verificationStatus !== "approved"
-                      ? "opacity-50 cursor-not-allowed"
-                      : ""
-                  }`}
+                  className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${isLoggedIn && verificationStatus !== "approved"
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                    }`}
                 >
                   <div className="bg-linear-to-r from-[#3A7717] to-[#72bf00] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                     <Fuel className="w-6 h-6 text-white" />
@@ -530,11 +527,10 @@ export default function HomePage() {
                 <button
                   onClick={() => handleServiceRequest("carwash")}
                   disabled={isLoggedIn && verificationStatus !== "approved"}
-                  className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${
-                    isLoggedIn && verificationStatus !== "approved"
-                      ? "opacity-50 cursor-not-allowed"
-                      : ""
-                  }`}
+                  className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${isLoggedIn && verificationStatus !== "approved"
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                    }`}
                 >
                   <div className="bg-linear-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                     <Car className="w-6 h-6 text-white" />

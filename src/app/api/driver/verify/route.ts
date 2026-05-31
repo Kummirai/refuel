@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     const { db } = await connectToDatabase();
     const driverProfiles = db.collection("driverProfiles");
-    const usersCollection = db.collection("users");
+    const usersCollection = db.collection("user");
 
     // Get user details for email - FIXED: Convert string ID to ObjectId if needed
     let user;
@@ -64,6 +64,21 @@ export async function POST(request: NextRequest) {
     if (!user) {
       console.error("User not found for userId:", userId);
       // Don't return error, continue with verification but log the issue
+    }
+
+    // Check if verification is already under review or approved
+    if (user?.verificationStatus === "pending") {
+      return NextResponse.json(
+        { error: "Verification is already under review. Please wait for admin approval." },
+        { status: 400 },
+      );
+    }
+
+    if (user?.verificationStatus === "approved" || user?.isVerified === true) {
+      return NextResponse.json(
+        { error: "Your account is already verified." },
+        { status: 400 },
+      );
     }
 
     // Update or create driver profile
