@@ -136,10 +136,13 @@ export async function GET(request: NextRequest) {
       (r) => r.status === "sent",
     ).length;
     const completed = requestsWithDetails.filter(
-      (r) => r.status === "completed",
+      (r) => r.status === "completed" && !r.refueledByManager,
     ).length;
     const rejected = requestsWithDetails.filter(
       (r) => r.status === "rejected",
+    ).length;
+    const refueled = requestsWithDetails.filter(
+      (r) => r.status === "completed" && r.refueledByManager,
     ).length;
 
     // Calculate total revenue based on actualAmount if available, otherwise amount
@@ -178,6 +181,7 @@ export async function GET(request: NextRequest) {
       totalRevenue,
       totalRepayable,
       totalRepaid,
+      refueled,
     },);
   } catch (error) {
     console.error("Error fetching requests:", error);

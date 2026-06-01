@@ -16,12 +16,16 @@ export async function GET(request: Request) {
     let query: any = {};
 
     if (status === "pending") {
-      // Completed requests where receipt is NOT yet verified
-      query.completedDate = { $ne: null };
-      query.$nor = [
-        { hasReceipt: true },
-        { receiptStatus: "verified" },
-      ];
+      // Completed requests where receipt is uploaded but NOT yet verified
+      // Exclude manager-confirmed requests without popUrl (they go to noReceipt tab)
+      query = {
+        completedDate: { $ne: null },
+        popUrl: { $exists: true, $nin: [null, ""] },
+        $nor: [
+          { hasReceipt: true },
+          { receiptStatus: "verified" },
+        ],
+      };
     } else if (status === "verified") {
       // Completed requests with verified receipts
       query.completedDate = { $ne: null };
@@ -31,11 +35,24 @@ export async function GET(request: Request) {
       ];
     } else if (status === "noreceipt") {
       query = {
-        status: { $in: ["approved", "sent"] },
         $or: [
-          { popUrl: { $exists: false } },
-          { popUrl: null },
-          { popUrl: "" },
+          {
+            status: { $in: ["approved", "sent"] },
+            $or: [
+              { popUrl: { $exists: false } },
+              { popUrl: null },
+              { popUrl: "" },
+            ],
+          },
+          {
+            status: "completed",
+            refueledByManager: true,
+            $or: [
+              { popUrl: { $exists: false } },
+              { popUrl: null },
+              { popUrl: "" },
+            ],
+          },
         ],
       };
     }

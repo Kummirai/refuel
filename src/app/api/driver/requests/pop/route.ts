@@ -81,12 +81,12 @@ export async function POST(request: NextRequest) {
 
     // Calculate total repayable if interest is provided
     const finalTotalRepayable =
-      totalRepayable ||
+      totalRepayable ??
       (interest
         ? toMoney(actualAmount + (actualAmount * interest) / 100)
         : actualAmount);
-    const finalDailyPayment = dailyPayment || toMoney(finalTotalRepayable / 7);
-    const finalRepaymentDays = repaymentDays || 7;
+    const finalDailyPayment = dailyPayment ?? toMoney(finalTotalRepayable / 7);
+    const finalRepaymentDays = repaymentDays ?? 7;
 
     // Update the request
     const updateResult = await requestsCollection.updateOne(
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
           popUrl: popUrl,
           popPublicId: popPublicId || `pop_${requestId}_${Date.now()}`,
           popUploadedAt: new Date(),
-          interest: interest || (existingRequest.type === "cash" ? 15 : 0),
+          interest: interest ?? (existingRequest.type === "cash" ? 15 : 0),
           totalRepayable: finalTotalRepayable,
           dailyPayment: finalDailyPayment,
           repaymentDays: finalRepaymentDays,
@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
     const calculatedInterestRate =
       calculatedInterestAmount > 0 && actualAmount > 0
         ? Math.round((calculatedInterestAmount / actualAmount) * 100)
-        : existingRequest.interestRate || 13;
+        : existingRequest.interestRate ?? 13;
     const carWashServiceCharge =
       isCarWash && actualAmount > existingRequest.amount
         ? toMoney(actualAmount - existingRequest.amount)

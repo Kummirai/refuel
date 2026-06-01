@@ -10,7 +10,8 @@
     "backup": "ts-node scripts/backup.ts",
     "restore": "ts-node scripts/restore.ts",
     "create-admin": "ts-node scripts/create-admin.ts",
-    "create-manager": "ts-node scripts/create-manager.ts"
+    "create-manager": "ts-node scripts/create-manager.ts",
+    "fix-carwash": "ts-node scripts/fix-carwash-charges.ts"
   },
   "type": "module",
   "dependencies": {

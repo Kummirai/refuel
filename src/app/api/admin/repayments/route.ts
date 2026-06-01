@@ -97,7 +97,7 @@ export async function GET() {
         const dueDate = approvedDate
           ? new Date(
               new Date(approvedDate).getTime() +
-                (loan.repaymentDays || 7) * 24 * 60 * 60 * 1000,
+                (loan.repaymentDays ?? 7) * 24 * 60 * 60 * 1000,
             )
           : new Date();
 
@@ -149,9 +149,9 @@ export async function GET() {
           requestedAmount: loan.amount,
           actualAmount: loan.actualAmount || null,
           amount: loan.actualAmount || loan.amount,
-          interestRate: loan.interestRate || 13,
+          interestRate: loan.interestRate ?? 13,
           interest:
-            loan.interest ||
+            loan.interest ??
             toMoney((loan.actualAmount || loan.amount) * 0.13),
           totalRepayable: totalRepayable,
           repaidAmount: repaidAmount,
@@ -161,9 +161,9 @@ export async function GET() {
           isPaid: isPaid,
           isServiceCompleted: isServiceCompleted,
           dailyPayment:
-            loan.dailyPayment ||
-            toMoney(totalRepayable / (loan.repaymentDays || 7)),
-          repaymentDays: loan.repaymentDays || 7,
+            loan.dailyPayment ??
+            toMoney(totalRepayable / (loan.repaymentDays ?? 7)),
+          repaymentDays: loan.repaymentDays ?? 7,
           nextPaymentDate: new Date().toISOString(),
           lastPaymentDate: loan.lastPaymentDate,
           approvedDate: loan.approvedDate,

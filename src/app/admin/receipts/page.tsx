@@ -811,7 +811,7 @@ Kapuka Tradings Team`;
             All receipts uploaded
           </h3>
           <p className="text-gray-500">
-            All approved/sent requests have receipts uploaded.
+            All approved/sent and manager-confirmed requests have receipts uploaded.
           </p>
         </div>
       ) : activeTab === "noreceipt" ? (

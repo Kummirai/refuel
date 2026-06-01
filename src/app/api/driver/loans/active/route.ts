@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
         remaining: remaining,
         repaid: repaid,
         dailyPayment: dailyPayment,
-        interestRate: activeLoan.interestRate || 13,
+        interestRate: activeLoan.interestRate ?? 13,
         dueDate: activeLoan.approvedDate
           ? new Date(
               new Date(activeLoan.approvedDate).getTime() +

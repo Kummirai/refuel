@@ -105,7 +105,7 @@ const CLOUDINARY_UPLOAD_PRESET = "driver_documents";
 export default function AdminServiceRequestsPage() {
   const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<
-    "all" | "pending" | "approved" | "sent" | "completed" | "rejected"
+    "all" | "pending" | "approved" | "sent" | "completed" | "rejected" | "refueled"
   >("pending");
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(
     null,
@@ -137,6 +137,7 @@ export default function AdminServiceRequestsPage() {
     sent: 0,
     completed: 0,
     rejected: 0,
+    refueled: 0,
     totalRequestedAmount: 0,
     totalActualAmount: 0,
     totalInterest: 0,
@@ -203,6 +204,7 @@ export default function AdminServiceRequestsPage() {
           sent: data.sent || 0,
           completed: data.completed || 0,
           rejected: data.rejected || 0,
+          refueled: data.refueled || 0,
           totalRequestedAmount,
           totalActualAmount,
           totalInterest,
@@ -457,7 +459,15 @@ export default function AdminServiceRequestsPage() {
     setTimeout(() => setCopiedOtp(null), 2000);
   };
 
-  const getStatusBadge = (status: RequestStatus) => {
+  const getStatusBadge = (status: RequestStatus, refueledByManager?: boolean) => {
+    if (status === "completed" && refueledByManager) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-amber-100 text-amber-700">
+          <CheckCircle className="w-3 h-3" />
+          Refueled
+        </span>
+      );
+    }
     const config = {
       pending: {
         icon: Clock,
@@ -543,7 +553,12 @@ export default function AdminServiceRequestsPage() {
   };
 
   const filteredRequests = requests
-    .filter((r) => selectedTab === "all" || r.status === selectedTab)
+    .filter((r) => {
+      if (selectedTab === "all") return true;
+      if (selectedTab === "refueled") return r.status === "completed" && r.refueledByManager;
+      if (selectedTab === "completed") return r.status === "completed" && !r.refueledByManager;
+      return r.status === selectedTab;
+    })
     .filter((r) => selectedType === "all" || r.type === selectedType)
     .filter(
       (r) =>
@@ -2628,7 +2643,7 @@ Kapuka Tradings`;
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-2 border-b border-[#BFF202]/20 overflow-x-auto pb-0">
-        {["all", "pending", "approved", "sent", "completed", "rejected"].map(
+        {["all", "pending", "approved", "sent", "refueled", "completed", "rejected"].map(
           (tab) => (
             <button
               key={tab}
@@ -2653,6 +2668,11 @@ Kapuka Tradings`;
               {tab === "sent" && stats.sent > 0 && (
                 <span className="ml-1 px-1.5 py-0.5 bg-purple-500 text-white text-xs rounded-full">
                   {stats.sent}
+                </span>
+              )}
+              {tab === "refueled" && stats.refueled > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 bg-amber-500 text-white text-xs rounded-full">
+                  {stats.refueled}
                 </span>
               )}
               {tab === "completed" && stats.completed > 0 && (
@@ -2728,7 +2748,7 @@ Kapuka Tradings`;
                         <p className="font-bold text-[#01312D]">
                           {getTypeLabel(request.type)}
                         </p>
-                        {getStatusBadge(request.status)}
+                        {getStatusBadge(request.status, request.refueledByManager)}
                         {hasActualAmount && amountDifference !== 0 && (
                           <span className="text-xs bg-[#BFF202]/20 text-[#01312D] px-2 py-0.5 rounded-full">
                             Amount Adjusted

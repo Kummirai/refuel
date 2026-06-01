@@ -65,8 +65,8 @@ export async function POST(request: Request) {
     // Recalculate financial fields when actualAmount changes
     if (recalculated) {
       const newActualAmount = parseFloat(setFields.actualAmount) || 0;
-      const interestRate = existing.interestRate || 13;
-      const repaymentDays = existing.repaymentDays || 7;
+      const interestRate = existing.interestRate ?? 13;
+      const repaymentDays = existing.repaymentDays ?? 7;
 
       if (newActualAmount > 0) {
         const totalRepayable = toMoney(newActualAmount * (1 + interestRate / 100));

@@ -98,8 +98,8 @@ export async function POST(request: NextRequest) {
         if (amount > 0) {
           updateData.actualAmount = amount;
 
-          const interestRate = existing.interestRate || 13;
-          const repaymentDays = existing.repaymentDays || 7;
+          const interestRate = existing.interestRate ?? 13;
+          const repaymentDays = existing.repaymentDays ?? 7;
           const totalRepayable = toMoney(amount * (1 + interestRate / 100));
           const interestAmount = toMoney(totalRepayable - amount);
 

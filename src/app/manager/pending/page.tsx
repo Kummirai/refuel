@@ -250,7 +250,7 @@ export default function ManagerPendingPage() {
                   </div>
                   <button
                     onClick={() => { setDetailRequest(req); setShowDetailModal(true); }}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-[#01312D] text-white rounded-xl font-semibold text-sm hover:bg-[#012520] transition-colors whitespace-nowrap"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity whitespace-nowrap"
                   >
                     Details
                   </button>
@@ -362,11 +362,14 @@ export default function ManagerPendingPage() {
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setShowDetailModal(false); setDetailRequest(null); }} />
           <div className="relative bg-white rounded-2xl max-w-sm w-full shadow-2xl">
             <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] rounded-t-2xl p-6 text-center">
-              <p className="text-white/70 text-xs uppercase tracking-wider mb-1">{getTypeLabel(detailRequest.type)}</p>
+              <p className="text-white/60 text-xs uppercase tracking-widest font-semibold mb-1">{getTypeLabel(detailRequest.type)}</p>
               <h2 className="text-2xl font-bold text-white">{detailRequest.driverName}</h2>
               <p className="text-white/80 text-lg font-semibold mt-1">{detailRequest.carNumber}{detailRequest.carModel ? ` - ${detailRequest.carModel}` : ""}</p>
+              {detailRequest.fuelType && (
+                <p className="text-white/60 text-sm mt-1">{detailRequest.fuelType}</p>
+              )}
             </div>
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-6">
               {detailRequest.otp && (
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 text-center">
                   <p className="text-xs text-amber-700 uppercase tracking-wider font-semibold mb-2">One-Time Password</p>
@@ -378,16 +381,15 @@ export default function ManagerPendingPage() {
                 <p className="text-xs text-[#3A7717] uppercase tracking-wider font-semibold mb-1">Amount</p>
                 <p className="text-3xl font-bold text-[#01312D]">{formatMoney(detailRequest.amount)}</p>
               </div>
-              {detailRequest.fuelType && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Fuel Type</span>
-                  <span className="font-semibold text-[#01312D]">{detailRequest.fuelType}</span>
-                </div>
-              )}
               {detailRequest.approvedDate && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Approved</span>
-                  <span className="text-[#01312D]">{new Date(detailRequest.approvedDate).toLocaleString("en-ZA")}</span>
+                <div className="text-center">
+                  <p className="text-xs text-gray-400">Approved</p>
+                  <p className="text-sm font-semibold text-[#01312D]">
+                    {new Date(detailRequest.approvedDate).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {new Date(detailRequest.approvedDate).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
                 </div>
               )}
             </div>
@@ -400,7 +402,7 @@ export default function ManagerPendingPage() {
               </button>
               <button
                 onClick={() => { setShowDetailModal(false); setDetailRequest(null); openRefuelModal(detailRequest); }}
-                className="flex-1 px-4 py-2.5 bg-[#3A7717] text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5e12]"
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
               >
                 <CheckCircle className="w-4 h-4" />
                 Confirm Refuel

@@ -78,13 +78,13 @@ export async function POST(req: NextRequest) {
         const serviceTypeLabel =
           serviceTypeMap[serviceRequest.type] || serviceRequest.type;
         const actualAmount =
-          serviceRequest.actualAmount || serviceRequest.amount;
+          serviceRequest.actualAmount ?? serviceRequest.amount;
         const totalRepayable =
-          serviceRequest.totalRepayable || actualAmount;
-        const interestAmount = serviceRequest.interest || 0;
-        const interestRate = serviceRequest.interestRate || 13;
-        const dailyPayment = serviceRequest.dailyPayment || 0;
-        const repaymentDays = serviceRequest.repaymentDays || 7;
+          serviceRequest.totalRepayable ?? actualAmount;
+        const interestAmount = serviceRequest.interest ?? 0;
+        const interestRate = serviceRequest.interestRate ?? 13;
+        const dailyPayment = serviceRequest.dailyPayment ?? 0;
+        const repaymentDays = serviceRequest.repaymentDays ?? 7;
         const isCarWash = serviceRequest.type === "carwash";
         const carWashServiceCharge =
           isCarWash && actualAmount > serviceRequest.amount
