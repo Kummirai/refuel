@@ -2,7 +2,9 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { sendDriverWeeklyInvoiceEmail } from "@/lib/email";
+import { sendPushNotification } from "@/lib/notifications";
 import { toMoney } from "@/lib/money";
+import { ObjectId } from "mongodb";
 
 export async function POST(request: Request) {
   try {
@@ -22,6 +24,7 @@ export async function POST(request: Request) {
     const outstandingByUser: Record<
       string,
       {
+        userId: string;
         driverEmail: string;
         driverName: string;
         driverPhone?: string;
@@ -83,7 +86,7 @@ export async function POST(request: Request) {
           let user;
           try {
             user = await usersCollection.findOne({
-              _id: new (require("mongodb").ObjectId)(userId),
+              _id: new ObjectId(userId),
             });
           } catch {
             user = await usersCollection.findOne({ id: userId });
@@ -93,6 +96,7 @@ export async function POST(request: Request) {
         }
 
         outstandingByUser[userId] = {
+          userId,
           driverEmail,
           driverName,
           driverPhone,
@@ -143,6 +147,18 @@ export async function POST(request: Request) {
           totalOutstanding: entry.totalOutstanding,
           items: entry.items,
         });
+
+        // Trigger push notification if token exists
+        const user = await usersCollection.findOne({ _id: new ObjectId(entry.userId) });
+        if (user?.expoPushToken) {
+            await sendPushNotification(
+                user.expoPushToken,
+                "New Weekly Invoice",
+                `Your weekly invoice for R${entry.totalOutstanding} is ready.`,
+                { screen: "Invoices" }
+            );
+        }
+
         sent++;
       } catch (err) {
         console.error(
@@ -152,6 +168,7 @@ export async function POST(request: Request) {
         errors++;
       }
     }
+
 
     const driversList = Object.values(outstandingByUser).map((d) => ({
       driverName: d.driverName,

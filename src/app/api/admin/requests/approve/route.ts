@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { sendDriverApprovalEmail } from "@/lib/email";
+import { sendPushNotification } from "@/lib/notifications";
 
 export async function POST(request: Request) {
   try {
@@ -20,6 +21,7 @@ export async function POST(request: Request) {
     const { db } = await connectToDatabase();
     const serviceRequestsCollection = db.collection("serviceRequests");
     const driverProfilesCollection = db.collection("driverProfiles");
+    const usersCollection = db.collection("user");
 
     // Convert string ID to ObjectId
     let objectId;
@@ -79,6 +81,17 @@ export async function POST(request: Request) {
         },
       },
     );
+
+    // Trigger push notification if token exists
+    const user = await usersCollection.findOne({ _id: new ObjectId(requestDoc.userId) });
+    if (user?.expoPushToken) {
+      await sendPushNotification(
+        user.expoPushToken,
+        "Request Approved",
+        `Your request has been approved. OTP: ${otp}`,
+        { screen: "Requests" }
+      );
+    }
 
     // Send email notification to driver (run in background, don't await)
     (async () => {

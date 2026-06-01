@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { sendDriverInvoiceEmail } from "@/lib/email";
+import { sendPushNotification } from "@/lib/notifications";
 import { toMoney } from "@/lib/money";
 
 const serviceTypeMap: Record<string, string> = {
@@ -69,6 +70,16 @@ export async function POST(req: NextRequest) {
           });
         } catch {
           user = await usersCollection.findOne({ id: serviceRequest.userId });
+        }
+
+        // Trigger push notification if token exists
+        if (user?.expoPushToken) {
+            await sendPushNotification(
+              user.expoPushToken,
+              "Receipt Verified",
+              "Your receipt has been verified and your invoice is ready.",
+              { screen: "Invoices" }
+            );
         }
 
         const driverEmail =

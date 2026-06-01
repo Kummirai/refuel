@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { connectToDatabase } from "@/lib/db";
 import { sendAdminProfileChangeEmail } from "@/lib/email";
+import { sendPushNotification } from "@/lib/notifications";
+import { ObjectId } from "mongodb";
 
 export async function PUT(request: NextRequest) {
   try {
@@ -30,6 +32,17 @@ export async function PUT(request: NextRequest) {
       { userId: session.user.id },
       { $set: { driverPhone: phone.trim(), updatedAt: new Date() } },
     );
+
+    // Trigger push notification if token exists
+    const user = await db.collection("user").findOne({ _id: new ObjectId(session.user.id) });
+    if (user?.expoPushToken) {
+      await sendPushNotification(
+        user.expoPushToken,
+        "Profile Updated",
+        "Your phone number has been updated successfully.",
+        { screen: "Profile" }
+      );
+    }
 
     (async () => {
       try {

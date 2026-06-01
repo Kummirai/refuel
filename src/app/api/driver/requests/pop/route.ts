@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { connectToDatabase } from "@/lib/mongodb/client";
 import { ObjectId } from "mongodb";
 import { toMoney } from "@/lib/money";
+import { sendPushNotification } from "@/lib/notifications";
 import {
   sendAdminReceiptUploadEmail,
   sendDriverReceiptUploadConfirmation,
@@ -62,6 +63,7 @@ export async function POST(request: NextRequest) {
 
     const { db } = await connectToDatabase();
     const requestsCollection = db.collection("serviceRequests");
+    const usersCollection = db.collection("user");
 
     // Find the request
     const existingRequest = await requestsCollection.findOne({
@@ -133,9 +135,18 @@ export async function POST(request: NextRequest) {
       { upsert: true },
     );
 
-    // Get driver details for email
-    const usersCollection = db.collection("user");
-    const user = await usersCollection.findOne({ id: session.user.id });
+    // Get driver details for email/notifications
+    const user = await usersCollection.findOne({ _id: new ObjectId(session.user.id) });
+
+    // Trigger push notification if token exists
+    if (user?.expoPushToken) {
+      await sendPushNotification(
+        user.expoPushToken,
+        "Receipt Uploaded",
+        "Your receipt has been uploaded successfully and is pending verification.",
+        { screen: "History" }
+      );
+    }
 
     // Type-safe service type mapping
     const serviceTypeMap: Record<string, string> = {

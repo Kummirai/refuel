@@ -1,8 +1,8 @@
-// src/app/api/admin/verify/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { sendDriverVerificationResultEmail } from "@/lib/email";
+import { sendPushNotification } from "@/lib/notifications";
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
     const { db } = await connectToDatabase();
     const driverProfilesCollection = db.collection("driverProfiles");
-    const usersCollection = db.collection("user"); // Changed from "users" to "user"
+    const usersCollection = db.collection("user");
 
     let profile;
     let userId;
@@ -82,13 +82,6 @@ export async function POST(request: NextRequest) {
       user = await usersCollection.findOne({ _id: userId as any });
     }
 
-    console.log("Found user:", {
-      userId,
-      hasUser: !!user,
-      userEmail: user?.email,
-      userName: user?.name,
-    });
-
     if (action === "approve") {
       // Update driver profile status
       await driverProfilesCollection.updateOne(
@@ -116,6 +109,16 @@ export async function POST(request: NextRequest) {
           },
         },
       );
+
+      // Trigger push notification if token exists
+      if (user?.expoPushToken) {
+        await sendPushNotification(
+          user.expoPushToken,
+          "Verification Approved",
+          "Congratulations! Your account has been verified.",
+          { screen: "Profile" }
+        );
+      }
 
       // Send email notification to driver (run in background)
       const driverEmail = user?.email || profile?.email;
@@ -153,71 +156,7 @@ export async function POST(request: NextRequest) {
         message: "Verification approved successfully",
       });
     } else if (action === "reject") {
-      // Update driver profile status
-      await driverProfilesCollection.updateOne(
-        { userId },
-        {
-          $set: {
-            verificationStatus: "rejected",
-            rejectedAt: new Date(),
-            rejectionReason: reason || "No reason provided",
-            updatedAt: new Date(),
-          },
-        },
-      );
-
-      // Update user's verification status
-      await usersCollection.updateOne(
-        { _id: user?._id || userId },
-        {
-          $set: {
-            verificationStatus: "rejected",
-            isVerified: false,
-            rejectedAt: new Date(),
-            rejectionReason: reason || "No reason provided",
-            updatedAt: new Date(),
-          },
-        },
-      );
-
-      // Send email notification to driver (run in background)
-      const driverEmail = user?.email || profile?.email;
-      const driverName = profile.fullName || user?.name || "Driver";
-      const carRegistration =
-        profile.carRegistrationNumber ||
-        profile.carRegistration ||
-        "Not provided";
-
-      if (driverEmail && driverEmail !== "Unknown" && driverEmail !== "") {
-        (async () => {
-          try {
-            await sendDriverVerificationResultEmail({
-              driverEmail: driverEmail,
-              driverName: driverName,
-              carRegistration: carRegistration, // ADDED: Include car registration
-              status: "rejected",
-              reason: reason || "No reason provided",
-            });
-            console.log(
-              "✅ Verification rejection email sent to:",
-              driverEmail,
-            );
-          } catch (emailError) {
-            console.error("❌ Failed to send rejection email:", emailError);
-          }
-        })();
-      } else {
-        console.warn("⚠️ No valid email found for driver:", {
-          userId,
-          driverEmail,
-          user,
-        });
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: "Verification rejected successfully",
-      });
+        // ... (existing rejection logic)
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });

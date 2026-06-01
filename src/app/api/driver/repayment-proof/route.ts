@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { sendAdminRepaymentProofEmail } from "@/lib/email";
+import { sendPushNotification } from "@/lib/notifications";
 
 export async function POST(request: NextRequest) {
   try {
@@ -97,6 +98,16 @@ export async function POST(request: NextRequest) {
     const result = await repaymentsCollection.insertOne(repaymentProof);
     const proofId = result.insertedId.toString();
 
+    // Trigger push notification if token exists
+    if (user?.expoPushToken) {
+      await sendPushNotification(
+        user.expoPushToken,
+        "Repayment Submitted",
+        `Your repayment of R${amount} has been submitted and is pending verification.`,
+        { screen: "Repayments" }
+      );
+    }
+
     // Update all service requests with pending repayment flag
     for (const id of ids) {
       try {
@@ -163,6 +174,7 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
 
 // Helper function to get service type label
 function getServiceTypeLabel(type: string): string {
