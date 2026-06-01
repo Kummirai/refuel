@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       { _id: new ObjectId(userId) },
       {
         $set: {
-          pushToken: pushToken,
+          expoPushToken: pushToken,
           pushTokenUpdatedAt: new Date(),
           pushTokenValid: true,
         },
@@ -66,17 +66,17 @@ export async function GET(request: NextRequest) {
     }
 
     await client.connect();
-    const db = client.db("your_database_name");
-    const users = db.collection("users");
+    const db = client.db("refuel");
+    const users = db.collection("user");
 
     const user = await users.findOne(
       { _id: new ObjectId(userId) },
-      { projection: { pushToken: 1, pushTokenUpdatedAt: 1 } },
+      { projection: { expoPushToken: 1, pushTokenUpdatedAt: 1 } },
     );
 
     return NextResponse.json({
-      hasPushToken: !!user?.pushToken,
-      pushToken: user?.pushToken || null,
+      hasPushToken: !!user?.expoPushToken,
+      pushToken: user?.expoPushToken || null,
       updatedAt: user?.pushTokenUpdatedAt || null,
     });
   } catch (error) {

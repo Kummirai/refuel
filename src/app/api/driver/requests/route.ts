@@ -6,7 +6,107 @@ import { sendAdminNotificationEmail } from "@/lib/email";
 import { sendPushNotification } from "@/lib/notifications";
 import { ObjectId } from "mongodb";
 
-// ... (GET method remains unchanged) ...
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const userId = searchParams.get("userId");
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "User ID is required" },
+        { status: 400 },
+      );
+    }
+
+    const { db } = await connectToDatabase();
+    const serviceRequestsCollection = db.collection("serviceRequests");
+    const repaymentProofsCollection = db.collection("repaymentProofs");
+
+    const requests = await serviceRequestsCollection
+      .find({ userId })
+      .sort({ requestDate: -1 })
+      .toArray();
+
+    // Batch fetch all repayment proofs for all requests
+    const requestIds = requests.map((r: any) => r._id.toString());
+    const allProofs = requestIds.length > 0
+      ? await repaymentProofsCollection
+          .find({ requestId: { $in: requestIds } })
+          .toArray()
+      : [];
+    const proofsByRequest = new Map<string, any[]>();
+    for (const p of allProofs) {
+      const list = proofsByRequest.get(p.requestId) || [];
+      list.push(p);
+      proofsByRequest.set(p.requestId, list);
+    }
+
+    // Enhance each request with calculated repayment data
+    const enhancedRequests = requests.map((request: any) => {
+      const requestId = request._id.toString();
+
+      // Get all repayment proofs for this request
+      const repaymentProofs = proofsByRequest.get(requestId) || [];
+
+      // Calculate total repaid amount from APPROVED repayments
+      const proofsTotal = repaymentProofs
+        .filter((r: any) => r.status === "approved")
+        .reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
+
+      // Calculate remaining balance
+      const totalRepayable = request.totalRepayable || request.amount;
+
+      // Also consider direct repaidAmount on the document (set by admin corrections)
+      const totalRepaid = Math.min(Math.max(proofsTotal, request.repaidAmount || 0), totalRepayable);
+      const calculatedRemainingBalance = toMoney(Math.max(
+        0,
+        totalRepayable - totalRepaid,
+      ));
+
+      // Check for pending repayment
+      const hasPendingRepayment = repaymentProofs.some(
+        (r: any) => r.status === "pending",
+      );
+      const pendingRepayment = repaymentProofs.find(
+        (r: any) => r.status === "pending",
+      );
+
+      // Format repayments for response
+      const formattedRepayments = repaymentProofs.map((r: any) => ({
+        id: r._id.toString(),
+        amount: r.amount,
+        status: r.status,
+        submittedAt: r.submittedAt,
+        approvedAt: r.approvedAt,
+        proofUrl: r.proofUrl,
+        proofPublicId: r.proofPublicId,
+        remainingBalance: r.remainingBalance,
+        isFullyPaid: r.isFullyPaid,
+      }));
+
+      return {
+        ...request,
+        id: requestId,
+        // Override with calculated values
+        repaidAmount: totalRepaid,
+        remainingBalance: calculatedRemainingBalance,
+        isPaid: calculatedRemainingBalance <= 0,
+        hasPendingRepayment: hasPendingRepayment,
+        pendingRepaymentAmount: pendingRepayment?.amount || 0,
+        pendingRepaymentStatus: pendingRepayment?.status || null,
+        repayments: formattedRepayments,
+      };
+    });
+
+    return NextResponse.json(enhancedRequests);
+  } catch (error) {
+    console.error("Error fetching requests:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch requests" },
+      { status: 500 },
+    );
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
