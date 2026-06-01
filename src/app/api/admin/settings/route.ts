@@ -100,7 +100,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { general, services, notifications, security, business } = body;
+    const { general, services, notifications, security, business, managerCycle } = body;
 
     const { db } = await connectToDatabase();
     const settingsCollection = db.collection("settings");
@@ -115,6 +115,7 @@ export async function PUT(request: Request) {
           notifications,
           security,
           business,
+          managerCycle: managerCycle || null,
           updatedAt: new Date(),
         },
         $setOnInsert: {

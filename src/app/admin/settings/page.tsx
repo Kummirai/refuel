@@ -32,6 +32,7 @@ import {
   Trash2,
   Edit2,
   Tag,
+  Users,
 } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 
@@ -199,7 +200,7 @@ const SettingSection = ({
 
 export default function AdminSettingsPage() {
   const [activeTab, setActiveTab] = useState<
-    "general" | "services" | "notifications" | "security" | "business"
+    "general" | "services" | "notifications" | "security" | "business" | "manager"
   >("general");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -284,6 +285,13 @@ export default function AdminSettingsPage() {
     privacyPolicy: "https://Kapuka.com/privacy",
   });
 
+  // Manager Cycle
+  const [managerCycleSettings, setManagerCycleSettings] = useState({
+    startDate: "",
+    endDate: "",
+    periodType: "weekly",
+  });
+
   // Fetch settings on load
   useEffect(() => {
     fetchSettings();
@@ -329,6 +337,7 @@ export default function AdminSettingsPage() {
         if (data.notifications) setNotificationSettings(data.notifications);
         if (data.security) setSecuritySettings(data.security);
         if (data.business) setBusinessSettings(data.business);
+        if (data.managerCycle) setManagerCycleSettings(data.managerCycle);
       }
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -438,6 +447,7 @@ export default function AdminSettingsPage() {
           notifications: notificationSettings,
           security: securitySettings,
           business: businessSettings,
+          managerCycle: managerCycleSettings,
         }),
       });
 
@@ -503,6 +513,7 @@ export default function AdminSettingsPage() {
         <TabButton id="notifications" label="Notifications" icon={Bell} activeTab={activeTab} setActiveTab={setActiveTab} />
         <TabButton id="security" label="Security" icon={Shield} activeTab={activeTab} setActiveTab={setActiveTab} />
         <TabButton id="business" label="Business" icon={Building} activeTab={activeTab} setActiveTab={setActiveTab} />
+        <TabButton id="manager" label="Manager" icon={Users} activeTab={activeTab} setActiveTab={setActiveTab} />
       </div>
 
       {/* General Settings Tab */}
@@ -1586,6 +1597,88 @@ export default function AdminSettingsPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Manager Cycle Tab */}
+      {activeTab === "manager" && (
+        <div className="space-y-4">
+          <SettingSection title="Manager Dashboard Cycle">
+            <p className="text-sm text-gray-500 mb-4">
+              Configure the cycle period for the Manager dashboard. Approved requests within this period will be visible to managers. When the period ends, the manager dashboard resets.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                  Cycle Start Date
+                </label>
+                <input
+                  type="date"
+                  value={managerCycleSettings.startDate ? managerCycleSettings.startDate.split("T")[0] : ""}
+                  onChange={(e) =>
+                    setManagerCycleSettings((prev) => ({
+                      ...prev,
+                      startDate: e.target.value ? new Date(e.target.value).toISOString() : "",
+                    }))
+                  }
+                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                />
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                  Cycle End Date
+                </label>
+                <input
+                  type="date"
+                  value={managerCycleSettings.endDate ? managerCycleSettings.endDate.split("T")[0] : ""}
+                  onChange={(e) =>
+                    setManagerCycleSettings((prev) => ({
+                      ...prev,
+                      endDate: e.target.value ? new Date(e.target.value).toISOString() : "",
+                    }))
+                  }
+                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                />
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                  Period Type
+                </label>
+                <select
+                  value={managerCycleSettings.periodType}
+                  onChange={(e) =>
+                    setManagerCycleSettings((prev) => ({
+                      ...prev,
+                      periodType: e.target.value,
+                    }))
+                  }
+                  className="w-full px-4 py-2 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
+                >
+                  <option value="weekly">Weekly (Mon-Sun)</option>
+                  <option value="biweekly">Bi-Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
+            </div>
+            {managerCycleSettings.startDate && managerCycleSettings.endDate && (
+              <div className="mt-4 p-3 bg-[#fef3c7] rounded-xl">
+                <p className="text-sm text-[#92400e]">
+                  <strong>Current cycle:</strong>{" "}
+                  {new Date(managerCycleSettings.startDate).toLocaleDateString("en-ZA")} -{" "}
+                  {new Date(managerCycleSettings.endDate).toLocaleDateString("en-ZA")}
+                </p>
+                <p className="text-xs text-[#92400e] mt-1">
+                  The manager dashboard will only show requests approved within this date range.
+                </p>
+              </div>
+            )}
+            <div className="mt-4 p-3 bg-blue-50 rounded-xl">
+              <p className="text-sm text-blue-800">
+                <strong>Tip:</strong> Set the start date to Monday morning and the end date to Sunday evening for a weekly cycle. At the start of each new cycle, update these dates so the manager dashboard resets.
+              </p>
+            </div>
+          </SettingSection>
         </div>
       )}
 

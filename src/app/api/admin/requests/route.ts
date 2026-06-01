@@ -107,6 +107,7 @@ export async function GET(request: NextRequest) {
           repaidAmount: request.repaidAmount || 0,
           remainingBalance: request.remainingBalance || 0,
           isPaid: request.isPaid || false,
+          refueledByManager: request.refueledByManager || false,
           // Additional fields for display
           location:
             request.location || driverProfile?.address || "Not provided",

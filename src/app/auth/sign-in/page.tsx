@@ -33,6 +33,8 @@ export default function SignInPage() {
       const userRole = (session.user as any)?.role;
       if (userRole === "admin") {
         router.push("/admin/dashboard");
+      } else if (userRole === "manager") {
+        router.push("/manager/dashboard");
       } else {
         router.push("/");
       }
@@ -60,8 +62,11 @@ export default function SignInPage() {
 
         const userRole = (sessionData?.user as any)?.role;
         if (userRole === "admin") {
-          // Admin goes to admin dashboard
           router.push("/admin/dashboard");
+          return;
+        }
+        if (userRole === "manager") {
+          router.push("/manager/dashboard");
           return;
         }
 

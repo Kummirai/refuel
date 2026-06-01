@@ -64,6 +64,9 @@ export default function HomePage() {
 
         if (user.role === "admin") {
           setLoading(false);
+        } else if (user.role === "manager") {
+          router.push("/manager/dashboard");
+          return;
         } else {
           fetchUserProfile();
         }

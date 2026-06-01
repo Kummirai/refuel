@@ -79,6 +79,7 @@ export async function connectToDatabase() {
   await db.collection("serviceRequests").createIndex({ requestDate: -1 });
   await db.collection("serviceRequests").createIndex({ userId: 1, status: 1 });
   await db.collection("serviceRequests").createIndex({ completedDate: -1, hasReceipt: 1 });
+  await db.collection("serviceRequests").createIndex({ approvedDate: -1 });
 
   // Repayment Proofs collection
   await db.collection("repaymentProofs").createIndex({ requestId: 1 });

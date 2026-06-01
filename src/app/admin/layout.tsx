@@ -27,6 +27,7 @@ import {
   Send,
   Eye,
   Fuel,
+  Star,
 } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 
@@ -216,6 +217,13 @@ export default function AdminLayout({
       label: "Settings",
       path: "/admin/settings",
       active: pathname === "/admin/settings",
+      badge: null,
+    },
+    {
+      icon: Star,
+      label: "Managers",
+      path: "/admin/managers",
+      active: pathname === "/admin/managers",
       badge: null,
     },
   ];

@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "backup": "ts-node scripts/backup.ts",
-    "restore": "ts-node scripts/restore.ts"
+    "restore": "ts-node scripts/restore.ts",
+    "create-admin": "ts-node scripts/create-admin.ts",
+    "create-manager": "ts-node scripts/create-manager.ts"
   },
   "type": "module",
   "dependencies": {
