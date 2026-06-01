@@ -35,6 +35,7 @@ import {
   ImageIcon,
   Truck,
   Banknote,
+  Trash2,
 } from "lucide-react";
 import { toPng } from "html-to-image";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -152,8 +153,12 @@ export default function AdminServiceRequestsPage() {
     useState<ServiceRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [rejectLoading, setRejectLoading] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingRequest, setDeletingRequest] =
+    useState<ServiceRequest | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const isAnyModalOpen = showSuccessModal || showErrorModal || showRejectModal;
+  const isAnyModalOpen = showSuccessModal || showErrorModal || showRejectModal || showDeleteModal;
   useBodyScrollLock(isAnyModalOpen);
 
   useEffect(() => {
@@ -407,6 +412,42 @@ export default function AdminServiceRequestsPage() {
       setShowErrorModal(true);
     } finally {
       setRejectLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deletingRequest) return;
+
+    setDeleteLoading(true);
+    try {
+      const response = await fetch("/api/admin/requests/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: deletingRequest.id,
+        }),
+      });
+
+      if (response.ok) {
+        setSuccessMessage(
+          `Request ${deletingRequest.id.slice(-6).toUpperCase()} deleted successfully`,
+        );
+        setShowSuccessModal(true);
+        fetchRequests();
+        setShowDeleteModal(false);
+        setDeletingRequest(null);
+        setShowModal(false);
+      } else {
+        const error = await response.json();
+        setErrorMessage(error.error || "Failed to delete request");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error deleting request:", error);
+      setErrorMessage("Failed to delete request");
+      setShowErrorModal(true);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -961,16 +1002,27 @@ export default function AdminServiceRequestsPage() {
               </>
             )}
             {request.status === "sent" && (
-              <div className="p-3 bg-purple-50 rounded-xl text-center">
-                <p className="text-sm text-purple-700">
-                  Service has been sent. Waiting for driver to confirm
-                  completion.
-                </p>
-                <p className="text-xs text-purple-600 mt-1">
-                  The driver will mark this as completed after receiving the
-                  service.
-                </p>
-              </div>
+              <>
+                <div className="p-3 bg-purple-50 rounded-xl text-center">
+                  <p className="text-sm text-purple-700">
+                    Service has been sent. Waiting for driver to confirm
+                    completion.
+                  </p>
+                  <p className="text-xs text-purple-600 mt-1">
+                    The driver will mark this as completed after receiving the
+                    service.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setDeletingRequest(request);
+                    setShowDeleteModal(true);
+                  }}
+                  className="w-full bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" /> Delete Request
+                </button>
+              </>
             )}
             {request.status === "completed" && (
               <button
@@ -978,6 +1030,17 @@ export default function AdminServiceRequestsPage() {
                 className="w-full bg-gray-500 text-white py-2 rounded-xl font-semibold hover:bg-gray-600 transition-colors"
               >
                 Close
+              </button>
+            )}
+            {(request.status === "rejected" || request.status === "approved") && (
+              <button
+                onClick={() => {
+                  setDeletingRequest(request);
+                  setShowDeleteModal(true);
+                }}
+                className="w-full bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" /> Delete Request
               </button>
             )}
           </div>
@@ -2728,20 +2791,53 @@ Kapuka Tradings`;
                     </>
                   )}
                   {request.status === "approved" && (
-                    <button
-                      onClick={() => {
-                        setSentRequest(request);
-                        setShowSentModal(true);
-                      }}
-                      className="flex-1 py-2 bg-[#01312D] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-colors"
-                    >
-                      <Truck className="w-4 h-4" /> Mark as Sent
-                    </button>
+                    <>
+                      <button
+                        onClick={() => {
+                          setSentRequest(request);
+                          setShowSentModal(true);
+                        }}
+                        className="flex-1 py-2 bg-[#01312D] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-colors"
+                      >
+                        <Truck className="w-4 h-4" /> Mark as Sent
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDeletingRequest(request);
+                          setShowDeleteModal(true);
+                        }}
+                        className="py-2 px-3 bg-red-100 text-red-600 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 hover:bg-red-200 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
                   )}
                   {request.status === "sent" && (
-                    <div className="flex-1 py-2 bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1">
-                      <Clock className="w-4 h-4" /> Awaiting Driver Confirmation
-                    </div>
+                    <>
+                      <div className="flex-1 py-2 bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1">
+                        <Clock className="w-4 h-4" /> Awaiting Driver Confirmation
+                      </div>
+                      <button
+                        onClick={() => {
+                          setDeletingRequest(request);
+                          setShowDeleteModal(true);
+                        }}
+                        className="py-2 px-3 bg-red-100 text-red-600 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 hover:bg-red-200 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+                  {request.status === "rejected" && (
+                    <button
+                      onClick={() => {
+                        setDeletingRequest(request);
+                        setShowDeleteModal(true);
+                      }}
+                      className="py-2 px-3 bg-red-100 text-red-600 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 hover:bg-red-200 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   )}
                 </div>
               </div>
@@ -2761,6 +2857,119 @@ Kapuka Tradings`;
       {showWhatsAppModal && approvedRequest && <WhatsAppModal />}
       {showSentModal && sentRequest && <SentModal />}
       {showRejectModal && rejectingRequest && renderRejectionModal()}
+      {showDeleteModal && deletingRequest && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => !deleteLoading && setShowDeleteModal(false)}
+          ></div>
+          <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-t-2xl p-5">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                  <Trash2 className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">
+                    Delete Request
+                  </h2>
+                  <p className="text-white/80 text-sm">
+                    This action cannot be undone
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="bg-red-50 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-semibold text-red-800 text-sm">
+                      Are you sure you want to delete this request?
+                    </p>
+                    <ul className="text-xs text-red-700 mt-2 space-y-1 list-disc list-inside">
+                      <li>This action cannot be undone</li>
+                      <li>All associated records will be permanently removed</li>
+                      <li>
+                        Request ID:{" "}
+                        {deletingRequest.id.slice(-8).toUpperCase()}
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#EAFDE7] rounded-xl p-4">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Driver:</span>
+                    <span className="font-semibold text-[#01312D]">
+                      {deletingRequest.driverName}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Vehicle:</span>
+                    <span className="font-semibold text-[#01312D]">
+                      {deletingRequest.carNumber}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Service:</span>
+                    <span className="font-semibold text-[#01312D]">
+                      {getTypeLabel(deletingRequest.type)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Amount:</span>
+                    <span className="font-bold text-[#3A7717]">
+                      {formatMoney(
+                        deletingRequest.actualAmount || deletingRequest.amount,
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Status:</span>
+                    <span className="font-semibold capitalize">
+                      {deletingRequest.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-100 p-5 flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeletingRequest(null);
+                }}
+                disabled={deleteLoading}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleteLoading}
+                className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                {deleteLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <SuccessModal />
       <ErrorModal />
     </div>
