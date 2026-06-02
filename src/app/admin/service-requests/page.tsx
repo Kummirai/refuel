@@ -75,6 +75,7 @@ interface ServiceRequest {
   repaidAmount?: number;
   remainingBalance?: number;
   isPaid?: boolean;
+  refueledByManager?: boolean;
 }
 
 interface LinkedRequest {

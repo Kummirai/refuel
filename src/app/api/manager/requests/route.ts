@@ -84,8 +84,8 @@ export async function GET(request: NextRequest) {
       popUrl: req.popUrl,
     }));
 
-    const pending = mapped.filter((r) => r.status === "approved" || r.status === "sent");
-    const completed = mapped.filter((r) => r.status === "completed");
+    const pending = mapped.filter((r: { status: string }) => r.status === "approved" || r.status === "sent");
+    const completed = mapped.filter((r: { status: string }) => r.status === "completed");
 
     return NextResponse.json({
       requests: mapped,
