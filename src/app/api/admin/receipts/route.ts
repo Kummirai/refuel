@@ -105,6 +105,7 @@ export async function GET(request: Request) {
           totalRepayable: request.totalRepayable,
           remainingBalance: request.remainingBalance,
           dueDate: request.dueDate || request.completedDate, // Fallback for sorting/display
+
         };
       }),
     );

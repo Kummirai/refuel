@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { sendAdminRepaymentProofEmail } from "@/lib/email";
-import { sendPushNotification } from "@/lib/notifications";
+import { sendPushNotification, sendAdminPushNotification } from "@/lib/notifications";
 
 export async function POST(request: NextRequest) {
   try {
@@ -126,6 +126,13 @@ export async function POST(request: NextRequest) {
         console.error(`Error updating service request ${id}:`, err);
       }
     }
+
+    // Send push notification to admins
+    sendAdminPushNotification(
+      "Repayment Proof Submitted",
+      `${user?.name || "A driver"} submitted a repayment proof of R${amount}.`,
+      { screen: "AdminRepayments" }
+    );
 
     // Send email notification to admin
     const firstRequest = serviceRequests[0];

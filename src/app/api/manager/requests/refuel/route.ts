@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
+import { sendPushNotification, sendAdminPushNotification } from "@/lib/notifications";
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,6 +16,7 @@ export async function POST(request: NextRequest) {
 
     const { db } = await connectToDatabase();
     const serviceRequestsCollection = db.collection("serviceRequests");
+    const usersCollection = db.collection("user");
 
     let objectId;
     try {
@@ -48,6 +50,24 @@ export async function POST(request: NextRequest) {
           updatedAt: new Date(),
         },
       },
+    );
+
+    // Send push notification to driver
+    const user = await usersCollection.findOne({ _id: new ObjectId(requestDoc.userId) });
+    if (user?.expoPushToken) {
+      await sendPushNotification(
+        user.expoPushToken,
+        "Refueling Completed",
+        `Your ${requestDoc.type} request has been marked as completed by the manager.`,
+        { screen: "Requests" }
+      );
+    }
+
+    // Send push notification to all admins
+    sendAdminPushNotification(
+      "Refueling Completed",
+      `${requestDoc.driverName || "A driver"}'s ${requestDoc.type} request has been completed by the manager.`,
+      { screen: "AdminRequests" }
     );
 
     return NextResponse.json({

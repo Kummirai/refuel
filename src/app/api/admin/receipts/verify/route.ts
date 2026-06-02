@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
             hasReceipt: true,
             receiptVerifiedAt: new Date(),
             updatedAt: new Date(),
+            refueledByManager: false,
           },
         },
       );

@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { connectToDatabase } from "@/lib/mongodb/client";
 import { ObjectId } from "mongodb";
 import { toMoney } from "@/lib/money";
-import { sendPushNotification } from "@/lib/notifications";
+import { sendPushNotification, sendAdminPushNotification } from "@/lib/notifications";
 import {
   sendAdminReceiptUploadEmail,
   sendDriverReceiptUploadConfirmation,
@@ -158,6 +158,13 @@ export async function POST(request: NextRequest) {
 
     const serviceTypeLabel =
       serviceTypeMap[existingRequest.type] || existingRequest.type;
+
+    // Send push notification to admins
+    sendAdminPushNotification(
+      "Receipt Uploaded",
+      `${user?.name || "A driver"} uploaded a receipt for ${serviceTypeLabel} request.`,
+      { screen: "AdminReceipts" }
+    );
 
     // Send email to admin about receipt upload (don't await - fire and forget)
     sendAdminReceiptUploadEmail({

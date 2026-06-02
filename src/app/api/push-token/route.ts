@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MongoClient, ObjectId } from "mongodb";
-
-const uri = process.env.MONGODB_URI!;
-const client = new MongoClient(uri);
+import { connectToDatabase } from "@/lib/db";
+import { ObjectId } from "mongodb";
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,11 +16,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await client.connect();
-    const db = client.db("refuel"); // Change to your DB name
+    const { db } = await connectToDatabase();
     const users = db.collection("user");
 
-    // Update user with push token
     const result = await users.updateOne(
       { _id: new ObjectId(userId) },
       {
@@ -50,12 +46,9 @@ export async function POST(request: NextRequest) {
       { error: "Internal server error" },
       { status: 500 },
     );
-  } finally {
-    await client.close();
   }
 }
 
-// GET endpoint to check if user has a token
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -65,8 +58,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Missing userId" }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db("refuel");
+    const { db } = await connectToDatabase();
     const users = db.collection("user");
 
     const user = await users.findOne(
@@ -85,7 +77,5 @@ export async function GET(request: NextRequest) {
       { error: "Internal server error" },
       { status: 500 },
     );
-  } finally {
-    await client.close();
   }
 }

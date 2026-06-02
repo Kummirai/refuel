@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { toMoney } from "@/lib/money";
 import { sendAdminNotificationEmail } from "@/lib/email";
-import { sendPushNotification } from "@/lib/notifications";
+import { sendPushNotification, sendAdminPushNotification } from "@/lib/notifications";
 import { ObjectId } from "mongodb";
 
 export async function GET(request: NextRequest) {
@@ -218,6 +218,13 @@ export async function POST(request: NextRequest) {
     } catch (updateError) {
       console.error("Error updating driver stats/notifications:", updateError);
     }
+
+    // Send push notification to admins
+    sendAdminPushNotification(
+      "New Service Request",
+      `${driverName || "A driver"} submitted a ${type} request of R${amount}.`,
+      { screen: "AdminRequests" }
+    );
 
     // Send email notification to admin
     (async () => {
