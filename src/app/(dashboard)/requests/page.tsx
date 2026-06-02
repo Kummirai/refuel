@@ -951,7 +951,7 @@ function RequestsPageContent() {
                   {selectedService === "fuel" && (
                     <div className="mt-2">
                       <div className="flex gap-2 flex-wrap">
-                        {[500, 1000, 1500, 2000].map((amt) => (
+                        {[500, 1000, 1500, 2000, 2500, 3000].map((amt) => (
                           <button
                             key={amt}
                             type="button"
