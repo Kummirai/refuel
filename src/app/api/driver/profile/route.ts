@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { sendPushNotification } from "@/lib/notifications";
+import {
+  sendPushNotification,
+  sendAdminPushNotification,
+} from "@/lib/notifications";
+import { sendAdminProfileChangeEmail } from "@/lib/email";
 import { ObjectId } from "mongodb";
 
 export async function GET(request: NextRequest) {
@@ -63,17 +67,46 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Trigger push notification if token exists
-    const user = await usersCollection.findOne({ _id: new ObjectId(targetUserId) });
+    const user = await usersCollection.findOne({
+      _id: new ObjectId(targetUserId),
+    });
     if (user?.expoPushToken) {
       await sendPushNotification(
         user.expoPushToken,
         "Profile Updated",
         "Your profile details have been updated successfully.",
-        { screen: "Profile" }
+        { screen: "Profile" },
       );
     }
 
-    return NextResponse.json({ success: true, message: "Profile updated successfully" });
+    // Notify admins of profile changes
+    const changes = Object.entries(updates).map(([field, newValue]) => ({
+      field,
+      newValue: String(newValue),
+    }));
+
+    (async () => {
+      try {
+        await sendAdminPushNotification(
+          "Driver Profile Updated",
+          `${session.user.name || "A driver"} updated their profile.`,
+          { screen: "AdminDashboard" },
+        );
+
+        await sendAdminProfileChangeEmail({
+          driverName: session.user.name || "Driver",
+          driverEmail: session.user.email || "",
+          changes,
+        });
+      } catch (notifError) {
+        console.error("Failed to send admin notification:", notifError);
+      }
+    })();
+
+    return NextResponse.json({
+      success: true,
+      message: "Profile updated successfully",
+    });
   } catch (error) {
     console.error("Error updating profile:", error);
     return NextResponse.json(
