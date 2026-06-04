@@ -1,7 +1,7 @@
 // src/app/(auth)/sign-up/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
@@ -16,10 +16,32 @@ import {
   AlertCircle,
   Sparkles,
   CheckCircle,
+  PhoneCall,
 } from "lucide-react";
 
 export default function SignUpPage() {
   const router = useRouter();
+  const [regStatus, setRegStatus] = useState<{
+    checking: boolean;
+    holdRegistration: boolean;
+    adminPhoneNumbers: string;
+  }>({ checking: true, holdRegistration: false, adminPhoneNumbers: "" });
+
+  useEffect(() => {
+    fetch("/api/settings/registration")
+      .then((r) => r.json())
+      .then((data) => {
+        setRegStatus({
+          checking: false,
+          holdRegistration: data.holdRegistration ?? false,
+          adminPhoneNumbers: data.adminPhoneNumbers ?? "",
+        });
+      })
+      .catch(() => {
+        setRegStatus({ checking: false, holdRegistration: false, adminPhoneNumbers: "" });
+      });
+  }, []);
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -74,6 +96,80 @@ export default function SignUpPage() {
       setLoading(false);
     }
   };
+
+  if (regStatus.checking) {
+    return (
+      <div className="min-h-screen bg-linear-to-b from-[#eafde7] to-white flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#3A7717] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (regStatus.holdRegistration) {
+    return (
+      <div className="min-h-screen bg-linear-to-b from-[#eafde7] to-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[#bff202]/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#3A7717]/5 rounded-full blur-3xl"></div>
+
+        <div className="relative z-10 px-5 pt-6">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md active:scale-95 transition-transform"
+          >
+            ←
+          </button>
+        </div>
+
+        <div className="relative z-10 px-5 pt-4 pb-12 max-w-md mx-auto">
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-linear-to-r from-[#01312D] to-[#3A7717] rounded-2xl shadow-xl mb-4">
+              <Sparkles className="w-10 h-10 text-[#bff202]" />
+            </div>
+            <h1 className="text-3xl font-bold text-[#01312D] mb-2">Registration Closed</h1>
+            <p className="text-gray-500 text-sm">
+              We are currently not accepting new applicants
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 border border-[#bff202]/20 text-center space-y-3 mb-6">
+            <div className="w-14 h-14 rounded-full bg-[#01312D]/10 flex items-center justify-center mx-auto">
+              <AlertCircle className="w-7 h-7 text-[#01312D]" />
+            </div>
+            <p className="text-gray-600">
+              Please try again later. If you have any questions, contact us at:
+            </p>
+            {regStatus.adminPhoneNumbers.length > 0 && (
+              <div className="space-y-2 pt-2">
+                {regStatus.adminPhoneNumbers.split(",").map((phone, i) => (
+                  <a
+                    key={i}
+                    href={`tel:${phone.trim().replace(/\s/g, "")}`}
+                    className="flex items-center justify-center gap-2 p-3 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#d4f5c0] transition-colors"
+                  >
+                    <PhoneCall className="w-4 h-4 text-[#3A7717]" />
+                    {phone.trim()}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="text-center">
+            <p className="text-gray-600 text-sm">
+              Already have an account?{" "}
+              <Link
+                href="/auth/sign-in"
+                className="text-[#3A7717] font-semibold hover:underline"
+              >
+                Sign In
+              </Link>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-linear-to-b from-[#eafde7] to-white relative overflow-hidden">

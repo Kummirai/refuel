@@ -217,6 +217,8 @@ export default function AdminSettingsPage() {
     siteDescription: "Driver Services Platform",
     contactEmail: "support@Kapuka.com",
     contactPhone: "+27 12 345 6789",
+    holdRegistration: false,
+    adminPhoneNumbers: "+27 12 345 6789",
     address: "123, Tech Park, Johannesburg - 2000",
     timezone: "Africa/Johannesburg",
     currency: "ZAR",
@@ -641,6 +643,58 @@ export default function AdminSettingsPage() {
                     <option value="YYYY-MM-DD">YYYY-MM-DD</option>
                   </select>
                 )}
+              </div>
+            </div>
+          </SettingSection>
+
+          <SettingSection title="Registration">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-[#eafde7] rounded-xl">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-[#01312D]">
+                    Hold New Registrations
+                  </span>
+                </div>
+                {isLoading ? (
+                  <Skeleton className="h-5 w-10 rounded-full" />
+                ) : (
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={generalSettings.holdRegistration}
+                      onChange={(e) =>
+                        setGeneralSettings((prev) => ({
+                          ...prev,
+                          holdRegistration: e.target.checked,
+                        }))
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                  </label>
+                )}
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-2 text-sm">
+                  Admin Contact Numbers
+                </label>
+                {isLoading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={generalSettings.adminPhoneNumbers}
+                      onChange={handleGeneralChange("adminPhoneNumbers")}
+                      className="w-full pl-10 pr-4 py-2 bg-white border border-[#bff202]/20 rounded-xl"
+                      placeholder="e.g. +27 12 345 6789, +27 12 345 6790"
+                    />
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  Phone numbers displayed on the sign-up page when registrations are on hold.
+                </p>
               </div>
             </div>
           </SettingSection>
