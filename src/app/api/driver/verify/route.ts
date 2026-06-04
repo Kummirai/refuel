@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { sendVerificationNotificationEmail } from "@/lib/email";
-import { sendPushNotification } from "@/lib/notifications";
+import { sendPushNotification, sendAdminPushNotification } from "@/lib/notifications";
 import { ObjectId } from "mongodb";
 
 export async function POST(request: NextRequest) {
@@ -167,6 +167,13 @@ export async function POST(request: NextRequest) {
     // Prepare email data with better fallbacks
     const driverEmail = user?.email || body.email || "";
     const driverName = fullName || user?.name || body.fullName || "Unknown";
+
+    // Notify admins of new verification request
+    sendAdminPushNotification(
+      "New Verification Request",
+      `${driverName || "A driver"} submitted verification documents for review.`,
+      { screen: "AdminVerification" }
+    );
 
     // Send email notification to admin (run in background, don't await)
     (async () => {

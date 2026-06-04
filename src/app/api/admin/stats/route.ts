@@ -12,7 +12,7 @@ export async function GET() {
     const usersCollection = db.collection("user");
 
     // Single aggregation combining all stats
-    const [requestStats] = await serviceRequestsCollection.aggregate([
+    const requestStats = await serviceRequestsCollection.aggregate([
       {
         $facet: {
           totals: [
@@ -46,13 +46,13 @@ export async function GET() {
           ],
         },
       },
-    ]).toArray();
+    ]).toArray().then((r: any[]) => r[0]) || { totals: [], activeLoans: [] };
 
     const totals = requestStats.totals[0] || { total: 0, pending: 0, completed: 0, completedRevenue: 0 };
     const loans = requestStats.activeLoans[0] || { count: 0, totalAmount: 0 };
 
     // Driver counts via aggregation
-    const [driverStats] = await driverProfilesCollection.aggregate([
+    const driverStatsResult = (await driverProfilesCollection.aggregate([
       {
         $group: {
           _id: null,
@@ -62,9 +62,7 @@ export async function GET() {
           averageRating: { $avg: { $cond: [{ $gt: ["$rating", 0] }, "$rating", null] } },
         },
       },
-    ]).toArray();
-
-    const driverStatsResult = driverStats[0] || {
+    ]).toArray().then((r: any[]) => r[0])) || {
       pendingVerifications: 0, verifiedDrivers: 0, rejectedVerifications: 0, averageRating: null,
     };
 

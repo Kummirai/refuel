@@ -156,7 +156,76 @@ export async function POST(request: NextRequest) {
         message: "Verification approved successfully",
       });
     } else if (action === "reject") {
-        // ... (existing rejection logic)
+      // Update driver profile status
+      await driverProfilesCollection.updateOne(
+        { userId },
+        {
+          $set: {
+            verificationStatus: "rejected",
+            rejectionReason: reason || "No reason provided",
+            updatedAt: new Date(),
+          },
+        },
+      );
+
+      // Update user's verification status
+      await usersCollection.updateOne(
+        { _id: user?._id || userId },
+        {
+          $set: {
+            verificationStatus: "rejected",
+            isVerified: false,
+            rejectionReason: reason || "No reason provided",
+            updatedAt: new Date(),
+          },
+        },
+      );
+
+      // Trigger push notification if token exists
+      if (user?.expoPushToken) {
+        await sendPushNotification(
+          user.expoPushToken,
+          "Verification Rejected",
+          `Your verification has been rejected. Reason: ${reason || "No reason provided"}`,
+          { screen: "Profile" }
+        );
+      }
+
+      // Send email notification to driver (run in background)
+      const driverEmail = user?.email || profile?.email;
+      const driverName = profile.fullName || user?.name || "Driver";
+      const carRegistration =
+        profile.carRegistrationNumber ||
+        profile.carRegistration ||
+        "Not provided";
+
+      if (driverEmail && driverEmail !== "Unknown" && driverEmail !== "") {
+        (async () => {
+          try {
+            await sendDriverVerificationResultEmail({
+              driverEmail: driverEmail,
+              driverName: driverName,
+              carRegistration: carRegistration,
+              status: "rejected",
+              reason: reason || "No reason provided",
+            });
+            console.log("✅ Verification rejection email sent to:", driverEmail);
+          } catch (emailError) {
+            console.error("❌ Failed to send rejection email:", emailError);
+          }
+        })();
+      } else {
+        console.warn("⚠️ No valid email found for driver:", {
+          userId,
+          driverEmail,
+          user,
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Verification rejected successfully",
+      });
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
