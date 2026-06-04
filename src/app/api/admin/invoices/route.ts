@@ -1,6 +1,7 @@
 // src/app/api/admin/invoices/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
+import { ObjectId } from "mongodb";
 import { toMoney } from "@/lib/money";
 
 export async function GET(request: NextRequest) {
@@ -18,34 +19,59 @@ export async function GET(request: NextRequest) {
       .find({ status: "completed" })
       .toArray();
 
-    const outstandingByUser: Record<
-      string,
-      {
-        userId: string;
-        driverEmail: string;
-        driverName: string;
-        driverPhone: string;
-        carRegistration?: string;
-        items: {
-          requestId: string;
-          type: string;
-          carNumber: string;
-          amount: number;
-          totalRepayable: number;
-          remainingBalance: number;
-          completedDate: string;
-        }[];
-        totalOutstanding: number;
+    // Batch fetch repayment proofs for requests without pre-calculated remainingBalance
+    const requestIdsNeedingBalance = allRequests
+      .filter((r: any) => !r.isPaid && r.remainingBalance === undefined)
+      .map((r: any) => r._id.toString());
+
+    let calcRemainingBalance = new Map<string, number>();
+    if (requestIdsNeedingBalance.length > 0) {
+      const approvedRepayments = await repaymentProofsCollection
+        .find({ requestId: { $in: requestIdsNeedingBalance }, status: "approved" })
+        .toArray();
+      const repaymentsByRequest = new Map<string, any[]>();
+      for (const rp of approvedRepayments) {
+        const list = repaymentsByRequest.get(rp.requestId) || [];
+        list.push(rp);
+        repaymentsByRequest.set(rp.requestId, list);
       }
-    > = {};
+      for (const rid of requestIdsNeedingBalance) {
+        const reqDoc = allRequests.find((r: any) => r._id.toString() === rid);
+        const totalRep = reqDoc?.totalRepayable || reqDoc?.amount || 0;
+        const rps = repaymentsByRequest.get(rid) || [];
+        const repaid = rps.reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
+        calcRemainingBalance.set(rid, Math.max(0, totalRep - repaid));
+      }
+    }
+
+    // Batch user lookups
+    const userIdsNeeded = [...new Set(allRequests
+      .filter((r: any) => !r.isPaid)
+      .filter((r: any) => {
+        const totalRep = r.totalRepayable || r.amount || 0;
+        const remBal = r.remainingBalance ?? calcRemainingBalance.get(r._id.toString()) ?? totalRep;
+        return toMoney(remBal) > 0;
+      })
+      .filter((r: any) => !r.driverEmail)
+      .map((r: any) => r.userId))] as string[];
+
+    const userMap = new Map<string, any>();
+    if (userIdsNeeded.length > 0) {
+      const userObjectIds = (userIdsNeeded as string[]).map((id: string) => {
+        try { return new ObjectId(id); } catch { return id; }
+      });
+      const users: any[] = await usersCollection.find({ _id: { $in: userObjectIds } }).toArray();
+      for (const u of users) {
+        userMap.set(u._id.toString(), u);
+      }
+    }
+
+    const outstandingByUser: Record<string, any> = {};
 
     for (const req of allRequests) {
       if (req.isPaid) continue;
 
-      const completedDate = req.completedDate
-        ? new Date(req.completedDate)
-        : null;
-
+      const completedDate = req.completedDate ? new Date(req.completedDate) : null;
       if (startDate && completedDate && completedDate < new Date(startDate)) continue;
       if (endDate && completedDate) {
         const endOfDay = new Date(endDate);
@@ -56,48 +82,21 @@ export async function GET(request: NextRequest) {
       const totalRepayable = req.totalRepayable || req.amount || 0;
       const requestId = req._id.toString();
 
-      let remainingBalance: number;
-      if (req.remainingBalance !== undefined) {
-        remainingBalance = req.remainingBalance;
-      } else {
-        const approvedRepayments = await repaymentProofsCollection
-          .find({ requestId, status: "approved" })
-          .toArray();
-        const totalRepaid = approvedRepayments.reduce(
-          (sum: number, r: any) => sum + (r.amount || 0),
-          0,
-        );
-        remainingBalance = Math.max(0, totalRepayable - totalRepaid);
-      }
-      remainingBalance = toMoney(remainingBalance);
+      const remainingBalance = toMoney(
+        req.remainingBalance ?? calcRemainingBalance.get(requestId) ?? totalRepayable,
+      );
 
       if (remainingBalance <= 0) continue;
 
       const userId = req.userId;
 
       if (!outstandingByUser[userId]) {
-        const driverName = req.driverName || "Driver";
-        let driverEmail = req.driverEmail || "";
-        let driverPhone = req.driverPhone || "";
-
-        if (!driverEmail) {
-          let user;
-          try {
-            user = await usersCollection.findOne({
-              _id: new (require("mongodb").ObjectId)(userId),
-            });
-          } catch {
-            user = await usersCollection.findOne({ id: userId });
-          }
-          driverEmail = user?.email || "";
-          driverPhone = user?.phone || "";
-        }
-
+        const user = userMap.get(userId);
         outstandingByUser[userId] = {
           userId,
-          driverEmail,
-          driverName,
-          driverPhone,
+          driverEmail: req.driverEmail || user?.email || "",
+          driverName: req.driverName || user?.name || "Driver",
+          driverPhone: req.driverPhone || user?.phone || "",
           items: [],
           totalOutstanding: 0,
         };
@@ -108,7 +107,6 @@ export async function GET(request: NextRequest) {
       }
 
       const originalAmount = req.actualAmount || req.amount || 0;
-      const effectiveTotal = remainingBalance;
       const effectiveAmount =
         totalRepayable > 0
           ? toMoney(originalAmount * (remainingBalance / totalRepayable))
@@ -119,7 +117,7 @@ export async function GET(request: NextRequest) {
         type: req.type,
         carNumber: req.carNumber || "Unknown",
         amount: effectiveAmount,
-        totalRepayable: effectiveTotal,
+        totalRepayable: remainingBalance,
         remainingBalance,
         completedDate: req.completedDate
           ? new Date(req.completedDate).toISOString()

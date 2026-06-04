@@ -25,11 +25,15 @@ export async function GET() {
     return NextResponse.json({
       holdRegistration: settings?.general?.holdRegistration ?? false,
       adminPhoneNumbers: buildAdminPhones(settings),
+    }, {
+      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
     });
   } catch {
     return NextResponse.json({
       holdRegistration: false,
       adminPhoneNumbers: "",
+    }, {
+      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
     });
   }
 }

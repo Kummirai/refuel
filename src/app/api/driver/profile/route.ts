@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import {
-  sendPushNotification,
-  sendAdminPushNotification,
-} from "@/lib/notifications";
+import { sendPushNotification, sendAdminPushNotification } from "@/lib/notifications";
 import { sendAdminProfileChangeEmail } from "@/lib/email";
 import { ObjectId } from "mongodb";
 
@@ -67,15 +64,13 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Trigger push notification if token exists
-    const user = await usersCollection.findOne({
-      _id: new ObjectId(targetUserId),
-    });
+    const user = await usersCollection.findOne({ _id: new ObjectId(targetUserId) });
     if (user?.expoPushToken) {
       await sendPushNotification(
         user.expoPushToken,
         "Profile Updated",
         "Your profile details have been updated successfully.",
-        { screen: "Profile" },
+        { screen: "Profile" }
       );
     }
 
@@ -90,7 +85,7 @@ export async function PATCH(request: NextRequest) {
         await sendAdminPushNotification(
           "Driver Profile Updated",
           `${session.user.name || "A driver"} updated their profile.`,
-          { screen: "AdminDashboard" },
+          { screen: "AdminDashboard" }
         );
 
         await sendAdminProfileChangeEmail({
@@ -103,10 +98,7 @@ export async function PATCH(request: NextRequest) {
       }
     })();
 
-    return NextResponse.json({
-      success: true,
-      message: "Profile updated successfully",
-    });
+    return NextResponse.json({ success: true, message: "Profile updated successfully" });
   } catch (error) {
     console.error("Error updating profile:", error);
     return NextResponse.json(

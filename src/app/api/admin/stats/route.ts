@@ -84,7 +84,9 @@ export async function GET() {
       activeLoans: loans.count,
       totalLoanAmount: toMoney(loans.totalAmount),
       revenueGrowth: 12.5,
-    },);
+    }, {
+      headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" },
+    });
   } catch (error) {
     console.error("Error fetching stats:", error);
     return NextResponse.json(

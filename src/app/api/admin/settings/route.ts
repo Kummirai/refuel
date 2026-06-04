@@ -8,9 +8,9 @@ const DEFAULT_SETTINGS = {
     siteName: "Kapuka",
     siteDescription: "Driver Services Platform",
     contactEmail: "support@Kapuka.com",
-    contactPhone: "+27 782 677 436",
+    contactPhone: "+91 98765 43210",
     holdRegistration: false,
-    adminPhoneNumbers: "+27 782 677 436, +27 782 677 437",
+    adminPhoneNumbers: "+91 98765 43210, +91 98765 43211",
     address: "123, Tech Park, Bangalore - 560001",
     timezone: "Asia/Kolkata",
     currency: "INR",
@@ -92,7 +92,9 @@ export async function GET() {
     // Remove MongoDB specific fields
     const { _id, type, createdAt, updatedAt, ...settingsData } = settings;
 
-    return NextResponse.json(settingsData || DEFAULT_SETTINGS);
+    return NextResponse.json(settingsData || DEFAULT_SETTINGS, {
+      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+    });
   } catch (error) {
     console.error("Error fetching settings:", error);
     return NextResponse.json(DEFAULT_SETTINGS);

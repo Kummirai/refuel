@@ -63,52 +63,46 @@ export async function GET(request: Request) {
       .limit(limit)
       .toArray();
 
-    // Get driver details for each receipt
-    const receiptsWithDetails = await Promise.all(
-      receipts.map(async (request: any) => {
-        let userIdQuery;
-        try {
-          userIdQuery = new ObjectId(request.userId);
-        } catch {
-          userIdQuery = request.userId;
-        }
+    // Batch user lookups
+    const userIds = [...new Set(receipts.map((r: any) => r.userId))] as string[];
+    const userObjectIds = userIds.map((id: string) => {
+      try { return new ObjectId(id); } catch { return id; }
+    });
+    const users: any[] = await usersCollection.find({ _id: { $in: userObjectIds } }).toArray();
+    const userMap = new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
 
-        let user = await usersCollection.findOne({ _id: userIdQuery });
-        if (!user && typeof request.userId === "string") {
-          user = await usersCollection.findOne({ _id: request.userId });
-        }
+    const receiptsWithDetails = receipts.map((request: any) => {
+      const user = userMap.get(request.userId);
 
-        return {
-          id: request._id.toString(),
-          _id: request._id.toString(),
-          userId: request.userId,
-          type: request.type,
-          amount: request.amount,
-          actualAmount: request.actualAmount || null,
-          carNumber: request.carNumber,
-          carRegistration: request.carNumber,
-          driverName: request.driverName || user?.name || "Unknown",
-          driverEmail: request.driverEmail || user?.email || "Unknown",
-          driverPhone: request.driverPhone || user?.phone || "Unknown",
-          serviceType: request.type,
-          status: request.status,
-          requestDate: request.requestDate,
-          completedDate: request.completedDate,
-          popUrl: request.popUrl,
-          popUploadedAt: request.popUploadedAt,
-          hasReceipt: request.hasReceipt || false,
-          receiptVerifiedAt: request.receiptVerifiedAt || null,
-          receiptStatus: request.receiptStatus || (request.hasReceipt ? "verified" : "pending"),
-          receiptRejectionReason: request.receiptRejectionReason || null,
-          receiptRejectedAt: request.receiptRejectedAt || null,
-          correctedByAdmin: request.correctedByAdmin || false,
-          totalRepayable: request.totalRepayable,
-          remainingBalance: request.remainingBalance,
-          dueDate: request.dueDate || request.completedDate, // Fallback for sorting/display
-
-        };
-      }),
-    );
+      return {
+        id: request._id.toString(),
+        _id: request._id.toString(),
+        userId: request.userId,
+        type: request.type,
+        amount: request.amount,
+        actualAmount: request.actualAmount || null,
+        carNumber: request.carNumber,
+        carRegistration: request.carNumber,
+        driverName: request.driverName || user?.name || "Unknown",
+        driverEmail: request.driverEmail || user?.email || "Unknown",
+        driverPhone: request.driverPhone || user?.phone || "Unknown",
+        serviceType: request.type,
+        status: request.status,
+        requestDate: request.requestDate,
+        completedDate: request.completedDate,
+        popUrl: request.popUrl,
+        popUploadedAt: request.popUploadedAt,
+        hasReceipt: request.hasReceipt || false,
+        receiptVerifiedAt: request.receiptVerifiedAt || null,
+        receiptStatus: request.receiptStatus || (request.hasReceipt ? "verified" : "pending"),
+        receiptRejectionReason: request.receiptRejectionReason || null,
+        receiptRejectedAt: request.receiptRejectedAt || null,
+        correctedByAdmin: request.correctedByAdmin || false,
+        totalRepayable: request.totalRepayable,
+        remainingBalance: request.remainingBalance,
+        dueDate: request.dueDate || request.completedDate,
+      };
+    });
 
     return NextResponse.json({
       data: receiptsWithDetails,

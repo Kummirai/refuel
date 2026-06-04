@@ -4,6 +4,10 @@ import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { toMoney } from "@/lib/money";
 
+function tryObjectIdStr(id: string): string {
+  try { return new ObjectId(id).toString(); } catch { return id; }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
@@ -33,88 +37,72 @@ export async function GET(request: NextRequest) {
       .sort({ requestDate: -1 })
       .toArray();
 
-    // console.log("Found requests:", requests.length);
+    // Batch user lookups — fetch all unique users at once
+    const userIds = [...new Set(requests.map((r: any) => r.userId))] as string[];
+    const userObjectIds = userIds.map((id: string) => {
+      try { return new ObjectId(id); } catch { return id; }
+    });
+    const users: any[] = await usersCollection.find({ _id: { $in: userObjectIds } }).toArray();
+    const userMap = new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
 
-    // Get driver details for each request
-    const requestsWithDetails = await Promise.all(
-      requests.map(async (request: any) => {
-        // Convert userId to ObjectId if it's a string, otherwise use as is
-        let userIdQuery;
-        try {
-          userIdQuery = new ObjectId(request.userId);
-        } catch {
-          userIdQuery = request.userId;
-        }
+    const profiles: any[] = await driverProfilesCollection.find({ userId: { $in: userIds } }).toArray();
+    const profileMap = new Map<string, any>(profiles.map((p: any) => [p.userId, p]));
 
-        // Get user from users collection (try both ObjectId and string)
-        let user = await usersCollection.findOne({ _id: userIdQuery });
-        if (!user && typeof request.userId === "string") {
-          user = await usersCollection.findOne({ _id: request.userId });
-        }
+    // Map driver details for each request
+    const requestsWithDetails = requests.map((request: any) => {
+      const user = userMap.get(request.userId) || userMap.get(tryObjectIdStr(request.userId));
+      const driverProfile = profileMap.get(request.userId);
 
-        // Get driver profile (try both formats)
-        let driverProfile = await driverProfilesCollection.findOne({
-          userId: userIdQuery,
-        });
-        if (!driverProfile && typeof request.userId === "string") {
-          driverProfile = await driverProfilesCollection.findOne({
-            userId: request.userId,
-          });
-        }
-
-        // Return ALL fields from the request document
-        return {
-          id: request._id.toString(),
-          _id: request._id.toString(),
-          userId: request.userId,
-          type: request.type,
-          amount: request.amount,
-          actualAmount: request.actualAmount || null,
-          carNumber: request.carNumber,
-          carModel: request.carModel,
-          carRegistration: request.carRegistration,
-          fuelType: request.fuelType,
-          contactPhone: request.contactPhone,
-          driverName:
-            request.driverName ||
-            user?.name ||
-            driverProfile?.fullName ||
-            driverProfile?.name ||
-            "Unknown",
-          driverPhone:
-            request.driverPhone ||
-            user?.phone ||
-            driverProfile?.phone ||
-            "Unknown",
-          driverEmail: request.driverEmail || user?.email || "Unknown",
-          interest: request.interest,
-          totalRepayable: request.totalRepayable,
-          interestRate: request.interestRate,
-          repaymentDays: request.repaymentDays,
-          dailyPayment: request.dailyPayment,
-          package: request.package,
-          packageDescription: request.packageDescription,
-          status: request.status,
-          otp: request.otp,
-          requestDate: request.requestDate,
-          createdAt: request.createdAt,
-          approvedDate: request.approvedDate,
-          completedDate: request.completedDate,
-          popUrl: request.popUrl,
-          popPublicId: request.popPublicId,
-          popUploadedAt: request.popUploadedAt,
-          updatedAt: request.updatedAt,
-          repaidAmount: request.repaidAmount || 0,
-          remainingBalance: request.remainingBalance || 0,
-          isPaid: request.isPaid || false,
-          refueledByManager: request.refueledByManager || false,
-          // Additional fields for display
-          location:
-            request.location || driverProfile?.address || "Not provided",
-          phoneNumber: request.recipientPhoneNumber || request.contactPhone,
-        };
-      }),
-    );
+      return {
+        id: request._id.toString(),
+        _id: request._id.toString(),
+        userId: request.userId,
+        type: request.type,
+        amount: request.amount,
+        actualAmount: request.actualAmount || null,
+        carNumber: request.carNumber,
+        carModel: request.carModel,
+        carRegistration: request.carRegistration,
+        fuelType: request.fuelType,
+        contactPhone: request.contactPhone,
+        driverName:
+          request.driverName ||
+          user?.name ||
+          driverProfile?.fullName ||
+          driverProfile?.name ||
+          "Unknown",
+        driverPhone:
+          request.driverPhone ||
+          user?.phone ||
+          driverProfile?.phone ||
+          "Unknown",
+        driverEmail: request.driverEmail || user?.email || "Unknown",
+        interest: request.interest,
+        totalRepayable: request.totalRepayable,
+        interestRate: request.interestRate,
+        repaymentDays: request.repaymentDays,
+        dailyPayment: request.dailyPayment,
+        package: request.package,
+        packageDescription: request.packageDescription,
+        status: request.status,
+        otp: request.otp,
+        requestDate: request.requestDate,
+        createdAt: request.createdAt,
+        approvedDate: request.approvedDate,
+        completedDate: request.completedDate,
+        popUrl: request.popUrl,
+        popPublicId: request.popPublicId,
+        popUploadedAt: request.popUploadedAt,
+        updatedAt: request.updatedAt,
+        repaidAmount: request.repaidAmount || 0,
+        remainingBalance: request.remainingBalance || 0,
+        isPaid: request.isPaid || false,
+        refueledByManager: request.refueledByManager || false,
+        location:
+          request.location || driverProfile?.address || "Not provided",
+        phoneNumber: request.recipientPhoneNumber || request.contactPhone,
+      };
+    });
 
     // console.log("Requests with details:", requestsWithDetails.length);
     // if (requestsWithDetails.length > 0) {
@@ -127,42 +115,42 @@ export async function GET(request: NextRequest) {
     // Calculate stats
     const total = requestsWithDetails.length;
     const pending = requestsWithDetails.filter(
-      (r) => r.status === "pending",
+      (r: any) => r.status === "pending",
     ).length;
     const approved = requestsWithDetails.filter(
-      (r) => r.status === "approved",
+      (r: any) => r.status === "approved",
     ).length;
     const sent = requestsWithDetails.filter(
-      (r) => r.status === "sent",
+      (r: any) => r.status === "sent",
     ).length;
     const completed = requestsWithDetails.filter(
-      (r) => r.status === "completed" && !r.refueledByManager,
+      (r: any) => r.status === "completed" && !r.refueledByManager,
     ).length;
     const rejected = requestsWithDetails.filter(
-      (r) => r.status === "rejected",
+      (r: any) => r.status === "rejected",
     ).length;
     const refueled = requestsWithDetails.filter(
-      (r) => r.status === "completed" && r.refueledByManager,
+      (r: any) => r.status === "completed" && r.refueledByManager,
     ).length;
 
     // Calculate total revenue based on actualAmount if available, otherwise amount
     const totalRevenue = toMoney(
       requestsWithDetails
-        .filter((r) => r.status === "completed")
-        .reduce((sum, r) => sum + (r.actualAmount || r.amount || 0), 0)
+        .filter((r: any) => r.status === "completed")
+        .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount || 0), 0)
     );
 
     // Calculate total repayable amount
     const totalRepayable = toMoney(
       requestsWithDetails
-        .filter((r) => r.status === "completed")
-        .reduce((sum, r) => sum + (r.totalRepayable || r.amount || 0), 0)
+        .filter((r: any) => r.status === "completed")
+        .reduce((sum: number, r: any) => sum + (r.totalRepayable || r.amount || 0), 0)
     );
 
     // Calculate total repaid amount
     const totalRepaid = toMoney(
       requestsWithDetails.reduce(
-        (sum, r) => sum + (r.repaidAmount || 0),
+        (sum: number, r: any) => sum + (r.repaidAmount || 0),
         0,
       )
     );
@@ -170,7 +158,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       requests: requestsWithDetails,
       recent: requestsWithDetails
-        .filter((r) => r.status === "pending")
+        .filter((r: any) => r.status === "pending")
         .slice(0, 5),
       total,
       pending,

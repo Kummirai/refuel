@@ -27,9 +27,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const serviceRequest = await serviceRequestsCollection.findOne({
-      _id: objectId,
-    });
+    // Validate status before deleting — peek without deleting yet
+    const serviceRequest = await serviceRequestsCollection.findOne(
+      { _id: objectId },
+      { projection: { status: 1, type: 1 } }, // only fetch what we need
+    );
 
     if (!serviceRequest) {
       return NextResponse.json({ error: "Request not found" }, { status: 404 });
@@ -45,43 +47,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await serviceRequestsCollection.deleteOne({
+    // Delete the main record in one shot
+    const deleted = await serviceRequestsCollection.findOneAndDelete({
       _id: objectId,
     });
 
-    if (result.deletedCount === 0) {
+    if (!deleted) {
       return NextResponse.json(
         { error: "Failed to delete request" },
         { status: 500 },
       );
     }
 
-    if (serviceRequest.type === "cash") {
-      const cashLoansCollection = db.collection("cashLoans");
-      await cashLoansCollection.deleteMany({
-        serviceRequestId: requestId,
-      });
-    }
+    // Clean up related records in parallel — don't wait sequentially
+    const type = serviceRequest.type;
+    const relatedCollectionMap: Record<string, string> = {
+      cash: "cashLoans",
+      fuel: "fuelRequests",
+      airtime: "airtimeRequests",
+      carwash: "carwashRequests",
+    };
 
-    if (serviceRequest.type === "fuel") {
-      const fuelRequestsCollection = db.collection("fuelRequests");
-      await fuelRequestsCollection.deleteMany({
-        serviceRequestId: requestId,
-      });
-    }
-
-    if (serviceRequest.type === "airtime") {
-      const airtimeRequestsCollection = db.collection("airtimeRequests");
-      await airtimeRequestsCollection.deleteMany({
-        serviceRequestId: requestId,
-      });
-    }
-
-    if (serviceRequest.type === "carwash") {
-      const carwashRequestsCollection = db.collection("carwashRequests");
-      await carwashRequestsCollection.deleteMany({
-        serviceRequestId: requestId,
-      });
+    const relatedCollection = relatedCollectionMap[type];
+    if (relatedCollection) {
+      // Fire and forget — don't block the response on cleanup
+      db.collection(relatedCollection)
+        .deleteMany({ serviceRequestId: requestId })
+        .catch((err: any) => {
+          console.error(`Failed to clean up ${relatedCollection}:`, err);
+        });
     }
 
     return NextResponse.json({
