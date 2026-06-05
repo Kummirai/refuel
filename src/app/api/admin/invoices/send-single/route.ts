@@ -31,9 +31,13 @@ export async function POST(request: Request) {
     // For now, let's just trigger the push notification as requested.
     
     // 3. Send push notification
-    if (user.expoPushToken) {
-        await sendPushNotification(
-            user.expoPushToken,
+    const pushTokens = user?.pushTokens?.length ? user.pushTokens : user.expoPushToken ? [user.expoPushToken] : [];
+
+    if (pushTokens.length) {
+
+      await sendPushNotification(
+
+        pushTokens,
             "New Invoice",
             "You have a new weekly invoice. Please check your dashboard.",
             { screen: "Invoices", params: { email: user.email } } // Adjust based on your deep-linking config

@@ -35,9 +35,13 @@ export async function PUT(request: NextRequest) {
 
     // Trigger push notification if token exists
     const user = await db.collection("user").findOne({ _id: new ObjectId(session.user.id) });
-    if (user?.expoPushToken) {
+    const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+    if (pushTokens.length) {
+
       await sendPushNotification(
-        user.expoPushToken,
+
+        pushTokens,
         "Profile Updated",
         "Your phone number has been updated successfully.",
         { screen: "Profile" }

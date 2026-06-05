@@ -99,9 +99,13 @@ export async function POST(request: NextRequest) {
     const proofId = result.insertedId.toString();
 
     // Trigger push notification if token exists
-    if (user?.expoPushToken) {
+    const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+    if (pushTokens.length) {
+
       await sendPushNotification(
-        user.expoPushToken,
+
+        pushTokens,
         "Repayment Submitted",
         `Your repayment of R${amount} has been submitted and is pending verification.`,
         { screen: "Repayments" }

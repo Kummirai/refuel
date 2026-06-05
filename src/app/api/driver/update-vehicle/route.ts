@@ -56,9 +56,13 @@ export async function PUT(request: NextRequest) {
 
     // Trigger push notification if token exists
     const user = await db.collection("user").findOne({ _id: new ObjectId(session.user.id) });
-    if (user?.expoPushToken) {
+    const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+    if (pushTokens.length) {
+
       await sendPushNotification(
-        user.expoPushToken,
+
+        pushTokens,
         "Vehicle Updated",
         "Your vehicle details have been updated successfully.",
         { screen: "Profile" }

@@ -155,9 +155,13 @@ export async function POST(request: NextRequest) {
     );
 
     // Trigger push notification if token exists
-    if (user?.expoPushToken) {
+    const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+    if (pushTokens.length) {
+
       await sendPushNotification(
-        user.expoPushToken,
+
+        pushTokens,
         "Verification Submitted",
         "Your verification documents have been submitted and are under review.",
         { screen: "Verification" }

@@ -101,9 +101,13 @@ export async function POST(request: Request) {
     if (!user?.expoPushToken && requestDoc.driverEmail) {
       user = await usersCollection.findOne({ email: requestDoc.driverEmail });
     }
-    if (user?.expoPushToken) {
+    const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+    if (pushTokens.length) {
+
       await sendPushNotification(
-        user.expoPushToken,
+
+        pushTokens,
         "Request Rejected",
         `Your ${requestDoc.type || requestDoc.serviceType || "service"} request has been rejected. Reason: ${reason || "No reason provided"}`,
         { screen: "History" }

@@ -74,9 +74,13 @@ export async function POST(req: NextRequest) {
         }
 
         // Trigger push notification if token exists
-        if (user?.expoPushToken) {
-            await sendPushNotification(
-              user.expoPushToken,
+        const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+        if (pushTokens.length) {
+
+          await sendPushNotification(
+
+            pushTokens,
               "Receipt Verified",
               "Your receipt has been verified and your invoice is ready.",
               { screen: "Invoices" }

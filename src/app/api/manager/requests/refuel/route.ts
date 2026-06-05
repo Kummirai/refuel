@@ -54,9 +54,13 @@ export async function POST(request: NextRequest) {
 
     // Send push notification to driver
     const user = await usersCollection.findOne({ _id: new ObjectId(requestDoc.userId) });
-    if (user?.expoPushToken) {
+    const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+    if (pushTokens.length) {
+
       await sendPushNotification(
-        user.expoPushToken,
+
+        pushTokens,
         "Refueling Completed",
         `Your ${requestDoc.type} request has been marked as completed by the manager.`,
         { screen: "Requests" }

@@ -150,9 +150,13 @@ export async function POST(request: Request) {
 
         // Trigger push notification if token exists
         const user = await usersCollection.findOne({ _id: new ObjectId(entry.userId) });
-        if (user?.expoPushToken) {
-            await sendPushNotification(
-                user.expoPushToken,
+        const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+        if (pushTokens.length) {
+
+          await sendPushNotification(
+
+            pushTokens,
                 "New Weekly Invoice",
                 `Your weekly invoice for R${entry.totalOutstanding} is ready.`,
                 { screen: "Invoices" }

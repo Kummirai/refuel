@@ -3,26 +3,32 @@ import { Expo } from "expo-server-sdk";
 const expo = new Expo();
 
 export async function sendPushNotification(
-  pushToken: string,
+  pushTokenOrTokens: string | string[],
   title: string,
   body: string,
   data: Record<string, unknown> = {},
 ) {
-  if (!Expo.isExpoPushToken(pushToken)) {
-    console.error(`Invalid Expo push token: ${pushToken}`);
+  const tokens = Array.isArray(pushTokenOrTokens)
+    ? pushTokenOrTokens
+    : [pushTokenOrTokens];
+
+  const validTokens = tokens.filter((t) => Expo.isExpoPushToken(t));
+
+  if (validTokens.length === 0) {
+    console.error("No valid Expo push tokens provided");
     return;
   }
 
-  const message = {
-    to: pushToken,
-    sound: "default",
+  const messages = validTokens.map((to) => ({
+    to,
+    sound: "default" as const,
     title,
     body,
     data,
-  };
+  }));
 
   try {
-    const ticket = await expo.sendPushNotificationsAsync([message]);
+    const ticket = await expo.sendPushNotificationsAsync(messages);
     console.log("Push notification ticket:", ticket);
     return ticket;
   } catch (error) {
@@ -40,13 +46,23 @@ export async function sendAdminPushNotification(
     const { db } = await connectToDatabase();
     const adminUsers = await db
       .collection("user")
-      .find({ role: "admin", expoPushToken: { $exists: true, $ne: null } })
+      .find({
+        role: "admin",
+        $or: [
+          { "pushTokens.0": { $exists: true } },
+          { expoPushToken: { $exists: true, $ne: null } },
+        ],
+      })
       .toArray();
 
-    const messages = adminUsers
-      .filter((u: any) => Expo.isExpoPushToken(u.expoPushToken))
-      .map((u: any) => ({
-        to: u.expoPushToken,
+    const allTokens = adminUsers.flatMap((u: any) =>
+      u.pushTokens?.length ? u.pushTokens : u.expoPushToken ? [u.expoPushToken] : [],
+    );
+
+    const messages = allTokens
+      .filter((t: string) => Expo.isExpoPushToken(t))
+      .map((to: string) => ({
+        to,
         sound: "default" as const,
         title,
         body,

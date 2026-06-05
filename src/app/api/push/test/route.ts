@@ -17,34 +17,49 @@ export async function POST(request: NextRequest) {
 
     const user = await users.findOne(
       { _id: new ObjectId(userId) },
-      { projection: { expoPushToken: 1 } },
+      { projection: { pushTokens: 1, expoPushToken: 1, role: 1 } },
     );
 
-    if (!user || !user.expoPushToken) {
+    if (!user) {
       return NextResponse.json(
-        { error: "User does not have a registered push token" },
+        { error: "User not found" },
         { status: 404 },
       );
     }
 
-    console.log("📱 Found push token for user:", user.expoPushToken);
+    const tokens = user.pushTokens?.length
+      ? user.pushTokens
+      : user.expoPushToken
+        ? [user.expoPushToken]
+        : [];
 
-    if (!Expo.isExpoPushToken(user.expoPushToken)) {
+    if (tokens.length === 0) {
       return NextResponse.json(
-        { error: "Invalid Expo push token format" },
+        { error: "User does not have registered push tokens" },
+        { status: 404 },
+      );
+    }
+
+    console.log("📱 Found push tokens for user:", tokens);
+
+    const validTokens = tokens.filter((t: string) =>
+      Expo.isExpoPushToken(t),
+    );
+
+    if (validTokens.length === 0) {
+      return NextResponse.json(
+        { error: "No valid Expo push tokens" },
         { status: 400 },
       );
     }
 
-    const messages = [
-      {
-        to: user.expoPushToken,
-        sound: "default" as const,
-        title: title || "Test Notification",
-        body: messageBody || "This is a test push notification",
-        data: data || {},
-      },
-    ];
+    const messages = validTokens.map((to: string) => ({
+      to,
+      sound: "default" as const,
+      title: title || "Test Notification",
+      body: messageBody || "This is a test push notification",
+      data: data || {},
+    }));
 
     const tickets = await expo.sendPushNotificationsAsync(messages);
 
@@ -55,10 +70,18 @@ export async function POST(request: NextRequest) {
         ticket.message === "DeviceNotRegistered"
       ) {
         console.log("❌ Token invalid, removing from database");
-        await users.updateOne(
-          { _id: new ObjectId(userId) },
-          { $set: { expoPushToken: null, pushTokenValid: false } },
-        );
+        const invalidToken = (ticket.details as any)?.expoPushToken as string;
+        if (user.role === "manager" || user.role === "admin") {
+          await users.updateOne(
+            { _id: new ObjectId(userId) },
+            { $pull: { pushTokens: invalidToken } },
+          );
+        } else {
+          await users.updateOne(
+            { _id: new ObjectId(userId) },
+            { $set: { expoPushToken: null, pushTokenValid: false } },
+          );
+        }
       }
     }
 

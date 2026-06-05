@@ -65,9 +65,13 @@ export async function PATCH(request: NextRequest) {
 
     // Trigger push notification if token exists
     const user = await usersCollection.findOne({ _id: new ObjectId(targetUserId) });
-    if (user?.expoPushToken) {
+    const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+    if (pushTokens.length) {
+
       await sendPushNotification(
-        user.expoPushToken,
+
+        pushTokens,
         "Profile Updated",
         "Your profile details have been updated successfully.",
         { screen: "Profile" }

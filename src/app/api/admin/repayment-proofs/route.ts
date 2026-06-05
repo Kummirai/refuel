@@ -242,9 +242,13 @@ export async function PUT(request: NextRequest) {
     // Send notifications
     if (driver) {
         // Trigger push notification if token exists
-        if (driver.expoPushToken) {
-            await sendPushNotification(
-              driver.expoPushToken,
+        const pushTokens = driver?.pushTokens?.length ? driver.pushTokens : driver.expoPushToken ? [driver.expoPushToken] : [];
+
+        if (pushTokens.length) {
+
+          await sendPushNotification(
+
+            pushTokens,
               status === "approved" ? "Repayment Approved" : "Repayment Rejected",
               status === "approved" 
                 ? `Your repayment of R${proof.amount} has been approved.` 

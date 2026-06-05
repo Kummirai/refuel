@@ -84,9 +84,13 @@ export async function POST(request: Request) {
 
     // Trigger push notification if token exists
     const user = await usersCollection.findOne({ _id: new ObjectId(requestDoc.userId) });
-    if (user?.expoPushToken) {
+    const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+    if (pushTokens.length) {
+
       await sendPushNotification(
-        user.expoPushToken,
+
+        pushTokens,
         "Request Approved",
         `Your request has been approved. OTP: ${otp}`,
         { screen: "Requests" }

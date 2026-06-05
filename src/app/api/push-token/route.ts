@@ -19,15 +19,23 @@ export async function POST(request: NextRequest) {
     const { db } = await connectToDatabase();
     const users = db.collection("user");
 
+    const user = await users.findOne(
+      { _id: new ObjectId(userId) },
+      { projection: { role: 1 } },
+    );
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const update =
+      user.role === "manager" || user.role === "admin"
+        ? { $addToSet: { pushTokens: pushToken } as any, $set: { pushTokenUpdatedAt: new Date(), pushTokenValid: true } }
+        : { $set: { expoPushToken: pushToken, pushTokenUpdatedAt: new Date(), pushTokenValid: true } };
+
     const result = await users.updateOne(
       { _id: new ObjectId(userId) },
-      {
-        $set: {
-          expoPushToken: pushToken,
-          pushTokenUpdatedAt: new Date(),
-          pushTokenValid: true,
-        },
-      },
+      update,
     );
 
     if (result.matchedCount === 0) {
@@ -63,12 +71,12 @@ export async function GET(request: NextRequest) {
 
     const user = await users.findOne(
       { _id: new ObjectId(userId) },
-      { projection: { expoPushToken: 1, pushTokenUpdatedAt: 1 } },
+      { projection: { pushTokens: 1, pushTokenUpdatedAt: 1 } },
     );
 
     return NextResponse.json({
-      hasPushToken: !!user?.expoPushToken,
-      pushToken: user?.expoPushToken || null,
+      hasPushToken: !!(user?.pushTokens?.length),
+      pushTokens: user?.pushTokens || [],
       updatedAt: user?.pushTokenUpdatedAt || null,
     });
   } catch (error) {

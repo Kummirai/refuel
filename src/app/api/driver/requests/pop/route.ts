@@ -139,9 +139,13 @@ export async function POST(request: NextRequest) {
     const user = await usersCollection.findOne({ _id: new ObjectId(session.user.id) });
 
     // Trigger push notification if token exists
-    if (user?.expoPushToken) {
+    const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+    if (pushTokens.length) {
+
       await sendPushNotification(
-        user.expoPushToken,
+
+        pushTokens,
         "Receipt Uploaded",
         "Your receipt has been uploaded successfully and is pending verification.",
         { screen: "History" }

@@ -195,9 +195,16 @@ export async function POST(request: NextRequest) {
       // Find the user to get push token
       const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
       
-      if (user?.expoPushToken) {
+      const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+      
+      if (pushTokens.length) {
+
+      
         await sendPushNotification(
-          user.expoPushToken,
+
+      
+          pushTokens,
           "Request Submitted",
           `Your ${type} request of R${amount} has been submitted successfully.`,
           { screen: "Requests" }
