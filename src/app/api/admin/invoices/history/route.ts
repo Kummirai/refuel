@@ -10,12 +10,25 @@ export async function GET(request: Request) {
     const filter: Record<string, any> = {};
     if (channel) filter.channel = channel;
 
-    const history = await db
+    const raw = await db
       .collection("invoiceHistory")
       .find(filter)
       .sort({ sentAt: -1 })
       .limit(50)
       .toArray();
+
+    const history = raw.map((r) => {
+      if (r.singleRecipient && !r.drivers) {
+        r.drivers = [{
+          driverName: r.driverName || '',
+          driverEmail: r.driverEmail || '',
+          driverPhone: r.driverPhone || '',
+          outstanding: r.totalOutstanding || 0,
+          items: r.items || [],
+        }];
+      }
+      return r;
+    });
 
     return NextResponse.json({ history });
   } catch (error) {
