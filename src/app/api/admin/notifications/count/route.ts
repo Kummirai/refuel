@@ -11,7 +11,11 @@ export async function GET() {
       db.collection("repaymentProofs").countDocuments({ status: "pending" }),
       db.collection("serviceRequests").countDocuments({
         completedDate: { $ne: null },
-        hasReceipt: { $eq: false },
+        popUrl: { $exists: true, $nin: [null, ""] },
+        $nor: [
+          { hasReceipt: true },
+          { receiptStatus: "verified" },
+        ],
       }),
     ]);
 
