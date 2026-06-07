@@ -44,6 +44,16 @@ export async function POST(request: Request) {
         );
     }
 
+    await db.collection("invoiceHistory").insertOne({
+      channel: "email",
+      sentAt: new Date(),
+      singleRecipient: true,
+      driverName: user.name || user.displayName || "Driver",
+      driverEmail: email,
+      sent: 1,
+      errors: 0,
+    });
+
     return NextResponse.json({ success: true, message: "Invoice and notification processed" });
   } catch (error) {
     console.error("Error processing send-single invoice:", error);

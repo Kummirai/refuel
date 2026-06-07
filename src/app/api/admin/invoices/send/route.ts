@@ -185,6 +185,7 @@ export async function POST(request: Request) {
 
     try {
       await db.collection("invoiceHistory").insertOne({
+        channel: "email",
         sentAt: new Date(),
         totalDrivers: driversList.length,
         totalOutstanding: driversList.reduce((s, d) => s + d.outstanding, 0),
