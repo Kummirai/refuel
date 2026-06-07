@@ -17,7 +17,7 @@ export async function GET(request: Request) {
       .limit(50)
       .toArray();
 
-    const history = raw.map((r) => {
+    const history = raw.map((r: any) => {
       if (r.singleRecipient && !r.drivers) {
         r.drivers = [{
           driverName: r.driverName || '',
