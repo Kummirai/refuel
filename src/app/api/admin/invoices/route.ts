@@ -129,11 +129,26 @@ export async function GET(request: NextRequest) {
     }
 
     const drivers = Object.values(outstandingByUser)
-      .filter((d) => d.items.length > 0)
-      .sort((a, b) => b.totalOutstanding - a.totalOutstanding);
+      .filter((d: any) => d.items.length > 0)
+      .sort((a: any, b: any) => b.totalOutstanding - a.totalOutstanding);
+
+    // Check which drivers have had WhatsApp invoices sent
+    const driverEmails = drivers.map((d: any) => d.driverEmail).filter(Boolean);
+    const whatsappSentRecords = driverEmails.length > 0
+      ? await db.collection("invoiceHistory").find(
+          { driverEmail: { $in: driverEmails }, channel: "whatsapp" },
+          { projection: { driverEmail: 1 } },
+        ).toArray()
+      : [];
+    const whatsappSentEmails = new Set(whatsappSentRecords.map((r: any) => r.driverEmail));
+    for (const d of drivers) {
+      if (d.driverEmail && whatsappSentEmails.has(d.driverEmail)) {
+        d.whatsappSent = true;
+      }
+    }
 
     const totalOutstandingAll = drivers.reduce(
-      (sum, d) => sum + d.totalOutstanding,
+      (sum: number, d: any) => sum + d.totalOutstanding,
       0,
     );
 
