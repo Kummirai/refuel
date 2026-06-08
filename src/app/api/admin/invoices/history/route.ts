@@ -27,6 +27,8 @@ export async function GET(request: Request) {
           items: r.items || [],
         }];
       }
+      if (r.totalOutstanding === undefined) r.totalOutstanding = 0;
+      if (r.totalDrivers === undefined) r.totalDrivers = (r.drivers && r.drivers.length) || 1;
       return r;
     });
 
