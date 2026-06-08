@@ -3,7 +3,6 @@ import { connectToDatabase } from "@/lib/db";
 import { sendDriverWeeklyInvoiceEmail } from "@/lib/email";
 import { sendPushNotification } from "@/lib/notifications";
 import { toMoney } from "@/lib/money";
-import { ObjectId } from "mongodb";
 
 export async function POST(request: Request) {
   try {
