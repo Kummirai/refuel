@@ -132,25 +132,29 @@ export async function GET(request: NextRequest) {
       .filter((d: any) => d.items.length > 0)
       .sort((a: any, b: any) => b.totalOutstanding - a.totalOutstanding);
 
-    // Check which drivers have had WhatsApp invoices sent for this period
+    // Check which drivers' current items were already sent via WhatsApp
     const driverEmails = drivers.map((d: any) => d.driverEmail).filter(Boolean);
-    const periodFilter: Record<string, unknown> = {
-      driverEmail: { $in: driverEmails },
-      channel: "whatsapp",
-    };
-    if (startDate || endDate) {
-      periodFilter["dateRange.startDate"] = startDate || "";
-      periodFilter["dateRange.endDate"] = endDate || "";
-    }
     const whatsappSentRecords = driverEmails.length > 0
       ? await db.collection("invoiceHistory").find(
-          periodFilter,
-          { projection: { driverEmail: 1 } },
+          { driverEmail: { $in: driverEmails }, channel: "whatsapp" },
+          { projection: { driverEmail: 1, requestIds: 1 } },
         ).toArray()
       : [];
-    const whatsappSentEmails = new Set(whatsappSentRecords.map((r: any) => r.driverEmail));
+    // Map driverEmail -> Set of requestIds that have been sent
+    const sentRequestIdsByEmail = new Map<string, Set<string>>();
+    for (const rec of whatsappSentRecords) {
+      if (!rec.driverEmail || !rec.requestIds?.length) continue;
+      const existing = sentRequestIdsByEmail.get(rec.driverEmail) || new Set();
+      for (const rid of rec.requestIds) existing.add(rid);
+      sentRequestIdsByEmail.set(rec.driverEmail, existing);
+    }
     for (const d of drivers) {
-      if (d.driverEmail && whatsappSentEmails.has(d.driverEmail)) {
+      if (!d.driverEmail) continue;
+      const sentIds = sentRequestIdsByEmail.get(d.driverEmail);
+      if (!sentIds) continue;
+      const currentIds = d.items.map((i: any) => i.requestId).filter(Boolean);
+      // Only mark as sent if ALL current requestIds were previously sent via WhatsApp
+      if (currentIds.length > 0 && currentIds.every((rid: string) => sentIds.has(rid))) {
         d.whatsappSent = true;
       }
     }

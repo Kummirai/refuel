@@ -11,6 +11,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "driverName is required" }, { status: 400 });
     }
 
+    const requestIds = (items || []).map((i: any) => i.requestId).filter(Boolean);
+
     await db.collection("invoiceHistory").insertOne({
       channel: "whatsapp",
       sentAt: new Date(),
@@ -20,9 +22,9 @@ export async function POST(request: Request) {
       driverPhone: driverPhone || "",
       totalOutstanding: totalOutstanding || 0,
       items: items || [],
+      requestIds,
       sent: 1,
       errors: 0,
-      dateRange: body.dateRange || null,
     });
 
     return NextResponse.json({ success: true });
