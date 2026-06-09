@@ -8,13 +8,15 @@ export interface CycleDates {
 function getDefaultWeekCycle(): CycleDates {
   const now = new Date();
   const dayOfWeek = now.getDay();
+  // Monday = 0 offset
   const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
   const start = new Date(now);
   start.setDate(now.getDate() + diffToMonday);
   start.setHours(0, 0, 0, 0);
+  // End on next Monday (matches frontend defaultCycleDates)
   const end = new Date(start);
-  end.setDate(start.getDate() + 6);
-  end.setHours(23, 59, 59, 999);
+  end.setDate(start.getDate() + 7);
+  end.setHours(0, 0, 0, 0);
   return { startDate: start, endDate: end };
 }
 

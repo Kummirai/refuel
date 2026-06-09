@@ -109,19 +109,25 @@ export async function PUT(request: Request) {
     const { db } = await connectToDatabase();
     const settingsCollection = db.collection("settings");
 
+    const $set: Record<string, unknown> = {
+      general,
+      services,
+      notifications,
+      security,
+      business,
+      updatedAt: new Date(),
+    };
+
+    // Only update managerCycle if explicitly provided (don't overwrite with null on other saves)
+    if ('managerCycle' in body) {
+      $set.managerCycle = managerCycle === undefined ? null : managerCycle;
+    }
+
     // Update settings
     await settingsCollection.updateOne(
       { type: "app_settings" },
       {
-        $set: {
-          general,
-          services,
-          notifications,
-          security,
-          business,
-          managerCycle: managerCycle || null,
-          updatedAt: new Date(),
-        },
+        $set,
         $setOnInsert: {
           type: "app_settings",
           createdAt: new Date(),
