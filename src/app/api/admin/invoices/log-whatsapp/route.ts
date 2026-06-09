@@ -22,6 +22,7 @@ export async function POST(request: Request) {
       items: items || [],
       sent: 1,
       errors: 0,
+      dateRange: body.dateRange || null,
     });
 
     return NextResponse.json({ success: true });

@@ -132,11 +132,19 @@ export async function GET(request: NextRequest) {
       .filter((d: any) => d.items.length > 0)
       .sort((a: any, b: any) => b.totalOutstanding - a.totalOutstanding);
 
-    // Check which drivers have had WhatsApp invoices sent
+    // Check which drivers have had WhatsApp invoices sent for this period
     const driverEmails = drivers.map((d: any) => d.driverEmail).filter(Boolean);
+    const periodFilter: Record<string, unknown> = {
+      driverEmail: { $in: driverEmails },
+      channel: "whatsapp",
+    };
+    if (startDate || endDate) {
+      periodFilter["dateRange.startDate"] = startDate || "";
+      periodFilter["dateRange.endDate"] = endDate || "";
+    }
     const whatsappSentRecords = driverEmails.length > 0
       ? await db.collection("invoiceHistory").find(
-          { driverEmail: { $in: driverEmails }, channel: "whatsapp" },
+          periodFilter,
           { projection: { driverEmail: 1 } },
         ).toArray()
       : [];
