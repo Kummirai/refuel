@@ -1085,7 +1085,7 @@ export default function AdminDashboard() {
                       <div className="mb-3">
                         <p className="text-xs text-gray-500 mb-2">Photos ({request.collateral.images.length})</p>
                         <div className="flex gap-2 flex-wrap">
-                          {request.collateral.images.map((url, idx) => (
+                          {request.collateral.images.map((url: string, idx: number) => (
                             <a key={idx} href={url} target="_blank" rel="noopener noreferrer"
                               className="block w-20 h-20 rounded-lg overflow-hidden border border-[#BFF202]/20 bg-white">
                               <img src={url} alt={`Collateral ${idx + 1}`} className="w-full h-full object-cover"
