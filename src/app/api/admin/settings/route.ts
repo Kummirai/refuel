@@ -93,11 +93,13 @@ export async function GET() {
     const { _id, type, createdAt, updatedAt, ...settingsData } = settings;
 
     return NextResponse.json(settingsData || DEFAULT_SETTINGS, {
-      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+      headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
     });
   } catch (error) {
     console.error("Error fetching settings:", error);
-    return NextResponse.json(DEFAULT_SETTINGS);
+    return NextResponse.json(DEFAULT_SETTINGS, {
+      headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
+    });
   }
 }
 
@@ -110,15 +112,15 @@ export async function PUT(request: Request) {
     const settingsCollection = db.collection("settings");
 
     const $set: Record<string, unknown> = {
-      general,
-      services,
-      notifications,
-      security,
-      business,
       updatedAt: new Date(),
     };
 
-    // Only update managerCycle if explicitly provided (don't overwrite with null on other saves)
+    // Only set fields that were actually provided in the request body
+    if ('general' in body) $set.general = general;
+    if ('services' in body) $set.services = services;
+    if ('notifications' in body) $set.notifications = notifications;
+    if ('security' in body) $set.security = security;
+    if ('business' in body) $set.business = business;
     if ('managerCycle' in body) {
       $set.managerCycle = managerCycle === undefined ? null : managerCycle;
     }

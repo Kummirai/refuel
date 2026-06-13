@@ -26,14 +26,14 @@ export async function GET() {
       holdRegistration: settings?.general?.holdRegistration ?? false,
       adminPhoneNumbers: buildAdminPhones(settings),
     }, {
-      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+      headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
     });
   } catch {
     return NextResponse.json({
       holdRegistration: false,
       adminPhoneNumbers: "",
     }, {
-      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+      headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
     });
   }
 }
