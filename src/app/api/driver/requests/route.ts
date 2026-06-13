@@ -131,7 +131,8 @@ export async function POST(request: NextRequest) {
       driverEmail,
       package: packageName,
       packageDescription,
-      hasReceipt
+      hasReceipt,
+      collateral,
     } = body;
 
     // Validate required fields
@@ -183,6 +184,7 @@ export async function POST(request: NextRequest) {
       requestDate: new Date(),
       createdAt: new Date(),
       hasReceipt: hasReceipt || false,
+      collateral: collateral || null,
     };
 
     console.log("Saving request data:", requestData);

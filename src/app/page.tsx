@@ -561,18 +561,17 @@ export default function HomePage() {
               </p>
 
               <div className="grid">
-                {/* Cash Loan - Upcoming */}
-                <div className="bg-white/50 rounded-2xl w-2/3 mx-auto p-4 border border-dashed border-[#bff202]/30">
-                  <div className="bg-linear-to-r from-[#72bf00] to-[#bff202] w-12 h-12 rounded-xl flex items-center justify-center mb-3 opacity-50">
+                {/* Cash Loan - Now Available */}
+                <div className="bg-white rounded-2xl w-2/3 mx-auto p-4 border border-[#bff202]/30 shadow-sm">
+                  <div className="bg-linear-to-r from-[#72bf00] to-[#bff202] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
                     <DollarSign className="w-6 h-6 text-[#01312D]" />
                   </div>
-                  <h3 className="font-bold text-gray-500 text-lg">Cash Loan</h3>
-                  <p className="text-gray-400 text-xs mt-1">
-                    Coming soon • Instant transfer
+                  <h3 className="font-bold text-[#01312D] text-lg">Cash Loan</h3>
+                  <p className="text-[#3A7717] text-xs mt-1 font-medium">
+                    26% interest • 14-day repayment
                   </p>
-                  <div className="flex items-center gap-1 mt-2 text-gray-400 text-xs font-semibold">
-                    <span>Notify me</span>
-                    <ChevronRight className="w-3 h-3" />
+                  <div className="flex items-center gap-1 mt-2 text-[#3A7717] text-xs font-semibold">
+                    <span>Collateral required</span>
                   </div>
                 </div>
 

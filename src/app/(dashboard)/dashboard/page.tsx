@@ -282,23 +282,23 @@ export default function DriverDashboard() {
           </div>
         </div>
 
-        {/* Upcoming Services Banner */}
+        {/* Cash Loan Now Available */}
         <div className="bg-linear-to-r from-[#bff202]/20 to-[#72bf00]/20 rounded-2xl p-4 mb-6 border border-[#bff202]/30">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-[#bff202] rounded-full flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-[#01312D]" />
+                <DollarSign className="w-5 h-5 text-[#01312D]" />
               </div>
               <div>
-                <p className="font-semibold text-[#01312D]">Coming Soon!</p>
+                <p className="font-semibold text-[#01312D]">Cash Loan Available!</p>
                 <p className="text-xs text-gray-600">
-                  Cash Loans will be available soon
+                  26% interest • 14-day repayment • Collateral required
                 </p>
               </div>
             </div>
             <div className="flex gap-2">
               <span className="text-xs bg-white/50 px-2 py-1 rounded-full text-[#01312D]">
-                💰 Cash Loan
+                New
               </span>
             </div>
           </div>
