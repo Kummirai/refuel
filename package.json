@@ -17,6 +17,7 @@
   "dependencies": {
     "@auth/mongodb-adapter": "^3.11.2",
     "@hookform/resolvers": "^5.2.2",
+    "@vercel/analytics": "^2.0.1",
     "bcryptjs": "^3.0.3",
     "better-auth": "^1.6.9",
     "cloudinary": "^2.10.0",

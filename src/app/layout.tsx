@@ -2,6 +2,7 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/react";
 import PwaInstallPrompt from "@/components/PwaInstallPrompt";
 
 const jarkata = Plus_Jakarta_Sans({
@@ -33,6 +34,7 @@ export default function RootLayout({
       </head>
       <body className={jarkata.className}>
         {children}
+        <Analytics />
         <PwaInstallPrompt />
         <script
           dangerouslySetInnerHTML={{
