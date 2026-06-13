@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import {
   Search,
+  Shield,
   Filter,
   Eye,
   CheckCircle,
@@ -44,6 +45,18 @@ import { formatMoney, toMoney } from "@/lib/money";
 type RequestType = "fuel" | "airtime" | "cash" | "carwash";
 type RequestStatus = "pending" | "approved" | "sent" | "completed" | "rejected";
 
+interface Collateral {
+  category?: string;
+  itemName?: string;
+  brand?: string;
+  model?: string;
+  purchaseYear?: number;
+  color?: string;
+  condition?: string;
+  serialNumber?: string;
+  images?: string[];
+}
+
 interface ServiceRequest {
   id: string;
   _id?: string;
@@ -76,6 +89,7 @@ interface ServiceRequest {
   remainingBalance?: number;
   isPaid?: boolean;
   refueledByManager?: boolean;
+  collateral?: Collateral | null;
 }
 
 interface LinkedRequest {
@@ -904,6 +918,90 @@ export default function AdminServiceRequestsPage() {
                           }
                         }}
                       />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Collateral Section (cash loans only) */}
+            {request.type === "cash" && request.collateral && (
+              <div className="bg-[#EAFDE7] rounded-xl p-4">
+                <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-[#3A7717]" /> Collateral Details
+                </h3>
+                {request.collateral.images && request.collateral.images.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs text-gray-500 mb-2">Photos ({request.collateral.images.length})</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {request.collateral.images.map((url, idx) => (
+                        <a
+                          key={idx}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block w-20 h-20 rounded-lg overflow-hidden border border-[#BFF202]/20 bg-white"
+                        >
+                          <img
+                            src={url}
+                            alt={`Collateral ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                            }}
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-2 text-sm">
+                  {request.collateral.itemName && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Item:</span>
+                      <span className="font-semibold text-[#01312D]">{request.collateral.itemName}</span>
+                    </div>
+                  )}
+                  {request.collateral.category && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Category:</span>
+                      <span className="font-semibold text-[#01312D]">{request.collateral.category}</span>
+                    </div>
+                  )}
+                  {request.collateral.condition && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Condition:</span>
+                      <span className="font-semibold capitalize text-[#01312D]">{request.collateral.condition.replace(/_/g, ' ')}</span>
+                    </div>
+                  )}
+                  {request.collateral.brand && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Brand:</span>
+                      <span className="font-semibold text-[#01312D]">{request.collateral.brand}</span>
+                    </div>
+                  )}
+                  {request.collateral.model && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Model:</span>
+                      <span className="font-semibold text-[#01312D]">{request.collateral.model}</span>
+                    </div>
+                  )}
+                  {request.collateral.purchaseYear && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Year:</span>
+                      <span className="font-semibold text-[#01312D]">{request.collateral.purchaseYear}</span>
+                    </div>
+                  )}
+                  {request.collateral.color && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Color:</span>
+                      <span className="font-semibold text-[#01312D]">{request.collateral.color}</span>
+                    </div>
+                  )}
+                  {request.collateral.serialNumber && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Serial / IMEI:</span>
+                      <span className="font-semibold text-[#01312D]">{request.collateral.serialNumber}</span>
                     </div>
                   )}
                 </div>

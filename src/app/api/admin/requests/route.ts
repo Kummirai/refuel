@@ -101,6 +101,7 @@ export async function GET(request: NextRequest) {
         location:
           request.location || driverProfile?.address || "Not provided",
         phoneNumber: request.recipientPhoneNumber || request.contactPhone,
+        collateral: request.collateral || null,
       };
     });
 
