@@ -925,11 +925,15 @@ export default function AdminServiceRequestsPage() {
             )}
 
             {/* Collateral Section (cash loans only) */}
-            {request.type === "cash" && request.collateral && (
+            {request.type === "cash" && (
               <div className="bg-[#EAFDE7] rounded-xl p-4">
                 <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
                   <Shield className="w-4 h-4 text-[#3A7717]" /> Collateral Details
                 </h3>
+                {!request.collateral ? (
+                  <p className="text-sm text-gray-500 italic">No collateral data provided with this request.</p>
+                ) : (
+                <>
                 {request.collateral.images && request.collateral.images.length > 0 && (
                   <div className="mb-3">
                     <p className="text-xs text-gray-500 mb-2">Photos ({request.collateral.images.length})</p>
@@ -1005,6 +1009,8 @@ export default function AdminServiceRequestsPage() {
                     </div>
                   )}
                 </div>
+                </>
+                )}
               </div>
             )}
 
