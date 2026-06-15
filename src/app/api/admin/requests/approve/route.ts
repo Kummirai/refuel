@@ -43,11 +43,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Request not found" }, { status: 404 });
     }
 
-    // Get driver profile to fetch car registration
+    // Get driver profile to fetch car registration and banking details
     let carRegistration = "Not provided";
+    let driverProfile: Record<string, unknown> | null = null;
     try {
       // Try to find driver profile by userId or driverEmail
-      const driverProfile = await driverProfilesCollection.findOne({
+      driverProfile = await driverProfilesCollection.findOne({
         $or: [
           { userId: requestDoc.userId },
           { userId: requestDoc.driverId },
@@ -58,8 +59,8 @@ export async function POST(request: Request) {
 
       if (driverProfile) {
         carRegistration =
-          driverProfile.carRegistrationNumber ||
-          driverProfile.carRegistration ||
+          (driverProfile.carRegistrationNumber as string) ||
+          (driverProfile.carRegistration as string) ||
           "Not provided";
         console.log("Found car registration:", carRegistration);
       } else {
@@ -107,7 +108,11 @@ export async function POST(request: Request) {
           serviceType: requestDoc.type || requestDoc.serviceType,
           amount: requestDoc.amount,
           otp: otp,
-          carRegistration: carRegistration, // Add car registration here
+          carRegistration: carRegistration,
+          bankName: driverProfile?.bankName as string | undefined,
+          accountHolder: driverProfile?.accountHolder as string | undefined,
+          accountNumber: driverProfile?.accountNumber as string | undefined,
+          branchCode: driverProfile?.branchCode as string | undefined,
         });
         console.log("Driver approval email sent for request:", requestId);
       } catch (emailError) {

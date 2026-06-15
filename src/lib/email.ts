@@ -481,6 +481,10 @@ const generateDriverApprovalHtml = (data: {
   amount: number;
   otp: string;
   carRegistration: string;
+  bankName?: string;
+  accountHolder?: string;
+  accountNumber?: string;
+  branchCode?: string;
 }) => {
   const serviceTypeMap: Record<string, string> = {
     fuel: "Fuel",
@@ -488,6 +492,8 @@ const generateDriverApprovalHtml = (data: {
     cash: "Cash Loan",
     carwash: "Car Wash",
   };
+
+  const isCash = data.serviceType === "cash";
 
   return `
     <!DOCTYPE html>
@@ -541,6 +547,26 @@ const generateDriverApprovalHtml = (data: {
               Please use it before it expires.
             </div>
           </div>
+
+          ${isCash ? `
+          <div class="card" style="background: #f0fdf4; border: 2px solid #16a34a; margin-top: 20px;">
+            <div class="card-title" style="color: #166534;">Driver Banking Details</div>
+            <div style="padding: 12px; font-size: 14px; line-height: 1.8;">
+              ${data.bankName ? `<div><strong>Bank:</strong> ${data.bankName}</div>` : ''}
+              ${data.accountHolder ? `<div><strong>Account Holder:</strong> ${data.accountHolder}</div>` : ''}
+              ${data.accountNumber ? `<div><strong>Account Number:</strong> ${data.accountNumber}</div>` : ''}
+              ${data.branchCode ? `<div><strong>Branch Code:</strong> ${data.branchCode}</div>` : ''}
+              ${!data.bankName && !data.accountNumber ? '<div style="color: #dc2626; font-style: italic;">No banking details on file. Please contact support.</div>' : ''}
+            </div>
+          </div>
+          <div style="background: #fef2f2; border: 3px solid #dc2626; border-radius: 12px; padding: 16px; margin-top: 16px; text-align: center;">
+            <h3 style="color: #dc2626; margin: 0 0 8px 0; font-size: 18px; font-weight: 800;">⚠ PLEASE VERIFY AND CONFIRM</h3>
+            <p style="color: #991b1b; margin: 0; font-size: 14px; line-height: 1.5;">
+              Before releasing funds, verify the above banking details with the driver. 
+              Kapuka Tradings is not liable for payments made to incorrect accounts.
+            </p>
+          </div>
+          ` : ''}
           
           <div style="text-align: center;">
             <a href="${process.env.NEXT_PUBLIC_APP_URL}/requests/history" class="button">View My Requests</a>
@@ -564,6 +590,10 @@ export async function sendDriverApprovalEmail(data: {
   amount: number;
   otp: string;
   carRegistration: string;
+  bankName?: string;
+  accountHolder?: string;
+  accountNumber?: string;
+  branchCode?: string;
 }) {
   try {
     const info = await transporter.sendMail({
