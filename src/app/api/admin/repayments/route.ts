@@ -177,6 +177,7 @@ export async function GET() {
         popUrl: loan.popUrl,
         popUploadedAt: loan.popUploadedAt,
         payments: loan.payments || [],
+        interestAdjustments: loan.interestAdjustments || [],
         pendingRepaymentProofs: pendingProofs,
         hasPendingProofs: pendingProofs.length > 0,
       };
