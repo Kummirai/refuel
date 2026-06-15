@@ -376,40 +376,52 @@ export default function DriverDashboard() {
           </div>
         ) : null}
 
-        {/* Quick Actions - Only Fuel and Car Wash */}
+        {/* Quick Actions */}
         <div className="mb-6">
           <h2 className="text-lg font-bold text-[#01312D] mb-3">
             Quick Actions
           </h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             {/* Fuel Request */}
             <button
               onClick={() => router.push("/requests?type=fuel")}
-              className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 flex items-center gap-3 hover:shadow-md transition-shadow active:scale-95"
+              className="bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20 flex flex-col items-center gap-2 hover:shadow-md transition-shadow active:scale-95"
             >
-              <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                <Fuel className="w-5 h-5 text-green-600" />
+              <div className="w-9 h-9 bg-green-100 rounded-xl flex items-center justify-center">
+                <Fuel className="w-4 h-4 text-green-600" />
               </div>
-              <div className="text-left flex-1">
-                <p className="font-semibold text-[#01312D]">Request Fuel</p>
-                <p className="text-xs text-gray-500">Petrol / Diesel</p>
+              <div className="text-center">
+                <p className="font-semibold text-[#01312D] text-xs">Fuel</p>
+                <p className="text-[10px] text-gray-500">Petrol/Diesel</p>
               </div>
-              <ArrowRight className="w-4 h-4 text-gray-400" />
             </button>
 
             {/* Car Wash Request */}
             <button
               onClick={() => router.push("/requests?type=carwash")}
-              className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 flex items-center gap-3 hover:shadow-md transition-shadow active:scale-95"
+              className="bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20 flex flex-col items-center gap-2 hover:shadow-md transition-shadow active:scale-95"
             >
-              <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                <Car className="w-5 h-5 text-purple-600" />
+              <div className="w-9 h-9 bg-purple-100 rounded-xl flex items-center justify-center">
+                <Car className="w-4 h-4 text-purple-600" />
               </div>
-              <div className="text-left flex-1">
-                <p className="font-semibold text-[#01312D]">Car Wash</p>
-                <p className="text-xs text-gray-500">Premium cleaning</p>
+              <div className="text-center">
+                <p className="font-semibold text-[#01312D] text-xs">Car Wash</p>
+                <p className="text-[10px] text-gray-500">Premium</p>
               </div>
-              <ArrowRight className="w-4 h-4 text-gray-400" />
+            </button>
+
+            {/* Cash Loan Request */}
+            <button
+              onClick={() => router.push("/requests?type=cash")}
+              className="bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20 flex flex-col items-center gap-2 hover:shadow-md transition-shadow active:scale-95"
+            >
+              <div className="w-9 h-9 bg-yellow-100 rounded-xl flex items-center justify-center">
+                <DollarSign className="w-4 h-4 text-yellow-600" />
+              </div>
+              <div className="text-center">
+                <p className="font-semibold text-[#01312D] text-xs">Cash Loan</p>
+                <p className="text-[10px] text-gray-500">Collateral</p>
+              </div>
             </button>
           </div>
         </div>

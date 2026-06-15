@@ -76,12 +76,17 @@ export default function ProfilePage() {
     totalLoans: 0,
     rating: 0,
     activeLoan: null,
+    bankName: "",
+    accountHolder: "",
+    accountNumber: "",
+    branchCode: "",
   });
 
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showChangePhone, setShowChangePhone] = useState(false);
   const [showUpdateVehicle, setShowUpdateVehicle] = useState(false);
-  useBodyScrollLock(showChangePassword || showChangePhone || showUpdateVehicle);
+  const [showUpdateBanking, setShowUpdateBanking] = useState(false);
+  useBodyScrollLock(showChangePassword || showChangePhone || showUpdateVehicle || showUpdateBanking);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
@@ -93,6 +98,12 @@ export default function ProfilePage() {
     carModel: "",
     carYear: "",
     carColor: "",
+  });
+  const [bankingForm, setBankingForm] = useState({
+    bankName: "",
+    accountHolder: "",
+    accountNumber: "",
+    branchCode: "",
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -154,6 +165,10 @@ export default function ProfilePage() {
           totalRequests: data?.totalRequests || 0,
           totalSpent: data?.totalSpent || 0,
           rating: data?.rating || 0,
+          bankName: data?.bankName || "",
+          accountHolder: data?.accountHolder || "",
+          accountNumber: data?.accountNumber || "",
+          branchCode: data?.branchCode || "",
         }));
       }
 
@@ -385,6 +400,49 @@ export default function ProfilePage() {
     }
   };
 
+  const handleUpdateBanking = async () => {
+    setSaveError("");
+    setSaveSuccess("");
+
+    setSaving(true);
+    try {
+      const res = await fetch("/api/driver/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: session?.user?.id,
+          bankName: bankingForm.bankName.trim() || undefined,
+          accountHolder: bankingForm.accountHolder.trim() || undefined,
+          accountNumber: bankingForm.accountNumber.trim() || undefined,
+          branchCode: bankingForm.branchCode.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update banking details");
+      }
+
+      setUserData((prev) => ({
+        ...prev,
+        bankName: bankingForm.bankName.trim(),
+        accountHolder: bankingForm.accountHolder.trim(),
+        accountNumber: bankingForm.accountNumber.trim(),
+        branchCode: bankingForm.branchCode.trim(),
+      }));
+      setSaveSuccess("Banking details updated successfully");
+      setTimeout(() => {
+        setShowUpdateBanking(false);
+        setSaveSuccess("");
+      }, 1500);
+    } catch (error: any) {
+      setSaveError(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const openChangePassword = () => {
     setSaveError("");
     setSaveSuccess("");
@@ -412,6 +470,18 @@ export default function ProfilePage() {
       carColor: userData.carColor === "Not provided" ? "" : userData.carColor,
     });
     setShowUpdateVehicle(true);
+  };
+
+  const openUpdateBanking = () => {
+    setSaveError("");
+    setSaveSuccess("");
+    setBankingForm({
+      bankName: userData.bankName || "",
+      accountHolder: userData.accountHolder || "",
+      accountNumber: userData.accountNumber || "",
+      branchCode: userData.branchCode || "",
+    });
+    setShowUpdateBanking(true);
   };
 
   const handleLogout = async () => {
@@ -755,6 +825,41 @@ export default function ProfilePage() {
               </div>
             </div>
 
+            {(userData.bankName || userData.accountNumber) && (
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
+                <h3 className="font-bold text-[#01312D] mb-3 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-[#3A7717]" />
+                  Banking Details
+                </h3>
+                <div className="space-y-3">
+                  {userData.bankName && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-500">Bank</span>
+                      <span className="text-sm font-semibold text-[#01312D]">{userData.bankName}</span>
+                    </div>
+                  )}
+                  {userData.accountHolder && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-500">Account Holder</span>
+                      <span className="text-sm font-semibold text-[#01312D]">{userData.accountHolder}</span>
+                    </div>
+                  )}
+                  {userData.accountNumber && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-500">Account Number</span>
+                      <span className="text-sm font-semibold text-[#01312D]">{userData.accountNumber.replace(/\d(?=\d{4})/g, '*')}</span>
+                    </div>
+                  )}
+                  {userData.branchCode && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-500">Branch Code</span>
+                      <span className="text-sm font-semibold text-[#01312D]">{userData.branchCode}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {userData.isVerified && (
               <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
                 <h3 className="font-bold text-[#01312D] mb-3 flex items-center gap-2">
@@ -1042,6 +1147,13 @@ export default function ProfilePage() {
                   className="w-full flex items-center justify-between py-2"
                 >
                   <span className="text-[#01312D]">Update Vehicle Details</span>
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                </button>
+                <button
+                  onClick={openUpdateBanking}
+                  className="w-full flex items-center justify-between py-2"
+                >
+                  <span className="text-[#01312D]">Update Banking Details</span>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </button>
               </div>
@@ -1333,6 +1445,87 @@ export default function ProfilePage() {
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 Update Vehicle
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Update Banking Details Modal */}
+      {showUpdateBanking && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => { setShowUpdateBanking(false); setSaveError(""); setSaveSuccess(""); }}
+          ></div>
+          <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] rounded-t-2xl p-5">
+              <h2 className="text-xl font-bold text-white">Update Banking Details</h2>
+              <p className="text-white/80 text-sm mt-1">For cash loan disbursements</p>
+            </div>
+            <div className="p-5 space-y-4">
+              {saveError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{saveError}</div>
+              )}
+              {saveSuccess && (
+                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm">{saveSuccess}</div>
+              )}
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Bank Name</label>
+                <input
+                  type="text"
+                  value={bankingForm.bankName}
+                  onChange={(e) => setBankingForm({ ...bankingForm, bankName: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#3A7717]"
+                  placeholder="e.g. Capitec Bank"
+                />
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Account Holder Name</label>
+                <input
+                  type="text"
+                  value={bankingForm.accountHolder}
+                  onChange={(e) => setBankingForm({ ...bankingForm, accountHolder: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#3A7717]"
+                  placeholder="Name on bank account"
+                />
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Account Number</label>
+                <input
+                  type="text"
+                  value={bankingForm.accountNumber}
+                  onChange={(e) => setBankingForm({ ...bankingForm, accountNumber: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#3A7717]"
+                  placeholder="Bank account number"
+                />
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Branch Code</label>
+                <input
+                  type="text"
+                  value={bankingForm.branchCode}
+                  onChange={(e) => setBankingForm({ ...bankingForm, branchCode: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#3A7717]"
+                  placeholder="Branch code"
+                />
+              </div>
+            </div>
+            <div className="border-t border-gray-100 p-5 flex gap-3">
+              <button
+                onClick={() => { setShowUpdateBanking(false); setSaveError(""); setSaveSuccess(""); }}
+                disabled={saving}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateBanking}
+                disabled={saving}
+                className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Save Banking Details
               </button>
             </div>
           </div>

@@ -60,6 +60,7 @@ interface Collateral {
 interface ServiceRequest {
   id: string;
   _id?: string;
+  userId?: string;
   driverName: string;
   driverEmail: string;
   driverPhone: string;
@@ -135,6 +136,10 @@ export default function AdminServiceRequestsPage() {
   const [approvedRequest, setApprovedRequest] = useState<ServiceRequest | null>(
     null,
   );
+  const [driverBankName, setDriverBankName] = useState("");
+  const [driverAccountHolder, setDriverAccountHolder] = useState("");
+  const [driverAccountNumber, setDriverAccountNumber] = useState("");
+  const [driverBranchCode, setDriverBranchCode] = useState("");
   const [generatedOtp, setGeneratedOtp] = useState("");
   const [approvalLoading, setApprovalLoading] = useState(false);
   const [sentLoading, setSentLoading] = useState(false);
@@ -246,6 +251,24 @@ export default function AdminServiceRequestsPage() {
     setShowApproveModal(true);
   };
 
+  const fetchDriverBanking = async (userId: string) => {
+    if (!userId) return;
+    try {
+      const res = await fetch(`/api/admin/drivers/profile?userId=${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.profile) {
+          setDriverBankName(data.profile.bankName || "");
+          setDriverAccountHolder(data.profile.accountHolder || "");
+          setDriverAccountNumber(data.profile.accountNumber || "");
+          setDriverBranchCode(data.profile.branchCode || "");
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching driver banking:", err);
+    }
+  };
+
   const handleConfirmApprove = async () => {
     if (!approvingRequest) return;
 
@@ -275,6 +298,9 @@ export default function AdminServiceRequestsPage() {
           status: "approved" as RequestStatus,
         };
         setApprovedRequest(updatedRequest);
+        if (updatedRequest.type === "cash") {
+          fetchDriverBanking(updatedRequest.userId || "");
+        }
         setShowApproveModal(false);
         setShowWhatsAppModal(true);
         fetchRequests();
@@ -1112,6 +1138,9 @@ export default function AdminServiceRequestsPage() {
                 <button
                   onClick={() => {
                     setApprovedRequest(request);
+                    if (request.type === "cash") {
+                      fetchDriverBanking(request.userId || "");
+                    }
                     setShowWhatsAppModal(true);
                     setShowModal(false);
                   }}
@@ -1606,7 +1635,29 @@ export default function AdminServiceRequestsPage() {
         const baseAmount =
           approvedRequest.actualAmount || approvedRequest.amount;
 
-        const message = `KAPUKA - Service Approved
+        const message = approvedRequest.type === "cash"
+          ? `KAPUKA - Cash Loan Approved
+
+Your cash loan of ${formatMoney(baseAmount)} has been approved.
+
+Transaction ID: ${finalOtp}
+Interest Rate: ${approvedRequest.interestRate || 26}%
+Repayment Period: ${approvedRequest.repaymentDays || 14} days
+Daily Payment: ${formatMoney(approvedRequest.dailyPayment || 0)}/day
+
+=== DRIVER BANKING DETAILS ===
+Bank: ${driverBankName || "N/A"}
+Account Holder: ${driverAccountHolder || "N/A"}
+Account Number: ${driverAccountNumber || "N/A"}
+Branch Code: ${driverBranchCode || "N/A"}
+
+* PLEASE VERIFY AND CONFIRM *
+Before releasing funds, verify the banking details above with the driver.
+
+Click here to view your receipt: ${imageUrl || "Receipt image attached"}
+
+Kapuka Tradings`
+          : `KAPUKA - Service Approved
 
 Your service request has been approved.
 
@@ -1640,18 +1691,44 @@ Kapuka Tradings`;
           setUploadingImage(false);
           setShowWhatsAppModal(false);
           setApprovedRequest(null);
+          setDriverBankName("");
+          setDriverAccountHolder("");
+          setDriverAccountNumber("");
+          setDriverBranchCode("");
           setApprovingRequest(null);
         }, 2000);
       } catch (error) {
         console.error("Error sending via WhatsApp:", error);
 
-        const fallbackMessage = `KAPUKA - Service Approved
+        const fallbackMessage = approvedRequest.type === "cash"
+          ? `KAPUKA - Cash Loan Approved
+
+Your cash loan of ${formatMoney(approvedRequest.actualAmount || approvedRequest.amount)} has been approved.
+
+Transaction ID: ${approvedRequest.otp || generatedOtp}
+Interest Rate: ${approvedRequest.interestRate || 26}%
+Repayment Period: ${approvedRequest.repaymentDays || 14} days
+Daily Payment: ${formatMoney(approvedRequest.dailyPayment || 0)}/day
+
+=== DRIVER BANKING DETAILS ===
+Bank: ${driverBankName || "N/A"}
+Account Holder: ${driverAccountHolder || "N/A"}
+Account Number: ${driverAccountNumber || "N/A"}
+Branch Code: ${driverBranchCode || "N/A"}
+
+* PLEASE VERIFY AND CONFIRM *
+Before releasing funds, verify the banking details above with the driver.
+
+Please check your email for the approval.
+
+Kapuka Tradings`
+          : `KAPUKA - Service Approved
 
 Your service request has been approved.
 
 Request ID: ${approvedRequest.id.slice(-6).toUpperCase()}
 ${transactionLabel}: ${approvedRequest.otp || generatedOtp}
-Amount: ${formatMoney(displayAmount)}
+Amount: ${formatMoney(approvedRequest.actualAmount || approvedRequest.amount)}
 
 Please check your email for the receipt.
 
@@ -2251,8 +2328,95 @@ Kapuka Tradings`;
             </div>
           </div>
 
+          {/* Driver Banking Details (for cash loans) */}
+          {approvedRequest.type === "cash" && (driverBankName || driverAccountNumber) && (
+            <div style={{ padding: "0 28px 28px 28px" }}>
+              <div
+                style={{
+                  background: "#f0fdf4",
+                  borderRadius: "20px",
+                  padding: "20px",
+                  border: "2px solid #16a34a",
+                }}
+              >
+                <p style={{ fontSize: "13px", fontWeight: "700", color: "#166534", marginBottom: "12px" }}>
+                  Driver Banking Details (Disbursement)
+                </p>
+                {driverBankName && <p style={{ fontSize: "13px", color: "#01312D", marginBottom: "4px" }}><strong>Bank:</strong> {driverBankName}</p>}
+                {driverAccountHolder && <p style={{ fontSize: "13px", color: "#01312D", marginBottom: "4px" }}><strong>Account Holder:</strong> {driverAccountHolder}</p>}
+                {driverAccountNumber && <p style={{ fontSize: "13px", color: "#01312D", marginBottom: "4px" }}><strong>Account Number:</strong> {driverAccountNumber}</p>}
+                {driverBranchCode && <p style={{ fontSize: "13px", color: "#01312D", marginBottom: "4px" }}><strong>Branch Code:</strong> {driverBranchCode}</p>}
+              </div>
+            </div>
+          )}
+
+          {approvedRequest.type === "cash" && !driverBankName && !driverAccountNumber && (
+            <div style={{ padding: "0 28px 28px 28px" }}>
+              <div
+                style={{
+                  background: "#fef2f2",
+                  borderRadius: "20px",
+                  padding: "20px",
+                  border: "2px solid #dc2626",
+                }}
+              >
+                <p style={{ fontSize: "13px", fontWeight: "700", color: "#dc2626", textAlign: "center" }}>
+                  No banking details on file. Please request from driver.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* PLEASE VERIFY AND CONFIRM - for cash loans */}
+          {approvedRequest.type === "cash" && (
+            <div style={{ padding: "0 28px 0 28px" }}>
+              <div
+                style={{
+                  background: "#fef2f2",
+                  borderRadius: "20px",
+                  padding: "16px",
+                  textAlign: "center",
+                  border: "3px solid #dc2626",
+                  marginBottom: "16px",
+                }}
+              >
+                <p style={{ fontSize: "16px", fontWeight: "800", color: "#dc2626", margin: "0 0 8px 0" }}>
+                  ⚠ PLEASE VERIFY AND CONFIRM
+                </p>
+                <p style={{ margin: 0, fontSize: "12px", color: "#991b1b", lineHeight: "1.5" }}>
+                  Before releasing funds, verify the above banking details with the driver. Kapuka Tradings is not liable for payments made to incorrect accounts.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Company Banking Details (for cash loans) */}
+          {approvedRequest.type === "cash" && (
+            <div style={{ padding: "0 28px 28px 28px" }}>
+              <div
+                style={{
+                  background: "#f8faf8",
+                  borderRadius: "20px",
+                  padding: "16px",
+                  border: "1px solid #e5e7eb",
+                }}
+              >
+                <p style={{ fontSize: "13px", fontWeight: "700", color: "#01312D", marginBottom: "8px" }}>
+                  Company Banking Details (Repayments)
+                </p>
+                <p style={{ fontSize: "12px", color: "#01312D", marginBottom: "4px" }}><strong>Bank:</strong> FNB/RMB</p>
+                <p style={{ fontSize: "12px", color: "#01312D", marginBottom: "4px" }}><strong>Account Holder:</strong> Japhet Sibuyi</p>
+                <p style={{ fontSize: "12px", color: "#01312D", marginBottom: "4px" }}><strong>Account Number:</strong> 63131222307</p>
+                <p style={{ fontSize: "12px", color: "#01312D", marginBottom: "4px" }}><strong>Branch Code:</strong> 250655</p>
+                <p style={{ fontSize: "12px", color: "#dc2626", marginTop: "8px" }}>
+                  <strong>Reference:</strong> Use your car registration ({approvedRequest.carNumber || "N/A"}) as payment reference
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Validity Banner - Modern */}
-          <div style={{ padding: "0 28px 28px 28px" }}>
+          <div style={{ padding: approvedRequest.type === "cash" ? "0 28px 28px 28px" : "0 28px 28px 28px" }}>
             <div
               style={{
                 background: "linear-gradient(135deg, #BFF202 0%, #72BF00 100%)",

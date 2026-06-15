@@ -199,6 +199,13 @@ export default function AdminLayout({
       badge: null,
     },
     {
+      icon: FileText,
+      label: "Driver Profile",
+      path: "/admin/debt-collection",
+      active: pathname === "/admin/debt-collection",
+      badge: null,
+    },
+    {
       icon: Eye,
       label: "Driver View",
       path: "/admin/driver-view",

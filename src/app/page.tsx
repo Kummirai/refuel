@@ -29,7 +29,6 @@ import {
   ClipboardList,
   History,
   UserCircle,
-  Calendar,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 
@@ -148,7 +147,15 @@ export default function HomePage() {
       return;
     }
 
-    router.push(`/requests?type=${service.toLowerCase()}`);
+    // Map service name to query param
+    const typeMap: Record<string, string> = {
+      fuel: "fuel",
+      carwash: "carwash",
+      "car wash": "carwash",
+      cash: "cash",
+      "cash loan": "cash",
+    };
+    router.push(`/requests?type=${typeMap[service.toLowerCase()] || service.toLowerCase()}`);
   };
 
   const getButtonText = () => {
@@ -425,11 +432,12 @@ export default function HomePage() {
           </div>
 
           <h1 className="text-4xl font-black text-[#01312D] leading-tight mb-3">
-            Get <span className="text-[#3A7717]">Fuel</span>
-            <br />&{" "}
+            Get <span className="text-[#3A7717]">Fuel</span>,{" "}
             <span className="text-[#3A7717] underline decoration-[#bff202] decoration-4 underline-offset-8">
               Car Wash
             </span>
+            <br />&{" "}
+            <span className="text-[#3A7717]">Cash Loans</span>
             <br />
             <span className="inline-flex items-center gap-2 mt-1">
               Services Instantly!
@@ -505,24 +513,24 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-3">
                 {/* Fuel Service */}
                 <button
                   onClick={() => handleServiceRequest("fuel")}
                   disabled={isLoggedIn && verificationStatus !== "approved"}
-                  className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${isLoggedIn && verificationStatus !== "approved"
+                  className={`bg-white rounded-2xl p-3 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${isLoggedIn && verificationStatus !== "approved"
                     ? "opacity-50 cursor-not-allowed"
                     : ""
                     }`}
                 >
-                  <div className="bg-linear-to-r from-[#3A7717] to-[#72bf00] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
-                    <Fuel className="w-6 h-6 text-white" />
+                  <div className="bg-linear-to-r from-[#3A7717] to-[#72bf00] w-10 h-10 rounded-xl flex items-center justify-center mb-2">
+                    <Fuel className="w-5 h-5 text-white" />
                   </div>
-                  <h3 className="font-bold text-[#01312D] text-lg">Fuel</h3>
-                  <p className="text-gray-500 text-xs mt-1">Petrol • Diesel</p>
-                  <div className="flex items-center gap-1 mt-2 text-[#72bf00] text-xs font-semibold">
-                    <span>Request now</span>
-                    <ChevronRight className="w-3 h-3" />
+                  <h3 className="font-bold text-[#01312D] text-sm">Fuel</h3>
+                  <p className="text-gray-500 text-[10px] mt-0.5">Petrol • Diesel</p>
+                  <div className="flex items-center gap-0.5 mt-1 text-[#72bf00] text-[10px] font-semibold">
+                    <span>Request</span>
+                    <ChevronRight className="w-2.5 h-2.5" />
                   </div>
                 </button>
 
@@ -530,63 +538,45 @@ export default function HomePage() {
                 <button
                   onClick={() => handleServiceRequest("carwash")}
                   disabled={isLoggedIn && verificationStatus !== "approved"}
-                  className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${isLoggedIn && verificationStatus !== "approved"
+                  className={`bg-white rounded-2xl p-3 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${isLoggedIn && verificationStatus !== "approved"
                     ? "opacity-50 cursor-not-allowed"
                     : ""
                     }`}
                 >
-                  <div className="bg-linear-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
-                    <Car className="w-6 h-6 text-white" />
+                  <div className="bg-linear-to-r from-[#01312D] to-[#3A7717] w-10 h-10 rounded-xl flex items-center justify-center mb-2">
+                    <Car className="w-5 h-5 text-white" />
                   </div>
-                  <h3 className="font-bold text-[#01312D] text-lg">Car Wash</h3>
-                  <p className="text-gray-500 text-xs mt-1">Premium cleaning</p>
-                  <div className="flex items-center gap-1 mt-2 text-[#72bf00] text-xs font-semibold">
-                    <span>Request now</span>
-                    <ChevronRight className="w-3 h-3" />
+                  <h3 className="font-bold text-[#01312D] text-sm">Car Wash</h3>
+                  <p className="text-gray-500 text-[10px] mt-0.5">Premium</p>
+                  <div className="flex items-center gap-0.5 mt-1 text-[#72bf00] text-[10px] font-semibold">
+                    <span>Request</span>
+                    <ChevronRight className="w-2.5 h-2.5" />
+                  </div>
+                </button>
+
+                {/* Cash Loan Service */}
+                <button
+                  onClick={() => handleServiceRequest("cash")}
+                  disabled={isLoggedIn && verificationStatus !== "approved"}
+                  className={`bg-white rounded-2xl p-3 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${isLoggedIn && verificationStatus !== "approved"
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                    }`}
+                >
+                  <div className="bg-linear-to-r from-[#72bf00] to-[#bff202] w-10 h-10 rounded-xl flex items-center justify-center mb-2">
+                    <DollarSign className="w-5 h-5 text-[#01312D]" />
+                  </div>
+                  <h3 className="font-bold text-[#01312D] text-sm">Cash Loan</h3>
+                  <p className="text-gray-500 text-[10px] mt-0.5">26% · 14 days</p>
+                  <div className="flex items-center gap-0.5 mt-1 text-[#72bf00] text-[10px] font-semibold">
+                    <span>Request</span>
+                    <ChevronRight className="w-2.5 h-2.5" />
                   </div>
                 </button>
               </div>
             </div>
 
-            {/* Upcoming Services Section */}
-            <div className="mb-10">
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <Calendar className="w-5 h-5 text-[#3A7717]" />
-                <h2 className="text-xl font-bold text-[#01312D]">
-                  Upcoming Services
-                </h2>
-              </div>
-              <p className="text-xs text-center text-[#3A7717] mb-4">
-                Coming soon to Kapuka Tradings
-              </p>
 
-              <div className="grid">
-                {/* Cash Loan - Now Available */}
-                <div className="bg-white rounded-2xl w-2/3 mx-auto p-4 border border-[#bff202]/30 shadow-sm">
-                  <div className="bg-linear-to-r from-[#72bf00] to-[#bff202] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
-                    <DollarSign className="w-6 h-6 text-[#01312D]" />
-                  </div>
-                  <h3 className="font-bold text-[#01312D] text-lg">Cash Loan</h3>
-                  <p className="text-[#3A7717] text-xs mt-1 font-medium">
-                    26% interest • 14-day repayment
-                  </p>
-                  <div className="flex items-center gap-1 mt-2 text-[#3A7717] text-xs font-semibold">
-                    <span>Collateral required</span>
-                  </div>
-                </div>
-
-                {/* More Services Placeholder */}
-                {/* <div className="bg-white/50 rounded-2xl p-4 border border-dashed border-[#bff202]/30">
-                  <div className="bg-gray-100 w-12 h-12 rounded-xl flex items-center justify-center mb-3">
-                    <CreditCard className="w-6 h-6 text-gray-400" />
-                  </div>
-                  <h3 className="font-bold text-gray-400 text-lg">
-                    More Benefits
-                  </h3>
-                  <p className="text-gray-400 text-xs mt-1">Coming soon</p>
-                </div> */}
-              </div>
-            </div>
           </>
         )}
 

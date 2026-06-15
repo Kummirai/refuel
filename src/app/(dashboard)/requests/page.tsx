@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 
-type ServiceType = "fuel" | "carwash";
+type ServiceType = "fuel" | "carwash" | "cash";
 
 // Default config (will be overridden by API)
 const DEFAULT_CONFIG: Record<
@@ -70,6 +70,17 @@ const DEFAULT_CONFIG: Record<
     color: "from-[#01312D] to-[#3A7717]",
     textColor: "text-[#01312D]",
   },
+  cash: {
+    name: "Cash Loan",
+    interestRate: 26,
+    defaultRepaymentDays: 14,
+    repaymentOptions: [7, 14, 21, 30],
+    icon: DollarSign,
+    color: "from-[#72bf00] to-[#bff202]",
+    textColor: "text-[#01312D]",
+    minAmount: 500,
+    maxAmount: 3000,
+  },
 };
 
 // Create a separate component that uses useSearchParams
@@ -101,6 +112,34 @@ function RequestsPageContent() {
     }[]
   >([]);
   const [carWashServiceCharge, setCarWashServiceCharge] = useState<number>(0);
+
+  // Cash loan collateral state
+  const [collateralItemName, setCollateralItemName] = useState("");
+  const [collateralBrand, setCollateralBrand] = useState("");
+  const [collateralModel, setCollateralModel] = useState("");
+  const [collateralPurchaseYear, setCollateralPurchaseYear] = useState("");
+  const [collateralColor, setCollateralColor] = useState("");
+  const [collateralCondition, setCollateralCondition] = useState<
+    "new" | "like_new" | "good" | "fair"
+  >("good");
+  const [collateralSerialNumber, setCollateralSerialNumber] = useState("");
+  const [collateralImages, setCollateralImages] = useState<string[]>([]);
+  const [uploadingImageIndex, setUploadingImageIndex] = useState<number | null>(null);
+  const [collateralCategory, setCollateralCategory] = useState("");
+  const [collateralEstimatedValue, setCollateralEstimatedValue] = useState("");
+
+  const cashCategories = [
+    "Electronics", "Vehicle", "Jewelry", "Appliances", "Furniture", "Other",
+  ];
+
+  const cashConditions: { value: "new" | "like_new" | "good" | "fair"; label: string }[] = [
+    { value: "new", label: "New" },
+    { value: "like_new", label: "Like New" },
+    { value: "good", label: "Good" },
+    { value: "fair", label: "Fair" },
+  ];
+
+  const serialRequiredCats = ["Electronics", "electronics", "Vehicle", "vehicle", "Appliances", "appliances"];
 
   const [approvedCount, setApprovedCount] = useState(0);
   const [submitted, setSubmitted] = useState(false);
@@ -141,12 +180,20 @@ function RequestsPageContent() {
               maxAmount: Number(data.services.maxLoanAmount) || 2000,
             },
             carwash: {
-              ...DEFAULT_CONFIG.carwash,
-              interestRate: 0,
-              defaultRepaymentDays: 0,
-              repaymentOptions: [],
-            },
-          });
+               ...DEFAULT_CONFIG.carwash,
+               interestRate: 0,
+               defaultRepaymentDays: 0,
+               repaymentOptions: [],
+             },
+             cash: {
+               ...DEFAULT_CONFIG.cash,
+               interestRate: Number(data.services.cashInterestRate) || 26,
+               defaultRepaymentDays: data.services.defaultRepaymentPeriod || 14,
+               repaymentOptions: data.services.repaymentPeriods || [7, 14, 21, 30],
+               minAmount: Number(data.services.minLoanAmount) || 500,
+               maxAmount: Number(data.services.maxLoanAmount) || 3000,
+             },
+           });
 
           // Load car wash packages from settings
           const packages =
@@ -233,12 +280,13 @@ function RequestsPageContent() {
     }
   };
 
-  // Calculate interest and repayment details for fuel only
+  // Calculate interest and repayment details
   const calculateServiceDetails = (amountNum: number) => {
     const interestRate = currentConfig.interestRate / 100;
     const interest = toMoney(amountNum * interestRate);
     const totalRepayable = toMoney(amountNum + interest);
-    const dailyPayment = toMoney(totalRepayable / selectedRepaymentDays);
+    const days = selectedService === "cash" ? 14 : selectedRepaymentDays;
+    const dailyPayment = toMoney(totalRepayable / days);
     return {
       interest,
       totalRepayable,
@@ -407,12 +455,103 @@ function RequestsPageContent() {
       );
     }
 
+    // For Cash Loan
+    if (selectedService === "cash") {
+      const { interest, totalRepayable, dailyPayment, interestRate } =
+        calculateServiceDetails(amountNum);
+
+      const minAmount = currentConfig.minAmount || 500;
+      const maxAmount = currentConfig.maxAmount || 3000;
+      const isWithinLimits = amountNum >= minAmount && amountNum <= maxAmount;
+
+      return (
+        <div className="bg-linear-to-r from-[#bff202] to-[#72bf00] rounded-xl p-4 mt-3">
+          <div className="flex items-center gap-2 mb-3">
+            <Icon className="w-4 h-4 text-[#01312D]" />
+            <p className="text-sm font-semibold text-[#01312D]">
+              Cash Loan - Repayment Summary
+            </p>
+          </div>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-[#01312D]">Loan Amount:</span>
+              <span className="font-semibold text-[#01312D]">
+                {formatMoney(amountNum)}
+              </span>
+            </div>
+            {!isWithinLimits && (
+              <div className="flex justify-between bg-red-100 rounded-lg p-1 -mx-1">
+                <span className="text-red-600 text-xs">
+                  ⚠️ Amount outside limits
+                </span>
+                <span className="text-red-600 text-xs font-semibold">
+                  Min: {formatMoney(minAmount)} | Max: {formatMoney(maxAmount)}
+                </span>
+              </div>
+            )}
+            {collateralItemName && (
+              <div className="flex justify-between">
+                <span className="text-[#01312D]">Collateral:</span>
+                <span className="font-semibold text-[#01312D]">
+                  {collateralItemName}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-[#01312D]">Interest Rate:</span>
+              <span className="font-semibold text-[#01312D]">
+                {interestRate}%
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#01312D]">Interest Amount:</span>
+              <span className="font-semibold text-[#01312D]">
+                + {formatMoney(interest)}
+              </span>
+            </div>
+            <div className="flex justify-between pt-2 border-t border-[#01312D]/20">
+              <span className="font-semibold text-[#01312D]">
+                Total Repayable:
+              </span>
+              <span className="font-bold text-[#01312D]">
+                {formatMoney(totalRepayable)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#01312D]">Repayment Period:</span>
+              <span className="font-semibold text-[#01312D]">
+                14 days
+              </span>
+            </div>
+            <div className="flex justify-between bg-[#01312D]/10 rounded-lg p-2 -mx-1">
+              <span className="font-semibold text-[#01312D]">
+                Daily Payment:
+              </span>
+              <span className="font-bold text-[#01312D]">
+                {formatMoney(dailyPayment)}/day
+              </span>
+            </div>
+            {collateralItemName && (
+              <div className="flex items-center gap-2 bg-green-50 rounded-lg p-2 -mx-1 mt-1">
+                <svg className="w-3.5 h-3.5 text-[#3A7717] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                <span className="text-xs text-[#3A7717]">
+                  Collateral: {collateralItemName}{collateralCategory ? ` (${collateralCategory})` : ""}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     return null;
   };
 
-  // Get repayment period selector (only for fuel)
+  // Get repayment period selector (fuel only - cash loan is fixed at 14 days)
   const getRepaymentPeriodSelector = () => {
-    if (selectedService === "fuel" || selectedService === "carwash")
+    if (selectedService !== "fuel")
       return null;
 
     const amountNum = parseFloat(amount);
@@ -487,15 +626,15 @@ function RequestsPageContent() {
       return;
     }
 
-    // Apply amount limits ONLY for fuel (loan services)
+    // Apply amount limits ONLY for loan services (fuel, cash)
     // Car wash has fixed packages - no amount limits
-    if (selectedService === "fuel") {
+    if (selectedService === "fuel" || selectedService === "cash") {
       const minAmount = currentConfig.minAmount || 500;
-      const maxAmount = currentConfig.maxAmount || 2000;
+      const maxAmount = currentConfig.maxAmount || 3000;
 
       if (amountNum < minAmount) {
         setError(
-          `Minimum fuel request amount is ${formatMoney(minAmount)}`,
+          `Minimum ${selectedService === "cash" ? "loan" : "fuel"} request amount is ${formatMoney(minAmount)}`,
         );
         setLoading(false);
         setSubmitted(false);
@@ -504,7 +643,7 @@ function RequestsPageContent() {
 
       if (amountNum > maxAmount) {
         setError(
-          `Maximum fuel request amount is ${formatMoney(maxAmount)}`,
+          `Maximum ${selectedService === "cash" ? "loan" : "fuel"} request amount is ${formatMoney(maxAmount)}`,
         );
         setLoading(false);
         setSubmitted(false);
@@ -519,6 +658,41 @@ function RequestsPageContent() {
       );
       if (!selectedPackage) {
         setError("Please select a valid car wash package");
+        setLoading(false);
+        setSubmitted(false);
+        return;
+      }
+    }
+
+    // Cash loan collateral validation
+    if (selectedService === "cash") {
+      if (!collateralCategory) {
+        setError("Please select a collateral category");
+        setLoading(false);
+        setSubmitted(false);
+        return;
+      }
+      if (!collateralItemName.trim()) {
+        setError("Please enter the collateral item name");
+        setLoading(false);
+        setSubmitted(false);
+        return;
+      }
+      if (!collateralCondition) {
+        setError("Please select the collateral condition");
+        setLoading(false);
+        setSubmitted(false);
+        return;
+      }
+      const imageCount = collateralImages.filter(Boolean).length;
+      if (imageCount === 0) {
+        setError("Please upload at least one photo of the collateral");
+        setLoading(false);
+        setSubmitted(false);
+        return;
+      }
+      if (serialRequiredCats.includes(collateralCategory) && !collateralSerialNumber.trim()) {
+        setError("Serial number / IMEI is required for electronics, vehicles, and appliances");
         setLoading(false);
         setSubmitted(false);
         return;
@@ -585,6 +759,31 @@ function RequestsPageContent() {
           dailyPayment: 0,
           hasReceipt: false
         };
+      } else if (selectedService === "cash") {
+        const { interest, totalRepayable, dailyPayment, interestRate } =
+          calculateServiceDetails(amountNum);
+        requestData = {
+          ...requestData,
+          amount: amountNum,
+          interest: interest,
+          totalRepayable: totalRepayable,
+          interestRate: interestRate,
+          repaymentDays: 14,
+          dailyPayment: toMoney(dailyPayment),
+          hasReceipt: false,
+          collateral: {
+            category: collateralCategory,
+            itemName: collateralItemName.trim(),
+            condition: collateralCondition,
+            brand: collateralBrand.trim() || undefined,
+            model: collateralModel.trim() || undefined,
+            purchaseYear: collateralPurchaseYear ? parseInt(collateralPurchaseYear, 10) : undefined,
+            color: collateralColor.trim() || undefined,
+            serialNumber: collateralSerialNumber.trim() || undefined,
+            estimatedValue: collateralEstimatedValue ? parseFloat(collateralEstimatedValue) : undefined,
+            images: collateralImages.filter(Boolean),
+          },
+        };
       }
 
       console.log("Submitting request with data:", requestData);
@@ -623,6 +822,8 @@ function RequestsPageContent() {
         return "Enter amount in R (e.g., 2000)";
       case "carwash":
         return "Select package";
+      case "cash":
+        return "Enter loan amount in R (e.g., 2000)";
     }
   };
 
@@ -745,7 +946,7 @@ function RequestsPageContent() {
   const maxAmount = currentConfig.maxAmount || 2000;
   const currentAmount = parseFloat(amount) || 0;
   const isAmountValid =
-    selectedService === "fuel"
+    selectedService === "fuel" || selectedService === "cash"
       ? currentAmount >= minAmount && currentAmount <= maxAmount
       : true;
 
@@ -876,7 +1077,9 @@ function RequestsPageContent() {
                     >
                       {service.id === "carwash"
                         ? "Service fee applies"
-                        : `${service.interestRate}% interest`}
+                        : service.id === "cash"
+                          ? `${service.interestRate}% · 14 days`
+                          : `${service.interestRate}% interest`}
                     </span>
                   </button>
                 );
@@ -947,8 +1150,8 @@ function RequestsPageContent() {
                     />
                   </div>
 
-                  {/* Amount limits hint for fuel */}
-                  {selectedService === "fuel" && (
+                  {/* Amount limits hint for fuel and cash loan */}
+                  {(selectedService === "fuel" || selectedService === "cash") && (
                     <div className="mt-2">
                       <div className="flex gap-2 flex-wrap">
                         {[500, 1000, 1500, 2000, 2500, 3000].map((amt) => (
@@ -986,8 +1189,9 @@ function RequestsPageContent() {
                 <input
                   type="tel"
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ""))}
                   placeholder="Enter 10-digit mobile number"
+                  maxLength={10}
                   className="w-full pl-10 pr-4 py-3 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00]"
                   required
                 />
@@ -996,6 +1200,239 @@ function RequestsPageContent() {
                 We'll use this number to contact you about your request
               </p>
             </div>
+
+            {/* Cash Loan Collateral Form */}
+            {selectedService === "cash" && currentAmount > 0 && (
+              <div className="bg-white rounded-2xl p-4 border border-[#bff202]/20 space-y-4">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-[#3A7717]" />
+                  <h3 className="font-bold text-[#01312D] text-sm">
+                    Collateral Details
+                  </h3>
+                </div>
+                <p className="text-xs text-gray-500 -mt-2">
+                  Provide details about the item you're offering as collateral for this loan.
+                </p>
+
+                {/* Photos grid — up to 4 */}
+                <div>
+                  <label className="block text-[#01312D] font-semibold mb-1 text-xs">
+                    Photos <span className="text-red-500">*</span>
+                  </label>
+                  <p className="text-[10px] text-gray-400 mb-2">Upload up to 4 photos of the item</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[0, 1, 2, 3].map((i) => (
+                      <label
+                        key={i}
+                        className="aspect-square bg-[#eafde7] border-2 border-dashed border-[#bff202]/30 rounded-xl flex items-center justify-center cursor-pointer hover:bg-[#d4f5d0] transition-colors overflow-hidden"
+                      >
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setUploadingImageIndex(i);
+                              const reader = new FileReader();
+                              reader.onload = (ev) => {
+                                setCollateralImages((prev) => {
+                                  const next = [...prev];
+                                  next[i] = ev.target?.result as string;
+                                  return next;
+                                });
+                                setUploadingImageIndex(null);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                        {collateralImages[i] ? (
+                          <div className="relative w-full h-full">
+                            <img
+                              src={collateralImages[i]}
+                              alt={`Collateral ${i + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setCollateralImages((prev) => {
+                                  const next = [...prev];
+                                  next.splice(i, 1);
+                                  return next;
+                                });
+                              }}
+                              className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center"
+                            >
+                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ) : uploadingImageIndex === i ? (
+                          <div className="flex flex-col items-center gap-1">
+                            <svg className="w-5 h-5 text-[#3A7717] animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                            <span className="text-[10px] text-[#3A7717]">Loading...</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center gap-1">
+                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span className="text-[10px] text-gray-400">Add Photo</span>
+                          </div>
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Category */}
+                <div>
+                  <label className="block text-[#01312D] font-semibold mb-1.5 text-xs">
+                    Item Info <span className="text-red-500">*</span>
+                  </label>
+                  <p className="text-[10px] text-gray-400 mb-2">Select category and describe the item</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {cashCategories.map((cat) => {
+                      const active = collateralCategory === cat;
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setCollateralCategory(cat)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                            active
+                              ? "bg-[#01312D] text-white"
+                              : "bg-white text-[#01312D] border border-[#bff202]/20"
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="relative mt-2">
+                    <input
+                      type="text"
+                      value={collateralItemName}
+                      onChange={(e) => setCollateralItemName(e.target.value)}
+                      placeholder="e.g. Samsung Galaxy S24, Rolex Submariner"
+                      className="w-full px-3 py-2.5 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] text-sm"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Brand, Model, Purchase Year, Color */}
+                <div>
+                  <label className="block text-[#01312D] font-semibold mb-1 text-xs">
+                    Product Details
+                  </label>
+                  <p className="text-[10px] text-gray-400 mb-2">Brand, model, purchase year and color (optional)</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[#01312D] font-medium mb-1 text-xs">Brand</label>
+                      <input
+                        type="text"
+                        value={collateralBrand}
+                        onChange={(e) => setCollateralBrand(e.target.value)}
+                        placeholder="e.g. Samsung"
+                        className="w-full px-3 py-2.5 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[#01312D] font-medium mb-1 text-xs">Model</label>
+                      <input
+                        type="text"
+                        value={collateralModel}
+                        onChange={(e) => setCollateralModel(e.target.value)}
+                        placeholder="e.g. S24 Ultra"
+                        className="w-full px-3 py-2.5 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <div>
+                      <label className="block text-[#01312D] font-medium mb-1 text-xs">Purchase Year</label>
+                      <input
+                        type="number"
+                        value={collateralPurchaseYear}
+                        onChange={(e) => setCollateralPurchaseYear(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))}
+                        placeholder="e.g. 2024"
+                        min="1900"
+                        max="2030"
+                        className="w-full px-3 py-2.5 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[#01312D] font-medium mb-1 text-xs">Color</label>
+                      <input
+                        type="text"
+                        value={collateralColor}
+                        onChange={(e) => setCollateralColor(e.target.value)}
+                        placeholder="e.g. Black"
+                        className="w-full px-3 py-2.5 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Condition */}
+                <div>
+                  <label className="block text-[#01312D] font-semibold mb-1 text-xs">
+                    Condition <span className="text-red-500">*</span>
+                  </label>
+                  <p className="text-[10px] text-gray-400 mb-2">How would you describe the item's condition?</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {cashConditions.map((c) => {
+                      const active = collateralCondition === c.value;
+                      return (
+                        <button
+                          key={c.value}
+                          type="button"
+                          onClick={() => setCollateralCondition(c.value)}
+                          className={`py-2 rounded-xl text-xs font-semibold transition-all ${
+                            active
+                              ? "bg-[#01312D] text-white"
+                              : "bg-[#eafde7] text-[#01312D] border border-[#bff202]/20"
+                          }`}
+                        >
+                          {c.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Serial Number / IMEI */}
+                <div>
+                  <label className="block text-[#01312D] font-semibold mb-1 text-xs">
+                    Serial Number / IMEI
+                    {serialRequiredCats.includes(collateralCategory) && <span className="text-red-500"> *</span>}
+                  </label>
+                  <p className="text-[10px] text-gray-400 mb-2">
+                    {serialRequiredCats.includes(collateralCategory)
+                      ? "Required for electronic items"
+                      : "Optional — enter if available"}
+                  </p>
+                  <input
+                    type="text"
+                    value={collateralSerialNumber}
+                    onChange={(e) => setCollateralSerialNumber(e.target.value)}
+                    placeholder={serialRequiredCats.includes(collateralCategory) ? "Required for electronics" : "Serial number or IMEI"}
+                    className="w-full px-3 py-2.5 bg-white border border-[#bff202]/20 rounded-xl focus:outline-none focus:border-[#72bf00] text-sm"
+                  />
+                </div>
+
+              </div>
+            )}
 
             {selectedService === "fuel" && (
               <div>
@@ -1055,7 +1492,13 @@ function RequestsPageContent() {
                 submitted ||
                 !amount ||
                 !phoneNumber ||
-                (selectedService === "fuel" && !isAmountValid)
+                ((selectedService === "fuel" || selectedService === "cash") && !isAmountValid) ||
+                (selectedService === "cash" && (
+                  collateralImages.filter(Boolean).length < 3
+                  || !collateralItemName
+                  || !collateralCategory
+                  || (serialRequiredCats.includes(collateralCategory) && !collateralSerialNumber.trim())
+                ))
               }
               className="w-full bg-linear-to-r from-[#01312D] to-[#3A7717] text-white py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
             >
@@ -1085,7 +1528,9 @@ function RequestsPageContent() {
                   <p className="text-xs text-[#3A7717] font-semibold mt-1">
                     {selectedService === "carwash"
                       ? `🚗 Car wash will be scheduled after approval. Service fee: ${formatMoney(carWashServiceCharge)}. Total due: ${formatMoney(toMoney((parseFloat(amount) || 0) + carWashServiceCharge))}.`
-                      : `💰 Fuel request between ${formatMoney(minAmount)} - ${formatMoney(maxAmount)}. ${currentConfig.interestRate}% interest over ${selectedRepaymentDays} days.`}
+                      : selectedService === "cash"
+                        ? `💰 Cash loan of ${formatMoney(parseFloat(amount) || 0)} at ${currentConfig.interestRate}% interest over 14 days. Collateral required.`
+                        : `💰 Fuel request between ${formatMoney(minAmount)} - ${formatMoney(maxAmount)}. ${currentConfig.interestRate}% interest over ${selectedRepaymentDays} days.`}
                   </p>
                 </div>
               </div>
