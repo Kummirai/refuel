@@ -62,8 +62,15 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
-    const { searchParams } = new URL(request.url);
-    const driverEmail = searchParams.get("driverEmail");
+    let driverEmail: string | null = null;
+
+    try {
+      const body = await request.json();
+      driverEmail = body.driverEmail;
+    } catch {
+      const { searchParams } = new URL(request.url);
+      driverEmail = searchParams.get("driverEmail");
+    }
 
     if (!driverEmail) {
       return NextResponse.json({ error: "driverEmail is required" }, { status: 400 });

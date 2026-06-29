@@ -47,14 +47,14 @@ export function BulkRepaymentModal({
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const discountMultiplier = discountPercent != null ? 1 - discountPercent / 100 : 1;
-
   const totalRemaining = selectedRequests.reduce(
     (sum, r) => sum + r.remainingBalance,
     0,
   );
 
-  const totalDiscounted = totalRemaining * discountMultiplier;
+  const totalDiscounted = discountPercent != null
+    ? totalRemaining * (113 - discountPercent) / 113
+    : totalRemaining;
 
   useBodyScrollLock(isOpen);
 
@@ -223,7 +223,7 @@ export function BulkRepaymentModal({
                     {discountPercent != null ? (
                       <span className="flex items-center gap-1">
                         <span className="text-xs text-gray-400 line-through">{formatMoney(req.remainingBalance)}</span>
-                        <span>{formatMoney(req.remainingBalance * discountMultiplier)}</span>
+                        <span>{formatMoney(req.remainingBalance * (113 - discountPercent) / 113)}</span>
                       </span>
                     ) : formatMoney(req.remainingBalance)}
                   </p>

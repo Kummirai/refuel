@@ -636,16 +636,24 @@ Kapuka Tradings Team`;
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-400">Outstanding</span>
                   <div className="flex items-center gap-2">
-                    {discounts[driver.driverEmail] != null && (
-                      <>
-                        <span className="text-sm text-gray-400 line-through">
-                          {formatMoney(driver.totalOutstanding)}
-                        </span>
-                        <span className="text-xl font-black text-red-600 leading-tight">
-                          {formatMoney(driver.totalOutstanding * (1 - discounts[driver.driverEmail] / 100))}
-                        </span>
-                      </>
-                    )}
+                    {(() => {
+                      const disc = discounts[driver.driverEmail];
+                      if (disc == null) return null;
+                      const interestMult = (13 - disc) / 13;
+                      const totalAmount = driver.items.reduce((s, it) => s + it.amount, 0);
+                      const totalInterest = driver.items.reduce((s, it) => s + (it.totalRepayable - it.amount), 0);
+                      const discOutstanding = totalAmount + totalInterest * interestMult;
+                      return (
+                        <>
+                          <span className="text-sm text-gray-400 line-through">
+                            {formatMoney(driver.totalOutstanding)}
+                          </span>
+                          <span className="text-xl font-black text-red-600 leading-tight">
+                            {formatMoney(discOutstanding)}
+                          </span>
+                        </>
+                      );
+                    })()}
                     {discounts[driver.driverEmail] == null && (
                       <p className="text-xl font-black text-red-600 leading-tight">
                         {formatMoney(driver.totalOutstanding)}
@@ -683,7 +691,10 @@ Kapuka Tradings Team`;
                   <tbody>
                     {driver.items.map((item, iidx) => {
                       const disc = discounts[driver.driverEmail];
-                      const mult = disc != null ? 1 - disc / 100 : 1;
+                      const interest = item.totalRepayable - item.amount;
+                      const interestMult = disc != null ? (13 - disc) / 13 : 1;
+                      const discInterest = interest * interestMult;
+                      const discTotal = item.amount + discInterest;
                       return (
                       <tr key={iidx} className="border-b border-gray-50">
                         <td className="py-2 text-xs text-gray-500 whitespace-nowrap">
@@ -702,27 +713,22 @@ Kapuka Tradings Team`;
                             <Car className="w-3 h-3" /> {item.carNumber}
                           </span>
                         </td>
-                        <td className="py-2 text-right">
-                          {disc != null ? (
-                            <span className="flex items-center justify-end gap-1">
-                              <span className="text-gray-400 line-through text-xs">{formatMoney(item.amount)}</span>
-                              <span className="text-[#01312D]">{formatMoney(item.amount * mult)}</span>
-                            </span>
-                          ) : formatMoney(item.amount)}
+                        <td className="py-2 text-right font-semibold text-[#01312D]">
+                          {formatMoney(item.amount)}
                         </td>
                         <td className="py-2 text-right">
                           {disc != null ? (
                             <span className="flex items-center justify-end gap-1">
-                              <span className="text-gray-400 line-through text-xs">{formatMoney(item.totalRepayable - item.amount)}</span>
-                              <span className="text-[#01312D]">{formatMoney((item.totalRepayable - item.amount) * mult)}</span>
+                              <span className="text-gray-400 line-through text-xs">{formatMoney(interest)}</span>
+                              <span className="text-[#01312D]">{formatMoney(discInterest)}</span>
                             </span>
-                          ) : formatMoney(item.totalRepayable - item.amount)}
+                          ) : formatMoney(interest)}
                         </td>
                         <td className="py-2 text-right font-semibold text-[#01312D]">
                           {disc != null ? (
                             <span className="flex items-center justify-end gap-1">
                               <span className="text-gray-400 line-through text-xs">{formatMoney(item.totalRepayable)}</span>
-                              <span>{formatMoney(item.totalRepayable * mult)}</span>
+                              <span>{formatMoney(discTotal)}</span>
                             </span>
                           ) : formatMoney(item.totalRepayable)}
                         </td>
@@ -737,7 +743,10 @@ Kapuka Tradings Team`;
               <div className="sm:hidden space-y-2">
                 {driver.items.map((item, iidx) => {
                   const disc = discounts[driver.driverEmail];
-                  const mult = disc != null ? 1 - disc / 100 : 1;
+                  const interest = item.totalRepayable - item.amount;
+                  const interestMult = disc != null ? (13 - disc) / 13 : 1;
+                  const discInterest = interest * interestMult;
+                  const discTotal = item.amount + discInterest;
                   return (
                   <div
                     key={iidx}
@@ -762,24 +771,17 @@ Kapuka Tradings Team`;
                     <div className="space-y-1 text-xs">
                       <div className="flex justify-between">
                         <span className="text-gray-400">Amount</span>
-                        <span className="font-semibold text-[#01312D]">
-                          {disc != null ? (
-                            <span className="flex items-center gap-1">
-                              <span className="text-gray-400 line-through text-xs">{formatMoney(item.amount)}</span>
-                              <span>{formatMoney(item.amount * mult)}</span>
-                            </span>
-                          ) : formatMoney(item.amount)}
-                        </span>
+                        <span className="font-semibold text-[#01312D]">{formatMoney(item.amount)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-400">Interest</span>
                         <span className="font-semibold text-[#01312D]">
                           {disc != null ? (
                             <span className="flex items-center gap-1">
-                              <span className="text-gray-400 line-through text-xs">{formatMoney(item.totalRepayable - item.amount)}</span>
-                              <span>{formatMoney((item.totalRepayable - item.amount) * mult)}</span>
+                              <span className="text-gray-400 line-through text-xs">{formatMoney(interest)}</span>
+                              <span>{formatMoney(discInterest)}</span>
                             </span>
-                          ) : formatMoney(item.totalRepayable - item.amount)}
+                          ) : formatMoney(interest)}
                         </span>
                       </div>
                       <div className="flex justify-between pt-1 border-t border-gray-200">
@@ -788,7 +790,7 @@ Kapuka Tradings Team`;
                           {disc != null ? (
                             <span className="flex items-center gap-1">
                               <span className="text-gray-400 line-through text-xs">{formatMoney(item.totalRepayable)}</span>
-                              <span>{formatMoney(item.totalRepayable * mult)}</span>
+                              <span>{formatMoney(discTotal)}</span>
                             </span>
                           ) : formatMoney(item.totalRepayable)}
                         </span>
