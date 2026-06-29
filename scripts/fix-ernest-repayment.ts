@@ -31,8 +31,8 @@ async function fix() {
     const proofResult = await repaymentProofsCollection.updateOne(
       { _id: new ObjectId(REPAYMENT_PROOF_ID) },
       {
-        $pullAll: { requestIds: STUCK_REQUEST_IDS },
-      },
+        $pull: { requestIds: { $in: STUCK_REQUEST_IDS } },
+      } as any,
     );
     console.log(`Repayment proof updated: ${JSON.stringify(proofResult)}`);
 
