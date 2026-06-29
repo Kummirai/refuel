@@ -239,7 +239,7 @@ export function BulkRepaymentModal({
             <span className="text-2xl font-bold text-[#3A7717]">
               {discountPercent != null ? (
                 <span className="flex items-center gap-1">
-                  <span className="text-base text-gray-400 line-through">{formatMoney(totalRemaining)}</span>
+                  <span className="text-xs text-gray-400 line-through">{formatMoney(totalRemaining)}</span>
                   <span>{formatMoney(totalDiscounted)}</span>
                 </span>
               ) : formatMoney(totalRemaining)}
