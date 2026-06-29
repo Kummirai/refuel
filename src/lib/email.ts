@@ -1623,18 +1623,26 @@ export async function sendDriverWeeklyInvoiceEmail(data: {
     totalRepayable: number;
     remainingBalance: number;
   }[];
+  discountPercent?: number;
 }) {
   const statementId = `WKS-${Date.now().toString(36).toUpperCase()}`;
+  const discountPct = data.discountPercent || 0;
+  const discountMultiplier = discountPct > 0 ? (113 - discountPct) / 113 : 1;
+  const discountIntMult = discountPct > 0 ? (13 - discountPct) / 13 : 1;
   const tableRows = data.items
     .map(
-      (item) => `
+      (item) => {
+        const itemDiscounted = discountPct > 0 ? item.remainingBalance * discountMultiplier : item.remainingBalance;
+        const itemIntDiscounted = discountPct > 0 ? (item.totalRepayable - item.amount) * discountIntMult : (item.totalRepayable - item.amount);
+        return `
     <tr>
       <td>${serviceTypeLabelMap[item.type] || item.type} - ${item.carNumber}</td>
       <td>${formatMoney(item.amount)}</td>
-      <td>${formatMoney(item.totalRepayable)}</td>
-      <td>${formatMoney(item.totalRepayable - item.amount)}</td>
-      <td style="color: #dc2626; font-weight: 700;">${formatMoney(item.remainingBalance)}</td>
-    </tr>`,
+      <td>${discountPct > 0 ? `<span style="text-decoration: line-through; color: #94a3b8; font-size: 12px;">${formatMoney(item.totalRepayable)}</span> <span style="color: #dc2626; font-weight: 700;">${formatMoney(item.totalRepayable * discountMultiplier)}</span>` : formatMoney(item.totalRepayable)}</td>
+      <td>${discountPct > 0 ? `<span style="text-decoration: line-through; color: #94a3b8; font-size: 12px;">${formatMoney(item.totalRepayable - item.amount)}</span> <span style="color: #dc2626; font-weight: 700;">${formatMoney(itemIntDiscounted)}</span>` : formatMoney(item.totalRepayable - item.amount)}</td>
+      <td style="color: #dc2626; font-weight: 700;">${discountPct > 0 ? `<span style="text-decoration: line-through; color: #94a3b8; font-size: 12px; font-weight: 400;">${formatMoney(item.remainingBalance)}</span> ${formatMoney(itemDiscounted)}` : formatMoney(item.remainingBalance)}</td>
+    </tr>`;
+      },
     )
     .join("");
 
@@ -1726,21 +1734,22 @@ export async function sendDriverWeeklyInvoiceEmail(data: {
           </table>
 
           <div class="totals">
+            ${discountPct > 0 ? `<div style="text-align: right; color: #dc2626; font-size: 11px; font-weight: 700; margin-bottom: 8px;">${discountPct}% DISCOUNT APPLIED</div>` : ''}
             <div class="total-row">
               <span class="total-label">Total Amount:</span>
               <span class="total-value">${formatMoney(totalAmount)}</span>
             </div>
             <div class="total-row">
               <span class="total-label">Total Interest:</span>
-              <span class="total-value">${formatMoney(totalInterest)}</span>
+              ${discountPct > 0 ? `<span class="total-value"><span style="text-decoration: line-through; color: #94a3b8; font-size: 12px;">${formatMoney(totalInterest)}</span> <span style="color: #dc2626;">${formatMoney(totalInterest * discountIntMult)}</span></span>` : `<span class="total-value">${formatMoney(totalInterest)}</span>`}
             </div>
             <div class="total-row">
               <span class="total-label">Total Repayable:</span>
-              <span class="total-value">${formatMoney(totalRepayableAll)}</span>
+              ${discountPct > 0 ? `<span class="total-value"><span style="text-decoration: line-through; color: #94a3b8; font-size: 12px;">${formatMoney(totalRepayableAll)}</span> <span style="color: #dc2626;">${formatMoney(totalRepayableAll * discountMultiplier)}</span></span>` : `<span class="total-value">${formatMoney(totalRepayableAll)}</span>`}
             </div>
             <div class="total-row grand-total">
               <span class="total-label">Total Outstanding:</span>
-              <span class="total-value">${formatMoney(data.totalOutstanding)}</span>
+              ${discountPct > 0 ? `<span class="total-value"><span style="text-decoration: line-through; color: #94a3b8; font-size: 14px;">${formatMoney(totalRepayableAll)}</span> <span style="color: #dc2626;">${formatMoney(data.totalOutstanding)}</span></span>` : `<span class="total-value">${formatMoney(data.totalOutstanding)}</span>`}
             </div>
           </div>
 

@@ -140,12 +140,16 @@ export async function POST(request: Request) {
         continue;
       }
 
+      const discountRecord = await db.collection("discounts").findOne({ driverEmail: entry.driverEmail });
+      const discountPercent = discountRecord?.discountPercent || 0;
+
       try {
         await sendDriverWeeklyInvoiceEmail({
           driverEmail: entry.driverEmail,
           driverName: entry.driverName,
-          totalOutstanding: entry.totalOutstanding,
+          totalOutstanding: discountPercent > 0 ? toMoney(entry.totalOutstanding * (113 - discountPercent) / 113) : entry.totalOutstanding,
           items: entry.items,
+          discountPercent,
         });
 
         // Trigger push notification if token exists

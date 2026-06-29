@@ -97,14 +97,19 @@ export async function POST(request: Request) {
       totalOutstanding = toMoney(totalOutstanding + remainingBalance);
     }
 
-    // 3. Send email
+    // 3. Fetch discount if any
+    const discountRecord = await db.collection("discounts").findOne({ driverEmail: email });
+    const discountPercent = discountRecord?.discountPercent || 0;
+
+    // 4. Send email
     if (items.length > 0) {
       try {
         await sendDriverWeeklyInvoiceEmail({
           driverEmail: email,
           driverName: user.name || user.displayName || "Driver",
-          totalOutstanding,
+          totalOutstanding: discountPercent > 0 ? toMoney(totalOutstanding * (113 - discountPercent) / 113) : totalOutstanding,
           items,
+          discountPercent,
         });
       } catch (err) {
         console.error(`Failed to send weekly invoice to ${email}:`, err);
