@@ -112,6 +112,7 @@ export default function RequestHistoryPage() {
     new Set(),
   );
   const [showBulkRepaymentModal, setShowBulkRepaymentModal] = useState(false);
+  const [discountPercent, setDiscountPercent] = useState<number | null>(null);
 
   // Modal states for alerts
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -119,12 +120,26 @@ export default function RequestHistoryPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
+  const fetchDiscount = async () => {
+    if (!session?.user?.email) return;
+    try {
+      const res = await fetch(`/api/driver/discount?email=${encodeURIComponent(session.user.email)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDiscountPercent(data.discountPercent ?? null);
+      }
+    } catch (e) {
+      console.error("Error fetching discount:", e);
+    }
+  };
+
   useEffect(() => {
     if (!isPending) {
       if (!session) {
         router.push("/auth/sign-in");
       } else {
         fetchRequests();
+        fetchDiscount();
       }
     }
   }, [session, isPending]);
@@ -1005,7 +1020,7 @@ setSelectedBulkIds(new Set(requests.filter((r) => (r.status === "approved" || r.
                   }}
                   className="px-4 py-2 rounded-full text-xs font-semibold transition-all bg-red-600 text-white hover:bg-red-700 flex items-center gap-1.5"
                 >
-                  Pay {formatMoney(stats.totalOutstanding)}
+                  Pay {discountPercent != null ? formatMoney(stats.totalOutstanding * (1 - discountPercent / 100)) : formatMoney(stats.totalOutstanding)}
                 </button>
               )}
               {hasPendingRepayment && (
@@ -1082,9 +1097,22 @@ setSelectedBulkIds(new Set(requests.filter((r) => (r.status === "approved" || r.
                   <Skeleton className="h-8 w-20" />
                 </div>
               ) : (
-                <p className="text-lg font-bold text-red-600">
-                  {formatMoney(stats.totalOutstanding)}
-                </p>
+                <div className="flex items-center justify-center gap-1">
+                  {discountPercent != null ? (
+                    <>
+                      <span className="text-sm text-gray-400 line-through">
+                        {formatMoney(stats.totalOutstanding)}
+                      </span>
+                      <p className="text-lg font-bold text-red-600">
+                        {formatMoney(stats.totalOutstanding * (1 - discountPercent / 100))}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-lg font-bold text-red-600">
+                      {formatMoney(stats.totalOutstanding)}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -1375,6 +1403,7 @@ setSelectedBulkIds(new Set(requests.filter((r) => (r.status === "approved" || r.
               remainingBalance:
                 r.remainingBalance || r.totalRepayable || r.amount,
             }))}
+          discountPercent={discountPercent ?? undefined}
           onSuccess={() => {
             fetchRequests();
             setShowBulkRepaymentModal(false);

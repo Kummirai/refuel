@@ -159,6 +159,22 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Attach discount per driver
+    if (driverEmails.length > 0) {
+      const discountRecords = await db.collection("discounts").find(
+        { driverEmail: { $in: driverEmails } },
+      ).toArray();
+      const discountMap = new Map<string, number>();
+      for (const rec of discountRecords) {
+        discountMap.set(rec.driverEmail, rec.discountPercent);
+      }
+      for (const d of drivers) {
+        if (d.driverEmail && discountMap.has(d.driverEmail)) {
+          d.discountPercent = discountMap.get(d.driverEmail);
+        }
+      }
+    }
+
     const totalOutstandingAll = drivers.reduce(
       (sum: number, d: any) => sum + d.totalOutstanding,
       0,

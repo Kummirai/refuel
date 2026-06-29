@@ -29,6 +29,7 @@ interface BulkRepaymentModalProps {
   onClose: () => void;
   selectedRequests: BulkRequest[];
   onSuccess: () => void;
+  discountPercent?: number;
 }
 
 export function BulkRepaymentModal({
@@ -36,6 +37,7 @@ export function BulkRepaymentModal({
   onClose,
   selectedRequests,
   onSuccess,
+  discountPercent,
 }: BulkRepaymentModalProps) {
   const [repaymentAmount, setRepaymentAmount] = useState<string>("");
   const [proofUrl, setProofUrl] = useState<string>("");
@@ -45,10 +47,14 @@ export function BulkRepaymentModal({
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const discountMultiplier = discountPercent != null ? 1 - discountPercent / 100 : 1;
+
   const totalRemaining = selectedRequests.reduce(
     (sum, r) => sum + r.remainingBalance,
     0,
   );
+
+  const totalDiscounted = totalRemaining * discountMultiplier;
 
   useBodyScrollLock(isOpen);
 
@@ -113,9 +119,10 @@ export function BulkRepaymentModal({
       return;
     }
 
-    if (amountNum > totalRemaining) {
+    const maxAllowed = discountPercent != null ? totalDiscounted : totalRemaining;
+    if (amountNum > maxAllowed) {
       setError(
-        `Amount cannot exceed total outstanding of ${formatMoney(totalRemaining)}`,
+        `Amount cannot exceed total outstanding of ${formatMoney(maxAllowed)}`,
       );
       return;
     }
@@ -189,6 +196,16 @@ export function BulkRepaymentModal({
           <h3 className="font-semibold text-[#01312D] text-sm mb-3">
             Selected Requests
           </h3>
+          {discountPercent != null && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-2 mb-3 flex items-center gap-2">
+              <span className="text-xs font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">
+                {discountPercent}% OFF
+              </span>
+              <span className="text-xs text-gray-600">
+                Discount applied to all amounts
+              </span>
+            </div>
+          )}
           <div className="space-y-2 mb-3">
             {selectedRequests.map((req) => (
               <div
@@ -203,7 +220,12 @@ export function BulkRepaymentModal({
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-bold text-red-600">
-                    {formatMoney(req.remainingBalance)}
+                    {discountPercent != null ? (
+                      <span className="flex items-center gap-1">
+                        <span className="text-xs text-gray-400 line-through">{formatMoney(req.remainingBalance)}</span>
+                        <span>{formatMoney(req.remainingBalance * discountMultiplier)}</span>
+                      </span>
+                    ) : formatMoney(req.remainingBalance)}
                   </p>
                   <p className="text-xs text-gray-500">outstanding</p>
                 </div>
@@ -215,7 +237,12 @@ export function BulkRepaymentModal({
               Total Outstanding:
             </span>
             <span className="text-2xl font-bold text-[#3A7717]">
-              {formatMoney(totalRemaining)}
+              {discountPercent != null ? (
+                <span className="flex items-center gap-1">
+                  <span className="text-base text-gray-400 line-through">{formatMoney(totalRemaining)}</span>
+                  <span>{formatMoney(totalDiscounted)}</span>
+                </span>
+              ) : formatMoney(totalRemaining)}
             </span>
           </div>
         </div>
@@ -237,7 +264,7 @@ export function BulkRepaymentModal({
             />
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Max: {formatMoney(totalRemaining)} (total outstanding)
+            Max: {formatMoney(discountPercent != null ? totalDiscounted : totalRemaining)} (total outstanding)
           </p>
         </div>
 
@@ -251,7 +278,12 @@ export function BulkRepaymentModal({
               <div className="flex justify-between">
                 <span className="text-gray-600">Current Total Outstanding:</span>
                 <span className="font-semibold text-red-600">
-                  {formatMoney(totalRemaining)}
+                  {discountPercent != null ? (
+                    <span className="flex items-center gap-1">
+                      <span className="text-gray-400 line-through text-xs">{formatMoney(totalRemaining)}</span>
+                      <span>{formatMoney(totalDiscounted)}</span>
+                    </span>
+                  ) : formatMoney(totalRemaining)}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -264,15 +296,15 @@ export function BulkRepaymentModal({
                 <span className="font-semibold">Remaining Total:</span>
                 <span
                   className={`font-bold ${
-                    toMoney(totalRemaining - parseFloat(repaymentAmount)) <= 0
+                    toMoney((discountPercent != null ? totalDiscounted : totalRemaining) - parseFloat(repaymentAmount)) <= 0
                       ? "text-[#3A7717]"
                       : "text-[#01312D]"
                   }`}
                 >
-                  {toMoney(totalRemaining - parseFloat(repaymentAmount)) <= 0
+                  {toMoney((discountPercent != null ? totalDiscounted : totalRemaining) - parseFloat(repaymentAmount)) <= 0
                     ? "R0.00 (Fully Paid!)"
                     : formatMoney(
-                        toMoney(totalRemaining - parseFloat(repaymentAmount)),
+                        toMoney((discountPercent != null ? totalDiscounted : totalRemaining) - parseFloat(repaymentAmount)),
                       )}
                 </span>
               </div>
