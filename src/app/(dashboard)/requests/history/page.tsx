@@ -1020,7 +1020,7 @@ setSelectedBulkIds(new Set(requests.filter((r) => (r.status === "approved" || r.
                   }}
                   className="px-4 py-2 rounded-full text-xs font-semibold transition-all bg-red-600 text-white hover:bg-red-700 flex items-center gap-1.5"
                 >
-                  Pay {discountPercent != null ? formatMoney(stats.totalOutstanding * (1 - discountPercent / 100)) : formatMoney(stats.totalOutstanding)}
+                  Pay {discountPercent != null ? formatMoney(stats.totalOutstanding * (113 - discountPercent) / 113) : formatMoney(stats.totalOutstanding)}
                 </button>
               )}
               {hasPendingRepayment && (
@@ -1104,7 +1104,7 @@ setSelectedBulkIds(new Set(requests.filter((r) => (r.status === "approved" || r.
                         {formatMoney(stats.totalOutstanding)}
                       </span>
                       <p className="text-lg font-bold text-red-600">
-                        {formatMoney(stats.totalOutstanding * (1 - discountPercent / 100))}
+                        {formatMoney(stats.totalOutstanding * (113 - discountPercent) / 113)}
                       </p>
                     </>
                   ) : (
