@@ -132,6 +132,7 @@ export default function LoanRepaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [repayments, setRepayments] = useState<Repayment[]>([]);
+  const [discountMap, setDiscountMap] = useState<Record<string, number>>({});
   const [selectedRepayment, setSelectedRepayment] = useState<Repayment | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -161,7 +162,14 @@ export default function LoanRepaymentsPage() {
 
   const fetchRepayments = async () => {
     try {
-      const res = await fetch("/api/admin/repayments");
+      const [res, discRes] = await Promise.all([
+        fetch("/api/admin/repayments"),
+        fetch("/api/admin/invoices/discount"),
+      ]);
+      if (discRes.ok) {
+        const discData = await discRes.json();
+        setDiscountMap(discData.discounts || {});
+      }
       if (res.ok) {
         const data = await res.json();
         const bulkGroups = new Map<string, Repayment[]>();
@@ -496,9 +504,26 @@ export default function LoanRepaymentsPage() {
   const pendingCount = repayments.filter((r) => r.status !== "paid" && r.status !== "completed" && !hasPendingProofs(r)).length;
   const reviewCount = repayments.filter((r) => hasPendingProofs(r)).length;
 
+  const discountedRemaining = (r: { driverEmail: string; remainingAmount: number }) => {
+    const dp = discountMap[r.driverEmail] || 0;
+    return dp > 0 ? toMoney(r.remainingAmount * (113 - dp) / 113) : r.remainingAmount;
+  };
+  const discountPct = (email: string) => discountMap[email] || 0;
+
+  const DiscountDisplay = ({ repayment: r, className }: { repayment: { driverEmail: string; remainingAmount: number }; className?: string }) => {
+    const dp = discountPct(r.driverEmail);
+    if (dp <= 0) return <span className={className}>{formatMoney(r.remainingAmount)}</span>;
+    return (
+      <span className={className}>
+        <span className="text-red-600">{formatMoney(discountedRemaining(r))}</span>
+        <span className="text-gray-400 text-xs line-through ml-1">{formatMoney(r.remainingAmount)}</span>
+      </span>
+    );
+  };
+
   const stats = {
     pendingProofs: repayments.reduce((s, r) => s + (r.pendingRepaymentProofs?.filter((p) => p.status === "pending").length || 0), 0),
-    totalOutstanding: toMoney(repayments.filter((r) => r.status !== "paid" && r.status !== "completed").reduce((s, r) => s + r.remainingAmount, 0)),
+    totalOutstanding: toMoney(repayments.filter((r) => r.status !== "paid" && r.status !== "completed").reduce((s, r) => s + discountedRemaining(r), 0)),
     totalPaid: toMoney(repayments.filter((r) => r.status === "paid" || r.status === "completed").reduce((s, r) => s + r.repaidAmount, 0)),
     activeLoans: repayments.filter((r) => r.status !== "paid" && r.status !== "completed").length,
     overdueCount: repayments.filter((r) => r.status === "overdue").length,
@@ -663,7 +688,7 @@ export default function LoanRepaymentsPage() {
                 <div className="flex justify-between items-start mb-6">
                   <div>
                     <p className="text-white/60 text-[10px] sm:text-xs font-bold uppercase tracking-wider">Outstanding Balance</p>
-                    <p className="text-3xl sm:text-4xl font-black mt-1">{formatMoney(repayment.remainingAmount)}</p>
+                    <p className="text-3xl sm:text-4xl font-black mt-1"><DiscountDisplay repayment={repayment} /></p>
                   </div>
                   <div className="text-right">
                     <p className="text-white/60 text-[10px] sm:text-xs font-bold uppercase tracking-wider">Progress</p>
@@ -1181,7 +1206,7 @@ export default function LoanRepaymentsPage() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="text-xl font-bold text-[#3A7717]">{formatMoney(repayment.remainingAmount)}</p>
+                            <p className="text-xl font-bold text-[#3A7717]"><DiscountDisplay repayment={repayment} /></p>
                             <p className="text-xs text-gray-500">Total Outstanding</p>
                           </div>
                         </div>
@@ -1204,7 +1229,7 @@ export default function LoanRepaymentsPage() {
                                   <p className="text-xs text-gray-500">{child.carRegistration}</p>
                                 </div>
                                 <div className="text-right shrink-0">
-                                  <p className="text-sm font-semibold text-[#01312D]">{formatMoney(child.remainingAmount)}</p>
+                                  <p className="text-sm font-semibold text-[#01312D]"><DiscountDisplay repayment={child} /></p>
                                   <p className="text-xs text-gray-400">of {formatMoney(child.totalRepayable)}</p>
                                 </div>
                               </button>
@@ -1239,7 +1264,7 @@ export default function LoanRepaymentsPage() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="text-xl font-bold text-[#3A7717]">{formatMoney(repayment.remainingAmount)}</p>
+                            <p className="text-xl font-bold text-[#3A7717]"><DiscountDisplay repayment={repayment} /></p>
                             <p className="text-xs text-gray-500">Due: {new Date(repayment.dueDate).toLocaleDateString()}</p>
                           </div>
                         </div>
