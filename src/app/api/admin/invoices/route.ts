@@ -132,6 +132,26 @@ export async function GET(request: NextRequest) {
       .filter((d: any) => d.items.length > 0)
       .sort((a: any, b: any) => b.totalOutstanding - a.totalOutstanding);
 
+    // Check which drivers are on active payment plans
+    const paymentPlansCollection = db.collection("paymentPlans");
+    const driverUserIds = drivers.map((d: any) => d.userId).filter(Boolean);
+    const activePlans = driverUserIds.length > 0
+      ? await paymentPlansCollection
+          .find({ userId: { $in: driverUserIds }, isActive: true })
+          .toArray()
+      : [];
+    const planByUserId = new Map<string, any>(
+      activePlans.map((p: any) => [p.userId, p]),
+    );
+    for (const d of drivers) {
+      const plan = planByUserId.get(d.userId);
+      if (plan) {
+        d.onPaymentPlan = true;
+        d.paymentPlanInstallment = plan.installmentAmount;
+        d.paymentPlanDate = plan.installmentDate;
+      }
+    }
+
     // Check which drivers' current items were already sent via WhatsApp
     const driverEmails = drivers.map((d: any) => d.driverEmail).filter(Boolean);
     const whatsappSentRecords = driverEmails.length > 0
