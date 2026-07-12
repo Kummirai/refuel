@@ -31,6 +31,12 @@ export async function GET() {
           currentOutstanding += Math.max(0, totalRepayable - repaid);
         }
 
+        // Get car registration from the most recent request
+        const latestRequest = activeLoans.length > 0
+          ? activeLoans.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+          : null;
+        const carRegistration = latestRequest?.carNumber || plan.carRegistration || "";
+
         // Update outstanding in the plan document if it changed
         if (Math.abs(currentOutstanding - (plan.outstandingBalance || 0)) > 0.01) {
           await paymentPlansCollection.updateOne(
@@ -45,6 +51,7 @@ export async function GET() {
           driverName: plan.driverName,
           driverEmail: plan.driverEmail,
           driverPhone: plan.driverPhone,
+          carRegistration,
           outstandingBalance: Math.round(currentOutstanding * 100) / 100,
           installmentAmount: plan.installmentAmount,
           installmentDate: plan.installmentDate,
