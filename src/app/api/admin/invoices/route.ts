@@ -143,17 +143,12 @@ export async function GET(request: NextRequest) {
     const planByUserId = new Map<string, any>(
       activePlans.map((p: any) => [p.userId, p]),
     );
-    for (const d of drivers) {
-      const plan = planByUserId.get(d.userId);
-      if (plan) {
-        d.onPaymentPlan = true;
-        d.paymentPlanInstallment = plan.installmentAmount;
-        d.paymentPlanDate = plan.installmentDate;
-      }
-    }
+
+    // Filter out drivers on payment plans — they belong in Payment Plans tab
+    const driversWithoutPlan = drivers.filter((d: any) => !planByUserId.has(d.userId));
 
     // Check which drivers' current items were already sent via WhatsApp
-    const driverEmails = drivers.map((d: any) => d.driverEmail).filter(Boolean);
+    const driverEmails = driversWithoutPlan.map((d: any) => d.driverEmail).filter(Boolean);
     const whatsappSentRecords = driverEmails.length > 0
       ? await db.collection("invoiceHistory").find(
           { driverEmail: { $in: driverEmails }, channel: "whatsapp" },
@@ -168,7 +163,7 @@ export async function GET(request: NextRequest) {
       for (const rid of rec.requestIds) existing.add(rid);
       sentRequestIdsByEmail.set(rec.driverEmail, existing);
     }
-    for (const d of drivers) {
+    for (const d of driversWithoutPlan) {
       if (!d.driverEmail) continue;
       const sentIds = sentRequestIdsByEmail.get(d.driverEmail);
       if (!sentIds) continue;
@@ -188,21 +183,21 @@ export async function GET(request: NextRequest) {
       for (const rec of discountRecords) {
         discountMap.set(rec.driverEmail, rec.discountPercent);
       }
-      for (const d of drivers) {
+      for (const d of driversWithoutPlan) {
         if (d.driverEmail && discountMap.has(d.driverEmail)) {
           d.discountPercent = discountMap.get(d.driverEmail);
         }
       }
     }
 
-    const totalOutstandingAll = drivers.reduce(
+    const totalOutstandingAll = driversWithoutPlan.reduce(
       (sum: number, d: any) => sum + d.totalOutstanding,
       0,
     );
 
     return NextResponse.json({
-      drivers,
-      totalDrivers: drivers.length,
+      drivers: driversWithoutPlan,
+      totalDrivers: driversWithoutPlan.length,
       totalOutstanding: toMoney(totalOutstandingAll),
     });
   } catch (error) {
