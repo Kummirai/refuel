@@ -161,6 +161,19 @@ export async function POST(request: NextRequest) {
     const serviceRequestsCollection = db.collection("serviceRequests");
     const usersCollection = db.collection("user");
 
+    // Check if driver is on an active payment plan
+    const paymentPlansCollection = db.collection("paymentPlans");
+    const activePlan = await paymentPlansCollection.findOne({ userId, isActive: true });
+    if (activePlan) {
+      return NextResponse.json(
+        {
+          error: "Payment Plan Active",
+          message: `You are on a payment plan. You cannot make new requests until your outstanding balance of R${(activePlan.outstandingBalance || 0).toFixed(2)} is cleared or an admin removes you from the plan.`,
+        },
+        { status: 403 },
+      );
+    }
+
     // Prepare request data with all fields
     const requestData = {
       userId,
