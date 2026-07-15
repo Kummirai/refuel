@@ -21,8 +21,9 @@ function createClient() {
     maxPoolSize: 10,
     minPoolSize: 0,
     maxIdleTimeMS: 10000,
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 30000,
+    serverSelectionTimeoutMS: 15000,
+    socketTimeoutMS: 45000,
+    connectTimeoutMS: 15000,
   });
 }
 

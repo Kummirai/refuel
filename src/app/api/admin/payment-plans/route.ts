@@ -13,61 +13,61 @@ export async function GET() {
       .sort({ createdAt: -1 })
       .toArray();
 
-    // Enrich each plan with current outstanding balance from serviceRequests
-    const enrichedPlans = await Promise.all(
-      plans.map(async (plan: any) => {
-        const activeLoans = await serviceRequestsCollection
-          .find({
-            userId: plan.userId,
-            status: { $in: ["approved", "completed"] },
-            isPaid: { $ne: true },
-          })
-          .toArray();
+    // Batch: fetch all active loans for all plan users in ONE query
+    const planUserIds = [...new Set(plans.map((p: any) => p.userId))];
+    const allActiveLoans = await serviceRequestsCollection
+      .find({
+        userId: { $in: planUserIds },
+        status: { $in: ["approved", "completed"] },
+        isPaid: { $ne: true },
+      })
+      .project({ userId: 1, amount: 1, totalRepayable: 1, repaidAmount: 1, createdAt: 1, carNumber: 1 })
+      .toArray();
 
-        let currentOutstanding = 0;
-        for (const loan of activeLoans) {
-          const totalRepayable = loan.totalRepayable || loan.amount * 1.13;
-          const repaid = loan.repaidAmount || 0;
-          currentOutstanding += Math.max(0, totalRepayable - repaid);
-        }
+    const loansByUser = new Map<string, any[]>();
+    for (const loan of allActiveLoans) {
+      const list = loansByUser.get(loan.userId) || [];
+      list.push(loan);
+      loansByUser.set(loan.userId, list);
+    }
 
-        // Get car registration from the most recent request
-        const latestRequest = activeLoans.length > 0
-          ? activeLoans.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
-          : null;
-        const carRegistration = latestRequest?.carNumber || plan.carRegistration || "";
+    const enrichedPlans = plans.map((plan: any) => {
+      const activeLoans = loansByUser.get(plan.userId) || [];
 
-        // Update outstanding in the plan document if it changed
-        if (Math.abs(currentOutstanding - (plan.outstandingBalance || 0)) > 0.01) {
-          await paymentPlansCollection.updateOne(
-            { _id: plan._id },
-            { $set: { outstandingBalance: Math.round(currentOutstanding * 100) / 100 } },
-          );
-        }
+      let currentOutstanding = 0;
+      for (const loan of activeLoans) {
+        const totalRepayable = loan.totalRepayable || loan.amount * 1.13;
+        const repaid = loan.repaidAmount || 0;
+        currentOutstanding += Math.max(0, totalRepayable - repaid);
+      }
 
-        return {
-          id: plan._id.toString(),
-          userId: plan.userId,
-          driverName: plan.driverName,
-          driverEmail: plan.driverEmail,
-          driverPhone: plan.driverPhone,
-          carRegistration,
-          outstandingBalance: Math.round(currentOutstanding * 100) / 100,
-          installmentAmount: plan.installmentAmount,
-          installmentDate: plan.installmentDate,
-          totalPaid: plan.totalPaid || 0,
-          isActive: plan.isActive,
-          createdAt: plan.createdAt,
-          updatedAt: plan.updatedAt,
-          payments: (plan.payments || []).map((p: any) => ({
-            amount: p.amount,
-            date: p.date,
-            method: p.method || "cash",
-            note: p.note || "",
-          })),
-        };
-      }),
-    );
+      const latestRequest = activeLoans.length > 0
+        ? activeLoans.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+        : null;
+      const carRegistration = latestRequest?.carNumber || plan.carRegistration || "";
+
+      return {
+        id: plan._id.toString(),
+        userId: plan.userId,
+        driverName: plan.driverName,
+        driverEmail: plan.driverEmail,
+        driverPhone: plan.driverPhone,
+        carRegistration,
+        outstandingBalance: Math.round(currentOutstanding * 100) / 100,
+        installmentAmount: plan.installmentAmount,
+        installmentDate: plan.installmentDate,
+        totalPaid: plan.totalPaid || 0,
+        isActive: plan.isActive,
+        createdAt: plan.createdAt,
+        updatedAt: plan.updatedAt,
+        payments: (plan.payments || []).map((p: any) => ({
+          amount: p.amount,
+          date: p.date,
+          method: p.method || "cash",
+          note: p.note || "",
+        })),
+      };
+    });
 
     return NextResponse.json(enrichedPlans);
   } catch (error) {

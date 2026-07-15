@@ -35,6 +35,16 @@ export async function GET(request: NextRequest) {
     const requests = await serviceRequestsCollection
       .find(query)
       .sort({ requestDate: -1 })
+      .project({
+        userId: 1, type: 1, amount: 1, actualAmount: 1, carNumber: 1, carModel: 1,
+        carRegistration: 1, fuelType: 1, contactPhone: 1, driverName: 1, driverPhone: 1,
+        driverEmail: 1, interest: 1, totalRepayable: 1, interestRate: 1, repaymentDays: 1,
+        dailyPayment: 1, package: 1, packageDescription: 1, status: 1, otp: 1,
+        requestDate: 1, createdAt: 1, approvedDate: 1, completedDate: 1, popUrl: 1,
+        popPublicId: 1, popUploadedAt: 1, updatedAt: 1, repaidAmount: 1, remainingBalance: 1,
+        isPaid: 1, refueledByManager: 1, location: 1, recipientPhoneNumber: 1,
+        collateral: 1, hasReceipt: 1,
+      })
       .toArray();
 
     // Batch user lookups — fetch all unique users at once
@@ -42,10 +52,16 @@ export async function GET(request: NextRequest) {
     const userObjectIds = userIds.map((id: string) => {
       try { return new ObjectId(id); } catch { return id; }
     });
-    const users: any[] = await usersCollection.find({ _id: { $in: userObjectIds } }).toArray();
+    const users: any[] = await usersCollection
+      .find({ _id: { $in: userObjectIds } })
+      .project({ name: 1, email: 1, phone: 1 })
+      .toArray();
     const userMap = new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
 
-    const profiles: any[] = await driverProfilesCollection.find({ userId: { $in: userIds } }).toArray();
+    const profiles: any[] = await driverProfilesCollection
+      .find({ userId: { $in: userIds } })
+      .project({ userId: 1, fullName: 1, name: 1, phone: 1, address: 1 })
+      .toArray();
     const profileMap = new Map<string, any>(profiles.map((p: any) => [p.userId, p]));
 
     // Map driver details for each request

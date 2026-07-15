@@ -17,6 +17,16 @@ export async function GET() {
         status: { $in: ["approved", "completed"] },
       })
       .sort({ requestDate: -1 })
+      .project({
+        userId: 1, type: 1, amount: 1, actualAmount: 1, carNumber: 1,
+        driverName: 1, driverEmail: 1, driverPhone: 1, totalRepayable: 1,
+        repaidAmount: 1, remainingBalance: 1, isPaid: 1, status: 1,
+        requestDate: 1, approvedDate: 1, completedDate: 1, repaymentDays: 1,
+        dailyPayment: 1, interest: 1, interestRate: 1, package: 1,
+        packageDescription: 1, fuelType: 1, contactPhone: 1, otp: 1,
+        popUrl: 1, popUploadedAt: 1, payments: 1, interestAdjustments: 1,
+        lastPaymentDate: 1,
+      })
       .toArray();
 
     // Batch user lookups
@@ -24,7 +34,10 @@ export async function GET() {
     const userObjectIds = userIds.map((id: string) => {
       try { return new ObjectId(id); } catch { return id; }
     });
-    const users: any[] = await usersCollection.find({ _id: { $in: userObjectIds } }).toArray();
+    const users: any[] = await usersCollection
+      .find({ _id: { $in: userObjectIds } })
+      .project({ name: 1, email: 1, phone: 1 })
+      .toArray();
     const userMap = new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
 
     // Batch proof lookups — fetch all proofs for all loans at once
@@ -37,6 +50,11 @@ export async function GET() {
         ],
       })
       .sort({ submittedAt: -1 })
+      .project({
+        requestId: 1, requestIds: 1, approvedRequestIds: 1, amount: 1,
+        status: 1, submittedAt: 1, proofUrl: 1, remainingBalance: 1,
+        isFullyPaid: 1,
+      })
       .toArray();
     const proofsByLoan = new Map<string, any[]>();
     for (const p of allProofs) {
