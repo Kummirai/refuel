@@ -161,7 +161,7 @@ export async function GET(request: NextRequest) {
     }
 
     // For review/overdue: fetch all (no skip/limit at DB level) since post-filter removes items
-    // For others: apply skip/limit at DB level
+    // Review is always <10 items so no pagination needed
     const loansQuery = serviceRequestsCollection
       .find(dbQuery)
       .sort({ requestDate: -1 })
@@ -357,18 +357,11 @@ export async function GET(request: NextRequest) {
       };
     }).filter(Boolean);
 
-    // For review/overdue: apply JS-level pagination since DB-level skip/limit wasn't used
-    let paginatedRepayments = repayments;
-    let hasMore = false;
-    if (needsPostFilter) {
-      paginatedRepayments = repayments.slice(skip, skip + limit);
-      hasMore = skip + limit < repayments.length;
-    } else {
-      hasMore = skip + limit < counts.total;
-    }
+    // For review: no pagination needed (<10 items). For others: use counts.total.
+    const hasMore = needsPostFilter ? false : skip + limit < counts.total;
 
     return NextResponse.json({
-      repayments: paginatedRepayments,
+      repayments,
       stats: {
         outstanding: toMoney(counts.outstandingRemaining),
         repaid: toMoney(counts.repaid),
