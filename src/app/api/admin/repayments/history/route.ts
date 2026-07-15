@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const driverId = searchParams.get("driverId");
     const date = searchParams.get("date");
+    const search = searchParams.get("search");
 
     const serviceRequestsCollection = db.collection("serviceRequests");
     const usersCollection = db.collection("user");
@@ -156,6 +157,14 @@ export async function GET(request: NextRequest) {
     }
     if (date) {
       filtered = filtered.filter((e: any) => e.approvedDate === date);
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      filtered = filtered.filter((e: any) =>
+        e.driverName?.toLowerCase().includes(q) ||
+        e.driverEmail?.toLowerCase().includes(q) ||
+        e.carNumber?.toLowerCase().includes(q)
+      );
     }
 
     // Group by driver + approved date

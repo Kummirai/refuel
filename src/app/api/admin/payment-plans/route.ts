@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     const paymentPlansCollection = db.collection("paymentPlans");
     const serviceRequestsCollection = db.collection("serviceRequests");
     const { searchParams } = new URL(request.url);
+    const search = searchParams.get("search");
     const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 500);
     const skip = parseInt(searchParams.get("skip") || "0");
 
@@ -72,13 +73,23 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // Search filter
+    let result = enrichedPlans;
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter((p: any) =>
+        p.driverName?.toLowerCase().includes(q) ||
+        p.driverEmail?.toLowerCase().includes(q)
+      );
+    }
+
     // Paginate
-    const paginated = enrichedPlans.slice(skip, skip + limit);
+    const paginated = result.slice(skip, skip + limit);
 
     return NextResponse.json({
       plans: paginated,
-      total: enrichedPlans.length,
-      hasMore: skip + limit < enrichedPlans.length,
+      total: result.length,
+      hasMore: skip + limit < result.length,
     });
   } catch (error) {
     console.error("Error fetching payment plans:", error);

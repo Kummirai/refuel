@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     const { db } = await connectToDatabase();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
+    const search = searchParams.get("search");
     const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 500);
     const skip = parseInt(searchParams.get("skip") || "0");
 
@@ -121,7 +122,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const allDrivers = Object.values(groups)
+    let allDrivers = Object.values(groups)
       .map((d) => ({
         ...d,
         paid: toMoney(d.paid),
@@ -129,6 +130,15 @@ export async function GET(request: NextRequest) {
         loans: d.loans.map((l) => ({ ...l, repaid: toMoney(l.repaid), remaining: toMoney(l.remaining) })),
       }))
       .sort((a, b) => a.driverName.localeCompare(b.driverName));
+
+    // Search filter
+    if (search) {
+      const q = search.toLowerCase();
+      allDrivers = allDrivers.filter((d: any) =>
+        d.driverName?.toLowerCase().includes(q) ||
+        d.driverEmail?.toLowerCase().includes(q)
+      );
+    }
 
     // Paginate
     const paginated = allDrivers.slice(skip, skip + limit);

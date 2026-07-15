@@ -7,6 +7,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
+    const search = searchParams.get("search");
     const limit = parseInt(searchParams.get("limit") || "100");
 
     const { db } = await connectToDatabase();
@@ -55,6 +56,18 @@ export async function GET(request: Request) {
           },
         ],
       };
+    }
+
+    if (search) {
+      const esc = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      query.$and = [
+        ...(query.$and || []),
+        { $or: [
+          { driverName: { $regex: esc, $options: "i" } },
+          { driverEmail: { $regex: esc, $options: "i" } },
+          { carNumber: { $regex: esc, $options: "i" } },
+        ]},
+      ];
     }
 
     const receipts = await serviceRequestsCollection

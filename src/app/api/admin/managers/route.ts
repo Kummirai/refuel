@@ -2,12 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get("search");
     const { db } = await connectToDatabase();
     const usersCollection = db.collection("user");
+    const query: any = { role: "manager" };
+    if (search) {
+      const esc = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      query.$or = [
+        { name: { $regex: esc, $options: "i" } },
+        { email: { $regex: esc, $options: "i" } },
+      ];
+    }
     const managers = await usersCollection
-      .find({ role: "manager" })
+      .find(query)
       .project({ name: 1, email: 1, phone: 1, role: 1, createdAt: 1 })
       .sort({ createdAt: -1 })
       .toArray();

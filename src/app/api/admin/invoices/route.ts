@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
+    const search = searchParams.get("search");
     const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 500);
     const skip = parseInt(searchParams.get("skip") || "0");
 
@@ -162,7 +163,16 @@ export async function GET(request: NextRequest) {
     );
 
     // Filter out drivers on payment plans
-    const driversWithoutPlan = drivers.filter((d: any) => !planByUserId.has(d.userId));
+    let driversWithoutPlan = drivers.filter((d: any) => !planByUserId.has(d.userId));
+
+    // Search filter (after aggregation, before pagination)
+    if (search) {
+      const q = search.toLowerCase();
+      driversWithoutPlan = driversWithoutPlan.filter((d: any) =>
+        d.driverName?.toLowerCase().includes(q) ||
+        d.driverEmail?.toLowerCase().includes(q)
+      );
+    }
 
     // Check which drivers' current items were already sent via WhatsApp
     const driverEmails = driversWithoutPlan.map((d: any) => d.driverEmail).filter(Boolean);

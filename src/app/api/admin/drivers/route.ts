@@ -1,11 +1,13 @@
 // src/app/api/admin/drivers/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { toMoney } from "@/lib/money";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get("search");
     const { db } = await connectToDatabase();
 
     const usersCollection = db.collection("user");
@@ -153,7 +155,16 @@ export async function GET() {
     });
 
     // Calculate stats
-    const verifiedCount = driversWithData.filter(
+    let filteredDrivers = driversWithData;
+    if (search) {
+      const q = search.toLowerCase();
+      filteredDrivers = filteredDrivers.filter((d: any) =>
+        d.name?.toLowerCase().includes(q) ||
+        d.email?.toLowerCase().includes(q) ||
+        d.carRegistration?.toLowerCase().includes(q)
+      );
+    }
+    const verifiedCount = filteredDrivers.filter(
       (d: any) => d.verificationStatus === "approved",
     ).length;
     const pendingCount = driversWithData.filter(
@@ -164,7 +175,7 @@ export async function GET() {
     ).length;
 
     return NextResponse.json({
-      drivers: driversWithData,
+      drivers: filteredDrivers,
       recent: recentVerifications,
       total: driversWithData.length,
       verified: verifiedCount,
