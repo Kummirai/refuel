@@ -25,6 +25,11 @@ export async function GET(request: NextRequest) {
           { repaidAmount: { $exists: true } },
         ],
       })
+      .project({
+        userId: 1, type: 1, carNumber: 1, driverName: 1, driverEmail: 1,
+        driverPhone: 1, totalRepayable: 1, repaidAmount: 1, remainingBalance: 1,
+        payments: 1, lastPaymentDate: 1, paidDate: 1, updatedAt: 1, createdAt: 1,
+      })
       .toArray();
 
     // Fetch user details for unique user IDs
@@ -40,6 +45,7 @@ export async function GET(request: NextRequest) {
           .find({ _id: { $in: userIds.map((id: string) => {
             try { return new ObjectId(id); } catch { return id; }
           })} })
+          .project({ name: 1, email: 1, phone: 1 })
           .toArray()
       : [];
     const userMap = new Map<string, any>();
@@ -50,6 +56,7 @@ export async function GET(request: NextRequest) {
     // Fetch ALL proofs to check approval status per payment
     const allProofs = await repaymentProofsCollection
       .find()
+      .project({ proofPublicId: 1, proofUrl: 1, status: 1, approvedAt: 1 })
       .toArray();
 
     // Index proofs by proofPublicId and proofUrl for fast per-payment lookup

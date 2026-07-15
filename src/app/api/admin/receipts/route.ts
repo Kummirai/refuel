@@ -59,6 +59,15 @@ export async function GET(request: Request) {
 
     const receipts = await serviceRequestsCollection
       .find(query)
+      .project({
+        userId: 1, type: 1, amount: 1, actualAmount: 1, carNumber: 1,
+        driverName: 1, driverEmail: 1, driverPhone: 1, status: 1,
+        requestDate: 1, completedDate: 1, popUrl: 1, popUploadedAt: 1,
+        hasReceipt: 1, receiptStatus: 1, receiptVerifiedAt: 1,
+        receiptRejectionReason: 1, receiptRejectedAt: 1, correctedByAdmin: 1,
+        totalRepayable: 1, remainingBalance: 1, dueDate: 1,
+        refueledByManager: 1, carRegistration: 1,
+      })
       .sort({ completedDate: -1 })
       .limit(limit)
       .toArray();
@@ -68,7 +77,7 @@ export async function GET(request: Request) {
     const userObjectIds = userIds.map((id: string) => {
       try { return new ObjectId(id); } catch { return id; }
     });
-    const users: any[] = await usersCollection.find({ _id: { $in: userObjectIds } }).toArray();
+    const users: any[] = await usersCollection.find({ _id: { $in: userObjectIds } }).project({ name: 1, email: 1, phone: 1 }).toArray();
     const userMap = new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
 
     const receiptsWithDetails = receipts.map((request: any) => {

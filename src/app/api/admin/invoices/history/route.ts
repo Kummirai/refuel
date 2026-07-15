@@ -13,6 +13,11 @@ export async function GET(request: Request) {
     const raw = await db
       .collection("invoiceHistory")
       .find(filter)
+      .project({
+        channel: 1, sentAt: 1, driverEmail: 1, driverName: 1, driverPhone: 1,
+        singleRecipient: 1, drivers: 1, totalOutstanding: 1, totalDrivers: 1,
+        items: 1, requestIds: 1,
+      })
       .sort({ sentAt: -1 })
       .limit(50)
       .toArray();
