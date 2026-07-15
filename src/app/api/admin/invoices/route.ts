@@ -14,9 +14,29 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 500);
+    const skip = parseInt(searchParams.get("skip") || "0");
+
+    const query: any = { status: "completed" };
+    if (startDate || endDate) {
+      const dateQuery: any = {};
+      if (startDate) dateQuery.$gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        dateQuery.$lte = end;
+      }
+      query.completedDate = dateQuery;
+    }
 
     const allRequests = await serviceRequestsCollection
-      .find({ status: "completed" })
+      .find(query)
+      .project({
+        userId: 1, type: 1, amount: 1, actualAmount: 1, totalRepayable: 1,
+        repaidAmount: 1, remainingBalance: 1, isPaid: 1,
+        driverName: 1, driverEmail: 1, driverPhone: 1, carNumber: 1,
+        completedDate: 1, requestDate: 1,
+      })
       .toArray();
 
     // Batch fetch repayment proofs for requests without pre-calculated remainingBalance
@@ -28,6 +48,7 @@ export async function GET(request: NextRequest) {
     if (requestIdsNeedingBalance.length > 0) {
       const approvedRepayments = await repaymentProofsCollection
         .find({ requestId: { $in: requestIdsNeedingBalance }, status: "approved" })
+        .project({ requestId: 1, amount: 1 })
         .toArray();
       const repaymentsByRequest = new Map<string, any[]>();
       for (const rp of approvedRepayments) {
@@ -60,7 +81,10 @@ export async function GET(request: NextRequest) {
       const userObjectIds = (userIdsNeeded as string[]).map((id: string) => {
         try { return new ObjectId(id); } catch { return id; }
       });
-      const users: any[] = await usersCollection.find({ _id: { $in: userObjectIds } }).toArray();
+      const users: any[] = await usersCollection
+        .find({ _id: { $in: userObjectIds } })
+        .project({ email: 1, name: 1, phone: 1 })
+        .toArray();
       for (const u of users) {
         userMap.set(u._id.toString(), u);
       }
@@ -70,14 +94,6 @@ export async function GET(request: NextRequest) {
 
     for (const req of allRequests) {
       if (req.isPaid) continue;
-
-      const completedDate = req.completedDate ? new Date(req.completedDate) : null;
-      if (startDate && completedDate && completedDate < new Date(startDate)) continue;
-      if (endDate && completedDate) {
-        const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        if (completedDate > endOfDay) continue;
-      }
 
       const totalRepayable = req.totalRepayable || req.amount || 0;
       const requestId = req._id.toString();
@@ -138,13 +154,14 @@ export async function GET(request: NextRequest) {
     const activePlans = driverUserIds.length > 0
       ? await paymentPlansCollection
           .find({ userId: { $in: driverUserIds }, isActive: true })
+          .project({ userId: 1 })
           .toArray()
       : [];
     const planByUserId = new Map<string, any>(
       activePlans.map((p: any) => [p.userId, p]),
     );
 
-    // Filter out drivers on payment plans — they belong in Payment Plans tab
+    // Filter out drivers on payment plans
     const driversWithoutPlan = drivers.filter((d: any) => !planByUserId.has(d.userId));
 
     // Check which drivers' current items were already sent via WhatsApp
@@ -155,7 +172,6 @@ export async function GET(request: NextRequest) {
           { projection: { driverEmail: 1, requestIds: 1 } },
         ).toArray()
       : [];
-    // Map driverEmail -> Set of requestIds that have been sent
     const sentRequestIdsByEmail = new Map<string, Set<string>>();
     for (const rec of whatsappSentRecords) {
       if (!rec.driverEmail || !rec.requestIds?.length) continue;
@@ -168,7 +184,6 @@ export async function GET(request: NextRequest) {
       const sentIds = sentRequestIdsByEmail.get(d.driverEmail);
       if (!sentIds) continue;
       const currentIds = d.items.map((i: any) => i.requestId).filter(Boolean);
-      // Only mark as sent if ALL current requestIds were previously sent via WhatsApp
       if (currentIds.length > 0 && currentIds.every((rid: string) => sentIds.has(rid))) {
         d.whatsappSent = true;
       }
@@ -178,6 +193,7 @@ export async function GET(request: NextRequest) {
     if (driverEmails.length > 0) {
       const discountRecords = await db.collection("discounts").find(
         { driverEmail: { $in: driverEmails } },
+        { projection: { driverEmail: 1, discountPercent: 1 } },
       ).toArray();
       const discountMap = new Map<string, number>();
       for (const rec of discountRecords) {
@@ -195,10 +211,14 @@ export async function GET(request: NextRequest) {
       0,
     );
 
+    // Paginate the final result
+    const paginated = driversWithoutPlan.slice(skip, skip + limit);
+
     return NextResponse.json({
-      drivers: driversWithoutPlan,
+      drivers: paginated,
       totalDrivers: driversWithoutPlan.length,
       totalOutstanding: toMoney(totalOutstandingAll),
+      hasMore: skip + limit < driversWithoutPlan.length,
     });
   } catch (error) {
     console.error("Error fetching invoice data:", error);

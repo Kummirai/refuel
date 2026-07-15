@@ -54,7 +54,7 @@ export default function AdminDriverViewPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/driver-view");
+      const res = await fetch("/api/admin/driver-view?limit=500");
       if (res.ok) {
         const data = await res.json();
         setDrivers(data.drivers || []);

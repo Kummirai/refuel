@@ -172,9 +172,10 @@ export default function LoanRepaymentsPage() {
       }
       if (res.ok) {
         const data = await res.json();
+        const repaymentsList = data.repayments || data || [];
         const bulkGroups = new Map<string, Repayment[]>();
         const standalone: Repayment[] = [];
-        for (const r of data) {
+        for (const r of repaymentsList) {
           const bulkProof = (r.pendingRepaymentProofs || []).find(
             (p: RepaymentProof) => p.requestIds && p.requestIds.length > 1,
           );

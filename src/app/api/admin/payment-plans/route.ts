@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
     const paymentPlansCollection = db.collection("paymentPlans");
     const serviceRequestsCollection = db.collection("serviceRequests");
+    const { searchParams } = new URL(request.url);
+    const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 500);
+    const skip = parseInt(searchParams.get("skip") || "0");
 
     const plans = await paymentPlansCollection
       .find({ isActive: true })
@@ -69,7 +72,14 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json(enrichedPlans);
+    // Paginate
+    const paginated = enrichedPlans.slice(skip, skip + limit);
+
+    return NextResponse.json({
+      plans: paginated,
+      total: enrichedPlans.length,
+      hasMore: skip + limit < enrichedPlans.length,
+    });
   } catch (error) {
     console.error("Error fetching payment plans:", error);
     return NextResponse.json(
