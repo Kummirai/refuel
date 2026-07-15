@@ -40,7 +40,7 @@ export default function DriverDashboard() {
   const { data: requestsData, error: requestsError, isLoading: requestsLoading, isValidating: requestsValidating, mutate: mutateRequests } = useSWR(
     userId ? `/api/driver/requests?userId=${userId}` : null,
     fetcher,
-    { refreshInterval: 30_000, dedupingInterval: 30_000 },
+    { refreshInterval: 120_000, dedupingInterval: 60_000 },
   );
   const { data: profile, isLoading: profileLoading, error: profileError } = useSWR(
     userId ? `/api/driver/profile?userId=${userId}` : null,

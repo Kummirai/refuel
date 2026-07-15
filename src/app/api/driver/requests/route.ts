@@ -25,6 +25,15 @@ export async function GET(request: NextRequest) {
     const requests = await serviceRequestsCollection
       .find({ userId })
       .sort({ requestDate: -1 })
+      .project({
+        type: 1, amount: 1, actualAmount: 1, carNumber: 1, carModel: 1,
+        fuelType: 1, contactPhone: 1, driverName: 1, driverPhone: 1, driverEmail: 1,
+        interest: 1, totalRepayable: 1, interestRate: 1, repaymentDays: 1,
+        dailyPayment: 1, package: 1, packageDescription: 1, status: 1, otp: 1,
+        requestDate: 1, createdAt: 1, approvedDate: 1, completedDate: 1,
+        repaidAmount: 1, remainingBalance: 1, isPaid: 1, popUrl: 1,
+        hasReceipt: 1, collateral: 1, recipientPhoneNumber: 1,
+      })
       .toArray();
 
     // Batch fetch all repayment proofs for all requests
@@ -32,6 +41,7 @@ export async function GET(request: NextRequest) {
     const allProofs = requestIds.length > 0
       ? await repaymentProofsCollection
           .find({ requestId: { $in: requestIds } })
+          .project({ requestId: 1, amount: 1, status: 1, submittedAt: 1, approvedAt: 1, proofUrl: 1, proofPublicId: 1, remainingBalance: 1, isFullyPaid: 1 })
           .toArray()
       : [];
     const proofsByRequest = new Map<string, any[]>();
