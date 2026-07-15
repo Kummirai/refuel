@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     const from = searchParams.get("from");
     const to = searchParams.get("to");
     const status = searchParams.get("status");
+    const search = searchParams.get("search");
     const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 200);
     const skip = parseInt(searchParams.get("skip") || "0");
     const countsOnly = searchParams.get("countsOnly") === "true";
@@ -40,6 +41,14 @@ export async function GET(request: NextRequest) {
       } else {
         query.status = status;
       }
+    }
+    if (search) {
+      const esc = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      query.$or = [
+        { driverName: { $regex: esc, $options: "i" } },
+        { driverEmail: { $regex: esc, $options: "i" } },
+        { carNumber: { $regex: esc, $options: "i" } },
+      ];
     }
 
     const serviceRequestsCollection = db.collection("serviceRequests");
@@ -211,7 +220,9 @@ export async function GET(request: NextRequest) {
       totalRevenue: toMoney(counts.totalRevenue),
       totalRepayable: toMoney(counts.totalRepayable),
       totalRepaid: toMoney(counts.totalRepaid),
-      hasMore: skip + limit < counts.total,
+      hasMore: search
+        ? requests.length === limit
+        : skip + limit < counts.total,
     });
   } catch (error) {
     console.error("Error fetching requests:", error);

@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const { db } = await connectToDatabase();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
+    const search = searchParams.get("search");
     const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 200);
     const skip = parseInt(searchParams.get("skip") || "0");
     const countsOnly = searchParams.get("countsOnly") === "true";
@@ -158,6 +159,17 @@ export async function GET(request: NextRequest) {
         dbQuery.remainingBalance = { $gt: 0 };
       }
       // overdue and review require post-processing, so we fetch all non-paid
+    }
+    if (search) {
+      const esc = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      dbQuery.$and = [
+        ...(dbQuery.$and || []),
+        { $or: [
+          { driverName: { $regex: esc, $options: "i" } },
+          { driverEmail: { $regex: esc, $options: "i" } },
+          { carNumber: { $regex: esc, $options: "i" } },
+        ]},
+      ];
     }
 
     // For review/overdue: fetch all (no skip/limit at DB level) since post-filter removes items
@@ -357,8 +369,15 @@ export async function GET(request: NextRequest) {
       };
     }).filter(Boolean);
 
-    // For review: no pagination needed (<10 items). For others: use counts.total.
-    const hasMore = needsPostFilter ? false : skip + limit < counts.total;
+    // For review: no pagination needed (<10 items). For search: approximate from returned length.
+    let hasMore = false;
+    if (needsPostFilter) {
+      hasMore = false;
+    } else if (search) {
+      hasMore = repayments.length === limit;
+    } else {
+      hasMore = skip + limit < counts.total;
+    }
 
     return NextResponse.json({
       repayments,
