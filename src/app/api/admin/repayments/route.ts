@@ -1,22 +1,169 @@
 // src/app/api/admin/repayments/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { toMoney } from "@/lib/money";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get("status");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 200);
+    const skip = parseInt(searchParams.get("skip") || "0");
+    const countsOnly = searchParams.get("countsOnly") === "true";
+
     const serviceRequestsCollection = db.collection("serviceRequests");
     const usersCollection = db.collection("user");
     const repaymentProofsCollection = db.collection("repaymentProofs");
 
-    // Get ALL completed and approved requests (all service types)
+    const baseQuery: any = { status: { $in: ["approved", "completed"] } };
+
+    // Aggregation for counts + stats
+    const countPipeline: any[] = [
+      { $match: { status: { $in: ["approved", "completed"] } } },
+      {
+        $lookup: {
+          from: "repaymentProofs",
+          let: { loanId: { $toString: "$_id" } },
+          pipeline: [
+            { $match: { $expr: { $or: [
+              { $eq: ["$requestId", "$$loanId"] },
+              { $in: ["$$loanId", { $ifNull: ["$requestIds", []] }] },
+            ]}}},
+            { $project: { status: 1 } },
+          ],
+          as: "_proofs",
+        },
+      },
+      {
+        $addFields: {
+          _totalRepayable: { $ifNull: ["$totalRepayable", { $multiply: ["$amount", 1.13] }] },
+          _repaidAmount: { $ifNull: ["$repaidAmount", 0] },
+          _isPaid: {
+            $or: [
+              { $eq: ["$isPaid", true] },
+              { $lte: [{ $subtract: [
+                { $ifNull: ["$totalRepayable", { $multiply: ["$amount", 1.13] }] },
+                { $ifNull: ["$repaidAmount", 0] },
+              ]}, 0] },
+            ],
+          },
+          _hasPendingProofs: {
+            $gt: [
+              {
+                $size: {
+                  $filter: {
+                    input: "$_proofs",
+                    cond: { $eq: ["$$this.status", "pending"] },
+                  },
+                },
+              },
+              0,
+            ],
+          },
+          _dueDate: {
+            $add: [
+              { $ifNull: ["$approvedDate", "$requestDate"] },
+              { $multiply: [{ $ifNull: ["$repaymentDays", 7] }, 86400000] },
+            ],
+          },
+        },
+      },
+      {
+        $addFields: {
+          _financialStatus: {
+            $cond: [
+              "$_isPaid",
+              "paid",
+              { $cond: [{ $gt: [new Date(), "$_dueDate"] }, "overdue", "pending"] },
+            ],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          outstanding: {
+            $sum: { $cond: [{ $ne: ["$_financialStatus", "paid"] }, "$_repaidAmount", 0] },
+          },
+          outstandingRemaining: {
+            $sum: { $cond: [{ $ne: ["$_financialStatus", "paid"] }, { $subtract: ["$_totalRepayable", "$_repaidAmount"] }, 0] },
+          },
+          repaid: { $sum: "$_repaidAmount" },
+          active: { $sum: { $cond: [{ $eq: ["$_financialStatus", "pending"] }, 1, 0] } },
+          overdue: { $sum: { $cond: [{ $eq: ["$_financialStatus", "overdue"] }, 1, 0] } },
+          paid: { $sum: { $cond: [{ $eq: ["$_financialStatus", "paid"] }, 1, 0] } },
+          review: {
+            $sum: {
+              $cond: [
+                { $and: [{ $ne: ["$_financialStatus", "paid"] }, "$_hasPendingProofs"] },
+                1, 0,
+              ],
+            },
+          },
+          pendingNoProof: {
+            $sum: {
+              $cond: [
+                { $and: [
+                  { $ne: ["$_financialStatus", "paid"] },
+                  { $ne: ["$_financialStatus", "overdue"] },
+                  { $not: "$_hasPendingProofs" },
+                ]},
+                1, 0,
+              ],
+            },
+          },
+        },
+      },
+    ];
+
+    const countResult = await serviceRequestsCollection.aggregate(countPipeline).toArray();
+    const counts = countResult[0] || {
+      total: 0, outstanding: 0, outstandingRemaining: 0, repaid: 0,
+      active: 0, overdue: 0, paid: 0, review: 0, pendingNoProof: 0,
+    };
+
+    if (countsOnly) {
+      return NextResponse.json({
+        repayments: [],
+        stats: {
+          outstanding: toMoney(counts.outstandingRemaining),
+          repaid: toMoney(counts.repaid),
+          active: counts.active,
+          overdue: counts.overdue,
+        },
+        counts: {
+          all: counts.total,
+          pending: counts.pendingNoProof,
+          review: counts.review,
+          overdue: counts.overdue,
+          paid: counts.paid,
+        },
+      });
+    }
+
+    // Determine DB-level filter for status
+    const dbQuery: any = { ...baseQuery };
+    if (status && status !== "all") {
+      if (status === "paid") {
+        dbQuery.$or = [
+          { isPaid: true },
+          { remainingBalance: { $lte: 0 } },
+        ];
+      } else if (status === "pending") {
+        dbQuery.isPaid = { $ne: true };
+        dbQuery.remainingBalance = { $gt: 0 };
+      }
+      // overdue and review require post-processing, so we fetch all non-paid
+    }
+
     const loans = await serviceRequestsCollection
-      .find({
-        status: { $in: ["approved", "completed"] },
-      })
+      .find(dbQuery)
       .sort({ requestDate: -1 })
+      .skip(skip)
+      .limit(limit)
       .project({
         userId: 1, type: 1, amount: 1, actualAmount: 1, carNumber: 1,
         driverName: 1, driverEmail: 1, driverPhone: 1, totalRepayable: 1,
@@ -40,7 +187,7 @@ export async function GET() {
       .toArray();
     const userMap = new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
 
-    // Batch proof lookups — fetch all proofs for all loans at once
+    // Batch proof lookups
     const loanIds = loans.map((l: any) => l._id.toString());
     const allProofs = await repaymentProofsCollection
       .find({
@@ -157,6 +304,11 @@ export async function GET() {
       if (isPaid) financialStatus = "paid";
       else if (today > dueDate) financialStatus = "overdue";
 
+      // Client-side filter for overdue/review (post-processing)
+      if (status === "overdue" && financialStatus !== "overdue") return null;
+      if (status === "pending" && (financialStatus === "paid" || financialStatus === "overdue" || pendingProofs.length > 0)) return null;
+      if (status === "review" && (financialStatus === "paid" || pendingProofs.length === 0)) return null;
+
       return {
         id: loan._id.toString(),
         loanId: loan._id.toString(),
@@ -199,9 +351,25 @@ export async function GET() {
         pendingRepaymentProofs: pendingProofs,
         hasPendingProofs: pendingProofs.length > 0,
       };
-    });
+    }).filter(Boolean);
 
-    return NextResponse.json(repayments);
+    return NextResponse.json({
+      repayments,
+      stats: {
+        outstanding: toMoney(counts.outstandingRemaining),
+        repaid: toMoney(counts.repaid),
+        active: counts.active,
+        overdue: counts.overdue,
+      },
+      counts: {
+        all: counts.total,
+        pending: counts.pendingNoProof,
+        review: counts.review,
+        overdue: counts.overdue,
+        paid: counts.paid,
+      },
+      hasMore: skip + limit < counts.total,
+    });
   } catch (error) {
     console.error("Error fetching repayments:", error);
     return NextResponse.json(

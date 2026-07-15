@@ -14,6 +14,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const from = searchParams.get("from");
     const to = searchParams.get("to");
+    const status = searchParams.get("status");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 200);
+    const skip = parseInt(searchParams.get("skip") || "0");
+    const countsOnly = searchParams.get("countsOnly") === "true";
 
     const query: any = {};
     if (from || to) {
@@ -26,15 +30,99 @@ export async function GET(request: NextRequest) {
       }
       query.requestDate = dateQuery;
     }
+    if (status && status !== "all") {
+      if (status === "refueled") {
+        query.status = "completed";
+        query.refueledByManager = true;
+      } else if (status === "completed") {
+        query.status = "completed";
+        query.refueledByManager = { $ne: true };
+      } else {
+        query.status = status;
+      }
+    }
 
     const serviceRequestsCollection = db.collection("serviceRequests");
     const usersCollection = db.collection("user");
     const driverProfilesCollection = db.collection("driverProfiles");
 
-    // Get all service requests sorted by date
+    // Always get counts via aggregation (cheap, indexed)
+    const countStats = await serviceRequestsCollection.aggregate([
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          pending: { $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] } },
+          approved: { $sum: { $cond: [{ $eq: ["$status", "approved"] }, 1, 0] } },
+          sent: { $sum: { $cond: [{ $eq: ["$status", "sent"] }, 1, 0] } },
+          completed: {
+            $sum: {
+              $cond: [
+                { $and: [{ $eq: ["$status", "completed"] }, { $ne: ["$refueledByManager", true] }] },
+                1, 0,
+              ],
+            },
+          },
+          rejected: { $sum: { $cond: [{ $eq: ["$status", "rejected"] }, 1, 0] } },
+          refueled: {
+            $sum: {
+              $cond: [
+                { $and: [{ $eq: ["$status", "completed"] }, { $eq: ["$refueledByManager", true] }] },
+                1, 0,
+              ],
+            },
+          },
+          totalRevenue: {
+            $sum: {
+              $cond: [
+                { $eq: ["$status", "completed"] },
+                { $ifNull: ["$actualAmount", "$amount", 0] },
+                0,
+              ],
+            },
+          },
+          totalRepayable: {
+            $sum: {
+              $cond: [
+                { $eq: ["$status", "completed"] },
+                { $ifNull: ["$totalRepayable", "$amount", 0] },
+                0,
+              ],
+            },
+          },
+          totalRepaid: { $sum: { $ifNull: ["$repaidAmount", 0] } },
+        },
+      },
+    ]).toArray();
+
+    const counts = countStats[0] || {
+      total: 0, pending: 0, approved: 0, sent: 0, completed: 0,
+      rejected: 0, refueled: 0, totalRevenue: 0, totalRepayable: 0, totalRepaid: 0,
+    };
+
+    if (countsOnly) {
+      return NextResponse.json({
+        requests: [],
+        recent: [],
+        total: counts.total,
+        pending: counts.pending,
+        approved: counts.approved,
+        sent: counts.sent,
+        completed: counts.completed,
+        rejected: counts.rejected,
+        refueled: counts.refueled,
+        totalRevenue: toMoney(counts.totalRevenue),
+        totalRepayable: toMoney(counts.totalRepayable),
+        totalRepaid: toMoney(counts.totalRepaid),
+      });
+    }
+
+    // Fetch paginated requests
     const requests = await serviceRequestsCollection
       .find(query)
       .sort({ requestDate: -1 })
+      .skip(skip)
+      .limit(limit)
       .project({
         userId: 1, type: 1, amount: 1, actualAmount: 1, carNumber: 1, carModel: 1,
         carRegistration: 1, fuelType: 1, contactPhone: 1, driverName: 1, driverPhone: 1,
@@ -47,7 +135,7 @@ export async function GET(request: NextRequest) {
       })
       .toArray();
 
-    // Batch user lookups — fetch all unique users at once
+    // Batch user lookups
     const userIds = [...new Set(requests.map((r: any) => r.userId))] as string[];
     const userObjectIds = userIds.map((id: string) => {
       try { return new ObjectId(id); } catch { return id; }
@@ -56,15 +144,14 @@ export async function GET(request: NextRequest) {
       .find({ _id: { $in: userObjectIds } })
       .project({ name: 1, email: 1, phone: 1 })
       .toArray();
-    const userMap = new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
-
     const profiles: any[] = await driverProfilesCollection
       .find({ userId: { $in: userIds } })
       .project({ userId: 1, fullName: 1, name: 1, phone: 1, address: 1 })
       .toArray();
+
+    const userMap = new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
     const profileMap = new Map<string, any>(profiles.map((p: any) => [p.userId, p]));
 
-    // Map driver details for each request
     const requestsWithDetails = requests.map((request: any) => {
       const user = userMap.get(request.userId) || userMap.get(tryObjectIdStr(request.userId));
       const driverProfile = profileMap.get(request.userId);
@@ -81,17 +168,8 @@ export async function GET(request: NextRequest) {
         carRegistration: request.carRegistration,
         fuelType: request.fuelType,
         contactPhone: request.contactPhone,
-        driverName:
-          request.driverName ||
-          user?.name ||
-          driverProfile?.fullName ||
-          driverProfile?.name ||
-          "Unknown",
-        driverPhone:
-          request.driverPhone ||
-          user?.phone ||
-          driverProfile?.phone ||
-          "Unknown",
+        driverName: request.driverName || user?.name || driverProfile?.fullName || driverProfile?.name || "Unknown",
+        driverPhone: request.driverPhone || user?.phone || driverProfile?.phone || "Unknown",
         driverEmail: request.driverEmail || user?.email || "Unknown",
         interest: request.interest,
         totalRepayable: request.totalRepayable,
@@ -114,80 +192,27 @@ export async function GET(request: NextRequest) {
         remainingBalance: request.remainingBalance || 0,
         isPaid: request.isPaid || false,
         refueledByManager: request.refueledByManager || false,
-        location:
-          request.location || driverProfile?.address || "Not provided",
+        location: request.location || driverProfile?.address || "Not provided",
         phoneNumber: request.recipientPhoneNumber || request.contactPhone,
         collateral: request.collateral || null,
       };
     });
 
-    // console.log("Requests with details:", requestsWithDetails.length);
-    // if (requestsWithDetails.length > 0) {
-    //   console.log(
-    //     "First request details:",
-    //     JSON.stringify(requestsWithDetails[0], null, 2),
-    //   );
-    // }
-
-    // Calculate stats
-    const total = requestsWithDetails.length;
-    const pending = requestsWithDetails.filter(
-      (r: any) => r.status === "pending",
-    ).length;
-    const approved = requestsWithDetails.filter(
-      (r: any) => r.status === "approved",
-    ).length;
-    const sent = requestsWithDetails.filter(
-      (r: any) => r.status === "sent",
-    ).length;
-    const completed = requestsWithDetails.filter(
-      (r: any) => r.status === "completed" && !r.refueledByManager,
-    ).length;
-    const rejected = requestsWithDetails.filter(
-      (r: any) => r.status === "rejected",
-    ).length;
-    const refueled = requestsWithDetails.filter(
-      (r: any) => r.status === "completed" && r.refueledByManager,
-    ).length;
-
-    // Calculate total revenue based on actualAmount if available, otherwise amount
-    const totalRevenue = toMoney(
-      requestsWithDetails
-        .filter((r: any) => r.status === "completed")
-        .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount || 0), 0)
-    );
-
-    // Calculate total repayable amount
-    const totalRepayable = toMoney(
-      requestsWithDetails
-        .filter((r: any) => r.status === "completed")
-        .reduce((sum: number, r: any) => sum + (r.totalRepayable || r.amount || 0), 0)
-    );
-
-    // Calculate total repaid amount
-    const totalRepaid = toMoney(
-      requestsWithDetails.reduce(
-        (sum: number, r: any) => sum + (r.repaidAmount || 0),
-        0,
-      )
-    );
-
     return NextResponse.json({
       requests: requestsWithDetails,
-      recent: requestsWithDetails
-        .filter((r: any) => r.status === "pending")
-        .slice(0, 5),
-      total,
-      pending,
-      approved,
-      sent,
-      completed,
-      rejected,
-      totalRevenue,
-      totalRepayable,
-      totalRepaid,
-      refueled,
-    },);
+      recent: requestsWithDetails.filter((r: any) => r.status === "pending").slice(0, 5),
+      total: counts.total,
+      pending: counts.pending,
+      approved: counts.approved,
+      sent: counts.sent,
+      completed: counts.completed,
+      rejected: counts.rejected,
+      refueled: counts.refueled,
+      totalRevenue: toMoney(counts.totalRevenue),
+      totalRepayable: toMoney(counts.totalRepayable),
+      totalRepaid: toMoney(counts.totalRepaid),
+      hasMore: skip + limit < counts.total,
+    });
   } catch (error) {
     console.error("Error fetching requests:", error);
     return NextResponse.json(

@@ -381,7 +381,7 @@ export default function AdminReceiptsPage() {
   const fetchAvailableRequests = async () => {
     setRequestsLoading(true);
     try {
-      const res = await fetch("/api/admin/requests");
+      const res = await fetch("/api/admin/requests?limit=500");
       if (res.ok) {
         const data = await res.json();
         const pendingReceipt = (data.requests || []).filter(

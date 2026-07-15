@@ -188,7 +188,7 @@ export default function AdminServiceRequestsPage() {
 
   const fetchRequests = async () => {
     try {
-      const response = await fetch("/api/admin/requests", { cache: "no-store" });
+      const response = await fetch("/api/admin/requests?limit=500", { cache: "no-store" });
       if (response.ok) {
         const data = await response.json();
         const requestsWithId = (data.requests || []).map((req: any) => ({
