@@ -21,7 +21,13 @@ export async function GET() {
                 _id: null,
                 total: { $sum: 1 },
                 pending: { $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] } },
+                approved: { $sum: { $cond: [{ $eq: ["$status", "approved"] }, 1, 0] } },
+                sent: { $sum: { $cond: [{ $eq: ["$status", "sent"] }, 1, 0] } },
                 completed: { $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] } },
+                rejected: { $sum: { $cond: [{ $eq: ["$status", "rejected"] }, 1, 0] } },
+                refueled: {
+                  $sum: { $cond: [{ $and: [{ $eq: ["$status", "completed"] }, { $eq: ["$refueledByManager", true] }] }, 1, 0] },
+                },
                 completedRevenue: {
                   $sum: {
                     $cond: [
@@ -31,6 +37,17 @@ export async function GET() {
                     ],
                   },
                 },
+                totalRepayable: {
+                  $sum: {
+                    $cond: [
+                      { $eq: ["$status", "completed"] },
+                      { $ifNull: ["$totalRepayable", "$amount", 0] },
+                      0,
+                    ],
+                  },
+                },
+                totalRepaid: { $sum: { $ifNull: ["$repaidAmount", 0] } },
+                moneyRequested: { $sum: { $ifNull: ["$actualAmount", "$amount", 0] } },
               },
             },
           ],
@@ -48,7 +65,7 @@ export async function GET() {
       },
     ]).toArray().then((r: any[]) => r[0]) || { totals: [], activeLoans: [] };
 
-    const totals = requestStats.totals[0] || { total: 0, pending: 0, completed: 0, completedRevenue: 0 };
+    const totals = requestStats.totals[0] || { total: 0, pending: 0, approved: 0, sent: 0, completed: 0, rejected: 0, refueled: 0, completedRevenue: 0, totalRepayable: 0, totalRepaid: 0, moneyRequested: 0 };
     const loans = requestStats.activeLoans[0] || { count: 0, totalAmount: 0 };
 
     // Driver counts via aggregation
@@ -76,8 +93,15 @@ export async function GET() {
       rejectedVerifications: driverStatsResult.rejectedVerifications,
       totalRequests: totals.total,
       pendingRequests: totals.pending,
+      approvedRequests: totals.approved,
+      sentRequests: totals.sent,
       completedRequests: totals.completed,
+      rejectedRequests: totals.rejected,
+      refueledRequests: totals.refueled,
       totalRevenue: toMoney(totals.completedRevenue),
+      totalRepayable: toMoney(totals.totalRepayable),
+      totalRepaid: toMoney(totals.totalRepaid),
+      moneyRequested: toMoney(totals.moneyRequested),
       averageRating: driverStatsResult.averageRating
         ? Number(driverStatsResult.averageRating.toFixed(1))
         : 0,

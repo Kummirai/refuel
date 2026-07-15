@@ -201,7 +201,7 @@ export default function AdminDashboard() {
   const { data: requestsData, isLoading: requestsLoading, isValidating: requestsValidating, mutate: mutateRequests, error: requestsError } = useSWR(
     requestsUrl,
     fetcher,
-    { refreshInterval: 30_000, dedupingInterval: 30_000 },
+    { refreshInterval: 120_000, dedupingInterval: 60_000 },
   );
 
   const loading = statsLoading || driversLoading || requestsLoading;
@@ -215,50 +215,16 @@ export default function AdminDashboard() {
   const recentRequests = useMemo(() => requestsData?.recent || [], [requestsData]);
 
   const financialStats = useMemo(() => {
-    if (!requestsData) return defaultFinancialStats;
-
-    const allRequests = requestsData.requests || [];
-
-    let totalMoneyRequested = 0;
-    let totalActualInterest = 0;
-    let totalPotentialInterest = 0;
-    let totalRepaid = 0;
-
-    allRequests.forEach((request: any) => {
-      const amount = request.actualAmount || request.amount || 0;
-      totalMoneyRequested = toMoney(totalMoneyRequested + amount);
-      totalRepaid = toMoney(totalRepaid + (request.repaidAmount || 0));
-
-      const interest = request.interest || Math.round(amount * 0.13);
-      const totalRepayable = request.totalRepayable || amount + interest;
-      const repaidAmount = request.repaidAmount || 0;
-      const remainingBalance =
-        request.remainingBalance || totalRepayable - repaidAmount;
-      const isPaid = request.isPaid || remainingBalance <= 0;
-
-      if (isPaid) {
-        totalActualInterest = toMoney(totalActualInterest + interest);
-      } else if (repaidAmount > 0) {
-        const paidRatio = repaidAmount / totalRepayable;
-        totalActualInterest = toMoney(
-          totalActualInterest + interest * paidRatio,
-        );
-        totalPotentialInterest = toMoney(
-          totalPotentialInterest + interest * (1 - paidRatio),
-        );
-      } else {
-        totalPotentialInterest = toMoney(totalPotentialInterest + interest);
-      }
-    });
+    if (!statsData) return defaultFinancialStats;
 
     return {
-      moneyRequested: totalMoneyRequested,
-      actualInterest: totalActualInterest,
-      potentialInterest: totalPotentialInterest,
-      totalRepaid: totalRepaid,
-      principalRepaid: toMoney(totalRepaid - totalActualInterest),
+      moneyRequested: statsData.moneyRequested || 0,
+      actualInterest: 0,
+      potentialInterest: 0,
+      totalRepaid: statsData.totalRepaid || 0,
+      principalRepaid: toMoney(statsData.totalRepaid || 0),
     };
-  }, [requestsData]);
+  }, [statsData]);
 
   const handleApplyDateRange = () => {
     setAppliedFrom(fromDate);
