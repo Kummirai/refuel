@@ -146,6 +146,7 @@ export async function GET(request: NextRequest) {
 
     // Determine DB-level filter for status
     const dbQuery: any = { ...baseQuery };
+    const needsPostFilter = status === "review" || status === "overdue";
     if (status && status !== "all") {
       if (status === "paid") {
         dbQuery.$or = [
@@ -159,11 +160,11 @@ export async function GET(request: NextRequest) {
       // overdue and review require post-processing, so we fetch all non-paid
     }
 
-    const loans = await serviceRequestsCollection
+    // For review/overdue: fetch all (no skip/limit at DB level) since post-filter removes items
+    // For others: apply skip/limit at DB level
+    const loansQuery = serviceRequestsCollection
       .find(dbQuery)
       .sort({ requestDate: -1 })
-      .skip(skip)
-      .limit(limit)
       .project({
         userId: 1, type: 1, amount: 1, actualAmount: 1, carNumber: 1,
         driverName: 1, driverEmail: 1, driverPhone: 1, totalRepayable: 1,
@@ -173,8 +174,11 @@ export async function GET(request: NextRequest) {
         packageDescription: 1, fuelType: 1, contactPhone: 1, otp: 1,
         popUrl: 1, popUploadedAt: 1, payments: 1, interestAdjustments: 1,
         lastPaymentDate: 1,
-      })
-      .toArray();
+      });
+    if (!needsPostFilter) {
+      loansQuery.skip(skip).limit(limit);
+    }
+    const loans = await loansQuery.toArray();
 
     // Batch user lookups
     const userIds = [...new Set(loans.map((l: any) => l.userId))] as string[];
@@ -353,8 +357,18 @@ export async function GET(request: NextRequest) {
       };
     }).filter(Boolean);
 
+    // For review/overdue: apply JS-level pagination since DB-level skip/limit wasn't used
+    let paginatedRepayments = repayments;
+    let hasMore = false;
+    if (needsPostFilter) {
+      paginatedRepayments = repayments.slice(skip, skip + limit);
+      hasMore = skip + limit < repayments.length;
+    } else {
+      hasMore = skip + limit < counts.total;
+    }
+
     return NextResponse.json({
-      repayments,
+      repayments: paginatedRepayments,
       stats: {
         outstanding: toMoney(counts.outstandingRemaining),
         repaid: toMoney(counts.repaid),
@@ -368,7 +382,7 @@ export async function GET(request: NextRequest) {
         overdue: counts.overdue,
         paid: counts.paid,
       },
-      hasMore: skip + limit < counts.total,
+      hasMore,
     });
   } catch (error) {
     console.error("Error fetching repayments:", error);
