@@ -175,10 +175,19 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const [result] = await db.collection("serviceRequests").aggregate(pipeline).toArray();
+    const aggResult = await db.collection("serviceRequests").aggregate(pipeline).toArray();
 
-    const drivers = limit !== null ? (result?.drivers || []) : (result || []);
-    const totalCount = limit !== null ? (result?.total?.[0]?.count || 0) : drivers.length;
+    let drivers: any[];
+    let totalCount: number;
+
+    if (limit !== null) {
+      const result = aggResult[0] || {};
+      drivers = result.drivers || [];
+      totalCount = result.total?.[0]?.count || 0;
+    } else {
+      drivers = aggResult;
+      totalCount = aggResult.length;
+    }
 
     return NextResponse.json({
       drivers,
