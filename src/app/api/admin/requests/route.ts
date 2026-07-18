@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
     const to = searchParams.get("to");
     const status = searchParams.get("status");
     const search = searchParams.get("search");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 200);
+    const limitParam = searchParams.get("limit");
+    const limit = limitParam ? Math.min(parseInt(limitParam), 500) : null;
     const skip = parseInt(searchParams.get("skip") || "0");
     const countsOnly = searchParams.get("countsOnly") === "true";
 
@@ -129,12 +130,10 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Fetch paginated requests
-    const requests = await serviceRequestsCollection
+    // Fetch requests
+    const findQuery = serviceRequestsCollection
       .find(query)
       .sort({ requestDate: -1 })
-      .skip(skip)
-      .limit(limit)
       .project({
         userId: 1, type: 1, amount: 1, actualAmount: 1, carNumber: 1, carModel: 1,
         carRegistration: 1, fuelType: 1, contactPhone: 1, driverName: 1, driverPhone: 1,
@@ -144,8 +143,10 @@ export async function GET(request: NextRequest) {
         popPublicId: 1, popUploadedAt: 1, updatedAt: 1, repaidAmount: 1, remainingBalance: 1,
         isPaid: 1, refueledByManager: 1, location: 1, recipientPhoneNumber: 1,
         collateral: 1, hasReceipt: 1,
-      })
-      .toArray();
+      });
+    const requests = limit !== null
+      ? await findQuery.skip(skip).limit(limit).toArray()
+      : await findQuery.toArray();
 
     // Batch user lookups
     const userIds = [...new Set(requests.map((r: any) => r.userId))] as string[];
@@ -223,9 +224,9 @@ export async function GET(request: NextRequest) {
       totalRevenue: toMoney(counts.totalRevenue),
       totalRepayable: toMoney(counts.totalRepayable),
       totalRepaid: toMoney(counts.totalRepaid),
-      hasMore: search
-        ? requests.length === limit
-        : skip + limit < counts.total,
+      hasMore: limit !== null
+        ? (search ? requests.length === limit : skip + limit < counts.total)
+        : false,
     });
   } catch (error) {
     console.error("Error fetching requests:", error);
