@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
+import { ObjectId } from "mongodb";
 import { toMoney } from "@/lib/money";
 
 export async function GET(request: NextRequest) {
@@ -13,186 +14,134 @@ export async function GET(request: NextRequest) {
     const limit = limitParam ? parseInt(limitParam) : null;
     const skip = skipParam ? parseInt(skipParam) : 0;
 
-    const statusFilter: any =
-      status && status !== "all"
-        ? { status }
-        : { status: { $in: ["approved", "sent", "completed"] } };
+    const query: any = {};
+    if (status && status !== "all") {
+      query.status = status;
+    }
 
-    const pipeline: any[] = [
-      { $match: statusFilter },
+    const requests = await db.collection("serviceRequests")
+      .find(query)
+      .project({
+        userId: 1, type: 1, amount: 1, actualAmount: 1, totalRepayable: 1,
+        repaidAmount: 1, remainingBalance: 1, isPaid: 1, status: 1,
+        driverName: 1, driverEmail: 1, driverPhone: 1, carNumber: 1,
+        hasReceipt: 1, completedDate: 1, requestDate: 1,
+      })
+      .toArray();
 
-      {
-        $addFields: {
-          _amount: { $ifNull: ["$actualAmount", "$amount", 0] },
-          _totalRepayable: { $ifNull: ["$totalRepayable", "$amount", 0] },
-          _repaid: {
-            $min: [
-              { $max: [{ $ifNull: ["$repaidAmount", 0] }, 0] },
-              { $ifNull: ["$totalRepayable", "$amount", 0] },
-            ],
-          },
-        },
-      },
-      {
-        $addFields: {
-          _remaining: { $max: [0, { $subtract: ["$_totalRepayable", "$_repaid"] }] },
-        },
-      },
+    const proofs = await db.collection("repaymentProofs")
+      .find({})
+      .project({ requestId: 1, status: 1, amount: 1 })
+      .toArray();
 
-      {
-        $addFields: {
-          _userIdObj: {
-            $convert: { input: "$userId", to: "objectId", onError: null, onNull: null },
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: "user",
-          localField: "_userIdObj",
-          foreignField: "_id",
-          as: "_userDoc",
-        },
-      },
-      {
-        $addFields: {
-          _userDoc: { $arrayElemAt: ["$_userDoc", 0] },
-          _resolvedEmail: {
-            $cond: [
-              { $and: [{ $ne: ["$driverEmail", null] }, { $ne: ["$driverEmail", ""] }] },
-              "$driverEmail",
-              { $ifNull: ["$_userDoc.email", ""] },
-            ],
-          },
-          _resolvedPhone: {
-            $cond: [
-              { $and: [{ $ne: ["$driverPhone", null] }, { $ne: ["$driverPhone", ""] }] },
-              "$driverPhone",
-              { $ifNull: ["$_userDoc.phone", ""] },
-            ],
-          },
-        },
-      },
+    const proofsByRequest: Record<string, any[]> = {};
+    for (const p of proofs) {
+      const list = proofsByRequest[p.requestId] || [];
+      list.push(p);
+      proofsByRequest[p.requestId] = list;
+    }
 
+    const activeStatuses = ["approved", "sent", "completed"];
+    const groups: Record<
+      string,
       {
-        $group: {
-          _id: "$userId",
-          driverName: {
-            $first: {
-              $trim: {
-                input: { $ifNull: ["$driverName", "Unknown"] },
-              },
-            },
-          },
-          driverEmail: { $first: "$_resolvedEmail" },
-          driverPhone: { $first: "$_resolvedPhone" },
-          paid: { $sum: "$_repaid" },
-          outstanding: { $sum: "$_remaining" },
-          loans: {
-            $push: {
-              id: { $toString: "$_id" },
-              type: "$type",
-              amount: "$_amount",
-              totalRepayable: "$_totalRepayable",
-              repaid: "$_repaid",
-              remaining: "$_remaining",
-              status: "$status",
-              hasReceipt: { $ifNull: ["$hasReceipt", false] },
-              completedDate: "$completedDate",
-              carNumber: "$carNumber",
-            },
-          },
-        },
-      },
-    ];
+        userId: string;
+        driverName: string;
+        driverEmail: string;
+        driverPhone: string;
+        paid: number;
+        outstanding: number;
+        loans: { id: string; type: string; amount: number; totalRepayable: number; repaid: number; remaining: number; status: string; hasReceipt: boolean; completedDate?: string; carNumber?: string }[];
+      }
+    > = {};
+
+    const userIdsNeeded = [...new Set(
+      requests
+        .filter((r: any) => !r.driverEmail)
+        .map((r: any) => r.userId)
+    )] as string[];
+    const userMap = new Map<string, any>();
+    if (userIdsNeeded.length > 0) {
+      const userObjectIds = userIdsNeeded.map((id: string) => {
+        try { return new ObjectId(id); } catch { return id; }
+      });
+      const users: any[] = await db.collection("user")
+        .find({ _id: { $in: userObjectIds } })
+        .project({ email: 1, phone: 1 })
+        .toArray();
+      for (const u of users) {
+        userMap.set(u._id.toString(), u);
+      }
+    }
+
+    for (const r of requests) {
+      if (!activeStatuses.includes(r.status)) continue;
+
+      const userId = r.userId;
+      const name = (r.driverName || "Unknown").trim();
+
+      const reqProofs = proofsByRequest[r._id.toString()] || [];
+      const proofsTotal = reqProofs
+        .filter((p: any) => p.status === "approved")
+        .reduce((s: number, p: any) => s + (p.amount || 0), 0);
+      const totalRepayable = r.totalRepayable || r.amount || 0;
+      const totalRepaid = Math.min(Math.max(proofsTotal, r.repaidAmount || 0), totalRepayable);
+      const remaining = Math.max(0, totalRepayable - totalRepaid);
+
+      if (!groups[userId]) {
+        let driverEmail = r.driverEmail || "";
+        let driverPhone = r.driverPhone || "";
+        if (!driverEmail) {
+          const user = userMap.get(userId);
+          if (user) {
+            driverEmail = user.email || "";
+            driverPhone = user.phone || "";
+          }
+        }
+        groups[userId] = { userId, driverName: name, driverEmail, driverPhone, paid: 0, outstanding: 0, loans: [] };
+      } else {
+        if (r.driverName?.trim()) groups[userId].driverName = name;
+      }
+
+      groups[userId].paid += totalRepaid;
+      groups[userId].outstanding += remaining;
+      groups[userId].loans.push({
+        id: r._id.toString(),
+        type: r.type,
+        amount: r.actualAmount || r.amount || 0,
+        totalRepayable,
+        repaid: totalRepaid,
+        remaining,
+        status: r.status,
+        hasReceipt: !!r.hasReceipt,
+        completedDate: r.completedDate,
+        carNumber: r.carNumber,
+      });
+    }
+
+    let allDrivers = Object.values(groups)
+      .map((d) => ({
+        ...d,
+        paid: toMoney(d.paid),
+        outstanding: toMoney(d.outstanding),
+        loans: d.loans.map((l) => ({ ...l, repaid: toMoney(l.repaid), remaining: toMoney(l.remaining) })),
+      }))
+      .sort((a, b) => a.driverName.localeCompare(b.driverName));
 
     if (search) {
-      const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      pipeline.push({
-        $match: {
-          $or: [
-            { driverName: { $regex: escaped, $options: "i" } },
-            { driverEmail: { $regex: escaped, $options: "i" } },
-          ],
-        },
-      });
+      const q = search.toLowerCase();
+      allDrivers = allDrivers.filter((d: any) =>
+        d.driverName?.toLowerCase().includes(q) ||
+        d.driverEmail?.toLowerCase().includes(q)
+      );
     }
 
-    pipeline.push({ $sort: { driverName: 1 } });
-
-    if (limit !== null) {
-      pipeline.push({
-        $facet: {
-          total: [{ $count: "count" }],
-          drivers: [
-            { $skip: skip },
-            { $limit: limit },
-            {
-              $addFields: {
-                paid: { $round: ["$paid", 2] },
-                outstanding: { $round: ["$outstanding", 2] },
-                loans: {
-                  $map: {
-                    input: "$loans",
-                    as: "loan",
-                    in: {
-                      $mergeObjects: [
-                        "$$loan",
-                        {
-                          repaid: { $round: ["$$loan.repaid", 2] },
-                          remaining: { $round: ["$$loan.remaining", 2] },
-                        },
-                      ],
-                    },
-                  },
-                },
-              },
-            },
-          ],
-        },
-      });
-    } else {
-      pipeline.push({
-        $addFields: {
-          paid: { $round: ["$paid", 2] },
-          outstanding: { $round: ["$outstanding", 2] },
-          loans: {
-            $map: {
-              input: "$loans",
-              as: "loan",
-              in: {
-                $mergeObjects: [
-                  "$$loan",
-                  {
-                    repaid: { $round: ["$$loan.repaid", 2] },
-                    remaining: { $round: ["$$loan.remaining", 2] },
-                  },
-                ],
-              },
-            },
-          },
-        },
-      });
-    }
-
-    const aggResult = await db.collection("serviceRequests").aggregate(pipeline).toArray();
-
-    let drivers: any[];
-    let totalCount: number;
-
-    if (limit !== null) {
-      const result = aggResult[0] || {};
-      drivers = result.drivers || [];
-      totalCount = result.total?.[0]?.count || 0;
-    } else {
-      drivers = aggResult;
-      totalCount = aggResult.length;
-    }
+    const paginated = limit !== null ? allDrivers.slice(skip, skip + limit) : allDrivers;
 
     return NextResponse.json({
-      drivers,
-      total: totalCount,
-      hasMore: limit !== null ? skip + limit < totalCount : false,
+      drivers: paginated,
+      total: allDrivers.length,
+      hasMore: limit !== null ? skip + limit < allDrivers.length : false,
     });
   } catch (error) {
     console.error("Error fetching driver view data:", error);
