@@ -55,54 +55,57 @@ export async function GET(request: NextRequest) {
     const usersCollection = db.collection("user");
     const driverProfilesCollection = db.collection("driverProfiles");
 
-    // Always get counts via aggregation (cheap, indexed)
-    const countStats = await serviceRequestsCollection.aggregate([
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          pending: { $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] } },
-          approved: { $sum: { $cond: [{ $eq: ["$status", "approved"] }, 1, 0] } },
-          sent: { $sum: { $cond: [{ $eq: ["$status", "sent"] }, 1, 0] } },
-          completed: {
-            $sum: {
-              $cond: [
-                { $and: [{ $eq: ["$status", "completed"] }, { $ne: ["$refueledByManager", true] }] },
-                1, 0,
-              ],
-            },
+    // Get counts via aggregation — respect date/status filters
+    const countPipeline: any[] = [];
+    if (Object.keys(query).length > 0) {
+      countPipeline.push({ $match: query });
+    }
+    countPipeline.push({
+      $group: {
+        _id: null,
+        total: { $sum: 1 },
+        pending: { $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] } },
+        approved: { $sum: { $cond: [{ $eq: ["$status", "approved"] }, 1, 0] } },
+        sent: { $sum: { $cond: [{ $eq: ["$status", "sent"] }, 1, 0] } },
+        completed: {
+          $sum: {
+            $cond: [
+              { $and: [{ $eq: ["$status", "completed"] }, { $ne: ["$refueledByManager", true] }] },
+              1, 0,
+            ],
           },
-          rejected: { $sum: { $cond: [{ $eq: ["$status", "rejected"] }, 1, 0] } },
-          refueled: {
-            $sum: {
-              $cond: [
-                { $and: [{ $eq: ["$status", "completed"] }, { $eq: ["$refueledByManager", true] }] },
-                1, 0,
-              ],
-            },
-          },
-          totalRevenue: {
-            $sum: {
-              $cond: [
-                { $eq: ["$status", "completed"] },
-                { $ifNull: ["$actualAmount", "$amount", 0] },
-                0,
-              ],
-            },
-          },
-          totalRepayable: {
-            $sum: {
-              $cond: [
-                { $eq: ["$status", "completed"] },
-                { $ifNull: ["$totalRepayable", "$amount", 0] },
-                0,
-              ],
-            },
-          },
-          totalRepaid: { $sum: { $ifNull: ["$repaidAmount", 0] } },
         },
+        rejected: { $sum: { $cond: [{ $eq: ["$status", "rejected"] }, 1, 0] } },
+        refueled: {
+          $sum: {
+            $cond: [
+              { $and: [{ $eq: ["$status", "completed"] }, { $eq: ["$refueledByManager", true] }] },
+              1, 0,
+            ],
+          },
+        },
+        totalRevenue: {
+          $sum: {
+            $cond: [
+              { $eq: ["$status", "completed"] },
+              { $ifNull: ["$actualAmount", "$amount", 0] },
+              0,
+            ],
+          },
+        },
+        totalRepayable: {
+          $sum: {
+            $cond: [
+              { $eq: ["$status", "completed"] },
+              { $ifNull: ["$totalRepayable", "$amount", 0] },
+              0,
+            ],
+          },
+        },
+        totalRepaid: { $sum: { $ifNull: ["$repaidAmount", 0] } },
       },
-    ]).toArray();
+    });
+    const countStats = await serviceRequestsCollection.aggregate(countPipeline).toArray();
 
     const counts = countStats[0] || {
       total: 0, pending: 0, approved: 0, sent: 0, completed: 0,
