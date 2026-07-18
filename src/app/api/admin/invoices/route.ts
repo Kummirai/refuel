@@ -15,7 +15,8 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
     const search = searchParams.get("search");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 500);
+    const limitParam = searchParams.get("limit");
+    const limit = limitParam ? Math.min(parseInt(limitParam), 500) : null;
     const skip = parseInt(searchParams.get("skip") || "0");
 
     const query: any = { status: "completed" };
@@ -222,13 +223,13 @@ export async function GET(request: NextRequest) {
     );
 
     // Paginate the final result
-    const paginated = driversWithoutPlan.slice(skip, skip + limit);
+    const paginated = limit !== null ? driversWithoutPlan.slice(skip, skip + limit) : driversWithoutPlan;
 
     return NextResponse.json({
       drivers: paginated,
       totalDrivers: driversWithoutPlan.length,
       totalOutstanding: toMoney(totalOutstandingAll),
-      hasMore: skip + limit < driversWithoutPlan.length,
+      hasMore: limit !== null ? skip + limit < driversWithoutPlan.length : false,
     });
   } catch (error) {
     console.error("Error fetching invoice data:", error);
