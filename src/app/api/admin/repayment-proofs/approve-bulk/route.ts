@@ -20,21 +20,21 @@ export async function POST(request: NextRequest) {
     const loanPaymentsCollection = db.collection("loanPayments");
     const repaymentRequestsCollection = db.collection("repaymentRequests");
 
-    // 1. Atomically claim this proof to prevent double-approval
-    const proof = await repaymentProofsCollection.findOneAndUpdate(
-      {
-        _id: new ObjectId(proofId),
-        status: { $ne: "approved" },
-      },
-      {
-        $set: { status: "approved", approvedAt: new Date(), updatedAt: new Date() },
-      },
-      { returnDocument: "after" },
-    );
+    // 1. Find the proof
+    const proof = await repaymentProofsCollection.findOne({
+      _id: new ObjectId(proofId),
+    });
 
     if (!proof) {
       return NextResponse.json(
-        { error: "Repayment proof not found or already approved" },
+        { error: "Repayment proof not found" },
+        { status: 404 },
+      );
+    }
+
+    if (proof.status === "approved") {
+      return NextResponse.json(
+        { error: "This proof has already been approved" },
         { status: 400 },
       );
     }
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
         bulkProofId: proofId,
       });
 
-      // Update the service request atomically — only update if repaidAmount hasn't changed since read
+      // Update the service request
       const updateFields: Record<string, any> = {
         repaidAmount: newRepaid,
         remainingBalance: newRemaining,
@@ -120,11 +120,8 @@ export async function POST(request: NextRequest) {
         updateFields.paidDate = new Date();
       }
 
-      const updateResult = await serviceRequestsCollection.findOneAndUpdate(
-        {
-          _id: sr._id,
-          repaidAmount: currentRepaid, // optimistic lock: only update if unchanged
-        },
+      await serviceRequestsCollection.updateOne(
+        { _id: sr._id },
         {
           $set: updateFields,
           $push: {
@@ -142,31 +139,27 @@ export async function POST(request: NextRequest) {
             pendingRepaymentId: "",
           },
         },
-        { returnDocument: "after" },
       );
-
-      // If the update didn't match (concurrent modification), skip this request
-      if (!updateResult) {
-        remaining = toMoney(remaining + cappedAmount);
-        continue;
-      }
 
       // If fully paid, update matching repaymentRequests
       if (isFullyPaid) {
-        await repaymentRequestsCollection.findOneAndUpdate(
-          {
-            requestId: sr._id.toString(),
-            status: "pending",
-          },
-          {
-            $set: {
-              status: "approved",
-              approvedAt: new Date(),
-              approvedBy: "admin",
-              updatedAt: new Date(),
+        const repaymentRequest = await repaymentRequestsCollection.findOne({
+          requestId: sr._id.toString(),
+          status: "pending",
+        });
+        if (repaymentRequest) {
+          await repaymentRequestsCollection.updateOne(
+            { _id: repaymentRequest._id },
+            {
+              $set: {
+                status: "approved",
+                approvedAt: new Date(),
+                approvedBy: "admin",
+                updatedAt: new Date(),
+              },
             },
-          },
-        );
+          );
+        }
       }
 
       remaining = toMoney(remaining - cappedAmount);
@@ -182,26 +175,18 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 5. Clear hasPendingRepayment on all remaining linked requests that weren't updated in the loop
-    const allocatedIds = new Set(results.map((r) => r.requestId));
-    const unallocatedIds = allRequestIds.filter((id) => !allocatedIds.has(id));
-    if (unallocatedIds.length > 0) {
-      await serviceRequestsCollection.updateMany(
-        { _id: { $in: unallocatedIds.map((id: string) => new ObjectId(id)) } },
-        {
-          $unset: {
-            hasPendingRepayment: "",
-            pendingRepaymentAmount: "",
-            pendingRepaymentId: "",
-          },
-        },
-      );
-    }
-
-    // 6. Set approvedRequestIds on the proof (status was already set atomically in step 1)
+    // 5. Mark the proof as approved
+    const approvedRequestIds = allRequestIds;
     await repaymentProofsCollection.updateOne(
       { _id: new ObjectId(proofId) },
-      { $set: { approvedRequestIds: allRequestIds } },
+      {
+        $set: {
+          status: "approved",
+          approvedAt: new Date(),
+          approvedRequestIds,
+          updatedAt: new Date(),
+        },
+      },
     );
 
     const totalAllocated = toMoney(amount - remaining);
