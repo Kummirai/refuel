@@ -94,9 +94,15 @@ export async function POST(request: Request) {
         {
           $set: {
             repaidAmount: totalRepayable,
+            remainingBalance: 0,
             lastPaymentDate: new Date(),
             isPaid: true,
             paidDate: new Date(),
+          },
+          $unset: {
+            hasPendingRepayment: "",
+            pendingRepaymentAmount: "",
+            pendingRepaymentId: "",
           },
           $push: {
             payments: {
