@@ -28,12 +28,22 @@ import {
   Clock,
   XCircle,
   TrendingUp,
-  Calendar,
   Ban,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 
 type ServiceType = "fuel" | "carwash" | "cash";
+
+function getDaysUntilNextTuesday(): number {
+  const today = new Date().getDay();
+  return ((2 - today + 7) % 7) || 7;
+}
+
+function getNextTuesdayName(): string {
+  const date = new Date();
+  date.setDate(date.getDate() + getDaysUntilNextTuesday());
+  return date.toLocaleDateString("en-US", { weekday: "long" });
+}
 
 // Default config (will be overridden by API)
 const DEFAULT_CONFIG: Record<
@@ -42,7 +52,6 @@ const DEFAULT_CONFIG: Record<
     name: string;
     interestRate: number;
     defaultRepaymentDays: number;
-    repaymentOptions: number[];
     icon: any;
     color: string;
     textColor: string;
@@ -53,8 +62,7 @@ const DEFAULT_CONFIG: Record<
   fuel: {
     name: "Fuel",
     interestRate: 13,
-    defaultRepaymentDays: 7,
-    repaymentOptions: [1, 3, 5, 7],
+    defaultRepaymentDays: getDaysUntilNextTuesday(),
     icon: Fuel,
     color: "from-[#3A7717] to-[#72bf00]",
     textColor: "text-[#3A7717]",
@@ -65,7 +73,6 @@ const DEFAULT_CONFIG: Record<
     name: "Car Wash",
     interestRate: 0,
     defaultRepaymentDays: 0,
-    repaymentOptions: [],
     icon: Car,
     color: "from-[#01312D] to-[#3A7717]",
     textColor: "text-[#01312D]",
@@ -74,7 +81,6 @@ const DEFAULT_CONFIG: Record<
     name: "Cash Loan",
     interestRate: 26,
     defaultRepaymentDays: 14,
-    repaymentOptions: [7, 14, 21, 30],
     icon: DollarSign,
     color: "from-[#72bf00] to-[#bff202]",
     textColor: "text-[#01312D]",
@@ -99,7 +105,6 @@ function RequestsPageContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [requestId, setRequestId] = useState("");
-  const [selectedRepaymentDays, setSelectedRepaymentDays] = useState<number>(7);
   const [serviceConfig, setServiceConfig] = useState(DEFAULT_CONFIG);
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [carWashPackages, setCarWashPackages] = useState<
@@ -174,8 +179,7 @@ function RequestsPageContent() {
             fuel: {
               ...DEFAULT_CONFIG.fuel,
               interestRate: Number(data.services.fuelInterestRate) || 13,
-              defaultRepaymentDays: data.services.defaultRepaymentPeriod || 7,
-              repaymentOptions: data.services.repaymentPeriods || [1, 3, 5, 7],
+              defaultRepaymentDays: getDaysUntilNextTuesday(),
               minAmount: Number(data.services.minLoanAmount) || 500,
               maxAmount: Number(data.services.maxLoanAmount) || 2000,
             },
@@ -183,13 +187,11 @@ function RequestsPageContent() {
                ...DEFAULT_CONFIG.carwash,
                interestRate: 0,
                defaultRepaymentDays: 0,
-               repaymentOptions: [],
              },
              cash: {
                ...DEFAULT_CONFIG.cash,
                interestRate: Number(data.services.cashInterestRate) || 26,
-               defaultRepaymentDays: data.services.defaultRepaymentPeriod || 14,
-               repaymentOptions: data.services.repaymentPeriods || [7, 14, 21, 30],
+               defaultRepaymentDays: 14,
                minAmount: Number(data.services.minLoanAmount) || 500,
                maxAmount: Number(data.services.maxLoanAmount) || 3000,
              },
@@ -285,13 +287,14 @@ function RequestsPageContent() {
     const interestRate = currentConfig.interestRate / 100;
     const interest = toMoney(amountNum * interestRate);
     const totalRepayable = toMoney(amountNum + interest);
-    const days = selectedService === "cash" ? 14 : selectedRepaymentDays;
+    const days = selectedService === "fuel" ? getDaysUntilNextTuesday() : 14;
     const dailyPayment = toMoney(totalRepayable / days);
     return {
       interest,
       totalRepayable,
       dailyPayment,
       interestRate: currentConfig.interestRate,
+      days,
     };
   };
 
@@ -371,10 +374,8 @@ function RequestsPageContent() {
 
     // For Fuel - Show interest calculation
     if (selectedService === "fuel") {
-      const { interest, totalRepayable, dailyPayment, interestRate } =
+      const { interest, totalRepayable, dailyPayment, interestRate, days } =
         calculateServiceDetails(amountNum);
-
-      // Get min/max limits
       const minAmount = currentConfig.minAmount || 500;
       const maxAmount = currentConfig.maxAmount || 2000;
       const isWithinLimits = amountNum >= minAmount && amountNum <= maxAmount;
@@ -439,7 +440,7 @@ function RequestsPageContent() {
             <div className="flex justify-between">
               <span className="text-[#01312D]">Repayment Period:</span>
               <span className="font-semibold text-[#01312D]">
-                {selectedRepaymentDays} days
+                {days} days (on {getNextTuesdayName()})
               </span>
             </div>
             <div className="flex justify-between bg-[#01312D]/10 rounded-lg p-2 -mx-1">
@@ -457,7 +458,7 @@ function RequestsPageContent() {
 
     // For Cash Loan
     if (selectedService === "cash") {
-      const { interest, totalRepayable, dailyPayment, interestRate } =
+      const { interest, totalRepayable, dailyPayment, interestRate, days } =
         calculateServiceDetails(amountNum);
 
       const minAmount = currentConfig.minAmount || 500;
@@ -520,7 +521,7 @@ function RequestsPageContent() {
             <div className="flex justify-between">
               <span className="text-[#01312D]">Repayment Period:</span>
               <span className="font-semibold text-[#01312D]">
-                14 days
+                {days} days
               </span>
             </div>
             <div className="flex justify-between bg-[#01312D]/10 rounded-lg p-2 -mx-1">
@@ -547,43 +548,6 @@ function RequestsPageContent() {
     }
 
     return null;
-  };
-
-  // Get repayment period selector (fuel only - cash loan is fixed at 14 days)
-  const getRepaymentPeriodSelector = () => {
-    if (selectedService !== "fuel")
-      return null;
-
-    const amountNum = parseFloat(amount);
-    if (isNaN(amountNum) || amountNum <= 0) return null;
-
-    return (
-      <div>
-        <label className="block text-[#01312D] font-semibold mb-2 text-sm">
-          Select Repayment Period
-        </label>
-        <div className="flex gap-2">
-          {currentConfig.repaymentOptions.map((days) => (
-            <button
-              key={days}
-              type="button"
-              onClick={() => setSelectedRepaymentDays(days)}
-              className={`flex-1 py-2 rounded-xl font-semibold transition-all ${
-                selectedRepaymentDays === days
-                  ? "bg-linear-to-r from-[#01312D] to-[#3A7717] text-white shadow-md"
-                  : "bg-white border border-[#bff202]/20 text-[#01312D]"
-              }`}
-            >
-              {days} days
-            </button>
-          ))}
-        </div>
-        <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-          <Calendar className="w-3 h-3" />
-          Choose how long you need to repay
-        </p>
-      </div>
-    );
   };
 
   const services = Object.entries(serviceConfig).map(([id, config]) => ({
@@ -727,7 +691,7 @@ function RequestsPageContent() {
       };
 
       if (selectedService === "fuel") {
-        const { interest, totalRepayable, dailyPayment, interestRate } =
+        const { interest, totalRepayable, dailyPayment, interestRate, days } =
           calculateServiceDetails(amountNum);
         requestData = {
           ...requestData,
@@ -736,7 +700,7 @@ function RequestsPageContent() {
           interest: interest,
           totalRepayable: totalRepayable,
           interestRate: interestRate,
-          repaymentDays: selectedRepaymentDays,
+          repaymentDays: days,
           dailyPayment: toMoney(dailyPayment),
           hasReceipt: false
         };
@@ -760,7 +724,7 @@ function RequestsPageContent() {
           hasReceipt: false
         };
       } else if (selectedService === "cash") {
-        const { interest, totalRepayable, dailyPayment, interestRate } =
+        const { interest, totalRepayable, dailyPayment, interestRate, days } =
           calculateServiceDetails(amountNum);
         requestData = {
           ...requestData,
@@ -768,7 +732,7 @@ function RequestsPageContent() {
           interest: interest,
           totalRepayable: totalRepayable,
           interestRate: interestRate,
-          repaymentDays: 14,
+          repaymentDays: days,
           dailyPayment: toMoney(dailyPayment),
           hasReceipt: false,
           collateral: {
@@ -1056,7 +1020,6 @@ function RequestsPageContent() {
                       setSelectedService(service.id);
                       setAmount("");
                       setError("");
-                      setSelectedRepaymentDays(7);
                     }}
                     className={`flex flex-col items-center gap-1 p-3 rounded-2xl transition-all duration-300 ${
                       isActive
@@ -1458,11 +1421,6 @@ function RequestsPageContent() {
               </div>
             )}
 
-            {amount &&
-              parseFloat(amount) > 0 &&
-              selectedService === "fuel" &&
-              getRepaymentPeriodSelector()}
-
             {amount && parseFloat(amount) > 0 && getServiceSummary()}
 
             <div>
@@ -1530,7 +1488,7 @@ function RequestsPageContent() {
                       ? `🚗 Car wash will be scheduled after approval. Service fee: ${formatMoney(carWashServiceCharge)}. Total due: ${formatMoney(toMoney((parseFloat(amount) || 0) + carWashServiceCharge))}.`
                       : selectedService === "cash"
                         ? `💰 Cash loan of ${formatMoney(parseFloat(amount) || 0)} at ${currentConfig.interestRate}% interest over 14 days. Collateral required.`
-                        : `💰 Fuel request between ${formatMoney(minAmount)} - ${formatMoney(maxAmount)}. ${currentConfig.interestRate}% interest over ${selectedRepaymentDays} days.`}
+                        : `💰 Fuel request between ${formatMoney(minAmount)} - ${formatMoney(maxAmount)}. ${currentConfig.interestRate}% interest. Payment due next ${getNextTuesdayName()}.`}
                   </p>
                 </div>
               </div>
