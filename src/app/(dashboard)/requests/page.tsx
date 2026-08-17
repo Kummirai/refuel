@@ -28,6 +28,7 @@ import {
   Clock,
   XCircle,
   TrendingUp,
+  Calendar,
   Ban,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -1418,6 +1419,15 @@ function RequestsPageContent() {
                     🛢️ Diesel
                   </button>
                 </div>
+              </div>
+            )}
+
+            {selectedService === "fuel" && amount && parseFloat(amount) > 0 && (
+              <div className="flex items-center gap-2 bg-[#eafde7] border border-[#bff202]/30 rounded-xl p-3">
+                <Calendar className="w-4 h-4 text-[#01312D] shrink-0" />
+                <p className="text-sm text-[#01312D] font-semibold">
+                  Repayment due in {getDaysUntilNextTuesday()} days (on {getNextTuesdayName()})
+                </p>
               </div>
             )}
 
