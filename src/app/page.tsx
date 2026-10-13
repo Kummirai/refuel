@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import BottomNavigation from "@/components/BottomNavigation";
 import {
-  ArrowRight,
   Fuel,
   DollarSign,
   Car,
@@ -19,7 +18,6 @@ import {
   Headphones,
   Sparkles,
   AlertCircle,
-  CheckCircle,
   XCircle,
   LogOut,
   User,
@@ -29,8 +27,99 @@ import {
   ClipboardList,
   History,
   UserCircle,
+  Flame,
+  Rocket,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { formatMoney } from "@/lib/money";
+
+type FuelCredit = {
+  limit: number;
+  used: number;
+  remaining: number;
+  enabled: boolean;
+};
+
+function FuelCreditCard({ userId }: { userId: string | null }) {
+  const router = useRouter();
+  const [credit, setCredit] = useState<FuelCredit | null>(null);
+  const [creditLoading, setCreditLoading] = useState(!!userId);
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    fetch(`/api/driver/fuel-credit?userId=${userId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data && !data.error) setCredit(data);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setCreditLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  if (credit && credit.enabled === false) return null;
+
+  const limit = credit?.limit ?? 0;
+  const used = credit?.used ?? 0;
+  const remaining = credit?.remaining ?? 0;
+  const usedPct = Math.min(100, (used / Math.max(1, limit)) * 100);
+
+  return (
+    <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center">
+            <Fuel className="w-5 h-5 text-[#3A7717]" />
+          </div>
+          <div>
+            <p className="font-bold text-[#01312D]">Fuel Credit Limit</p>
+            <p className="text-[10px] text-gray-500">Resets every Monday</p>
+          </div>
+        </div>
+        {creditLoading ? (
+          <Skeleton className="h-6 w-20" />
+        ) : (
+          <p className="text-lg font-bold text-[#01312D]">
+            {formatMoney(remaining)}
+          </p>
+        )}
+      </div>
+      {creditLoading ? (
+        <Skeleton className="h-2 w-full rounded-full" />
+      ) : (
+        <>
+          <div className="bg-[#eafde7] rounded-full h-2 overflow-hidden">
+            <div
+              className={`h-2 rounded-full ${used >= limit ? "bg-red-500" : "bg-[#3A7717]"}`}
+              style={{ width: `${usedPct}%` }}
+            ></div>
+          </div>
+          <div className="flex justify-between items-center mt-2">
+            <p className="text-xs text-gray-500">
+              {formatMoney(used)} used of {formatMoney(limit)}
+            </p>
+            <button
+              onClick={() => router.push("/requests?type=fuel")}
+              className="text-xs font-semibold text-[#72bf00]"
+            >
+              Request Fuel →
+            </button>
+          </div>
+          {remaining <= 0 && (
+            <p className="text-xs text-red-600 mt-2 font-semibold">
+              Weekly fuel credit used up — resets Monday.
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function HomePage() {
   const router = useRouter();
@@ -158,37 +247,12 @@ export default function HomePage() {
     router.push(`/requests?type=${typeMap[service.toLowerCase()] || service.toLowerCase()}`);
   };
 
-  const getButtonText = () => {
-    if (userRole === "admin") {
-      return "Go to Admin Panel";
-    }
-
-    if (session) {
-      if (verificationStatus === "approved") {
-        return "Go to Dashboard";
-      }
-      if (verificationStatus === "pending") {
-        return "Check Verification Status";
-      }
-      return "Complete Verification";
-    }
-    return "Get Started";
-  };
-
   const VerificationStatusBadge = () => {
+    if (verificationStatus === "approved")
+      return <FuelCreditCard userId={session?.user?.id ?? null} />;
+
     const getStatusConfig = () => {
       switch (verificationStatus) {
-        case "approved":
-          return {
-            icon: CheckCircle,
-            title: "Verified Account",
-            message: "Your account is verified. You can access all services.",
-            color: "text-[#3A7717]",
-            bgColor: "bg-[#3A7717]/10",
-            borderColor: "border-[#3A7717]",
-            buttonText: "Go to Dashboard",
-            buttonAction: () => router.push("/dashboard"),
-          };
         case "pending":
           return {
             icon: Hourglass,
@@ -254,9 +318,7 @@ export default function HomePage() {
               ? "bg-yellow-600 text-white"
               : verificationStatus === "rejected"
                 ? "bg-red-600 text-white"
-                : verificationStatus === "approved"
-                  ? "bg-[#3A7717] text-white"
-                  : "bg-[#01312D] text-white"
+                : "bg-[#01312D] text-white"
               }`}
           >
             {config.buttonText} →
@@ -419,62 +481,58 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Hero Tagline */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-2 bg-[#bff202]/20 rounded-full px-4 py-1.5 mb-4">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#3A7717] opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#3A7717]"></span>
-            </span>
-            <p className="text-xs font-semibold text-[#01312D]">
-              Everything for Drivers
+        {/* Hero Card — matches mobile app HomeScreen */}
+        <div className="relative overflow-hidden rounded-3xl p-6 mb-6 bg-linear-to-br from-[#01312D] to-[#3A7717] shadow-xl">
+          <div className="relative z-10">
+            <div className="inline-flex items-center gap-1.5 bg-white/95 rounded-full px-3 py-1.5 mb-4">
+              <Rocket className="w-3.5 h-3.5 text-[#01312D]" />
+              <span className="text-xs font-bold text-[#01312D]">
+                {isLoggedIn ? "Ready to" : "Join Us"}
+              </span>
+            </div>
+
+            <h1 className="text-[28px] leading-9 font-extrabold text-white mb-3">
+              Get Fuel
+              <br />
+              <span className="text-[#bff202] text-[32px]">
+                Car Wash Services
+              </span>
+            </h1>
+
+            <p className="text-xs text-white/90 mb-6">
+              with{" "}
+              <span className="text-[#bff202] font-medium tracking-widest text-sm">
+                Kapuka Tradings
+              </span>
             </p>
-          </div>
 
-          <h1 className="text-4xl font-black text-[#01312D] leading-tight mb-3">
-            Get <span className="text-[#3A7717]">Fuel</span>,{" "}
-            <span className="text-[#3A7717] underline decoration-[#bff202] decoration-4 underline-offset-8">
-              Car Wash
-            </span>
-            <br />&{" "}
-            <span className="text-[#3A7717]">Cash Loans</span>
-            <br />
-            <span className="inline-flex items-center gap-2 mt-1">
-              Services Instantly!
-            </span>
-          </h1>
-
-          <div className="flex items-center justify-center gap-3 text-xs text-[#3A7717]">
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-[#3A7717] rounded-full"></span>
-              24/7 Support
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-[#3A7717] rounded-full"></span>
-              No Hidden Fees
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-[#3A7717] rounded-full"></span>
-              Instant Processing
-            </span>
-          </div>
-        </div>
-
-        {/* Get Started Button */}
-        <div className="flex justify-center mb-12">
-          {showSkeleton ? (
-            <Skeleton className="h-14 w-64 rounded-full" />
-          ) : (
             <button
               type="button"
               onClick={handleGetStarted}
-              className="group relative bg-linear-to-r from-[#01312D] to-[#3A7717] text-white px-10 py-3.5 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
+              className="bg-white text-[#01312D] px-6 py-3 rounded-full text-xs font-bold shadow-lg hover:shadow-xl transition-all active:scale-95"
             >
-              <span className="relative z-10">{getButtonText()}</span>
-              <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
-              <div className="absolute inset-0 bg-linear-to-r from-[#3A7717] to-[#72bf00] opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full"></div>
+              {isLoggedIn
+                ? "Make a request →"
+                : "Refuel, Work And Pay Later →"}
             </button>
-          )}
+          </div>
+          <Flame className="absolute -right-5 -bottom-5 w-32 h-32 text-[#bff202] opacity-15 pointer-events-none" />
+        </div>
+
+        {/* Feature Pills */}
+        <div className="flex items-center justify-center gap-3 text-xs text-[#3A7717] mb-10">
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 bg-[#3A7717] rounded-full"></span>
+            24/7 Support
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 bg-[#3A7717] rounded-full"></span>
+            No Hidden Fees
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 bg-[#3A7717] rounded-full"></span>
+            Instant Processing
+          </span>
         </div>
 
         {/* Documents Submitted Badge */}
