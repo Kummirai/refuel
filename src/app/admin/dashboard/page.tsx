@@ -652,7 +652,7 @@ export default function AdminDashboard() {
           <div className="border-t border-gray-100 p-5">
             <button
               onClick={() => setShowSuccessModal(false)}
-              className="w-full bg-[#01312D] text-white py-2 rounded-xl font-semibold hover:bg-[#3A7717] transition-colors"
+              className="w-full px-4 bg-[#01312D] text-white py-2 rounded-xl font-semibold hover:bg-[#3A7717] transition-colors"
             >
               Close
             </button>
@@ -695,7 +695,7 @@ export default function AdminDashboard() {
           <div className="border-t border-gray-100 p-5">
             <button
               onClick={() => setShowErrorModal(false)}
-              className="w-full bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors"
+              className="w-full px-4 bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors"
             >
               Close
             </button>
@@ -749,14 +749,14 @@ export default function AdminDashboard() {
                 setShowDeleteConfirm(false);
                 setDeletingDriver(null);
               }}
-              className="flex-1 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold"
+              className="flex-1 px-4 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold"
             >
               Cancel
             </button>
             <button
               onClick={handleDeleteDriver}
               disabled={deleteLoading}
-              className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+              className="flex-1 px-4 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
             >
               {deleteLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -832,14 +832,14 @@ export default function AdminDashboard() {
                 setShowRejectModal(false);
                 setRejectionReason("");
               }}
-              className="flex-1 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold"
+              className="flex-1 px-4 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold"
             >
               Cancel
             </button>
             <button
               onClick={handleConfirmRejection}
               disabled={rejectLoading}
-              className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+              className="flex-1 px-4 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
             >
               {rejectLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -1123,13 +1123,13 @@ export default function AdminDashboard() {
               <>
                 <button
                   onClick={() => openApproveModal(request)}
-                  className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex  items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors text-xs"
+                  className="flex-1 px-3 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex  items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors text-xs"
                 >
                   <CheckCircle className="w-4 h-4" /> Approve
                 </button>
                 <button
                   onClick={() => openRejectModal(request, "request")}
-                  className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors text-xs"
+                  className="flex-1 px-4 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors text-xs"
                 >
                   <XCircle className="w-4 h-4" /> Reject
                 </button>
@@ -1143,13 +1143,13 @@ export default function AdminDashboard() {
                     setShowWhatsAppModal(true);
                     setShowRequestModal(false);
                   }}
-                  className="flex-1 bg-[#25D366] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 text-xs"
+                  className="flex-1 px-3 bg-[#25D366] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 text-xs"
                 >
                   <Send className="w-4 h-4" /> Send WhatsApp
                 </button>
                 <button
                   onClick={() => handleCompleteRequest(request)}
-                  className="flex-1 bg-[#01312D] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 text-xs"
+                  className="flex-1 px-3 bg-[#01312D] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 text-xs"
                 >
                   <CheckCircle className="w-4 h-4" /> Mark Completed
                 </button>
@@ -1157,7 +1157,7 @@ export default function AdminDashboard() {
             )}
             <button
               onClick={onClose}
-              className={`${request.status === "pending" || request.status === "approved" ? "flex-1" : "w-full"} bg-gray-500 text-white py-2 rounded-xl font-semibold text-xs`}
+              className={`${request.status === "pending" || request.status === "approved" ? "flex-1" : "w-full"} px-3 bg-gray-500 text-white py-2 rounded-xl font-semibold text-xs`}
             >
               Close
             </button>
@@ -1525,13 +1525,13 @@ export default function AdminDashboard() {
               <>
                 <button
                   onClick={() => handleApproveVerification(verification)}
-                  className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors"
+                  className="flex-1 px-4 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors"
                 >
                   <CheckCircle className="w-4 h-4" /> Approve Verification
                 </button>
                 <button
                   onClick={() => openRejectModal(verification, "verification")}
-                  className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors"
+                  className="flex-1 px-4 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors"
                 >
                   <XCircle className="w-4 h-4" /> Reject
                 </button>
@@ -1848,13 +1848,13 @@ export default function AdminDashboard() {
                 setDeletingDriver(driver);
                 setShowDeleteConfirm(true);
               }}
-              className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors"
+              className="flex-1 px-4 bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors"
             >
               Delete Driver
             </button>
             <button
               onClick={onClose}
-              className="flex-1 bg-gray-500 text-white py-2 rounded-xl font-semibold"
+              className="flex-1 px-4 bg-gray-500 text-white py-2 rounded-xl font-semibold"
             >
               Close
             </button>
@@ -1890,7 +1890,7 @@ export default function AdminDashboard() {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowWhatsAppModal(false)}
-                className="flex-1 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold"
+                className="flex-1 px-4 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold"
               >
                 Cancel
               </button>
@@ -1903,7 +1903,7 @@ export default function AdminDashboard() {
                   );
                   setShowWhatsAppModal(false);
                 }}
-                className="flex-1 bg-[#25D366] text-white py-2 rounded-xl font-semibold"
+                className="flex-1 px-4 bg-[#25D366] text-white py-2 rounded-xl font-semibold"
               >
                 Send via WhatsApp
               </button>
@@ -1943,14 +1943,14 @@ export default function AdminDashboard() {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowApproveModal(false)}
-                className="flex-1 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold"
+                className="flex-1 px-4 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmApprove}
                 disabled={approvalLoading}
-                className="flex-1 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
+                className="flex-1 px-4 bg-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2"
               >
                 {approvalLoading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />

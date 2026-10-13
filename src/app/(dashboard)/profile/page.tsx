@@ -1239,7 +1239,7 @@ export default function ProfilePage() {
 
             <button
               onClick={handleLogout}
-              className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 mt-4"
+              className="w-full px-4 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 mt-4"
             >
               <LogOut className="w-5 h-5" />
               Log Out
@@ -1309,7 +1309,7 @@ export default function ProfilePage() {
               <button
                 onClick={handleChangePassword}
                 disabled={saving}
-                className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
+                className="flex-1 px-3 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 Change Password
@@ -1360,7 +1360,7 @@ export default function ProfilePage() {
               <button
                 onClick={handleChangePhone}
                 disabled={saving}
-                className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
+                className="flex-1 px-3 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 Update Phone
@@ -1441,7 +1441,7 @@ export default function ProfilePage() {
               <button
                 onClick={handleUpdateVehicle}
                 disabled={saving}
-                className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
+                className="flex-1 px-3 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 Update Vehicle
@@ -1522,7 +1522,7 @@ export default function ProfilePage() {
               <button
                 onClick={handleUpdateBanking}
                 disabled={saving}
-                className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
+                className="flex-1 px-3 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 Save Banking Details

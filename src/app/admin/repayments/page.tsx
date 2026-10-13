@@ -121,7 +121,7 @@ function ProofButton({ url, label }: { url: string; label?: string }) {
     <>
       <button
         onClick={() => setShowViewer(true)}
-        className="text-xs font-bold text-[#3A7717] flex items-center gap-1.5 hover:bg-[#eafde7] px-2 py-1 rounded-lg transition-colors"
+        className="text-xs font-bold text-[#3A7717] flex items-center gap-1.5 hover:bg-[#eafde7] px-2.5 py-1.5 rounded-lg transition-colors"
       >
         <FileText className="w-3.5 h-3.5" />
         {label || "View POP"}
@@ -167,11 +167,11 @@ function ApproveSpreadPanel({
           className="flex-1 min-w-[100px] px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm font-bold text-[#01312D] focus:outline-none focus:border-purple-400"
         />
         <button onClick={() => setAmount(String(proof.amount))}
-          className="px-2.5 py-2 bg-white border border-purple-200 rounded-lg text-xs font-bold text-purple-700 hover:bg-purple-100">
+          className="px-3 py-2 bg-white border border-purple-200 rounded-lg text-xs font-bold text-purple-700 hover:bg-purple-100 whitespace-nowrap">
           Proof ({formatMoney(proof.amount)})
         </button>
         <button onClick={() => setAmount(String(linkedRemaining))}
-          className="px-2.5 py-2 bg-white border border-purple-200 rounded-lg text-xs font-bold text-purple-700 hover:bg-purple-100">
+          className="px-3 py-2 bg-white border border-purple-200 rounded-lg text-xs font-bold text-purple-700 hover:bg-purple-100 whitespace-nowrap">
           Full ({formatMoney(linkedRemaining)})
         </button>
         <button onClick={() => onApprove(proof.id, val)} disabled={processing || invalid}
@@ -721,7 +721,7 @@ export default function LoanRepaymentsPage() {
             <p className="text-[#01312D] font-semibold mb-2 whitespace-pre-line">{successMessage}</p>
           </div>
           <div className="border-t border-gray-100 p-5">
-            <button onClick={() => setShowSuccessModal(false)} className="w-full bg-[#01312D] text-white py-2 rounded-xl font-semibold hover:bg-[#3A7717] transition-colors">Close</button>
+            <button onClick={() => setShowSuccessModal(false)} className="w-full px-4 bg-[#01312D] text-white py-2 rounded-xl font-semibold hover:bg-[#3A7717] transition-colors">Close</button>
           </div>
         </div>
       </div>
@@ -745,7 +745,7 @@ export default function LoanRepaymentsPage() {
             <p className="text-[#01312D] font-semibold mb-2 whitespace-pre-line">{errorMessage}</p>
           </div>
           <div className="border-t border-gray-100 p-5">
-            <button onClick={() => setShowErrorModal(false)} className="w-full bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors">Close</button>
+            <button onClick={() => setShowErrorModal(false)} className="w-full px-4 bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors">Close</button>
           </div>
         </div>
       </div>
@@ -770,8 +770,8 @@ export default function LoanRepaymentsPage() {
           </div>
         </div>
         <div className="border-t border-gray-100 p-5 flex gap-3">
-          <button onClick={() => { setShowRejectModal(false); setRejectionReason(""); }} className="flex-1 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold">Cancel</button>
-          <button onClick={handleRejectRepaymentProof} disabled={processing} className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
+          <button onClick={() => { setShowRejectModal(false); setRejectionReason(""); }} className="flex-1 px-4 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold">Cancel</button>
+          <button onClick={handleRejectRepaymentProof} disabled={processing} className="flex-1 px-4 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
             {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />} Confirm Rejection
           </button>
         </div>
@@ -897,13 +897,13 @@ export default function LoanRepaymentsPage() {
                                   {lr.remainingBalance > 0 ? (
                                     <button onClick={() => handleApproveSingleRequest(proof, lr.id, parseFloat(correctedAmounts[lr.id] ?? String(lr.remainingBalance)))}
                                       disabled={processingRequestId === lr.id || !(correctedAmounts[lr.id] ?? lr.remainingBalance) || parseFloat(correctedAmounts[lr.id] ?? String(lr.remainingBalance)) <= 0}
-                                      className="flex-1 bg-[#3A7717] text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-[#2d5a12] disabled:opacity-50 active:scale-[0.98]">
+                                      className="flex-1 px-3 bg-[#3A7717] text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-[#2d5a12] disabled:opacity-50 active:scale-[0.98]">
                                       {processingRequestId === lr.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
                                       Approve & Pay {formatMoney(parseFloat(correctedAmounts[lr.id] ?? String(lr.remainingBalance)))}
                                     </button>
                                   ) : (
                                     <button onClick={() => { fetch("/api/admin/repayment-proofs", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ proofId: proof.id, status: "approved", requestId: lr.id }) }).then(() => { fetchRepayments(); setSuccessMessage("✅ Approved"); setShowSuccessModal(true); }); }}
-                                      className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-blue-700 disabled:opacity-50">
+                                      className="flex-1 px-3 bg-blue-600 text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-blue-700 disabled:opacity-50">
                                       <CheckCircle className="w-3.5 h-3.5" /> Confirm Proof
                                     </button>
                                   )}
@@ -1108,7 +1108,7 @@ export default function LoanRepaymentsPage() {
 
                   {/* Recalculate */}
                   <button onClick={() => handleRecalcLoan(repayment.id, repayment.totalRepayable)} disabled={processing}
-                    className="w-full bg-[#01312D] text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#3A7717] disabled:opacity-50">
+                    className="w-full px-4 bg-[#01312D] text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#3A7717] disabled:opacity-50">
                     {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                     Recalculate Loan (from payment records)
                   </button>
@@ -1127,7 +1127,7 @@ export default function LoanRepaymentsPage() {
                       </div>
                     </div>
                     <button onClick={() => handleManualFix(repayment.id, parseFloat(fixRepaid), parseFloat(fixRemaining))} disabled={processing}
-                      className="w-full bg-[#3A7717] text-white py-2 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#2d5a12] disabled:opacity-50">
+                      className="w-full px-4 bg-[#3A7717] text-white py-2 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#2d5a12] disabled:opacity-50">
                       {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                       Apply Manual Values
                     </button>
@@ -1169,30 +1169,30 @@ export default function LoanRepaymentsPage() {
                   {repayment.remainingAmount > 0 ? (
                     <button onClick={() => handleApproveAndPay(pendingProofs[0], repayment, parseFloat(payAmount))}
                       disabled={processing || !payAmount || parseFloat(payAmount) <= 0 || isThisRequestApproved}
-                      className="flex-1 bg-[#3A7717] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#2d5a12] disabled:opacity-50">
+                      className="flex-1 px-4 bg-[#3A7717] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#2d5a12] disabled:opacity-50">
                       {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
                       {isThisRequestApproved ? "Already Approved" : `Approve & Pay — ${formatMoney(parseFloat(payAmount || "0"))}`}
                     </button>
                   ) : (
                     <button onClick={() => handleApproveProof(pendingProofs[0])} disabled={processing || isThisRequestApproved}
-                      className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-50">
+                      className="flex-1 px-4 bg-blue-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-50">
                       {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
                       {isThisRequestApproved ? "Already Approved" : "Confirm Proof"}
                     </button>
                   )}
                   <button onClick={() => { setSelectedProof(pendingProofs[0]); setShowRejectModal(true); }} disabled={processing || isThisRequestApproved}
-                    className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-600 disabled:opacity-50">
+                    className="flex-1 px-4 bg-red-500 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-600 disabled:opacity-50">
                     <XCircle className="w-5 h-5" /> {isThisRequestApproved ? "Approved" : "Reject"}
                   </button>
                   {repayment.remainingAmount > 0 && !isThisRequestApproved && (
                     <button onClick={() => handleMoveToPending(repayment)} disabled={processing}
-                      className="flex-1 bg-gray-200 text-[#01312D] py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-gray-300 disabled:opacity-50">
+                      className="flex-1 px-4 bg-gray-200 text-[#01312D] py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-gray-300 disabled:opacity-50">
                       {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowLeft className="w-5 h-5" />}
                       Move to Pending
                     </button>
                   )}
                   <button onClick={() => handleMarkAsCompleted(repayment)} disabled={processing}
-                    className={`flex-1 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${repayment.remainingAmount === 0 ? "bg-[#bff202] text-[#01312D] hover:bg-[#d4e84a]" : "bg-orange-50 text-orange-600 hover:bg-orange-100"}`}>
+                    className={`flex-1 px-4 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${repayment.remainingAmount === 0 ? "bg-[#bff202] text-[#01312D] hover:bg-[#d4e84a]" : "bg-orange-50 text-orange-600 hover:bg-orange-100"}`}>
                     {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
                     {repayment.remainingAmount === 0 ? "Settle" : "Settle & Write Off"}
                   </button>
@@ -1202,12 +1202,12 @@ export default function LoanRepaymentsPage() {
               <>
                 <button onClick={() => handleMarkAsPaid(repayment, parseFloat(payAmount), "cash", undefined, new Date().toISOString().split("T")[0])}
                   disabled={processing || !payAmount || parseFloat(payAmount) <= 0}
-                  className="w-full bg-[#3A7717] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#2d5a12] disabled:opacity-50">
+                  className="w-full px-4 bg-[#3A7717] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#2d5a12] disabled:opacity-50">
                   {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
                   Confirm Payment — {formatMoney(parseFloat(payAmount || "0"))}
                 </button>
                 <button onClick={() => handleMarkAsCompleted(repayment)} disabled={processing}
-                  className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${repayment.remainingAmount === 0 ? "bg-[#bff202] text-[#01312D] hover:bg-[#d4e84a]" : "bg-orange-50 text-orange-600 hover:bg-orange-100"}`}>
+                  className={`w-full px-4 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${repayment.remainingAmount === 0 ? "bg-[#bff202] text-[#01312D] hover:bg-[#d4e84a]" : "bg-orange-50 text-orange-600 hover:bg-orange-100"}`}>
                   {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
                   {repayment.remainingAmount === 0 ? "Mark as Complete" : "Settle & Write Off"}
                 </button>
@@ -1217,7 +1217,7 @@ export default function LoanRepaymentsPage() {
                 <CheckCircle className="w-6 h-6" /> REPAYMENT FULLY SETTLED
               </div>
             )}
-            <button onClick={onClose} className="w-full py-2 rounded-xl font-bold text-gray-400 hover:text-gray-600 transition-colors text-sm">Close Details</button>
+            <button onClick={onClose} className="w-full px-4 py-2 rounded-xl font-bold text-gray-400 hover:text-gray-600 transition-colors text-sm">Close Details</button>
           </div>
         </div>
       </div>
@@ -1503,18 +1503,18 @@ export default function LoanRepaymentsPage() {
                     {/* Action buttons and POP links */}
                     <div className="flex gap-2 mt-4 flex-wrap">
                       <button onClick={() => { setSelectedRepayment(repayment); setShowDetailsModal(true); }}
-                        className="flex-1 min-w-[120px] py-2 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors">
+                        className="flex-1 min-w-[120px] px-3 py-2 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors">
                         <Banknote className="w-4 h-4" /> {!isCompleted ? "Record Payment" : "View Details"}
                       </button>
                       {!isCompleted && (
                         <button onClick={() => { setRepaymentUploadRepayment(repayment); setRepaymentUploadAmount(repayment.dailyPayment.toString()); setRepaymentUploadMethod("cash"); setRepaymentUploadFile(null); setRepaymentUploadProofUrl(""); setRepaymentUploadProofPublicId(""); setShowRepaymentUploadModal(true); }}
-                          className="flex-1 min-w-[120px] py-2 bg-[#01312D] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-colors">
+                          className="flex-1 min-w-[120px] px-3 py-2 bg-[#01312D] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-colors">
                           <Upload className="w-4 h-4" /> Upload for Driver
                         </button>
                       )}
                       {/* Move to Pending — for Review tab items, not bulk groups */}
                       {hasPendingProofs && !isCompleted && !repayment.linkedChildren && (
-                        <button onClick={() => handleMoveToPending(repayment)} className="text-xs font-bold text-gray-600 flex items-center gap-1.5 hover:bg-gray-100 px-2 py-1 rounded-lg transition-colors">
+                        <button onClick={() => handleMoveToPending(repayment)} className="text-xs font-bold text-gray-600 flex items-center gap-1.5 hover:bg-gray-100 px-3 py-1.5 rounded-lg transition-colors">
                           <ArrowLeft className="w-3.5 h-3.5" /> Move to Pending
                         </button>
                       )}
@@ -1621,7 +1621,7 @@ export default function LoanRepaymentsPage() {
               <button onClick={() => { if (!repaymentUploadLoading) setShowRepaymentUploadModal(false); }} disabled={repaymentUploadLoading}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">Cancel</button>
               <button onClick={handleSubmitRepaymentForDriver} disabled={repaymentUploadLoading || !repaymentUploadProofUrl || !repaymentUploadAmount}
-                className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50">
+                className="flex-1 px-4 bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50">
                 {repaymentUploadLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Submit Repayment
               </button>
             </div>

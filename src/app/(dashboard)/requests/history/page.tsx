@@ -499,7 +499,7 @@ export default function RequestHistoryPage() {
             <button
               type="button"
               onClick={() => setShowSuccessModal(false)}
-              className="w-full bg-[#01312D] text-white py-2 rounded-xl font-semibold hover:bg-[#3A7717] transition-colors"
+              className="w-full px-4 bg-[#01312D] text-white py-2 rounded-xl font-semibold hover:bg-[#3A7717] transition-colors"
             >
               Close
             </button>
@@ -543,7 +543,7 @@ export default function RequestHistoryPage() {
             <button
               type="button"
               onClick={() => setShowErrorModal(false)}
-              className="w-full bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors"
+              className="w-full px-4 bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors"
             >
               Close
             </button>
@@ -941,7 +941,7 @@ export default function RequestHistoryPage() {
                   setSelectedRequestForPop(request);
                   setShowPopModal(true);
                 }}
-                className="w-full bg-[#3A7717] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all"
+                className="w-full px-4 bg-[#3A7717] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all"
               >
                 <Receipt className="w-4 h-4" />
                 Upload Receipt
@@ -965,7 +965,7 @@ export default function RequestHistoryPage() {
                     window.open(request.popUrl, "_blank");
                   }
                 }}
-                className="w-full bg-[#eafde7] text-[#01312D] py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#bff202]/30 transition-all"
+                className="w-full px-4 bg-[#eafde7] text-[#01312D] py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#bff202]/30 transition-all"
               >
                 <Download className="w-4 h-4" />
                 Download Receipt
@@ -1302,7 +1302,7 @@ setSelectedBulkIds(new Set(requests.filter((r) => (r.status === "approved" || r.
                   <div className="flex gap-2 pt-3 border-t border-gray-100">
                     <button
                       type="button"
-                      className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-xs font-semibold flex items-center justify-center gap-2"
+                      className="flex-1 px-3 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-xs font-semibold flex items-center justify-center gap-2"
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedRequest(request);
@@ -1315,7 +1315,7 @@ setSelectedBulkIds(new Set(requests.filter((r) => (r.status === "approved" || r.
                     {needsPopUpload && (
                       <button
                         type="button"
-                        className="flex-1 py-2 bg-[#3A7717] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all"
+                        className="flex-1 px-3 py-2 bg-[#3A7717] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all"
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedRequestForPop(request);
@@ -1329,7 +1329,7 @@ setSelectedBulkIds(new Set(requests.filter((r) => (r.status === "approved" || r.
                     {(request.popUrl || request.status === "completed") && (
                       <button
                         type="button"
-                        className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-xs font-semibold flex items-center justify-center gap-2"
+                        className="flex-1 px-3 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-xs font-semibold flex items-center justify-center gap-2"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {/*<Download className="w-4 h-4" />*/}

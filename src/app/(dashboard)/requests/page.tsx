@@ -969,7 +969,7 @@ function RequestsPageContent() {
             {driverDetails.verificationStatus === "pending" && (
               <button
                 onClick={() => router.push("/verify/status")}
-                className="w-full bg-yellow-600 text-white py-3 rounded-xl font-semibold mt-2"
+                className="w-full px-4 bg-yellow-600 text-white py-3 rounded-xl font-semibold mt-2"
               >
                 Check Status →
               </button>
@@ -978,7 +978,7 @@ function RequestsPageContent() {
               driverDetails.verificationStatus === "not_submitted") && (
               <button
                 onClick={() => router.push("/verify")}
-                className="w-full bg-linear-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold mt-2"
+                className="w-full px-4 bg-linear-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold mt-2"
               >
                 {driverDetails.verificationStatus === "rejected"
                   ? "Re-submit Documents →"
@@ -1608,7 +1608,7 @@ function RequestsPageContent() {
                   || (serialRequiredCats.includes(collateralCategory) && !collateralSerialNumber.trim())
                 ))
               }
-              className="w-full bg-linear-to-r from-[#01312D] to-[#3A7717] text-white py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
+              className="w-full px-6 bg-linear-to-r from-[#01312D] to-[#3A7717] text-white py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
             >
               {loading ? (
                 <>
