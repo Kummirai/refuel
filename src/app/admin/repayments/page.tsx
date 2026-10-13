@@ -176,9 +176,14 @@ export default function LoanRepaymentsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"pending" | "review" | "overdue" | "paid" | "all">("pending");
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [repayments, setRepayments] = useState<Repayment[]>([]);
+  const [apiCounts, setApiCounts] = useState<{ all: number; pending: number; review: number; overdue: number; paid: number } | null>(null);
+  const [apiStats, setApiStats] = useState<{ outstanding: number; repaid: number; active: number; overdue: number } | null>(null);
   const [discountMap, setDiscountMap] = useState<Record<string, number>>({});
   const [selectedRepayment, setSelectedRepayment] = useState<Repayment | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -200,16 +205,29 @@ export default function LoanRepaymentsPage() {
   const [repaymentUploadLoading, setRepaymentUploadLoading] = useState(false);
   const [repaymentUploadMethod, setRepaymentUploadMethod] = useState("cash");
   const repaymentFileInputRef = useRef<HTMLInputElement>(null);
+  const skipRef = useRef(0);
+  const hasMoreRef = useRef(false);
+  const PAGE_SIZE = 50;
 
   const isAnyModalOpen = showDetailsModal || showSuccessModal || showErrorModal || showRejectModal || showRepaymentUploadModal;
   useBodyScrollLock(isAnyModalOpen);
 
-  useEffect(() => { fetchRepayments(); }, []);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 400);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
 
-  const fetchRepayments = async () => {
+  useEffect(() => { fetchRepayments(); }, [activeTab, debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchRepayments = async (opts?: { append?: boolean }) => {
+    const append = opts?.append ?? false;
     try {
+      if (!append) setLoading(true);
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE), skip: String(append ? skipRef.current : 0) });
+      if (activeTab !== "all") params.set("status", activeTab);
+      if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
       const [res, discRes] = await Promise.all([
-        fetch("/api/admin/repayments"),
+        fetch(`/api/admin/repayments?${params.toString()}`),
         fetch("/api/admin/invoices/discount"),
       ]);
       if (discRes.ok) {
@@ -218,7 +236,11 @@ export default function LoanRepaymentsPage() {
       }
       if (res.ok) {
         const data = await res.json();
-        const repaymentsList = data.repayments || data || [];
+        const repaymentsList = data.repayments || [];
+        if (data.counts) setApiCounts(data.counts);
+        if (data.stats) setApiStats(data.stats);
+        hasMoreRef.current = !!data.hasMore;
+        setHasMore(!!data.hasMore);
         const bulkGroups = new Map<string, Repayment[]>();
         const standalone: Repayment[] = [];
         for (const r of repaymentsList) {
@@ -255,10 +277,19 @@ export default function LoanRepaymentsPage() {
             linkedChildren: unpaid,
           } as Repayment);
         }
-        setRepayments([...grouped, ...standalone]);
+        const built = [...grouped, ...standalone];
+        skipRef.current = append ? skipRef.current + repaymentsList.length : repaymentsList.length;
+        setRepayments((prev) => append ? [...prev, ...built] : built);
       }
     } catch (error) { console.error("Error fetching repayments:", error); }
     finally { setLoading(false); setRefreshing(false); }
+  };
+
+  const handleLoadMore = async () => {
+    if (loadingMore || !hasMoreRef.current) return;
+    setLoadingMore(true);
+    try { await fetchRepayments({ append: true }); }
+    finally { setLoadingMore(false); }
   };
 
   const handleRefresh = () => { setRefreshing(true); fetchRepayments(); };
@@ -565,9 +596,15 @@ export default function LoanRepaymentsPage() {
     r.driverEmail.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
-  const pendingCount = repayments.filter((r) => r.status !== "paid" && r.status !== "completed" && !hasPendingProofs(r)).length;
-  const reviewCount = repayments.filter((r) => hasPendingProofs(r)).length;
-  const overdueTabCount = repayments.filter((r) => r.status === "overdue" && !hasPendingProofs(r)).length;
+  const localPendingCount = repayments.filter((r) => r.status !== "paid" && r.status !== "completed" && !hasPendingProofs(r)).length;
+  const localReviewCount = repayments.filter((r) => hasPendingProofs(r)).length;
+  const localOverdueCount = repayments.filter((r) => r.status === "overdue" && !hasPendingProofs(r)).length;
+  const localPaidCount = repayments.filter((r) => r.status === "paid" || r.status === "completed").length;
+  const pendingCount = apiCounts?.pending ?? localPendingCount;
+  const reviewCount = apiCounts?.review ?? localReviewCount;
+  const overdueTabCount = apiCounts?.overdue ?? localOverdueCount;
+  const paidCount = apiCounts?.paid ?? localPaidCount;
+  const allCount = apiCounts?.all ?? repayments.length;
 
   const discountedRemaining = (r: { driverEmail: string; remainingAmount: number }) => {
     const dp = discountMap[r.driverEmail] || 0;
@@ -587,11 +624,11 @@ export default function LoanRepaymentsPage() {
   };
 
   const stats = {
-    pendingProofs: repayments.reduce((s, r) => s + (r.pendingRepaymentProofs?.filter((p) => p.status === "pending").length || 0), 0),
-    totalOutstanding: toMoney(repayments.filter((r) => r.status !== "paid" && r.status !== "completed").reduce((s, r) => s + discountedRemaining(r), 0)),
-    totalPaid: toMoney(repayments.filter((r) => r.status === "paid" || r.status === "completed").reduce((s, r) => s + r.repaidAmount, 0)),
-    activeLoans: repayments.filter((r) => r.status !== "paid" && r.status !== "completed").length,
-    overdueCount: repayments.filter((r) => r.status === "overdue").length,
+    pendingProofs: apiCounts?.review ?? repayments.reduce((s, r) => s + (r.pendingRepaymentProofs?.filter((p) => p.status === "pending").length || 0), 0),
+    totalOutstanding: apiStats?.outstanding ?? toMoney(repayments.filter((r) => r.status !== "paid" && r.status !== "completed").reduce((s, r) => s + discountedRemaining(r), 0)),
+    totalPaid: apiStats?.repaid ?? toMoney(repayments.filter((r) => r.status === "paid" || r.status === "completed").reduce((s, r) => s + r.repaidAmount, 0)),
+    activeLoans: apiStats?.active ?? repayments.filter((r) => r.status !== "paid" && r.status !== "completed").length,
+    overdueCount: apiStats?.overdue ?? repayments.filter((r) => r.status === "overdue").length,
     totalLoans: repayments.length,
   };
 
@@ -1209,7 +1246,7 @@ export default function LoanRepaymentsPage() {
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500">Pending Proofs</p>
+              <p className="text-xs text-gray-500">In Review</p>
               <div className="text-2xl font-bold text-yellow-600">{loading ? <Skeleton className="h-8 w-28 inline-block" /> : stats.pendingProofs}</div>
             </div>
             <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center"><FileText className="w-5 h-5 text-yellow-600" /></div>
@@ -1227,30 +1264,30 @@ export default function LoanRepaymentsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-[#bff202]/20 overflow-x-auto">
+      <div className="flex gap-1 sm:gap-2 border-b border-[#bff202]/20 overflow-x-auto">
         <button onClick={() => setActiveTab("pending")}
-          className={`px-4 py-2 font-semibold transition-all whitespace-nowrap ${activeTab === "pending" ? "text-yellow-600 border-b-2 border-yellow-600" : "text-gray-500"}`}>
+          className={`px-3 sm:px-4 py-2 font-semibold transition-all whitespace-nowrap shrink-0 ${activeTab === "pending" ? "text-yellow-600 border-b-2 border-yellow-600" : "text-gray-500"}`}>
           Pending
           <span className="ml-1 px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">{pendingCount}</span>
         </button>
         <button onClick={() => setActiveTab("review")}
-          className={`px-4 py-2 font-semibold transition-all whitespace-nowrap ${activeTab === "review" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"}`}>
+          className={`px-3 sm:px-4 py-2 font-semibold transition-all whitespace-nowrap shrink-0 ${activeTab === "review" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"}`}>
           Review
           <span className="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">{reviewCount}</span>
         </button>
         <button onClick={() => setActiveTab("overdue")}
-          className={`px-4 py-2 font-semibold transition-all whitespace-nowrap ${activeTab === "overdue" ? "text-red-600 border-b-2 border-red-600" : "text-gray-500"}`}>
+          className={`px-3 sm:px-4 py-2 font-semibold transition-all whitespace-nowrap shrink-0 ${activeTab === "overdue" ? "text-red-600 border-b-2 border-red-600" : "text-gray-500"}`}>
           Overdue
           <span className="ml-1 px-1.5 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">{overdueTabCount}</span>
         </button>
         <button onClick={() => setActiveTab("paid")}
-          className={`px-4 py-2 font-semibold transition-all whitespace-nowrap ${activeTab === "paid" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}>
+          className={`px-3 sm:px-4 py-2 font-semibold transition-all whitespace-nowrap shrink-0 ${activeTab === "paid" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}>
           Paid
-          <span className="ml-1 px-1.5 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">{repayments.filter((r) => r.status === "paid" || r.status === "completed").length}</span>
+          <span className="ml-1 px-1.5 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">{paidCount}</span>
         </button>
         <button onClick={() => setActiveTab("all")}
-          className={`px-4 py-2 font-semibold transition-all whitespace-nowrap ${activeTab === "all" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}>
-          All <span className="ml-1 px-1.5 py-0.5 bg-gray-200 text-gray-700 text-xs rounded-full">{repayments.length}</span>
+          className={`px-3 sm:px-4 py-2 font-semibold transition-all whitespace-nowrap shrink-0 ${activeTab === "all" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}>
+          All <span className="ml-1 px-1.5 py-0.5 bg-gray-200 text-gray-700 text-xs rounded-full">{allCount}</span>
         </button>
       </div>
 
@@ -1447,6 +1484,17 @@ export default function LoanRepaymentsPage() {
           })
         )}
       </div>
+
+      {/* Load More */}
+      {!loading && hasMore && (
+        <div className="flex justify-center">
+          <button onClick={handleLoadMore} disabled={loadingMore}
+            className="flex items-center gap-2 px-6 py-2.5 bg-white border border-[#bff202]/30 rounded-xl text-[#01312D] font-semibold text-sm hover:bg-[#eafde7] transition-all disabled:opacity-50">
+            {loadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
+            {loadingMore ? "Loading..." : "Load More"}
+          </button>
+        </div>
+      )}
 
       {/* Upload for Driver Modal */}
       {showRepaymentUploadModal && repaymentUploadRepayment && (
