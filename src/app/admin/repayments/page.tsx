@@ -133,16 +133,29 @@ function ProofButton({ url, label }: { url: string; label?: string }) {
 
 // ---- Approve & Spread (bulk proof allocation, matches mobile) ----
 function ApproveSpreadPanel({
-  proof, linkedRemaining, processing, onApprove,
+  proof, linkedRemaining, linkedLoans, processing, onApprove,
 }: {
   proof: RepaymentProof;
   linkedRemaining: number;
+  linkedLoans: { id: string; label: string; remaining: number; date?: string }[];
   processing: boolean;
   onApprove: (proofId: string, amount: number) => void;
 }) {
   const [amount, setAmount] = useState(String(proof.amount));
   const val = parseFloat(amount);
   const invalid = !val || val <= 0 || val > linkedRemaining;
+
+  // Allocation preview — oldest debts first (same order the server uses)
+  const sorted = [...linkedLoans].sort((a, b) =>
+    new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime(),
+  );
+  let pool = invalid ? 0 : Math.round(val * 100) / 100;
+  const allocation = sorted.map((c) => {
+    const alloc = Math.min(pool, c.remaining);
+    pool = Math.round((pool - alloc) * 100) / 100;
+    return { ...c, alloc, leftover: Math.round((c.remaining - alloc) * 100) / 100 };
+  });
+
   return (
     <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 space-y-2 mt-3">
       <p className="text-xs font-bold text-purple-700 flex items-center gap-1.5">
@@ -167,6 +180,25 @@ function ApproveSpreadPanel({
         </button>
       </div>
       {invalid && <p className="text-[11px] text-red-500 font-semibold">Amount must be between 1 and {formatMoney(linkedRemaining)}</p>}
+      {!invalid && (
+        <div className="space-y-1">
+          <p className="text-[9px] font-black text-purple-400 uppercase">Preview — how it will be allocated</p>
+          {allocation.map((a) => (
+            <div key={a.id} className="flex items-center justify-between bg-white/70 rounded-lg px-2.5 py-1.5 text-[11px]">
+              <span className="font-semibold text-[#01312D] truncate max-w-[55%]">{a.label}</span>
+              {a.alloc > 0 ? (
+                <span className="text-[#3A7717] font-bold shrink-0">
+                  {formatMoney(a.alloc)} allocated
+                  {a.leftover > 0 && <span className="text-red-500 font-semibold"> · {formatMoney(a.leftover)} left</span>}
+                  {a.leftover <= 0 && <span className="ml-1">✓</span>}
+                </span>
+              ) : (
+                <span className="text-gray-400 font-semibold shrink-0">not covered</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1117,6 +1149,12 @@ export default function LoanRepaymentsPage() {
                       <ApproveSpreadPanel
                         proof={bulkProof}
                         linkedRemaining={linkedRemaining}
+                        linkedLoans={repayment.linkedChildren!.map((c) => ({
+                          id: c.id,
+                          label: `${c.serviceTypeLabel} · ${c.carRegistration}`,
+                          remaining: c.remainingAmount,
+                          date: c.requestDate,
+                        }))}
                         processing={processing}
                         onApprove={handleApproveSpread}
                       />
@@ -1365,6 +1403,12 @@ export default function LoanRepaymentsPage() {
                             <ApproveSpreadPanel
                               proof={bulkProof}
                               linkedRemaining={linkedRemaining}
+                              linkedLoans={repayment.linkedChildren!.map((c) => ({
+                                id: c.id,
+                                label: `${c.serviceTypeLabel} · ${c.carRegistration}`,
+                                remaining: c.remainingAmount,
+                                date: c.requestDate,
+                              }))}
                               processing={processing}
                               onApprove={handleApproveSpread}
                             />
