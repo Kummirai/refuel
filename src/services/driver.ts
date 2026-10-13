@@ -53,6 +53,16 @@ export interface RepaymentRecord {
   isFullyPaid?: boolean;
 }
 
+export interface DriverFuelCredit {
+  limit: number;
+  used: number;
+  remaining: number;
+  weekStart: string;
+  weekEnd: string;
+  isDefaultLimit: boolean;
+  enabled: boolean;
+}
+
 export interface DriverProfile {
   fullName: string;
   dateOfBirth: string;
@@ -94,6 +104,10 @@ export const driverService = {
 
   async getRequests(userId: string) {
     return api.get<ServiceRequest[]>("/api/driver/requests", { params: { userId } });
+  },
+
+  async getFuelCredit(userId: string) {
+    return api.get<DriverFuelCredit>("/api/driver/fuel-credit", { params: { userId } });
   },
 
   async createRequest(data: {

@@ -150,6 +150,51 @@ function RequestsPageContent() {
   const [approvedCount, setApprovedCount] = useState(0);
   const [submitted, setSubmitted] = useState(false);
 
+  // Weekly fuel credit
+  const [fuelCredit, setFuelCredit] = useState<{
+    limit: number;
+    used: number;
+    remaining: number;
+    enabled: boolean;
+  } | null>(null);
+
+  const fetchFuelCredit = async () => {
+    if (!session?.user?.id) return;
+    try {
+      const response = await fetch(
+        `/api/driver/fuel-credit?userId=${session.user.id}`,
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setFuelCredit({
+          limit: data.limit,
+          used: data.used,
+          remaining: data.remaining,
+          enabled: data.enabled !== false,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching fuel credit:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    fetch(`/api/driver/fuel-credit?userId=${session.user.id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && typeof data.remaining === "number") {
+          setFuelCredit({
+            limit: data.limit,
+            used: data.used,
+            remaining: data.remaining,
+            enabled: data.enabled !== false,
+          });
+        }
+      })
+      .catch((err) => console.error("Error fetching fuel credit:", err));
+  }, [session?.user?.id]);
+
   // Fetch approved count
   useEffect(() => {
     if (session?.user?.id) {
@@ -379,7 +424,14 @@ function RequestsPageContent() {
         calculateServiceDetails(amountNum);
       const minAmount = currentConfig.minAmount || 500;
       const maxAmount = currentConfig.maxAmount || 2000;
-      const isWithinLimits = amountNum >= minAmount && amountNum <= maxAmount;
+      const creditRemaining =
+        fuelCredit?.enabled !== false ? fuelCredit?.remaining ?? null : null;
+      const exceedsCredit =
+        creditRemaining !== null && amountNum > creditRemaining;
+      const isWithinLimits =
+        amountNum >= minAmount &&
+        amountNum <= maxAmount &&
+        !exceedsCredit;
 
       return (
         <div className="bg-linear-to-r from-[#bff202] to-[#72bf00] rounded-xl p-4 mt-3">
@@ -403,6 +455,27 @@ function RequestsPageContent() {
                 </span>
                 <span className="text-red-600 text-xs font-semibold">
                   Min: {formatMoney(minAmount)} | Max: {formatMoney(maxAmount)}
+                </span>
+              </div>
+            )}
+            {creditRemaining !== null && (
+              <div className="flex justify-between">
+                <span className="text-[#01312D]">Weekly Fuel Credit Left:</span>
+                <span
+                  className={`font-semibold ${exceedsCredit ? "text-red-600" : "text-[#01312D]"}`}
+                >
+                  {formatMoney(creditRemaining)} of{" "}
+                  {formatMoney(fuelCredit?.limit ?? 0)}
+                </span>
+              </div>
+            )}
+            {exceedsCredit && (
+              <div className="flex justify-between bg-red-100 rounded-lg p-1 -mx-1">
+                <span className="text-red-600 text-xs">
+                  ⚠️ Exceeds weekly fuel credit
+                </span>
+                <span className="text-red-600 text-xs font-semibold">
+                  Max available: {formatMoney(creditRemaining)}
                 </span>
               </div>
             )}
@@ -614,6 +687,20 @@ function RequestsPageContent() {
         setSubmitted(false);
         return;
       }
+
+      if (
+        selectedService === "fuel" &&
+        fuelCredit?.enabled !== false &&
+        fuelCredit &&
+        amountNum > fuelCredit.remaining
+      ) {
+        setError(
+          `You have ${formatMoney(fuelCredit.remaining)} left of your ${formatMoney(fuelCredit.limit)} weekly fuel credit (resets Monday).`,
+        );
+        setLoading(false);
+        setSubmitted(false);
+        return;
+      }
     }
 
     // For car wash, validate that a package is selected
@@ -767,6 +854,9 @@ function RequestsPageContent() {
 
       setRequestId(data.requestId);
       setShowSuccess(true);
+      if (selectedService === "fuel") {
+        fetchFuelCredit();
+      }
 
       setTimeout(() => {
         setShowSuccess(false);
@@ -912,7 +1002,14 @@ function RequestsPageContent() {
   const currentAmount = parseFloat(amount) || 0;
   const isAmountValid =
     selectedService === "fuel" || selectedService === "cash"
-      ? currentAmount >= minAmount && currentAmount <= maxAmount
+      ? currentAmount >= minAmount &&
+        currentAmount <= maxAmount &&
+        !(
+          selectedService === "fuel" &&
+          fuelCredit?.enabled !== false &&
+          fuelCredit &&
+          currentAmount > fuelCredit.remaining
+        )
       : true;
 
   return (
@@ -1114,6 +1211,37 @@ function RequestsPageContent() {
                     />
                   </div>
 
+                  {/* Weekly fuel credit banner */}
+                  {selectedService === "fuel" &&
+                    fuelCredit &&
+                    fuelCredit.enabled !== false && (
+                    <div className="mt-3 bg-[#eafde7] border border-[#bff202]/40 rounded-xl p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Fuel className="w-4 h-4 text-[#3A7717]" />
+                          <p className="text-xs font-semibold text-[#01312D]">
+                            Weekly Fuel Credit
+                          </p>
+                        </div>
+                        <p className="text-sm font-bold text-[#01312D]">
+                          {formatMoney(fuelCredit.remaining)} left
+                        </p>
+                      </div>
+                      <div className="bg-white rounded-full h-1.5 mt-2 overflow-hidden">
+                        <div
+                          className="bg-[#3A7717] h-1.5 rounded-full"
+                          style={{
+                            width: `${Math.min(100, (fuelCredit.used / Math.max(1, fuelCredit.limit)) * 100)}%`,
+                          }}
+                        ></div>
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-1">
+                        {formatMoney(fuelCredit.used)} of {formatMoney(fuelCredit.limit)} used
+                        {" · "}resets every Monday
+                      </p>
+                    </div>
+                  )}
+
                   {/* Amount limits hint for fuel and cash loan */}
                   {(selectedService === "fuel" || selectedService === "cash") && (
                     <div className="mt-2">
@@ -1133,9 +1261,21 @@ function RequestsPageContent() {
                         className={`text-xs mt-2 ${!isAmountValid && amount ? "text-red-500" : "text-gray-500"}`}
                       >
                         Min: {formatMoney(minAmount)} | Max: {formatMoney(maxAmount)}
+                        {selectedService === "fuel" &&
+                        fuelCredit &&
+                        fuelCredit.enabled !== false
+                          ? ` | Weekly credit left: ${formatMoney(fuelCredit.remaining)}`
+                          : ""}
                         {!isAmountValid &&
                           amount &&
-                          ` - Amount must be between ${formatMoney(minAmount)} and ${formatMoney(maxAmount)}`}
+                          selectedService === "fuel" &&
+                          fuelCredit?.enabled !== false &&
+                          fuelCredit &&
+                          currentAmount > fuelCredit.remaining
+                            ? ` - Amount exceeds your weekly fuel credit of ${formatMoney(fuelCredit.remaining)}`
+                            : !isAmountValid &&
+                                amount &&
+                                ` - Amount must be between ${formatMoney(minAmount)} and ${formatMoney(maxAmount)}`}
                       </p>
                     </div>
                   )}

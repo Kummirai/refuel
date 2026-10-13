@@ -52,6 +52,11 @@ export default function DriverDashboard() {
     fetcher,
     { refreshInterval: 60_000, dedupingInterval: 60_000 },
   );
+  const { data: fuelCredit, isLoading: fuelCreditLoading } = useSWR(
+    userId ? `/api/driver/fuel-credit?userId=${userId}` : null,
+    fetcher,
+    { refreshInterval: 60_000, dedupingInterval: 60_000 },
+  );
 
   const loading = (!requestsData && requestsLoading) || (!profile && profileLoading) || isPending;
   const refreshing = requestsValidating && !requestsLoading;
@@ -281,6 +286,60 @@ export default function DriverDashboard() {
             <p className="text-xs text-gray-500">Rating</p>
           </div>
         </div>
+
+        {/* Weekly Fuel Credit */}
+        {fuelCredit?.enabled !== false && (
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                <Fuel className="w-4 h-4 text-green-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-[#01312D]">Fuel Credit This Week</p>
+                <p className="text-[10px] text-gray-500">Resets every Monday</p>
+              </div>
+            </div>
+            {(loading || fuelCreditLoading) ? (
+              <Skeleton className="h-7 w-20" />
+            ) : (
+              <p className="text-lg font-bold text-[#01312D]">
+                {formatMoney(fuelCredit?.remaining ?? 0)}
+              </p>
+            )}
+          </div>
+          {(loading || fuelCreditLoading) ? (
+            <Skeleton className="h-2 w-full rounded-full" />
+          ) : (
+            <>
+              <div className="bg-[#eafde7] rounded-full h-2 overflow-hidden">
+                <div
+                  className={`h-2 rounded-full ${(fuelCredit?.used ?? 0) >= (fuelCredit?.limit ?? 1) ? "bg-red-500" : "bg-[#3A7717]"}`}
+                  style={{
+                    width: `${Math.min(100, ((fuelCredit?.used ?? 0) / Math.max(1, fuelCredit?.limit ?? 1)) * 100)}%`,
+                  }}
+                ></div>
+              </div>
+              <div className="flex justify-between mt-2">
+                <p className="text-xs text-gray-500">
+                  {formatMoney(fuelCredit?.used ?? 0)} used of {formatMoney(fuelCredit?.limit ?? 0)}
+                </p>
+                <button
+                  onClick={() => router.push("/requests?type=fuel")}
+                  className="text-[#72bf00] text-xs font-semibold"
+                >
+                  Request Fuel →
+                </button>
+              </div>
+              {(fuelCredit?.remaining ?? 0) <= 0 && (
+                <p className="text-xs text-red-600 mt-2 font-semibold">
+                  Weekly fuel credit used up — resets Monday.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+        )}
 
         {/* Cash Loan Now Available */}
         <div className="bg-linear-to-r from-[#bff202]/20 to-[#72bf00]/20 rounded-2xl p-4 mb-6 border border-[#bff202]/30">

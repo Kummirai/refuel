@@ -294,6 +294,10 @@ export default function AdminSettingsPage() {
     periodType: "weekly",
   });
 
+  // Weekly Fuel Credit (per-driver limit)
+  const [fuelCreditEnabled, setFuelCreditEnabled] = useState(true);
+  const [fuelCreditDefaultLimit, setFuelCreditDefaultLimit] = useState(2500);
+
   // Fetch settings on load
   useEffect(() => {
     fetchSettings();
@@ -340,6 +344,12 @@ export default function AdminSettingsPage() {
         if (data.security) setSecuritySettings(data.security);
         if (data.business) setBusinessSettings(data.business);
         if (data.managerCycle) setManagerCycleSettings(data.managerCycle);
+        if (data.fuelCredit) {
+          setFuelCreditEnabled(data.fuelCredit.enabled !== false);
+          if (typeof data.fuelCredit.defaultLimit === "number") {
+            setFuelCreditDefaultLimit(data.fuelCredit.defaultLimit);
+          }
+        }
       }
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -450,6 +460,10 @@ export default function AdminSettingsPage() {
           security: securitySettings,
           business: businessSettings,
           managerCycle: managerCycleSettings,
+          fuelCredit: {
+            enabled: fuelCreditEnabled,
+            defaultLimit: fuelCreditDefaultLimit,
+          },
         }),
       });
 
@@ -805,6 +819,43 @@ export default function AdminSettingsPage() {
                 )}
               </div>
             </div>
+          </SettingSection>
+
+          <SettingSection title="Fuel Credit Limit">
+            <div className="flex items-center justify-between p-3 bg-[#eafde7] rounded-xl">
+              <div className="flex items-center gap-3">
+                <Fuel className="w-5 h-5 text-[#3A7717]" />
+                <div>
+                  <span className="font-semibold text-[#01312D]">
+                    Enforce Weekly Fuel Credit
+                  </span>
+                  <p className="text-xs text-gray-500">
+                    Caps each driver&apos;s fuel requests to their weekly credit (default{" "}
+                    {formatMoney(fuelCreditDefaultLimit)}, resets every Monday).
+                    {fuelCreditEnabled
+                      ? " Currently ON for all drivers."
+                      : " Currently OFF — no weekly limits are applied."}
+                  </p>
+                </div>
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-5 w-10 rounded-full" />
+              ) : (
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={fuelCreditEnabled}
+                    onChange={(e) => setFuelCreditEnabled(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3A7717]"></div>
+                </label>
+              )}
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              Per-driver limits and the default amount are managed on the Fuel page.
+              Hit Save Settings to apply changes.
+            </p>
           </SettingSection>
 
           {/* Interest Rates (%) */}

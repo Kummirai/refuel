@@ -57,7 +57,7 @@ const DEFAULT_SETTINGS = {
   },
   business: {
     businessName: "Kapuka Tradings Pvt Ltd",
-    businessEmail: "business@Kapuka.com",
+    businessEmail: "business@kapuka.com",
     businessPhone: "+27 782 677 436",
     gstNumber: "29ABCDE1234F1Z5",
     panNumber: "ABCDE1234F",
@@ -67,6 +67,10 @@ const DEFAULT_SETTINGS = {
     upiId: "Kapuka@hdfcbank",
     termsAndConditions: "https://Kapuka.com/terms",
     privacyPolicy: "https://Kapuka.com/privacy",
+  },
+  fuelCredit: {
+    defaultLimit: 2500,
+    enabled: true,
   },
 };
 
@@ -106,7 +110,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { general, services, notifications, security, business, managerCycle } = body;
+    const { general, services, notifications, security, business, managerCycle, fuelCredit } = body;
 
     const { db } = await connectToDatabase();
     const settingsCollection = db.collection("settings");
@@ -123,6 +127,15 @@ export async function PUT(request: Request) {
     if ('business' in body) $set.business = business;
     if ('managerCycle' in body) {
       $set.managerCycle = managerCycle === undefined ? null : managerCycle;
+    }
+    if ('fuelCredit' in body) {
+      $set.fuelCredit = {
+        defaultLimit:
+          typeof fuelCredit?.defaultLimit === "number" && fuelCredit.defaultLimit >= 0
+            ? fuelCredit.defaultLimit
+            : 2500,
+        enabled: fuelCredit?.enabled !== false,
+      };
     }
 
     // Update settings

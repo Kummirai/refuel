@@ -148,6 +148,25 @@ export interface FuelBudget {
   lastReset: string | null;
 }
 
+export interface DriverFuelCreditRow {
+  userId: string;
+  name: string;
+  email: string;
+  carRegistration: string;
+  limit: number;
+  used: number;
+  remaining: number;
+  isDefault: boolean;
+}
+
+export interface FuelCreditsResponse {
+  defaultLimit: number;
+  enabled: boolean;
+  weekStart: string;
+  weekEnd: string;
+  drivers: DriverFuelCreditRow[];
+}
+
 export interface Repayment {
   id: string;
   loanId: string;
@@ -207,6 +226,7 @@ export interface AdminSettings {
   security?: Record<string, unknown>;
   business?: Record<string, unknown>;
   managerCycle?: Record<string, unknown>;
+  fuelCredit?: { defaultLimit?: number; enabled?: boolean };
 }
 
 export const adminService = {
@@ -282,6 +302,24 @@ export const adminService = {
   async setFuelBudget(total: number) {
     return api.post<{ success: boolean; total: number }>("/api/admin/dashboard/fuel-budget", {
       body: { total },
+    });
+  },
+
+  // Fuel Credits (per-driver weekly limit)
+  async getFuelCredits() {
+    return api.get<FuelCreditsResponse>("/api/admin/fuel-credits");
+  },
+
+  async setDriverFuelCredit(userId: string, limit: number | null) {
+    return api.put<{ success: boolean; userId: string; limit: number | null }>(
+      "/api/admin/fuel-credits",
+      { body: { userId, limit } },
+    );
+  },
+
+  async setDefaultFuelCredit(limit: number) {
+    return api.put<{ success: boolean; defaultLimit: number }>("/api/admin/fuel-credits", {
+      body: { limit, isDefaultLimit: true },
     });
   },
 

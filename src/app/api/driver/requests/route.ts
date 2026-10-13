@@ -1,7 +1,8 @@
 // src/app/api/driver/requests/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
-import { toMoney } from "@/lib/money";
+import { formatMoney, toMoney } from "@/lib/money";
+import { getDriverFuelCredit, isFuelCreditEnabled } from "@/lib/fuel-credit";
 import { sendAdminNotificationEmail } from "@/lib/email";
 import { sendPushNotification, sendAdminPushNotification } from "@/lib/notifications";
 import { ObjectId } from "mongodb";
@@ -182,6 +183,22 @@ export async function POST(request: NextRequest) {
         },
         { status: 403 },
       );
+    }
+
+    // Enforce weekly fuel credit limit (when enabled in admin settings)
+    if (type === "fuel" && (await isFuelCreditEnabled(db))) {
+      const credit = await getDriverFuelCredit(db, userId);
+      const requested = Number(amount);
+      if (Number.isFinite(requested) && requested > credit.remaining) {
+        return NextResponse.json(
+          {
+            error: "Weekly Fuel Credit Exceeded",
+            message: `You have ${formatMoney(credit.remaining)} left of your ${formatMoney(credit.limit)} weekly fuel credit (resets Monday).`,
+            credit,
+          },
+          { status: 403 },
+        );
+      }
     }
 
     // Prepare request data with all fields
