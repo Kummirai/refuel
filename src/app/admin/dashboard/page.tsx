@@ -41,6 +41,12 @@ import {
   PiggyBank,
   Banknote,
   Shield,
+  Receipt,
+  CalendarDays,
+  Settings,
+  Flame,
+  ShieldCheck,
+  ChevronRight,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 
@@ -101,6 +107,128 @@ interface VerificationRequest {
   verificationStatus: string;
   submittedAt: string;
 }
+
+const pendingActionTiles = [
+  {
+    key: "verifications",
+    label: "Verifications",
+    icon: FileText,
+    color: "#ca8a04",
+    href: "/admin/verifications",
+  },
+  {
+    key: "requests",
+    label: "Requests",
+    icon: ClipboardList,
+    color: "#2563eb",
+    href: "/admin/service-requests",
+  },
+  {
+    key: "repayments",
+    label: "Repayments",
+    icon: DollarSign,
+    color: "#3A7717",
+    href: "/admin/repayments",
+  },
+  {
+    key: "receipts",
+    label: "Receipts",
+    icon: Receipt,
+    color: "#7c3aed",
+    href: "/admin/receipts",
+  },
+] as const;
+
+const managementLinks = [
+  {
+    label: "Fuel",
+    sub: "Track fuel budget & usage",
+    icon: Flame,
+    color: "#3A7717",
+    bg: "#f0fdf4",
+    href: "/admin/fuel",
+  },
+  {
+    label: "Drivers",
+    sub: "Manage drivers & verifications",
+    icon: Users,
+    color: "#01312D",
+    bg: "#eafde7",
+    href: "/admin/verifications",
+  },
+  {
+    label: "Managers",
+    sub: "Promote or demote managers",
+    icon: Users,
+    color: "#0d9488",
+    bg: "#f0fdfa",
+    href: "/admin/managers",
+  },
+  {
+    label: "Requests",
+    sub: "View & manage service requests",
+    icon: ClipboardList,
+    color: "#3A7717",
+    bg: "#f0fdf4",
+    href: "/admin/service-requests",
+  },
+  {
+    label: "Repayments",
+    sub: "Track loan repayments",
+    icon: DollarSign,
+    color: "#7c3aed",
+    bg: "#f5f3ff",
+    href: "/admin/repayments",
+  },
+  {
+    label: "Receipts",
+    sub: "Verify payment receipts",
+    icon: Receipt,
+    color: "#ca8a04",
+    bg: "#fef9c3",
+    href: "/admin/receipts",
+  },
+  {
+    label: "Verifications",
+    sub: "Review driver documents",
+    icon: ShieldCheck,
+    color: "#2563eb",
+    bg: "#eff6ff",
+    href: "/admin/verifications",
+  },
+  {
+    label: "Invoices",
+    sub: "Send & view weekly invoices",
+    icon: FileText,
+    color: "#0d9488",
+    bg: "#f0fdfa",
+    href: "/admin/invoices",
+  },
+  {
+    label: "Driver View",
+    sub: "See driver dashboards & loans",
+    icon: Eye,
+    color: "#7c3aed",
+    bg: "#f5f3ff",
+    href: "/admin/driver-view",
+  },
+  {
+    label: "Payment Plans",
+    sub: "Manage driver payment plans",
+    icon: CalendarDays,
+    color: "#0d9488",
+    bg: "#f0fdfa",
+    href: "/admin/payment-plans",
+  },
+  {
+    label: "Settings",
+    sub: "Configure app settings",
+    icon: Settings,
+    color: "#4b5563",
+    bg: "#f3f4f6",
+    href: "/admin/settings",
+  },
+] as const;
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -202,6 +330,11 @@ export default function AdminDashboard() {
     requestsUrl,
     fetcher,
     { refreshInterval: 120_000, dedupingInterval: 60_000 },
+  );
+  const { data: notifCounts } = useSWR(
+    "/api/admin/notifications/count",
+    fetcher,
+    { refreshInterval: 60_000, dedupingInterval: 60_000 },
   );
 
   const loading = statsLoading || driversLoading || requestsLoading;
@@ -2188,6 +2321,80 @@ export default function AdminDashboard() {
           </div>
         </div>
       </details>
+
+      {/* Pending Actions */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-2 h-2 rounded-full bg-[#3A7717]" />
+          <h2 className="text-sm font-bold text-[#01312D]">Pending Actions</h2>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {pendingActionTiles.map((tile) => {
+            const count =
+              notifCounts?.[
+                tile.key as keyof typeof notifCounts
+              ] ?? 0;
+            const Icon = tile.icon;
+            return (
+              <button
+                key={tile.key}
+                onClick={() => router.push(tile.href)}
+                className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/15 hover:border-[#bff202]/40 hover:shadow-md transition-all flex flex-col items-center gap-1 text-center"
+              >
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center mb-1"
+                  style={{ backgroundColor: `${tile.color}15` }}
+                >
+                  <Icon className="w-5 h-5" style={{ color: tile.color }} />
+                </div>
+                <span
+                  className="text-lg font-black"
+                  style={{ color: tile.color }}
+                >
+                  {count}
+                </span>
+                <span className="text-[10px] font-semibold uppercase text-gray-500">
+                  {tile.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Management */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-2 h-2 rounded-full bg-[#3A7717]" />
+          <h2 className="text-sm font-bold text-[#01312D]">Management</h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {managementLinks.map((link) => {
+            const Icon = link.icon;
+            return (
+              <button
+                key={link.label}
+                onClick={() => router.push(link.href)}
+                className="flex items-center gap-3 bg-white rounded-2xl p-3.5 shadow-sm border border-[#bff202]/20 hover:border-[#bff202]/40 hover:shadow-md transition-all text-left"
+              >
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: link.bg }}
+                >
+                  <Icon className="w-5 h-5" style={{ color: link.color }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-[#01312D]">
+                    {link.label}
+                  </p>
+                  <p className="text-xs text-gray-500">{link.sub}</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       <div className="flex gap-2 border-b border-gray-200">
         <button

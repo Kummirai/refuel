@@ -167,6 +167,22 @@ export default function HomePage() {
   // Add state for approved count
   const [approvedCount, setApprovedCount] = useState(0);
 
+  // Cash loan rate from admin settings (fallback matches requests page)
+  const [cashRate, setCashRate] = useState(26);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/admin/settings")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const rate = Number(data?.services?.cashInterestRate);
+        if (!cancelled && rate > 0) setCashRate(rate);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // In your fetchUserProfile or similar, calculate approved requests
   useEffect(() => {
     if (session?.user?.id) {
@@ -625,7 +641,7 @@ export default function HomePage() {
                     <DollarSign className="w-5 h-5 text-[#01312D]" />
                   </div>
                   <h3 className="font-bold text-[#01312D] text-sm">Cash Loan</h3>
-                  <p className="text-gray-500 text-[10px] mt-0.5">26% · 14 days</p>
+                  <p className="text-gray-500 text-[10px] mt-0.5">{cashRate}% · 14 days</p>
                   <div className="flex items-center gap-0.5 mt-1 text-[#72bf00] text-[10px] font-semibold">
                     <span>Request</span>
                     <ChevronRight className="w-2.5 h-2.5" />

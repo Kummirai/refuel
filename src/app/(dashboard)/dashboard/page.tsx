@@ -57,6 +57,12 @@ export default function DriverDashboard() {
     fetcher,
     { refreshInterval: 60_000, dedupingInterval: 60_000 },
   );
+  const { data: appSettings } = useSWR(
+    "/api/admin/settings",
+    fetcher,
+    { dedupingInterval: 300_000 },
+  );
+  const cashRate = Number(appSettings?.services?.cashInterestRate) || 26;
 
   const loading = (!requestsData && requestsLoading) || (!profile && profileLoading) || isPending;
   const refreshing = requestsValidating && !requestsLoading;
@@ -365,7 +371,7 @@ export default function DriverDashboard() {
               <div>
                 <p className="font-semibold text-[#01312D]">Cash Loan Available!</p>
                 <p className="text-xs text-gray-600">
-                  26% interest • 14-day repayment • Collateral required
+                  {cashRate}% interest • 14-day repayment • Collateral required
                 </p>
               </div>
             </div>
