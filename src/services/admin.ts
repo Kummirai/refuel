@@ -336,6 +336,30 @@ export const adminService = {
     return api.post<{ success: boolean }>("/api/admin/repayments/complete", { body: { repaymentId } });
   },
 
+  async addInterest(data: { loanId: string; interestAmount?: number; interestRate?: number }) {
+    return api.post<{
+      success: boolean; interestAmount: number; interestRate: number;
+      previousRemainingBalance: number; newRemainingBalance: number; newTotalRepayable: number;
+    }>("/api/admin/repayments/add-interest", { body: data });
+  },
+
+  async approveBulkProof(proofId: string, amount: number) {
+    return api.post<{
+      totalAllocated?: number; unallocated?: number; fullyPaidCount?: number; pendingCount?: number;
+    }>("/api/admin/repayment-proofs/approve-bulk", { body: { proofId, amount } });
+  },
+
+  async correctRepayment(actions: Array<{ type: string; loanId: string; paymentId?: string; data?: Record<string, unknown> }>) {
+    return api.post<{ results?: Array<{ repaidAmount?: number; remainingBalance?: number }> }>(
+      "/api/admin/repayments/correct",
+      { body: { actions } },
+    );
+  },
+
+  async getAllDiscounts() {
+    return api.get<{ discounts?: Record<string, number> }>("/api/admin/invoices/discount");
+  },
+
   async getRepaymentHistory(driverId?: string, date?: string) {
     return api.get<any[]>("/api/admin/repayments/history", {
       params: { ...(driverId ? { driverId } : {}), ...(date ? { date } : {}) },

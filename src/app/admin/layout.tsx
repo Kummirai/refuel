@@ -589,7 +589,7 @@ export default function AdminLayout({
             </div>
           </div>
 
-          <nav className="space-y-2 sm:space-y-1 flex-1">
+          <nav className="space-y-2 sm:space-y-1 flex-1 min-h-0 overflow-y-auto pr-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (

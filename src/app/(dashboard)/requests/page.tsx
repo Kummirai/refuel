@@ -1013,7 +1013,7 @@ function RequestsPageContent() {
       : true;
 
   return (
-    <div className="min-h-screen bg-[#eafde7] relative overflow-hidden pb-32">
+    <div className="min-h-screen bg-[#eafde7] relative overflow-x-clip pb-32">
       <div className="absolute top-0 right-0 w-80 h-80 bg-[#bff202]/10 rounded-full blur-3xl"></div>
       <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#3A7717]/5 rounded-full blur-3xl"></div>
       {showSuccess && (

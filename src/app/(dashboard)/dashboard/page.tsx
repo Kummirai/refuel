@@ -62,15 +62,22 @@ export default function DriverDashboard() {
   const refreshing = requestsValidating && !requestsLoading;
 
   const stats = useMemo(() => {
-    if (!requestsData) return { totalRequests: 0, totalSpent: 0, activeLoans: 0, completedRequests: 0, pendingRequests: 0, rating: 0 };
+    if (!requestsData) return { totalRequests: 0, totalSpent: 0, activeLoans: 0, completedRequests: 0, pendingRequests: 0, approvedRequests: 0, thisMonthSpent: 0, rating: 0 };
     const total = requestsData.length;
     const totalSpent = toMoney(requestsData
       .filter((r: any) => r.status === "approved" || r.status === "sent" || r.status === "completed")
       .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount), 0));
     const pending = requestsData.filter((r: any) => r.status === "pending").length;
+    const approved = requestsData.filter((r: any) => r.status === "approved").length;
     const completed = requestsData.filter((r: any) => r.status === "completed").length;
     const activeLoans = requestsData.filter((r: any) => r.type === "cash" && r.status === "approved").length;
-    return { totalRequests: total, totalSpent, pendingRequests: pending, completedRequests: completed, activeLoans, rating: profile?.rating || 0 };
+    const now = new Date();
+    const thisMonthSpent = toMoney(requestsData.filter((r: any) => {
+      if (!r.createdAt) return false;
+      const d = new Date(r.createdAt);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).reduce((sum: number, r: any) => sum + (r.amount || 0), 0));
+    return { totalRequests: total, totalSpent, pendingRequests: pending, approvedRequests: approved, completedRequests: completed, activeLoans, thisMonthSpent, rating: profile?.rating || 0 };
   }, [requestsData, profile]);
 
   const recentRequests = useMemo(() => (requestsData || []).slice(0, 5), [requestsData]);
@@ -187,10 +194,17 @@ export default function DriverDashboard() {
               <h1 className="text-xl font-bold text-[#01312D]">
                 Driver Dashboard
               </h1>
-              <p className="text-xs text-gray-500">
-                Welcome back,{" "}
-                {profile?.fullName || session.user?.name || "Driver"}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-gray-500">
+                  Welcome back,{" "}
+                  {profile?.fullName || session.user?.name || "Driver"}
+                </p>
+                {stats.rating > 0 && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#3A7717] bg-[#eafde7] px-1.5 py-0.5 rounded-full border border-[#bff202]/30">
+                    <Star className="w-3 h-3" /> {Number(stats.rating).toFixed(1)}
+                  </span>
+                )}
+              </div>
             </div>
             <button
               onClick={handleRefresh}
@@ -224,18 +238,50 @@ export default function DriverDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <div className="bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
             <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 bg-[#eafde7] rounded-full flex items-center justify-center">
-                <History className="w-4 h-4 text-[#3A7717]" />
+              <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                <Clock className="w-4 h-4 text-yellow-600" />
               </div>
             </div>
             {(loading || refreshing) ? (
               <Skeleton className="h-7 w-16" />
             ) : (
               <div className="text-xl font-bold text-[#01312D]">
-                {stats.totalRequests}
+                {stats.pendingRequests}
               </div>
             )}
-            <p className="text-xs text-gray-500">Total Requests</p>
+            <p className="text-xs text-gray-500">Pending</p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <Activity className="w-4 h-4 text-blue-600" />
+              </div>
+            </div>
+            {(loading || refreshing) ? (
+              <Skeleton className="h-7 w-16" />
+            ) : (
+              <div className="text-xl font-bold text-[#01312D]">
+                {stats.approvedRequests}
+              </div>
+            )}
+            <p className="text-xs text-gray-500">Active</p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-4 h-4 text-green-600" />
+              </div>
+            </div>
+            {(loading || refreshing) ? (
+              <Skeleton className="h-7 w-16" />
+            ) : (
+              <div className="text-xl font-bold text-[#01312D]">
+                {stats.completedRequests}
+              </div>
+            )}
+            <p className="text-xs text-gray-500">Completed</p>
           </div>
 
           <div className="bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
@@ -248,42 +294,10 @@ export default function DriverDashboard() {
               <Skeleton className="h-7 w-16" />
             ) : (
               <div className="text-xl font-bold text-[#01312D]">
-                {formatMoney(stats.totalSpent)}
+                {formatMoney(stats.thisMonthSpent)}
               </div>
             )}
-            <p className="text-xs text-gray-500">Total Spent</p>
-          </div>
-
-          <div className="bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 bg-[#eafde7] rounded-full flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-[#3A7717]" />
-              </div>
-            </div>
-            {(loading || refreshing) ? (
-              <Skeleton className="h-7 w-16" />
-            ) : (
-              <div className="text-xl font-bold text-[#01312D]">
-                {stats.activeLoans}
-              </div>
-            )}
-            <p className="text-xs text-gray-500">Active Loans</p>
-          </div>
-
-          <div className="bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 bg-[#eafde7] rounded-full flex items-center justify-center">
-                <Star className="w-4 h-4 text-[#3A7717]" />
-              </div>
-            </div>
-            {(loading || refreshing) ? (
-              <Skeleton className="h-7 w-16" />
-            ) : (
-              <div className="text-xl font-bold text-[#01312D]">
-                {stats.rating || "N/A"}
-              </div>
-            )}
-            <p className="text-xs text-gray-500">Rating</p>
+            <p className="text-xs text-gray-500">This Month</p>
           </div>
         </div>
 
@@ -400,7 +414,10 @@ export default function DriverDashboard() {
                     }}
                   ></div>
                 </div>
-                <button className="w-full mt-3 bg-[#01312D] text-white py-2 rounded-xl font-semibold text-sm">
+                <button
+                  onClick={() => router.push("/requests/history")}
+                  className="w-full mt-3 bg-[#01312D] text-white py-2 rounded-xl font-semibold text-sm"
+                >
                   Make Payment
                 </button>
               </div>
