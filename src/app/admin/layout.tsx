@@ -28,6 +28,7 @@ import {
   Eye,
   Fuel,
   Star,
+  CalendarDays,
 } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 
@@ -196,6 +197,13 @@ export default function AdminLayout({
       label: "Invoices",
       path: "/admin/invoices",
       active: pathname === "/admin/invoices" || pathname.startsWith("/admin/invoices/"),
+      badge: null,
+    },
+    {
+      icon: CalendarDays,
+      label: "Payment Plans",
+      path: "/admin/payment-plans",
+      active: pathname === "/admin/payment-plans",
       badge: null,
     },
     {
