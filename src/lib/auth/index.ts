@@ -1,10 +1,17 @@
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { nextCookies } from "better-auth/next-js";
+import type { Db } from "mongodb";
 import { getClient } from "@/lib/db";
 import { sendPasswordResetEmail } from "@/lib/email";
 
-const db = getClient().db(process.env.MONGODB_DB!);
+const db = new Proxy({} as Db, {
+  get(_target, property) {
+    const database = getClient().db(process.env.MONGODB_DB!);
+    const value = Reflect.get(database, property, database);
+    return typeof value === "function" ? value.bind(database) : value;
+  },
+});
 
 export const auth = betterAuth({
   database: mongodbAdapter(db),

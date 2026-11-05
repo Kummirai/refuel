@@ -1,23 +1,26 @@
 import { MongoClient } from "mongodb";
 
-const MONGODB_URI = process.env.MONGODB_URI!;
-const MONGODB_DB = process.env.MONGODB_DB!;
-
-if (!MONGODB_URI) {
-  throw new Error("Please define MONGODB_URI environment variable");
-}
-
-if (!MONGODB_DB) {
-  throw new Error("Please define MONGODB_DB environment variable");
-}
-
 const globalWithMongo = global as typeof globalThis & {
   _mongoClient?: MongoClient;
   _mongoDb?: any;
 };
 
+function getMongoConfig() {
+  const uri = process.env.MONGODB_URI;
+  const database = process.env.MONGODB_DB;
+
+  if (!uri) {
+    throw new Error("Please define MONGODB_URI environment variable");
+  }
+  if (!database) {
+    throw new Error("Please define MONGODB_DB environment variable");
+  }
+
+  return { uri, database };
+}
+
 function createClient() {
-  return new MongoClient(MONGODB_URI, {
+  return new MongoClient(getMongoConfig().uri, {
     maxPoolSize: 10,
     minPoolSize: 0,
     maxIdleTimeMS: 10000,
@@ -47,7 +50,7 @@ export async function connectToDatabase() {
   const client = globalWithMongo._mongoClient;
 
   await client.connect();
-  const db = client.db(MONGODB_DB);
+  const db = client.db(getMongoConfig().database);
 
   globalWithMongo._mongoDb = db;
 
