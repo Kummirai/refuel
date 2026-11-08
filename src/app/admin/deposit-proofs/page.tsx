@@ -48,6 +48,20 @@ interface DepositProof {
 
 type FilterTab = "all" | "pending" | "approved" | "rejected";
 
+interface DepositContract {
+  userId: string;
+  driverName: string;
+  driverEmail: string;
+  driverPhone: string;
+  carRegistration: string;
+  tier: string;
+  tierName: string;
+  targetDepositAmount: number;
+  weeklyInstallment: number;
+  securityDepositBalance: number;
+  acceptedAt: string | null;
+}
+
 const FILTERS: { key: FilterTab; label: string }[] = [
   { key: "all", label: "All" },
   { key: "pending", label: "Pending" },
@@ -101,6 +115,18 @@ export default function AdminDepositProofsPage() {
     { refreshInterval: 30_000, dedupingInterval: 10_000 },
   );
 
+  const { data: contractData, mutate: mutateContracts } = useSWR<
+    DepositContract[] | { error?: string }
+  >("/api/admin/deposit-contracts", fetcher, {
+    refreshInterval: 30_000,
+    dedupingInterval: 10_000,
+  });
+
+  const contracts = useMemo(
+    () => (Array.isArray(contractData) ? contractData : []),
+    [contractData],
+  );
+
   const proofs = useMemo(
     () => (Array.isArray(data) ? data : []),
     [data],
@@ -143,6 +169,7 @@ export default function AdminDepositProofsPage() {
 
   const refresh = () => {
     mutate();
+    mutateContracts();
     window.dispatchEvent(new Event("refreshAdminCounts"));
   };
 
@@ -211,11 +238,17 @@ export default function AdminDepositProofsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#01312D]">Deposit Proofs</h1>
+          <h1 className="text-2xl font-bold text-[#01312D]">Deposits</h1>
           <p className="text-gray-500 text-sm mt-1">
             {isLoading
               ? "Loading..."
-              : `${counts.pending} awaiting review`}
+              : `${counts.pending} awaiting review${
+                  contracts.length > 0
+                    ? ` · ${contracts.length} new contract${
+                        contracts.length !== 1 ? "s" : ""
+                      } awaiting first payment`
+                    : ""
+                }`}
           </p>
         </div>
         <button
@@ -246,6 +279,64 @@ export default function AdminDepositProofsPage() {
         <div className="flex items-start gap-2 text-sm rounded-xl px-4 py-3 text-red-600 bg-red-50 border border-red-200">
           <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
           <span>{error}</span>
+        </div>
+      )}
+
+      {/* New contracts awaiting first payment */}
+      {contracts.length > 0 && (
+        <div className="bg-white rounded-2xl border border-cyan-200/60 shadow-sm p-5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="w-10 h-10 rounded-xl bg-cyan-50 flex items-center justify-center flex-shrink-0">
+              <Wallet className="w-5 h-5 text-cyan-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-bold text-[#01312D]">
+                  New deposit contracts
+                </h2>
+                <span className="text-xs font-semibold bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-md">
+                  {contracts.length} awaiting first payment
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Drivers who accepted a plan and haven&apos;t uploaded a payment
+                proof yet.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 divide-y divide-gray-100">
+            {contracts.map((contract) => (
+              <div
+                key={contract.userId}
+                className="py-3 flex items-start gap-3 first:pt-0 last:pb-0"
+              >
+                <div className="w-9 h-9 rounded-full bg-[#eafde7] flex items-center justify-center flex-shrink-0 text-[#01312D] font-bold text-sm">
+                  {(contract.driverName || "?").charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-[#01312D] truncate">
+                    {contract.driverName}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {contract.carRegistration} · {contract.tierName}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5 truncate">
+                    {contract.driverEmail} · {contract.driverPhone}
+                  </p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-xs text-gray-400">Weekly installment</p>
+                  <p className="font-bold text-[#01312D]">
+                    {formatMoney(contract.weeklyInstallment)}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Accepted {formatDate(contract.acceptedAt)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -309,7 +400,9 @@ export default function AdminDepositProofsPage() {
           </p>
           <p className="text-sm text-gray-500 mt-1">
             {filter === "pending"
-              ? "All security deposit proofs have been reviewed."
+              ? contracts.length > 0
+                ? "No proofs awaiting review. New contracts are listed above."
+                : "All security deposit proofs have been reviewed."
               : "Nothing to show for this filter."}
           </p>
         </div>

@@ -59,6 +59,9 @@ export default function AdminLayout({
   const pendingRepaymentsCount = counts?.repayments ?? 0;
   const pendingReceiptsCount = counts?.receipts ?? 0;
   const pendingDepositsCount = counts?.deposits ?? 0;
+  const pendingDepositContractsCount = counts?.depositContracts ?? 0;
+  const pendingDepositItemsCount =
+    pendingDepositsCount + pendingDepositContractsCount;
 
   // Store full data for detailed view
   const [pendingVerifications, setPendingVerifications] = useState<any[]>([]);
@@ -66,6 +69,9 @@ export default function AdminLayout({
   const [pendingRepayments, setPendingRepayments] = useState<any[]>([]);
   const [pendingReceipts, setPendingReceipts] = useState<any[]>([]);
   const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
+  const [pendingDepositContracts, setPendingDepositContracts] = useState<
+    any[]
+  >([]);
   const pendingDetailsFetched = useRef(false);
 
   const fetchPendingDetails = async () => {
@@ -76,12 +82,14 @@ export default function AdminLayout({
         repaymentsRes,
         receiptsRes,
         depositsRes,
+        contractsRes,
       ] = await Promise.all([
         fetch("/api/admin/verifications/pending?limit=5"),
         fetch("/api/admin/requests?status=pending&limit=5"),
         fetch("/api/admin/repayments?status=pending&limit=5"),
         fetch("/api/admin/receipts?status=pending&limit=5"),
         fetch("/api/admin/deposit-proofs?status=pending"),
+        fetch("/api/admin/deposit-contracts"),
       ]);
 
       const verifications = await verificationsRes.json();
@@ -89,6 +97,7 @@ export default function AdminLayout({
       const repayments = await repaymentsRes.json();
       const receipts = await receiptsRes.json();
       const deposits = await depositsRes.json();
+      const contracts = await contractsRes.json();
 
       setPendingVerifications(verifications.data || verifications || []);
       setPendingRequests(requests.data || requests || []);
@@ -96,6 +105,12 @@ export default function AdminLayout({
       setPendingReceipts(receipts.data || receipts || []);
       setPendingDeposits(
         (Array.isArray(deposits) ? deposits : deposits.data || []).slice(0, 5),
+      );
+      setPendingDepositContracts(
+        (Array.isArray(contracts) ? contracts : contracts.data || []).slice(
+          0,
+          5,
+        ),
       );
     } catch (error) {
       console.error("Error fetching pending details:", error);
@@ -192,7 +207,7 @@ export default function AdminLayout({
     pendingRequestsCount +
     pendingRepaymentsCount +
     pendingReceiptsCount +
-    pendingDepositsCount;
+    pendingDepositItemsCount;
 
   const navItems = [
     {
@@ -228,10 +243,10 @@ export default function AdminLayout({
     },
     {
       icon: Wallet,
-      label: "Deposit Proofs",
+      label: "Deposits",
       path: "/admin/deposit-proofs",
       active: pathname === "/admin/deposit-proofs",
-      badge: pendingDepositsCount,
+      badge: pendingDepositItemsCount,
       badgeColor: "bg-cyan-500",
     },
     {
@@ -557,8 +572,8 @@ export default function AdminLayout({
                   </div>
                 )}
 
-                {/* Deposit Proofs Section */}
-                {pendingDepositsCount > 0 && (
+                {/* Deposit Proofs + Contracts Section */}
+                {pendingDepositItemsCount > 0 && (
                   <div className="p-4 hover:bg-cyan-50/50 transition-colors">
                     <button
                       onClick={() => handleNavigate("/admin/deposit-proofs")}
@@ -571,20 +586,40 @@ export default function AdminLayout({
                         <div className="flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-[#01312D]">
-                              Deposit Proofs
+                              Deposits
                             </span>
                             <span className="text-xs bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full">
-                              {pendingDepositsCount} pending
+                              {pendingDepositItemsCount} pending
                             </span>
                           </div>
                           <p className="text-sm text-gray-500 mt-1">
-                            {pendingDepositsCount} security deposit payment
+                            {pendingDepositsCount} proof
                             {pendingDepositsCount !== 1 ? "s" : ""} awaiting
                             approval
+                            {pendingDepositContractsCount > 0
+                              ? ` · ${pendingDepositContractsCount} new contract${
+                                  pendingDepositContractsCount !== 1 ? "s" : ""
+                                } awaiting first payment`
+                              : ""}
                           </p>
+                          {pendingDepositContracts
+                            .slice(0, 2)
+                            .map((contract: any, idx) => (
+                              <div
+                                key={`contract-${contract.userId ?? idx}`}
+                                className="mt-2 text-xs text-gray-400 flex items-center gap-2"
+                              >
+                                <Wallet className="w-3 h-3" />
+                                <span>
+                                  {contract.driverName || "Driver"} accepted{" "}
+                                  {contract.tierName} ·{" "}
+                                  {formatMoney(contract.weeklyInstallment)}/week
+                                </span>
+                              </div>
+                            ))}
                           {pendingDeposits.slice(0, 2).map((proof: any, idx) => (
                             <div
-                              key={idx}
+                              key={`proof-${proof.id ?? idx}`}
                               className="mt-2 text-xs text-gray-400 flex items-center gap-2"
                             >
                               <Clock className="w-3 h-3" />
@@ -599,9 +634,9 @@ export default function AdminLayout({
                               </span>
                             </div>
                           ))}
-                          {pendingDepositsCount > 2 && (
+                          {pendingDepositItemsCount > 2 && (
                             <p className="text-xs text-cyan-600 mt-1">
-                              +{pendingDepositsCount - 2} more
+                              +{pendingDepositItemsCount - 2} more
                             </p>
                           )}
                         </div>
@@ -648,7 +683,7 @@ export default function AdminLayout({
                         </span>
                       </button>
                     )}
-                    {pendingDepositsCount > 0 && (
+                    {pendingDepositItemsCount > 0 && (
                       <button
                         onClick={() =>
                           handleNavigate("/admin/deposit-proofs")

@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    sendAdminPushNotification(
+    await sendAdminPushNotification(
       "Deposit Contract Accepted",
       `${driverName} accepted the ${config.name} deposit contract (${formatMoney(
         config.targetAmount,

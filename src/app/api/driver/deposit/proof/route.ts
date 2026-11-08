@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    sendAdminPushNotification(
+    await sendAdminPushNotification(
       "Deposit Proof Submitted",
       `${driverName} submitted a deposit proof of ${formatMoney(
         expectedAmount,

@@ -2346,9 +2346,12 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {pendingActionTiles.map((tile) => {
             const count =
-              notifCounts?.[
-                tile.key as keyof typeof notifCounts
-              ] ?? 0;
+              tile.key === "deposits"
+                ? (notifCounts?.deposits ?? 0) +
+                  (notifCounts?.depositContracts ?? 0)
+                : notifCounts?.[
+                    tile.key as keyof typeof notifCounts
+                  ] ?? 0;
             const Icon = tile.icon;
             return (
               <button
