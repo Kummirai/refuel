@@ -6,6 +6,7 @@ import { formatMoney, toMoney } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { getFuelInterestRate } from "@/lib/deposit-ui";
 import BottomNavigation from "@/components/BottomNavigation";
 import {
   Fuel,
@@ -32,6 +33,8 @@ import {
   Ban,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
+import ConnectingScreen from "@/components/ConnectingScreen";
+import { useSessionPending } from "@/lib/hooks/useSessionPending";
 
 type ServiceType = "fuel" | "carwash" | "cash";
 
@@ -95,6 +98,7 @@ function RequestsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, isPending } = authClient.useSession();
+  const sessionPending = useSessionPending(isPending);
   const initialType = (searchParams.get("type") as ServiceType) || "fuel";
 
   const [selectedService, setSelectedService] =
@@ -156,6 +160,9 @@ function RequestsPageContent() {
     used: number;
     remaining: number;
     enabled: boolean;
+    depositTier: string | null;
+    weeklyInstallment: number;
+    weeklyDepositPaid: boolean;
   } | null>(null);
 
   const fetchFuelCredit = async () => {
@@ -171,6 +178,9 @@ function RequestsPageContent() {
           used: data.used,
           remaining: data.remaining,
           enabled: data.enabled !== false,
+          depositTier: data.depositTier ?? null,
+          weeklyInstallment: data.weeklyInstallment ?? 0,
+          weeklyDepositPaid: !!data.weeklyDepositPaid,
         });
       }
     } catch (error) {
@@ -189,6 +199,9 @@ function RequestsPageContent() {
             used: data.used,
             remaining: data.remaining,
             enabled: data.enabled !== false,
+            depositTier: data.depositTier ?? null,
+            weeklyInstallment: data.weeklyInstallment ?? 0,
+            weeklyDepositPaid: !!data.weeklyDepositPaid,
           });
         }
       })
@@ -280,6 +293,9 @@ function RequestsPageContent() {
   // Get current service config
   const currentConfig = serviceConfig[selectedService];
 
+  const fuelDepositBlocked =
+    selectedService === "fuel" && !!fuelCredit && !fuelCredit.depositTier;
+
   // Driver details from database
   const [driverDetails, setDriverDetails] = useState({
     fullName: "",
@@ -307,6 +323,7 @@ function RequestsPageContent() {
     try {
       const response = await fetch(
         `/api/driver/profile?userId=${session?.user?.id}`,
+        { signal: AbortSignal.timeout(15_000) },
       );
       if (response.ok) {
         const data = await response.json();
@@ -330,8 +347,11 @@ function RequestsPageContent() {
 
   // Calculate interest and repayment details
   const calculateServiceDetails = (amountNum: number) => {
-    const interestRate = currentConfig.interestRate / 100;
-    const interest = toMoney(amountNum * interestRate);
+    const rate =
+      selectedService === "fuel"
+        ? getFuelInterestRate(currentConfig.interestRate)
+        : currentConfig.interestRate;
+    const interest = toMoney(amountNum * (rate / 100));
     const totalRepayable = toMoney(amountNum + interest);
     const days = selectedService === "fuel" ? getDaysUntilNextTuesday() : 14;
     const dailyPayment = toMoney(totalRepayable / days);
@@ -339,7 +359,7 @@ function RequestsPageContent() {
       interest,
       totalRepayable,
       dailyPayment,
-      interestRate: currentConfig.interestRate,
+      interestRate: rate,
       days,
     };
   };
@@ -425,7 +445,9 @@ function RequestsPageContent() {
       const minAmount = currentConfig.minAmount || 500;
       const maxAmount = currentConfig.maxAmount || 2000;
       const creditRemaining =
-        fuelCredit?.enabled !== false ? fuelCredit?.remaining ?? null : null;
+        !fuelDepositBlocked && fuelCredit?.enabled !== false
+          ? fuelCredit?.remaining ?? null
+          : null;
       const exceedsCredit =
         creditRemaining !== null && amountNum > creditRemaining;
       const isWithinLimits =
@@ -649,6 +671,15 @@ function RequestsPageContent() {
     if (driverDetails.verificationStatus !== "approved") {
       setError(
         "You need to be verified to make requests. Please complete verification first.",
+      );
+      setLoading(false);
+      setSubmitted(false);
+      return;
+    }
+
+    if (selectedService === "fuel" && fuelDepositBlocked) {
+      setError(
+        "Accept your R1,500 or R2,500 security deposit contract before requesting fuel.",
       );
       setLoading(false);
       setSubmitted(false);
@@ -917,7 +948,7 @@ function RequestsPageContent() {
 
   const isLoadingInitial = fetchingDetails || settingsLoading;
 
-  if (isPending) {
+  if (sessionPending) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -929,7 +960,7 @@ function RequestsPageContent() {
   }
 
   if (!session) {
-    return null;
+    return isPending ? <ConnectingScreen message="Still loading your account…" /> : null;
   }
 
   const statusDisplay = getVerificationStatusDisplay();
@@ -1004,6 +1035,7 @@ function RequestsPageContent() {
     selectedService === "fuel" || selectedService === "cash"
       ? currentAmount >= minAmount &&
         currentAmount <= maxAmount &&
+        !fuelDepositBlocked &&
         !(
           selectedService === "fuel" &&
           fuelCredit?.enabled !== false &&
@@ -1211,9 +1243,35 @@ function RequestsPageContent() {
                     />
                   </div>
 
+                  {/* Security deposit gate */}
+                  {selectedService === "fuel" && fuelDepositBlocked && (
+                    <button
+                      type="button"
+                      onClick={() => router.push("/deposit")}
+                      className="mt-3 w-full text-left rounded-xl bg-linear-to-r from-[#01312D] to-[#3A7717] p-4"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-[#bff202] flex items-center justify-center shrink-0">
+                          <Shield className="w-5 h-5 text-[#01312D]" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-white">
+                            Security deposit required
+                          </p>
+                          <p className="text-xs text-white/70 mt-0.5">
+                            Choose R1,500 or R2,500 to unlock your weekly fuel
+                            credit.
+                          </p>
+                        </div>
+                        <ArrowLeft className="w-4 h-4 text-[#bff202] rotate-180" />
+                      </div>
+                    </button>
+                  )}
+
                   {/* Weekly fuel credit banner */}
                   {selectedService === "fuel" &&
                     fuelCredit &&
+                    !fuelDepositBlocked &&
                     fuelCredit.enabled !== false && (
                     <div className="mt-3 bg-[#eafde7] border border-[#bff202]/40 rounded-xl p-3">
                       <div className="flex items-center justify-between">
@@ -1600,6 +1658,7 @@ function RequestsPageContent() {
                 submitted ||
                 !amount ||
                 !phoneNumber ||
+                fuelDepositBlocked ||
                 ((selectedService === "fuel" || selectedService === "cash") && !isAmountValid) ||
                 (selectedService === "cash" && (
                   collateralImages.filter(Boolean).length < 3

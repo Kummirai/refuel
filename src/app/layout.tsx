@@ -42,12 +42,17 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               if ("serviceWorker" in navigator) {
-                window.addEventListener("load", () => {
-                  navigator.serviceWorker.register("/sw.js")
+                var hadController = !!navigator.serviceWorker.controller;
+                var reloading = false;
+                navigator.serviceWorker.addEventListener("controllerchange", function() {
+                  if (!hadController || reloading) return;
+                  reloading = true;
+                  window.location.reload();
+                });
+                window.addEventListener("load", function() {
+                  navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" })
                     .then(function(reg) {
-                      if (reg.installing) console.log("[PWA] SW installing");
-                      else if (reg.waiting) console.log("[PWA] SW installed");
-                      else if (reg.active) console.log("[PWA] SW active");
+                      reg.update().catch(function() {});
                     })
                     .catch(function(err) {
                       console.warn("[PWA] SW registration failed:", err);

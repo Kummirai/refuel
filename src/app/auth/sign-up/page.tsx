@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
+import SocialAuthButtons from "@/components/SocialAuthButtons";
 import {
   Mail,
   Lock,
@@ -208,6 +209,8 @@ export default function SignUpPage() {
             <p className="text-sm text-red-600">{error}</p>
           </div>
         )}
+
+        <SocialAuthButtons />
 
         {/* Sign Up Form */}
         <form onSubmit={handleSubmit} className="space-y-4">

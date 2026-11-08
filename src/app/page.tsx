@@ -3,15 +3,18 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { authClient } from "@/lib/auth-client";
+import { fetcher } from "@/lib/fetch";
 import BottomNavigation from "@/components/BottomNavigation";
+import DepositHero from "@/components/DepositHero";
 import {
   Fuel,
   DollarSign,
   Car,
   Star,
-  Clock,
   Shield,
+  ShieldCheck,
   ChevronRight,
   Zap,
   Truck,
@@ -23,15 +26,24 @@ import {
   User,
   FileCheck,
   Hourglass,
-  Home,
-  ClipboardList,
-  History,
-  UserCircle,
   Flame,
-  Rocket,
+  ArrowRight,
+  Download,
+  Smartphone,
+  Gift,
+  Tag,
+  CalendarDays,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatMoney } from "@/lib/money";
+import { useSessionPending } from "@/lib/hooks/useSessionPending";
+import { ANDROID_APK_URL } from "@/lib/app-download";
+import {
+  PROMOTIONAL_FUEL_FEE_RATE,
+  STANDARD_FUEL_FEE_RATE,
+  isPromotionalRateActive,
+  type DriverDepositSummary,
+} from "@/lib/deposit-ui";
 
 type FuelCredit = {
   limit: number;
@@ -124,6 +136,7 @@ function FuelCreditCard({ userId }: { userId: string | null }) {
 export default function HomePage() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
+  const sessionPending = useSessionPending(isPending);
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -131,6 +144,16 @@ export default function HomePage() {
     "approved" | "pending" | "rejected" | "not_submitted"
   >("not_submitted");
   const [loadError, setLoadError] = useState(false);
+
+  const userId = session?.user?.id;
+  const { data: deposit, isLoading: depositLoading } =
+    useSWR<DriverDepositSummary>(
+      userId && userRole !== "admin"
+        ? `/api/driver/deposit?userId=${userId}`
+        : null,
+      fetcher,
+      { refreshInterval: 60_000, dedupingInterval: 30_000 },
+    );
 
   // Safety timeout for loading state (crucial for older Safari/iPhone)
   useEffect(() => {
@@ -145,7 +168,7 @@ export default function HomePage() {
   }, [loading]);
 
   useEffect(() => {
-    if (!isPending) {
+    if (!sessionPending) {
       if (session && session.user) {
         const user = session.user as any;
         setUserRole(user.role || null);
@@ -162,7 +185,7 @@ export default function HomePage() {
         setLoading(false);
       }
     }
-  }, [session, isPending]);
+  }, [session, sessionPending]);
 
   // Add state for approved count
   const [approvedCount, setApprovedCount] = useState(0);
@@ -371,7 +394,7 @@ export default function HomePage() {
     );
   };
 
-  if (isPending) {
+  if (sessionPending) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -497,59 +520,115 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Hero Card — matches mobile app HomeScreen */}
-        <div className="relative overflow-hidden rounded-3xl p-6 mb-6 bg-linear-to-br from-[#01312D] to-[#3A7717] shadow-xl">
-          <div className="relative z-10">
-            <div className="inline-flex items-center gap-1.5 bg-white/95 rounded-full px-3 py-1.5 mb-4">
-              <Rocket className="w-3.5 h-3.5 text-[#01312D]" />
-              <span className="text-xs font-bold text-[#01312D]">
-                {isLoggedIn ? "Ready to" : "Join Us"}
-              </span>
+        {/* Promotional refueling rate banner */}
+        {!isAdmin && isPromotionalRateActive() && (
+          <div className="relative overflow-hidden rounded-2xl bg-white border border-[#fecaca] p-5 mb-5 shadow-[0_3px_8px_rgba(185,28,28,0.14)]">
+            <Gift className="absolute -right-3 -bottom-7 w-28 h-28 text-[#dc2626] opacity-[0.07] pointer-events-none" />
+            <div className="relative z-10">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#dc2626] px-2.5 py-1 text-[9px] font-extrabold tracking-wider text-white">
+                  <Tag className="w-3 h-3" />
+                  SPECIAL PROMO RATE
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-bold text-red-700">
+                  <CalendarDays className="w-3 h-3" />
+                  1 Nov – 30 Jan
+                </span>
+              </div>
+              <div className="flex items-end gap-3 mt-3">
+                <span className="text-5xl font-black leading-none text-[#dc2626] tracking-tight">
+                  {PROMOTIONAL_FUEL_FEE_RATE}%
+                </span>
+                <div className="pb-0.5">
+                  <p className="text-sm font-extrabold text-[#01312D]">
+                    OFF REFUELING FEE
+                  </p>
+                  <p className="text-[10px] text-gray-500">
+                    Was {STANDARD_FUEL_FEE_RATE}% · applies to every fuel request
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Hero — deposit summary for drivers, marketing for guests/admin */}
+        {isLoggedIn && !isAdmin ? (
+          <DepositHero
+            deposit={deposit}
+            loading={depositLoading}
+            onPress={() => router.push("/deposit")}
+          />
+        ) : (
+          <div className="relative overflow-hidden rounded-3xl p-6 mb-5 bg-linear-to-br from-[#01312D] to-[#3A7717] shadow-xl">
+            <div className="absolute -right-11 -bottom-13 w-44 h-44 rounded-full border border-[#bff202]/20 flex items-center justify-center pointer-events-none">
+              <div className="w-24 h-24 rounded-full bg-[#bff202]/15 border border-[#bff202]/30 flex items-center justify-center -rotate-6">
+                <Car className="w-10 h-10 text-[#bff202]" />
+              </div>
             </div>
 
-            <h1 className="text-[28px] leading-9 font-extrabold text-white mb-3">
-              Get Fuel
-              <br />
-              <span className="text-[#bff202] text-[32px]">
-                Car Wash Services
-              </span>
-            </h1>
+            <div className="relative z-10">
+              <h1 className="text-[21px] leading-6 font-extrabold text-white tracking-tight">
+                {isLoggedIn ? "Manage your" : "Fuel today."}
+              </h1>
+              <p className="text-[34px] leading-9 font-extrabold text-[#bff202] tracking-tight">
+                {isLoggedIn ? "drivers." : "Pay weekly."}
+              </p>
 
-            <p className="text-xs text-white/90 mb-6">
-              with{" "}
-              <span className="text-[#bff202] font-medium tracking-widest text-sm">
-                Kapuka Tradings
-              </span>
-            </p>
+              <p className="text-xs text-white/70 leading-relaxed mt-4 max-w-[80%]">
+                {isLoggedIn
+                  ? "Approve driver profiles, deposits and requests."
+                  : "Fuel, car wash and cash loans on one weekly plan."}
+              </p>
 
-            <button
-              type="button"
-              onClick={handleGetStarted}
-              className="bg-white text-[#01312D] px-6 py-3 rounded-full text-xs font-bold shadow-lg hover:shadow-xl transition-all active:scale-95"
-            >
-              {isLoggedIn
-                ? "Make a request →"
-                : "Refuel, Work And Pay Later →"}
-            </button>
+              <button
+                type="button"
+                onClick={handleGetStarted}
+                className="mt-6 inline-flex items-center gap-2 bg-[#bff202] text-[#01312D] px-6 py-3 rounded-full text-xs font-extrabold shadow-lg hover:shadow-xl transition-all active:scale-95"
+              >
+                {isLoggedIn ? "Open admin panel" : "Get Started"}
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-          <Flame className="absolute -right-5 -bottom-5 w-32 h-32 text-[#bff202] opacity-15 pointer-events-none" />
-        </div>
+        )}
 
-        {/* Feature Pills */}
-        <div className="flex items-center justify-center gap-3 text-xs text-[#3A7717] mb-10">
-          <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 bg-[#3A7717] rounded-full"></span>
-            24/7 Support
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 bg-[#3A7717] rounded-full"></span>
-            No Hidden Fees
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 bg-[#3A7717] rounded-full"></span>
-            Instant Processing
-          </span>
-        </div>
+        {/* Benefits strip / request shortcut */}
+        {isLoggedIn ? (
+          <button
+            type="button"
+            onClick={() => router.push("/requests")}
+            className="w-full mb-8 rounded-2xl bg-linear-to-r from-[#01312D] to-[#3A7717] px-4 py-3.5 flex items-center gap-2 shadow-lg shadow-[#01312D]/10 active:scale-[0.99] transition-all"
+          >
+            <Zap className="w-4 h-4 text-[#bff202]" />
+            <span className="flex-1 text-left text-xs font-bold text-white">
+              Make a request
+            </span>
+            <ChevronRight className="w-4 h-4 text-white/80" />
+          </button>
+        ) : (
+          <div className="mb-8 rounded-2xl bg-linear-to-r from-[#bff202] to-[#72bf00] px-2 py-3 flex items-stretch shadow-lg shadow-[#01312D]/10">
+            {[
+              { icon: Headphones, label: "24/7 Support" },
+              { icon: ShieldCheck, label: "No Hidden Fees" },
+              { icon: Zap, label: "Instant Processing" },
+            ].map((feature, index) => (
+              <div
+                key={feature.label}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-1 ${
+                  index > 0 ? "border-l border-[#01312D]/15" : ""
+                }`}
+              >
+                <span className="w-6 h-6 rounded-full bg-[#01312D] flex items-center justify-center shrink-0">
+                  <feature.icon className="w-3 h-3 text-[#bff202]" />
+                </span>
+                <span className="text-[9px] font-extrabold text-[#01312D] leading-tight">
+                  {feature.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Documents Submitted Badge */}
         <DocumentsSubmittedBadge />
@@ -572,93 +651,157 @@ export default function HomePage() {
 
         {/* Available Services Section */}
         {(!isLoggedIn || (isLoggedIn && !isAdmin)) && (
-          <>
-            <div className="mb-10">
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <h2 className="text-xl font-bold text-[#01312D]">
-                    Available Services
-                  </h2>
-                  <p className="text-xs text-[#3A7717]">
-                    {isLoggedIn && verificationStatus !== "approved"
-                      ? "Complete verification to access services"
-                      : "Quick & reliable delivery"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                {/* Fuel Service */}
-                <button
-                  onClick={() => handleServiceRequest("fuel")}
-                  disabled={isLoggedIn && verificationStatus !== "approved"}
-                  className={`bg-white rounded-2xl p-3 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${isLoggedIn && verificationStatus !== "approved"
-                    ? "opacity-50 cursor-not-allowed"
-                    : ""
-                    }`}
-                >
-                  <div className="bg-linear-to-r from-[#3A7717] to-[#72bf00] w-10 h-10 rounded-xl flex items-center justify-center mb-2">
-                    <Fuel className="w-5 h-5 text-white" />
-                  </div>
-                  <h3 className="font-bold text-[#01312D] text-sm">Fuel</h3>
-                  <p className="text-gray-500 text-[10px] mt-0.5">Petrol • Diesel</p>
-                  <div className="flex items-center gap-0.5 mt-1 text-[#72bf00] text-[10px] font-semibold">
-                    <span>Request</span>
-                    <ChevronRight className="w-2.5 h-2.5" />
-                  </div>
-                </button>
-
-                {/* Car Wash Service */}
-                <button
-                  onClick={() => handleServiceRequest("carwash")}
-                  disabled={isLoggedIn && verificationStatus !== "approved"}
-                  className={`bg-white rounded-2xl p-3 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${isLoggedIn && verificationStatus !== "approved"
-                    ? "opacity-50 cursor-not-allowed"
-                    : ""
-                    }`}
-                >
-                  <div className="bg-linear-to-r from-[#01312D] to-[#3A7717] w-10 h-10 rounded-xl flex items-center justify-center mb-2">
-                    <Car className="w-5 h-5 text-white" />
-                  </div>
-                  <h3 className="font-bold text-[#01312D] text-sm">Car Wash</h3>
-                  <p className="text-gray-500 text-[10px] mt-0.5">Premium</p>
-                  <div className="flex items-center gap-0.5 mt-1 text-[#72bf00] text-[10px] font-semibold">
-                    <span>Request</span>
-                    <ChevronRight className="w-2.5 h-2.5" />
-                  </div>
-                </button>
-
-                {/* Cash Loan Service */}
-                <button
-                  onClick={() => handleServiceRequest("cash")}
-                  disabled={isLoggedIn && verificationStatus !== "approved"}
-                  className={`bg-white rounded-2xl p-3 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${isLoggedIn && verificationStatus !== "approved"
-                    ? "opacity-50 cursor-not-allowed"
-                    : ""
-                    }`}
-                >
-                  <div className="bg-linear-to-r from-[#72bf00] to-[#bff202] w-10 h-10 rounded-xl flex items-center justify-center mb-2">
-                    <DollarSign className="w-5 h-5 text-[#01312D]" />
-                  </div>
-                  <h3 className="font-bold text-[#01312D] text-sm">Cash Loan</h3>
-                  <p className="text-gray-500 text-[10px] mt-0.5">{cashRate}% · 14 days</p>
-                  <div className="flex items-center gap-0.5 mt-1 text-[#72bf00] text-[10px] font-semibold">
-                    <span>Request</span>
-                    <ChevronRight className="w-2.5 h-2.5" />
-                  </div>
-                </button>
-              </div>
+          <div className="mb-10">
+            <div className="mb-4">
+              <h2 className="text-xl font-bold text-[#01312D]">
+                Available Services
+              </h2>
+              <p className="text-xs text-[#3A7717]">
+                {isLoggedIn && verificationStatus !== "approved"
+                  ? "Complete verification to access services"
+                  : "Quick & reliable delivery"}
+              </p>
             </div>
 
+            <button
+              type="button"
+              onClick={() => handleServiceRequest("fuel")}
+              disabled={isLoggedIn && verificationStatus !== "approved"}
+              className={`relative w-full overflow-hidden rounded-2xl bg-linear-to-br from-[#01312D] to-[#3A7717] p-4 text-left shadow-lg hover:shadow-xl transition-all active:scale-[0.99] ${
+                isLoggedIn && verificationStatus !== "approved"
+                  ? "opacity-50 cursor-not-allowed"
+                  : ""
+              }`}
+            >
+              <div className="absolute -right-6 -top-10 w-32 h-32 rounded-full bg-[#bff202]/10 pointer-events-none" />
+              <div className="relative flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-[#bff202] flex items-center justify-center shrink-0">
+                  <Flame className="w-5 h-5 text-[#01312D]" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-base font-extrabold text-white">Fuel</p>
+                  <p className="text-[11px] text-white/70">
+                    Petrol · Diesel · On credit
+                  </p>
+                </div>
+                {isPromotionalRateActive() && (
+                  <span className="rounded-full bg-white/10 px-2 py-1 text-[9px] font-bold text-[#bff202] whitespace-nowrap">
+                    {PROMOTIONAL_FUEL_FEE_RATE}% fee
+                  </span>
+                )}
+              </div>
+              <div className="relative flex items-center justify-between mt-4 pt-3 border-t border-white/10">
+                <span className="text-[11px] font-bold text-white">
+                  Request fuel
+                </span>
+                <span className="w-6 h-6 rounded-full bg-[#bff202] flex items-center justify-center">
+                  <ArrowRight className="w-3.5 h-3.5 text-[#01312D]" />
+                </span>
+              </div>
+            </button>
 
-          </>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <button
+                type="button"
+                onClick={() => handleServiceRequest("carwash")}
+                disabled={isLoggedIn && verificationStatus !== "approved"}
+                className={`bg-linear-to-br from-[#72bf00] to-[#3A7717] rounded-2xl p-4 text-left shadow-md hover:shadow-xl transition-all active:scale-[0.99] ${
+                  isLoggedIn && verificationStatus !== "approved"
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                }`}
+              >
+                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+                  <Car className="w-5 h-5 text-white" />
+                </div>
+                <p className="text-sm font-extrabold text-white mt-3">
+                  Car Wash
+                </p>
+                <p className="text-[10px] text-white/80">Premium cleaning</p>
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-[10px] font-bold text-[#bff202]">
+                    Request wash
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#bff202]" />
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleServiceRequest("cash")}
+                disabled={isLoggedIn && verificationStatus !== "approved"}
+                className={`bg-linear-to-br from-[#bff202] to-[#72bf00] rounded-2xl p-4 text-left shadow-md hover:shadow-xl transition-all active:scale-[0.99] ${
+                  isLoggedIn && verificationStatus !== "approved"
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                }`}
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#01312D]/10 flex items-center justify-center">
+                  <DollarSign className="w-5 h-5 text-[#01312D]" />
+                </div>
+                <p className="text-sm font-extrabold text-[#01312D] mt-3">
+                  Cash Loan
+                </p>
+                <p className="text-[10px] text-[#01312D]/70">
+                  {cashRate}% · 14 days
+                </p>
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-[10px] font-bold text-[#01312D]">
+                    Apply now
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#01312D]" />
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* APK download banner */}
+        {!isAdmin && (
+          <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-[#01312D] to-[#3A7717] p-5 mb-10 shadow-xl">
+            <div className="absolute -right-10 -top-14 w-40 h-40 rounded-full bg-[#bff202]/10 pointer-events-none" />
+            <div className="relative z-10 flex items-start gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-[#bff202]/15 border border-[#bff202]/25 flex items-center justify-center shrink-0">
+                <Smartphone className="w-6 h-6 text-[#bff202]" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-base font-extrabold text-white">
+                    Get Kapuka on Android
+                  </p>
+                  <span className="rounded-full bg-white/10 px-2 py-0.5 text-[9px] font-bold text-[#bff202]">
+                    APK
+                  </span>
+                </div>
+                <p className="text-[11px] text-white/70 leading-relaxed mt-1">
+                  Download the app to request fuel, track your deposit and get
+                  updates on the go.
+                </p>
+                <div className="flex items-center gap-3 mt-4 flex-wrap">
+                  <a
+                    href={ANDROID_APK_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download
+                    className="inline-flex items-center gap-2 rounded-full bg-[#bff202] px-5 py-2.5 text-xs font-extrabold text-[#01312D] shadow-lg active:scale-95 transition-all"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download APK
+                  </a>
+                  <span className="text-[10px] text-white/50">
+                    Latest release · GitHub
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Features Section - Hide for admin */}
         {!isAdmin && (
           <>
             <div className="mb-10">
-              <div className="text-center mb-4">
+              <div className="mb-4">
                 <h2 className="text-xl font-bold text-[#01312D]">
                   Why Choose Us?
                 </h2>
@@ -667,28 +810,46 @@ export default function HomePage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="text-center bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
-                  <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <Zap className="w-5 h-5 text-[#3A7717]" />
-                  </div>
-                  <p className="text-[#01312D] font-semibold text-xs">
-                    Fast Delivery
-                  </p>
-                </div>
-                <div className="text-center bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
-                  <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <Shield className="w-5 h-5 text-[#3A7717]" />
-                  </div>
-                  <p className="text-[#01312D] font-semibold text-xs">Secure</p>
-                </div>
-                <div className="text-center bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
-                  <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <Clock className="w-5 h-5 text-[#3A7717]" />
-                  </div>
-                  <p className="text-[#01312D] font-semibold text-xs">
-                    24/7 Support
-                  </p>
+              <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-[#01312D] to-[#3A7717] p-4 shadow-xl">
+                <div className="absolute -right-10 -bottom-16 w-44 h-44 rounded-full bg-[#bff202]/10 pointer-events-none" />
+                <div className="relative z-10">
+                  {[
+                    {
+                      icon: Zap,
+                      title: "Fast Delivery",
+                      desc: "Fuel at your pump, without the queue.",
+                    },
+                    {
+                      icon: ShieldCheck,
+                      title: "Secure",
+                      desc: "Verified accounts and protected payments.",
+                    },
+                    {
+                      icon: Headphones,
+                      title: "24/7 Support",
+                      desc: "We're here whenever you're on the road.",
+                    },
+                  ].map((feature, index) => (
+                    <div
+                      key={feature.title}
+                      className={`flex items-center gap-3 py-3.5 ${
+                        index > 0 ? "border-t border-white/10" : ""
+                      }`}
+                    >
+                      <span className="w-9 h-9 rounded-xl bg-[#bff202] flex items-center justify-center shrink-0">
+                        <feature.icon className="w-4 h-4 text-[#01312D]" />
+                      </span>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-white">
+                          {feature.title}
+                        </p>
+                        <p className="text-[10px] text-white/60 mt-0.5">
+                          {feature.desc}
+                        </p>
+                      </div>
+                      <ShieldCheck className="w-4 h-4 text-[#bff202]" />
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

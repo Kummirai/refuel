@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { useSessionPending } from "@/lib/hooks/useSessionPending";
 import {
   LayoutDashboard,
   Clock,
@@ -23,14 +24,15 @@ export default function ManagerLayout({
   const router = useRouter();
   const pathname = usePathname();
   const { data: session, isPending } = authClient.useSession();
+  const sessionPending = useSessionPending(isPending, 8000);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
-    if (!isPending) {
+    if (!sessionPending) {
       checkAuth();
     }
-  }, [session, isPending]);
+  }, [session, sessionPending]);
 
   const checkAuth = () => {
     if (!session) {
@@ -51,6 +53,32 @@ export default function ManagerLayout({
   };
 
   if (!isAuthorized) {
+    if (!sessionPending) {
+      return (
+        <div className="min-h-screen bg-[#eafde7] flex items-center justify-center px-5">
+          <div className="text-center max-w-sm">
+            <p className="text-[#01312D] font-semibold">Couldn&apos;t verify access</p>
+            <p className="text-sm text-gray-600 mt-1">
+              The connection timed out. Check your network and try again.
+            </p>
+            <div className="flex gap-2 justify-center mt-5">
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 rounded-xl bg-[#3A7717] text-white text-sm font-semibold"
+              >
+                Retry
+              </button>
+              <button
+                onClick={() => router.push("/auth/sign-in")}
+                className="px-4 py-2 rounded-xl bg-white border border-[#bff202]/40 text-[#01312D] text-sm font-semibold"
+              >
+                Sign in
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">

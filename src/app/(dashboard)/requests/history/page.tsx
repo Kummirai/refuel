@@ -38,7 +38,9 @@ import { PopUploadModal } from "@/components/PopUploadModal";
 import { BulkRepaymentModal } from "@/components/BulkRepaymentModal";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import { Skeleton } from "@/components/ui/Skeleton";
+import ConnectingScreen from "@/components/ConnectingScreen";
 import { formatMoney, toMoney } from "@/lib/money";
+import { useSessionPending } from "@/lib/hooks/useSessionPending";
 
 type RequestStatus = "pending" | "approved" | "sent" | "completed" | "rejected";
 type RepaymentStatus = "pending" | "approved" | "rejected";
@@ -96,6 +98,7 @@ interface Request {
 export default function RequestHistoryPage() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
+  const sessionPending = useSessionPending(isPending);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<
@@ -148,6 +151,7 @@ export default function RequestHistoryPage() {
     try {
       const response = await fetch(
         `/api/driver/requests?userId=${session?.user?.id}`,
+        { signal: AbortSignal.timeout(15_000) },
       );
       if (response.ok) {
         const data = await response.json();
@@ -161,6 +165,7 @@ export default function RequestHistoryPage() {
             try {
               const repaymentResponse = await fetch(
                 `/api/driver/repayment-proof/getproof?requestId=${requestId}`,
+                { signal: AbortSignal.timeout(10_000) },
               );
               let repayments = [];
               if (repaymentResponse.ok) {
@@ -977,7 +982,7 @@ export default function RequestHistoryPage() {
     );
   };
 
-  if (isPending) {
+  if (sessionPending) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -989,7 +994,7 @@ export default function RequestHistoryPage() {
   }
 
   if (!session) {
-    return null;
+    return isPending ? <ConnectingScreen message="Still loading your history…" /> : null;
   }
 
   return (

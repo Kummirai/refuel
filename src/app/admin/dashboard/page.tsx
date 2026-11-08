@@ -137,6 +137,13 @@ const pendingActionTiles = [
     color: "#7c3aed",
     href: "/admin/receipts",
   },
+  {
+    key: "deposits",
+    label: "Deposits",
+    icon: Wallet,
+    color: "#0891b2",
+    href: "/admin/deposit-proofs",
+  },
 ] as const;
 
 const managementLinks = [
@@ -187,6 +194,14 @@ const managementLinks = [
     color: "#ca8a04",
     bg: "#fef9c3",
     href: "/admin/receipts",
+  },
+  {
+    label: "Deposit Proofs",
+    sub: "Approve security deposit payments",
+    icon: Wallet,
+    color: "#0891b2",
+    bg: "#ecfeff",
+    href: "/admin/deposit-proofs",
   },
   {
     label: "Verifications",
@@ -2328,7 +2343,7 @@ export default function AdminDashboard() {
           <div className="w-2 h-2 rounded-full bg-[#3A7717]" />
           <h2 className="text-sm font-bold text-[#01312D]">Pending Actions</h2>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {pendingActionTiles.map((tile) => {
             const count =
               notifCounts?.[

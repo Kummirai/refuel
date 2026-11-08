@@ -30,11 +30,14 @@ import {
   UserCircle,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
+import ConnectingScreen from "@/components/ConnectingScreen";
 import { formatMoney, toMoney } from "@/lib/money";
+import { useSessionPending } from "@/lib/hooks/useSessionPending";
 
 export default function DriverDashboard() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
+  const sessionPending = useSessionPending(isPending);
   const userId = session?.user?.id;
 
   const { data: requestsData, error: requestsError, isLoading: requestsLoading, isValidating: requestsValidating, mutate: mutateRequests } = useSWR(
@@ -64,7 +67,8 @@ export default function DriverDashboard() {
   );
   const cashRate = Number(appSettings?.services?.cashInterestRate) || 26;
 
-  const loading = (!requestsData && requestsLoading) || (!profile && profileLoading) || isPending;
+  const dataLoading = (!requestsData && requestsLoading) || (!profile && profileLoading);
+  const loading = dataLoading || sessionPending;
   const refreshing = requestsValidating && !requestsLoading;
 
   const stats = useMemo(() => {
@@ -175,7 +179,7 @@ export default function DriverDashboard() {
     }
   };
 
-  if (isPending) {
+  if (sessionPending) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -187,7 +191,7 @@ export default function DriverDashboard() {
   }
 
   if (!session) {
-    return null;
+    return isPending ? <ConnectingScreen message="Still loading your dashboard…" /> : null;
   }
 
   return (

@@ -29,8 +29,10 @@ import {
   Fuel,
   Star,
   CalendarDays,
+  Wallet,
 } from "lucide-react";
 import { formatMoney } from "@/lib/money";
+import { useSessionPending } from "@/lib/hooks/useSessionPending";
 
 export default function AdminLayout({
   children,
@@ -40,6 +42,7 @@ export default function AdminLayout({
   const router = useRouter();
   const pathname = usePathname();
   const { data: session, isPending } = authClient.useSession();
+  const sessionPending = useSessionPending(isPending, 8000);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -55,33 +58,45 @@ export default function AdminLayout({
   const pendingRequestsCount = counts?.requests ?? 0;
   const pendingRepaymentsCount = counts?.repayments ?? 0;
   const pendingReceiptsCount = counts?.receipts ?? 0;
+  const pendingDepositsCount = counts?.deposits ?? 0;
 
   // Store full data for detailed view
   const [pendingVerifications, setPendingVerifications] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [pendingRepayments, setPendingRepayments] = useState<any[]>([]);
   const [pendingReceipts, setPendingReceipts] = useState<any[]>([]);
+  const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
   const pendingDetailsFetched = useRef(false);
 
   const fetchPendingDetails = async () => {
     try {
-      const [verificationsRes, requestsRes, repaymentsRes, receiptsRes] =
-        await Promise.all([
-          fetch("/api/admin/verifications/pending?limit=5"),
-          fetch("/api/admin/requests?status=pending&limit=5"),
-          fetch("/api/admin/repayments?status=pending&limit=5"),
-          fetch("/api/admin/receipts?status=pending&limit=5"),
-        ]);
+      const [
+        verificationsRes,
+        requestsRes,
+        repaymentsRes,
+        receiptsRes,
+        depositsRes,
+      ] = await Promise.all([
+        fetch("/api/admin/verifications/pending?limit=5"),
+        fetch("/api/admin/requests?status=pending&limit=5"),
+        fetch("/api/admin/repayments?status=pending&limit=5"),
+        fetch("/api/admin/receipts?status=pending&limit=5"),
+        fetch("/api/admin/deposit-proofs?status=pending"),
+      ]);
 
       const verifications = await verificationsRes.json();
       const requests = await requestsRes.json();
       const repayments = await repaymentsRes.json();
       const receipts = await receiptsRes.json();
+      const deposits = await depositsRes.json();
 
       setPendingVerifications(verifications.data || verifications || []);
       setPendingRequests(requests.data || requests || []);
       setPendingRepayments(repayments.data || repayments || []);
       setPendingReceipts(receipts.data || receipts || []);
+      setPendingDeposits(
+        (Array.isArray(deposits) ? deposits : deposits.data || []).slice(0, 5),
+      );
     } catch (error) {
       console.error("Error fetching pending details:", error);
     }
@@ -109,10 +124,10 @@ export default function AdminLayout({
   }, [isAuthorized, showNotifications, refreshCounts]);
 
   useEffect(() => {
-    if (!isPending) {
+    if (!sessionPending) {
       checkAuth();
     }
-  }, [session, isPending]);
+  }, [session, sessionPending]);
 
   const checkAuth = () => {
     if (!session) {
@@ -135,6 +150,32 @@ export default function AdminLayout({
   };
 
   if (!isAuthorized) {
+    if (!sessionPending) {
+      return (
+        <div className="min-h-screen bg-[#eafde7] flex items-center justify-center px-5">
+          <div className="text-center max-w-sm">
+            <p className="text-[#01312D] font-semibold">Couldn&apos;t verify access</p>
+            <p className="text-sm text-gray-600 mt-1">
+              The connection timed out. Check your network and try again.
+            </p>
+            <div className="flex gap-2 justify-center mt-5">
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 rounded-xl bg-[#3A7717] text-white text-sm font-semibold"
+              >
+                Retry
+              </button>
+              <button
+                onClick={() => router.push("/auth/sign-in")}
+                className="px-4 py-2 rounded-xl bg-white border border-[#bff202]/40 text-[#01312D] text-sm font-semibold"
+              >
+                Sign in
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -150,7 +191,8 @@ export default function AdminLayout({
     pendingVerificationsCount +
     pendingRequestsCount +
     pendingRepaymentsCount +
-    pendingReceiptsCount;
+    pendingReceiptsCount +
+    pendingDepositsCount;
 
   const navItems = [
     {
@@ -183,6 +225,14 @@ export default function AdminLayout({
       active: pathname === "/admin/receipts",
       badge: pendingReceiptsCount,
       badgeColor: "bg-purple-500",
+    },
+    {
+      icon: Wallet,
+      label: "Deposit Proofs",
+      path: "/admin/deposit-proofs",
+      active: pathname === "/admin/deposit-proofs",
+      badge: pendingDepositsCount,
+      badgeColor: "bg-cyan-500",
     },
     {
       icon: DollarSign,
@@ -507,9 +557,62 @@ export default function AdminLayout({
                   </div>
                 )}
 
+                {/* Deposit Proofs Section */}
+                {pendingDepositsCount > 0 && (
+                  <div className="p-4 hover:bg-cyan-50/50 transition-colors">
+                    <button
+                      onClick={() => handleNavigate("/admin/deposit-proofs")}
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 bg-cyan-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <Wallet className="w-5 h-5 text-cyan-600" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-[#01312D]">
+                              Deposit Proofs
+                            </span>
+                            <span className="text-xs bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full">
+                              {pendingDepositsCount} pending
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {pendingDepositsCount} security deposit payment
+                            {pendingDepositsCount !== 1 ? "s" : ""} awaiting
+                            approval
+                          </p>
+                          {pendingDeposits.slice(0, 2).map((proof: any, idx) => (
+                            <div
+                              key={idx}
+                              className="mt-2 text-xs text-gray-400 flex items-center gap-2"
+                            >
+                              <Clock className="w-3 h-3" />
+                              <span>
+                                {proof.driverName || "Driver"} -{" "}
+                                {formatMoney(proof.amount)} • Week of{" "}
+                                {proof.weekStart
+                                  ? new Date(
+                                      proof.weekStart,
+                                    ).toLocaleDateString()
+                                  : "N/A"}
+                              </span>
+                            </div>
+                          ))}
+                          {pendingDepositsCount > 2 && (
+                            <p className="text-xs text-cyan-600 mt-1">
+                              +{pendingDepositsCount - 2} more
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                )}
+
                 {/* Footer */}
                 <div className="p-3 bg-gray-50 border-t border-gray-100">
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     {pendingVerificationsCount > 0 && (
                       <button
                         onClick={() => handleNavigate("/admin/verifications")}
@@ -542,6 +645,19 @@ export default function AdminLayout({
                         <DollarSign className="w-4 h-4 text-green-600 mx-auto" />
                         <span className="text-xs text-gray-600 mt-1 block">
                           Repayments
+                        </span>
+                      </button>
+                    )}
+                    {pendingDepositsCount > 0 && (
+                      <button
+                        onClick={() =>
+                          handleNavigate("/admin/deposit-proofs")
+                        }
+                        className="text-center p-2 rounded-lg hover:bg-cyan-100 transition-colors"
+                      >
+                        <Wallet className="w-4 h-4 text-cyan-600 mx-auto" />
+                        <span className="text-xs text-gray-600 mt-1 block">
+                          Deposits
                         </span>
                       </button>
                     )}

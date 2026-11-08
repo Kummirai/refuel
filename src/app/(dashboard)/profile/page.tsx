@@ -3,7 +3,15 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { authClient } from "@/lib/auth-client";
+import { fetcher } from "@/lib/fetch";
+import {
+  formatDepositDate,
+  formatDepositMoney,
+  getDepositTierConfig,
+  type DriverDepositSummary,
+} from "@/lib/deposit-ui";
 import BottomNavigation from "@/components/BottomNavigation";
 import { compressImage } from "@/lib/utils/image-compression";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
@@ -39,15 +47,25 @@ import {
   DollarSign,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
+import ConnectingScreen from "@/components/ConnectingScreen";
 import { formatMoney, toMoney } from "@/lib/money";
+import { useSessionPending } from "@/lib/hooks/useSessionPending";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
+  const sessionPending = useSessionPending(isPending);
   const [loading, setLoading] = useState(true);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [activeTab, setActiveTab] = useState<"profile" | "loans" | "settings">(
     "profile",
+  );
+  const { data: deposit } = useSWR<DriverDepositSummary>(
+    session?.user?.id
+      ? `/api/driver/deposit?userId=${session.user.id}`
+      : null,
+    fetcher,
+    { refreshInterval: 60_000 },
   );
   const [profile, setProfile] = useState<any>(null);
   const [allRequests, setAllRequests] = useState<any[]>([]);
@@ -117,12 +135,20 @@ export default function ProfilePage() {
     }
   }, [session, isPending]);
 
+  // Never leave the profile skeletons up forever if a request stalls.
+  useEffect(() => {
+    if (!loading) return;
+    const timer = setTimeout(() => setLoading(false), 15_000);
+    return () => clearTimeout(timer);
+  }, [loading]);
+
   const fetchProfile = async () => {
     try {
       setLoading(true);
+      const signal = AbortSignal.timeout(15_000);
       const [profileRes, requestsRes] = await Promise.all([
-        fetch(`/api/driver/profile?userId=${session?.user?.id}`),
-        fetch(`/api/driver/requests?userId=${session?.user?.id}`),
+        fetch(`/api/driver/profile?userId=${session?.user?.id}`, { signal }),
+        fetch(`/api/driver/requests?userId=${session?.user?.id}`, { signal }),
       ]);
 
       if (profileRes.ok) {
@@ -531,7 +557,7 @@ export default function ProfilePage() {
     }
   };
 
-  if (isPending) {
+  if (sessionPending) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -543,7 +569,7 @@ export default function ProfilePage() {
   }
 
   if (!session) {
-    return null;
+    return isPending ? <ConnectingScreen message="Still loading your profile…" /> : null;
   }
 
   // Format full address
@@ -759,6 +785,86 @@ export default function ProfilePage() {
         {/* Profile Tab */}
         {activeTab === "profile" && (
           <div className="space-y-4">
+            {!deposit ? (
+              <Skeleton className="h-40 w-full rounded-2xl" />
+            ) : !deposit.tier ? (
+              <button
+                onClick={() => router.push("/deposit")}
+                className="w-full text-left rounded-2xl bg-linear-to-br from-[#01312D] to-[#3A7717] p-5"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-[#bff202] flex items-center justify-center shrink-0">
+                    <Shield className="w-5 h-5 text-[#01312D]" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-white font-bold">Security deposit</p>
+                    <p className="text-white/70 text-xs mt-1">
+                      Choose R1,500 or R2,500 to unlock your weekly fuel credit.
+                    </p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-[#bff202]" />
+                </div>
+              </button>
+            ) : (
+              <button
+                onClick={() => router.push("/deposit")}
+                className="w-full text-left rounded-2xl bg-linear-to-br from-[#01312D] to-[#3A7717] p-5"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-[#bff202]" />
+                    <p className="text-white font-bold">Security deposit</p>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/15 text-white">
+                    {getDepositTierConfig(deposit.tier)?.name ?? deposit.tier}
+                  </span>
+                </div>
+                <p className="text-white text-2xl font-extrabold mt-3">
+                  {formatDepositMoney(deposit.securityDepositBalance)}
+                </p>
+                <p className="text-white/60 text-xs">
+                  of {formatDepositMoney(deposit.targetDepositAmount)} target
+                </p>
+                <div className="h-1.5 rounded-full bg-white/15 mt-3 overflow-hidden">
+                  <div
+                    className="h-1.5 rounded-full bg-[#bff202]"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        deposit.targetDepositAmount > 0
+                          ? (deposit.securityDepositBalance /
+                              deposit.targetDepositAmount) *
+                              100
+                          : 0,
+                      )}%`,
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-3">
+                  <p className="text-white/70 text-xs">
+                    {formatDepositMoney(deposit.weeklyDepositInstallment)} weekly ·{" "}
+                    {deposit.weeksPaid}/{getDepositTierConfig(deposit.tier)?.totalWeeks ?? 0}{" "}
+                    weeks paid
+                  </p>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      deposit.weeklyInstallmentPaid
+                        ? "bg-[#bff202] text-[#01312D]"
+                        : "bg-red-500/20 text-red-100"
+                    }`}
+                  >
+                    {deposit.depositComplete
+                      ? "Complete"
+                      : deposit.weeklyInstallmentPaid
+                        ? "This week paid"
+                        : deposit.currentWeek.pendingProofId
+                          ? "In review"
+                          : `Due ${formatDepositDate(deposit.currentWeek.start)}`}
+                  </span>
+                </div>
+              </button>
+            )}
+
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
               <h3 className="font-bold text-[#01312D] mb-3 flex items-center gap-2">
                 <User className="w-4 h-4 text-[#3A7717]" />

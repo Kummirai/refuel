@@ -4,6 +4,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import ConnectingScreen from "@/components/ConnectingScreen";
+import { useBoundedFlag, useSessionPending } from "@/lib/hooks/useSessionPending";
 import { compressImage } from "@/lib/utils/image-compression";
 import {
   ArrowLeft,
@@ -248,10 +250,12 @@ function UploadSection({
 export default function VerifyPage() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
+  const sessionPending = useSessionPending(isPending);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [fetchingProfile, setFetchingProfile] = useState(true);
+  const boundedFetchingProfile = useBoundedFlag(fetchingProfile, 15_000);
   const [verificationStatus, setVerificationStatus] = useState<string>("");
   const [shouldRedirect, setShouldRedirect] = useState(false);
 
@@ -362,6 +366,7 @@ export default function VerifyPage() {
     try {
       const response = await fetch(
         `/api/driver/profile?userId=${session?.user?.id}`,
+        { signal: AbortSignal.timeout(15_000) },
       );
       if (response.ok) {
         const profile = await response.json();
@@ -578,7 +583,7 @@ export default function VerifyPage() {
     );
   }
 
-  if (isPending || fetchingProfile) {
+  if (sessionPending || boundedFetchingProfile) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -590,7 +595,7 @@ export default function VerifyPage() {
   }
 
   if (!session) {
-    return null;
+    return isPending ? <ConnectingScreen message="Still loading your account…" /> : null;
   }
 
   // Submit success
