@@ -572,7 +572,7 @@ export default function HomePage() {
                 {isLoggedIn ? "Manage your" : "Fuel today."}
               </h1>
               <p className="text-[34px] leading-9 font-extrabold text-[#bff202] tracking-tight">
-                {isLoggedIn ? "drivers." : "Work and pay later."}
+                {isLoggedIn ? "drivers." : "Work n Pay Later"}
               </p>
 
               <p className="text-xs text-white/70 leading-relaxed mt-4 max-w-[80%]">
@@ -758,22 +758,22 @@ export default function HomePage() {
 
         {/* APK download banner */}
         {!isAdmin && (
-          <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-[#01312D] to-[#3A7717] p-5 mb-10 shadow-xl">
+          <div className="relative overflow-hidden rounded-3xl bg-black p-5 mb-10 shadow-xl">
             <div className="absolute -right-10 -top-14 w-40 h-40 rounded-full bg-[#bff202]/10 pointer-events-none" />
             <div className="relative z-10 flex items-start gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-[#bff202]/15 border border-[#bff202]/25 flex items-center justify-center shrink-0">
-                <Smartphone className="w-6 h-6 text-[#bff202]" />
+              <div className="w-12 h-12 rounded-2xl bg-[#bff202] flex items-center justify-center shrink-0">
+                <Smartphone className="w-6 h-6 text-[#01312D]" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-base font-extrabold text-white">
                     Get Kapuka on Android
                   </p>
-                  <span className="rounded-full bg-white/10 px-2 py-0.5 text-[9px] font-bold text-[#bff202]">
+                  <span className="rounded-full bg-[#bff202] px-2 py-0.5 text-[9px] font-extrabold text-[#01312D]">
                     APK
                   </span>
                 </div>
-                <p className="text-[11px] text-white/70 leading-relaxed mt-1">
+                <p className="text-[11px] text-white/80 leading-relaxed mt-1">
                   Download the app to request fuel, track your deposit and get
                   updates on the go.
                 </p>
@@ -788,7 +788,7 @@ export default function HomePage() {
                     <Download className="w-4 h-4" />
                     Download APK
                   </a>
-                  <span className="text-[10px] text-white/50">
+                  <span className="text-[10px] text-white/70">
                     Latest release · GitHub
                   </span>
                 </div>
