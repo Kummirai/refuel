@@ -598,13 +598,13 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => router.push("/requests")}
-            className="w-full mb-8 rounded-2xl bg-linear-to-r from-[#01312D] to-[#3A7717] px-4 py-3.5 flex items-center gap-2 shadow-lg shadow-[#01312D]/10 active:scale-[0.99] transition-all"
+            className="w-full mb-8 rounded-2xl bg-[#bff202] px-5 py-4 flex items-center gap-3 shadow-lg shadow-[#01312D]/15 active:scale-[0.99] transition-all"
           >
-            <Zap className="w-4 h-4 text-[#bff202]" />
-            <span className="flex-1 text-left text-xs font-bold text-white">
+            <Zap className="w-5 h-5 text-[#01312D]" />
+            <span className="flex-1 text-left text-base font-extrabold text-[#01312D]">
               Make a request
             </span>
-            <ChevronRight className="w-4 h-4 text-white/80" />
+            <ChevronRight className="w-5 h-5 text-[#01312D]" />
           </button>
         ) : (
           <div className="mb-8 rounded-2xl bg-linear-to-r from-[#bff202] to-[#72bf00] px-2 py-3 flex items-stretch shadow-lg shadow-[#01312D]/10">
