@@ -90,6 +90,10 @@ export async function connectToDatabase() {
   await db.collection("repaymentProofs").createIndex({ requestIds: 1 });
   await db.collection("repaymentProofs").createIndex({ status: 1 });
 
+  // Security deposit proofs
+  await db.collection("depositProofs").createIndex({ userId: 1, weekStart: -1 });
+  await db.collection("depositProofs").createIndex({ status: 1, submittedAt: -1 });
+
   // User collection — queried by role for driver listing
   await db.collection("user").createIndex({ role: 1 });
 

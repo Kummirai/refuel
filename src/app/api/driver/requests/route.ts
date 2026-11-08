@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { formatMoney, toMoney } from "@/lib/money";
 import { getDriverFuelCredit, isFuelCreditEnabled } from "@/lib/fuel-credit";
+import { getFuelInterestRate } from "@/lib/deposit";
 import { sendAdminNotificationEmail } from "@/lib/email";
 import { sendPushNotification, sendAdminPushNotification } from "@/lib/notifications";
 import { ObjectId } from "mongodb";
@@ -185,15 +186,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Enforce weekly fuel credit limit (when enabled in admin settings)
+    // Enforce tier-based weekly fuel credit (when enabled in admin settings)
     if (type === "fuel" && (await isFuelCreditEnabled(db))) {
       const credit = await getDriverFuelCredit(db, userId);
       const requested = Number(amount);
+
+      if (!credit.depositTier) {
+        return NextResponse.json(
+          {
+            error: "Security Deposit Required",
+            message:
+              "Accept your R1,500 or R2,500 security deposit contract before requesting fuel.",
+            credit,
+          },
+          { status: 403 },
+        );
+      }
+
       if (Number.isFinite(requested) && requested > credit.remaining) {
         return NextResponse.json(
           {
             error: "Weekly Fuel Credit Exceeded",
-            message: `You have ${formatMoney(credit.remaining)} left of your ${formatMoney(credit.limit)} weekly fuel credit (resets Monday).`,
+            message: credit.weeklyDepositPaid
+              ? `You have ${formatMoney(credit.remaining)} left of your ${formatMoney(credit.limit)} weekly fuel credit (resets Monday).`
+              : `You have ${formatMoney(credit.remaining)} available this week. ${formatMoney(credit.weeklyInstallment)} is withheld until your weekly deposit installment is approved.`,
             credit,
           },
           { status: 403 },
@@ -215,9 +231,9 @@ export async function POST(request: NextRequest) {
       driverEmail: driverEmail || "",
       interest: interest ?? 0,
       totalRepayable: totalRepayable ?? amount,
-      interestRate: interestRate ?? 13,
+      interestRate: interestRate ?? getFuelInterestRate(),
       repaymentDays: repaymentDays ?? 7,
-      dailyPayment: dailyPayment ?? toMoney((amount * 1.13) / 7),
+      dailyPayment: dailyPayment ?? toMoney((amount * (1 + getFuelInterestRate() / 100)) / 7),
       package: packageName || null,
       packageDescription: packageDescription || null,
       status: "pending",

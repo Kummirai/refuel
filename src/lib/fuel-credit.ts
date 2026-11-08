@@ -1,6 +1,14 @@
 // src/lib/fuel-credit.ts
 import { Db } from "mongodb";
 import { toMoney } from "./money";
+import {
+  buildDriverDepositSummary,
+  calculateEffectiveCreditLimit,
+  getBaseCreditLimit,
+  getDepositTierConfig,
+  type DepositTier,
+  type DriverProfileDepositFields,
+} from "./deposit";
 
 export const DEFAULT_WEEKLY_FUEL_CREDIT = 2500;
 
@@ -17,6 +25,13 @@ export interface DriverFuelCredit {
   weekEnd: Date;
   isDefaultLimit: boolean;
   enabled: boolean;
+  baseLimit: number;
+  effectiveLimit: number;
+  weeklyInstallment: number;
+  weeklyDepositPaid: boolean;
+  depositComplete: boolean;
+  depositTier: DepositTier | null;
+  securityDepositBalance: number;
 }
 
 // Monday 00:00 → next Monday 00:00 (local time)
@@ -59,21 +74,22 @@ export async function getDefaultWeeklyFuelCredit(db: Db): Promise<number> {
   return (await getFuelCreditConfig(db)).defaultLimit;
 }
 
-// Counts pending + approved + sent + completed fuel requests in the current week
+// Counts pending + approved + sent + completed fuel requests in the current week.
+// The limit is tier-based: the driver's chosen deposit tier sets the base, and
+// an unpaid weekly deposit installment withholds one installment from it.
 export async function getDriverFuelCredit(
   db: Db,
   userId: string,
   week: FuelCreditWeek = getFuelCreditWeek(),
 ): Promise<DriverFuelCredit> {
   const [profile, config] = await Promise.all([
-    db.collection("driverProfiles").findOne({ userId }),
+    db
+      .collection<DriverProfileDepositFields>("driverProfiles")
+      .findOne({ userId }),
     getFuelCreditConfig(db),
   ]);
-  const defaultLimit = config.defaultLimit;
 
-  const override = Number(profile?.fuelCreditLimit);
-  const hasOverride = Number.isFinite(override) && override >= 0;
-  const limit = hasOverride ? toMoney(override) : defaultLimit;
+  const deposit = await buildDriverDepositSummary(db, userId, profile);
 
   const rows = await db
     .collection("serviceRequests")
@@ -94,6 +110,10 @@ export async function getDriverFuelCredit(
     ),
   );
 
+  const override = Number(profile?.fuelCreditLimit);
+  const hasOverride = Number.isFinite(override) && override >= 0;
+  const limit = deposit.effectiveCreditLimit;
+
   return {
     limit,
     used,
@@ -102,16 +122,25 @@ export async function getDriverFuelCredit(
     weekEnd: week.endDate,
     isDefaultLimit: !hasOverride,
     enabled: config.enabled,
+    baseLimit: deposit.baseCreditLimit,
+    effectiveLimit: limit,
+    weeklyInstallment: deposit.weeklyDepositInstallment,
+    weeklyDepositPaid: deposit.weeklyInstallmentPaid,
+    depositComplete: deposit.depositComplete,
+    depositTier: deposit.tier,
+    securityDepositBalance: deposit.securityDepositBalance,
   };
 }
 
-// Per-driver credits for all drivers, in a single week-window query each
+// Per-driver credits for all drivers, in a single week-window query each.
+// Limits are tier-based (deposit target) with the withheld installment applied
+// when the current week's deposit proof has not been approved yet.
 export async function getAllDriverFuelCredits(db: Db) {
   const week = getFuelCreditWeek();
   const config = await getFuelCreditConfig(db);
   const defaultLimit = config.defaultLimit;
 
-  const [profiles, usageRows] = await Promise.all([
+  const [profiles, usageRows, approvedDepositRows] = await Promise.all([
     db.collection("driverProfiles").find({}).project({
       userId: 1,
       name: 1,
@@ -120,12 +149,21 @@ export async function getAllDriverFuelCredits(db: Db) {
       driverEmail: 1,
       carRegistrationNumber: 1,
       fuelCreditLimit: 1,
+      depositTier: 1,
+      targetDepositAmount: 1,
+      weeklyDepositInstallment: 1,
+      securityDepositBalance: 1,
+      depositStatus: 1,
     }).toArray(),
     db.collection("serviceRequests").find({
       type: "fuel",
       status: { $in: ["pending", "approved", "sent", "completed"] },
       requestDate: { $gte: week.startDate, $lt: week.endDate },
     }).project({ userId: 1, amount: 1, actualAmount: 1 }).toArray(),
+    db.collection("depositProofs").find({
+      status: "approved",
+      weekStart: week.startDate,
+    }).project({ userId: 1 }).toArray(),
   ]);
 
   const usageByUser = new Map<string, number>();
@@ -137,12 +175,44 @@ export async function getAllDriverFuelCredits(db: Db) {
     );
   }
 
+  const depositPaidThisWeek = new Set(
+    approvedDepositRows.map((row: { userId?: string }) => row.userId),
+  );
+
   const drivers = profiles
     .filter((p) => p.userId)
     .map((p) => {
+      const tier: DepositTier | null =
+        p.depositTier === "TIER_1" || p.depositTier === "TIER_2"
+          ? p.depositTier
+          : null;
+      const tierConfig = getDepositTierConfig(tier);
+      const target = tierConfig
+        ? tierConfig.targetAmount
+        : toMoney(Number(p.targetDepositAmount) || 0);
+      const installment = tierConfig
+        ? tierConfig.weeklyInstallment
+        : toMoney(Number(p.weeklyDepositInstallment) || 0);
+      const balance = toMoney(Number(p.securityDepositBalance) || 0);
+      const depositComplete = target > 0 && balance >= target;
+      const weeklyDepositPaid =
+        depositComplete || depositPaidThisWeek.has(p.userId);
+
       const override = Number(p.fuelCreditLimit);
       const hasOverride = Number.isFinite(override) && override >= 0;
-      const limit = hasOverride ? toMoney(override) : defaultLimit;
+      const baseLimit = hasOverride
+        ? toMoney(override)
+        : getBaseCreditLimit(tier);
+      const limit = tier
+        ? depositComplete
+          ? toMoney(baseLimit)
+          : calculateEffectiveCreditLimit(
+              baseLimit,
+              installment,
+              weeklyDepositPaid,
+            )
+        : 0;
+
       const used = toMoney(usageByUser.get(p.userId) || 0);
       return {
         userId: p.userId,
@@ -153,6 +223,13 @@ export async function getAllDriverFuelCredits(db: Db) {
         used,
         remaining: toMoney(Math.max(0, limit - used)),
         isDefault: !hasOverride,
+        depositTier: tier,
+        baseLimit,
+        weeklyInstallment: installment,
+        weeklyDepositPaid,
+        depositComplete,
+        securityDepositBalance: target > 0 ? Math.min(balance, target) : balance,
+        depositStatus: p.depositStatus || "ACTIVE",
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));

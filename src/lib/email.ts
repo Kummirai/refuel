@@ -2058,4 +2058,349 @@ export async function sendAdminProfileChangeEmail(data: {
   }
 }
 
+// ------------------------- Security Deposit emails -------------------------
+
+export async function sendAdminDepositContractEmail(data: {
+  driverName: string;
+  driverEmail: string;
+  driverPhone: string;
+  carRegistration: string;
+  tierName: string;
+  targetAmount: number;
+  weeklyInstallment: number;
+  totalWeeks: number;
+  acceptedAt: string;
+}) {
+  const adminEmails = getAdminEmails();
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Security Deposit Contract Accepted</title>
+      <style>${globalStyles}</style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Kapuka Tradings</h1>
+          <p>Security Deposit Contract Accepted</p>
+        </div>
+        <div class="content">
+          <div style="text-align: center;">
+            <span class="badge badge-approved">ACCEPTED</span>
+          </div>
+
+          <div class="driver-highlight">
+            <div class="driver-name">${data.driverName}</div>
+            <div class="car-reg">${data.carRegistration}</div>
+            <div class="info-row" style="margin-top: 12px;"><span class="label">Email:</span><span class="value">${data.driverEmail}</span></div>
+            <div class="info-row"><span class="label">Phone:</span><span class="value">${data.driverPhone}</span></div>
+          </div>
+
+          <div class="amount-card">
+            <div class="amount-label">Security Deposit</div>
+            <div class="amount-value">${formatMoney(data.targetAmount)}</div>
+            <div style="margin-top: 8px; font-size: 14px; color: #2d6a4f;">${data.tierName}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Payment Plan</div>
+            <div class="info-row"><span class="label">Weekly installment:</span><span class="value">${formatMoney(data.weeklyInstallment)}</span></div>
+            <div class="info-row"><span class="label">Plan length:</span><span class="value">${data.totalWeeks} weeks</span></div>
+            <div class="info-row"><span class="label">Accepted:</span><span class="value">${formatDateTime(data.acceptedAt)}</span></div>
+          </div>
+
+          <div class="validity-box">
+            <div class="validity-text">PROOF OF PAYMENT</div>
+            <div style="margin-top: 8px; font-size: 13px; color: #92400e;">The driver will upload a proof of payment each week. Approve the proof to credit the security deposit balance.</div>
+          </div>
+
+          <div style="text-align: center; font-size: 13px; color: #6c757d;">
+            Review deposit proofs in the Kapuka admin app.
+          </div>
+        </div>
+        <div class="footer">
+          <p>Kapuka Tradings - Automated Notification</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
+      to: adminEmails,
+      subject: `Security Deposit Accepted - ${data.driverName} - ${data.tierName}`,
+      html,
+      text: `${data.driverName} accepted the ${data.tierName} security deposit contract: ${formatMoney(data.targetAmount)} over ${data.totalWeeks} weeks at ${formatMoney(data.weeklyInstallment)} per week.`,
+    });
+    console.log("Admin deposit contract email sent to:", adminEmails.join(", "));
+    return info;
+  } catch (error) {
+    console.error("Error sending admin deposit contract email:", error);
+    return null;
+  }
+}
+
+export async function sendAdminDepositProofEmail(data: {
+  driverName: string;
+  driverEmail: string;
+  driverPhone: string;
+  carRegistration: string;
+  tierName: string;
+  amount: number;
+  securityDepositBalance: number;
+  targetDepositAmount: number;
+  proofUrl: string;
+  submittedAt: string;
+  proofId: string;
+}) {
+  const adminEmails = getAdminEmails();
+  const balanceAfter = Math.min(
+    data.targetDepositAmount,
+    data.securityDepositBalance + data.amount,
+  );
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>New Deposit Proof Submitted</title>
+      <style>${globalStyles}</style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Kapuka Tradings</h1>
+          <p>New Deposit Proof Submitted</p>
+        </div>
+        <div class="content">
+          <div style="text-align: center;">
+            <span class="badge badge-pending">PENDING REVIEW</span>
+          </div>
+
+          <div class="driver-highlight">
+            <div class="driver-name">${data.driverName}</div>
+            <div class="car-reg">${data.carRegistration}</div>
+            <div class="info-row" style="margin-top: 12px;"><span class="label">Email:</span><span class="value">${data.driverEmail}</span></div>
+            <div class="info-row"><span class="label">Phone:</span><span class="value">${data.driverPhone}</span></div>
+          </div>
+
+          <div class="amount-card">
+            <div class="amount-label">Deposit Amount</div>
+            <div class="amount-value">${formatMoney(data.amount)}</div>
+            <div style="margin-top: 8px; font-size: 14px; color: #2d6a4f;">${data.tierName}</div>
+          </div>
+
+          <div class="remaining-box">
+            <div style="font-weight: bold; margin-bottom: 8px;">Security Deposit After Approval</div>
+            <div class="remaining-value">${formatMoney(balanceAfter)} of ${formatMoney(data.targetDepositAmount)}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Payment Details</div>
+            <div class="info-row"><span class="label">Proof ID:</span><span class="value">${data.proofId.slice(-8).toUpperCase()}</span></div>
+            <div class="info-row"><span class="label">Submitted:</span><span class="value">${formatDateTime(data.submittedAt)}</span></div>
+          </div>
+
+          <div class="proof-box">
+            <a href="${data.proofUrl}" target="_blank" style="color: #2d6a4f; font-weight: 600; text-decoration: underline;">View Proof of Payment Document</a>
+          </div>
+
+          <div class="validity-box">
+            <div class="validity-text">ACTION REQUIRED</div>
+            <div style="margin-top: 8px; font-size: 13px; color: #92400e;">Please review the proof and approve or reject the deposit payment.</div>
+          </div>
+
+          <div style="text-align: center; font-size: 13px; color: #6c757d;">
+            Review deposit proofs in the Kapuka admin app.
+          </div>
+        </div>
+        <div class="footer">
+          <p>Kapuka Tradings - Automated Notification</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
+      to: adminEmails,
+      subject: `New Deposit Proof - ${data.driverName} - ${formatMoney(data.amount)}`,
+      html,
+      text: `New security deposit proof submitted by ${data.driverName} for ${formatMoney(data.amount)}.`,
+    });
+    console.log("Admin deposit proof email sent to:", adminEmails.join(", "));
+    return info;
+  } catch (error) {
+    console.error("Error sending admin deposit proof email:", error);
+    return null;
+  }
+}
+
+export async function sendDriverDepositApprovalEmail(data: {
+  driverEmail: string;
+  driverName: string;
+  carRegistration: string;
+  tierName: string;
+  amount: number;
+  securityDepositBalance: number;
+  targetDepositAmount: number;
+  depositComplete: boolean;
+  weekStart: string;
+}) {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${data.depositComplete ? "Security Deposit Complete" : "Deposit Payment Approved"}</title>
+      <style>${globalStyles}</style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header" style="background-color: ${data.depositComplete ? "#25a73d" : "#2d6a4f"};">
+          <h1>${data.depositComplete ? "Security Deposit Complete!" : "Deposit Payment Approved"}</h1>
+          <p>${data.depositComplete ? "Your security deposit is fully funded" : "Your payment has been verified"}</p>
+        </div>
+        <div class="content">
+          <div style="text-align: center;">
+            <span class="badge badge-approved">${data.depositComplete ? "COMPLETE" : "APPROVED"}</span>
+          </div>
+
+          <div class="driver-highlight">
+            <div class="driver-name">${data.driverName}</div>
+            <div class="car-reg">${data.carRegistration}</div>
+          </div>
+
+          <div class="amount-card">
+            <div class="amount-label">Payment Amount</div>
+            <div class="amount-value">${formatMoney(data.amount)}</div>
+            <div style="margin-top: 8px;">Week of ${formatDate(data.weekStart)}</div>
+          </div>
+
+          <div class="remaining-box">
+            <div style="font-weight: bold; margin-bottom: 8px;">Security Deposit Balance</div>
+            <div class="remaining-value">${formatMoney(data.securityDepositBalance)} of ${formatMoney(data.targetDepositAmount)}</div>
+            <div style="margin-top: 8px; font-size: 12px; color: #92400e;">${data.depositComplete ? "Your fuel credit limit is now fully restored." : "Keep paying weekly to reach your target."}</div>
+          </div>
+
+          <div style="text-align: center; font-size: 13px; color: #6c757d;">
+            View your security deposit and upload your next proof in the Kapuka app.
+          </div>
+        </div>
+        <div class="footer">
+          <p>Kapuka Tradings - Automated Notification</p>
+          <p>This is an automated message, please do not reply.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
+      to: data.driverEmail,
+      subject: data.depositComplete
+        ? "Security Deposit Complete - Kapuka"
+        : `Deposit Payment of ${formatMoney(data.amount)} Approved - Kapuka`,
+      html,
+      text: data.depositComplete
+        ? `Your ${formatMoney(data.amount)} deposit payment was approved. Your security deposit is complete.`
+        : `Your ${formatMoney(data.amount)} deposit payment was approved. Balance: ${formatMoney(data.securityDepositBalance)} of ${formatMoney(data.targetDepositAmount)}.`,
+    });
+    console.log("Driver deposit approval email sent:", info.messageId);
+    return info;
+  } catch (error) {
+    console.error("Error sending driver deposit approval email:", error);
+    return null;
+  }
+}
+
+export async function sendDriverDepositRejectionEmail(data: {
+  driverEmail: string;
+  driverName: string;
+  carRegistration: string;
+  tierName: string;
+  amount: number;
+  reason: string;
+  weekStart: string;
+}) {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Deposit Payment Rejected</title>
+      <style>${globalStyles}</style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header" style="background-color: #dc2626;">
+          <h1>Deposit Payment Rejected</h1>
+          <p>Your proof of payment could not be verified</p>
+        </div>
+        <div class="content">
+          <div style="text-align: center;">
+            <span class="badge badge-rejected">REJECTED</span>
+          </div>
+
+          <div class="driver-highlight">
+            <div class="driver-name">${data.driverName}</div>
+            <div class="car-reg">${data.carRegistration}</div>
+          </div>
+
+          <div class="amount-card">
+            <div class="amount-label">Deposit Amount</div>
+            <div class="amount-value">${formatMoney(data.amount)}</div>
+            <div style="margin-top: 8px;">Week of ${formatDate(data.weekStart)}</div>
+          </div>
+
+          <div class="validity-box">
+            <div class="validity-text">Reason for rejection</div>
+            <div style="margin-top: 8px; font-size: 13px; color: #92400e;">${data.reason}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">What to do next</div>
+            <div style="font-size: 14px; color: #6c757d; line-height: 1.6;">Upload a valid proof of payment for the current week from the Deposits screen in the Kapuka app.</div>
+          </div>
+        </div>
+        <div class="footer">
+          <p>Kapuka Tradings - Automated Notification</p>
+          <p>This is an automated message, please do not reply.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"Kapuka" <noreply@kapuka.com>',
+      to: data.driverEmail,
+      subject: `Deposit Payment of ${formatMoney(data.amount)} Rejected - Kapuka`,
+      html,
+      text: `Your deposit payment of ${formatMoney(data.amount)} was rejected. Reason: ${data.reason}`,
+    });
+    console.log("Driver deposit rejection email sent:", info.messageId);
+    return info;
+  } catch (error) {
+    console.error("Error sending driver deposit rejection email:", error);
+    return null;
+  }
+}
+
+
 
