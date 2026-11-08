@@ -8,7 +8,7 @@ export type AppVersionInfo = {
   forceUpdate: boolean;
 };
 
-const LATEST_VERSION = process.env.KAPUKA_APP_VERSION ?? "1.0.0";
+const LATEST_VERSION = process.env.KAPUKA_APP_VERSION ?? "1.0.1";
 
 /**
  * Source of truth for the mobile update prompt. Release ritual:
