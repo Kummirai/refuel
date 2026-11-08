@@ -572,7 +572,7 @@ export default function HomePage() {
                 {isLoggedIn ? "Manage your" : "Fuel today."}
               </h1>
               <p className="text-[34px] leading-9 font-extrabold text-[#bff202] tracking-tight">
-                {isLoggedIn ? "drivers." : "Pay weekly."}
+                {isLoggedIn ? "drivers." : "Work and pay later."}
               </p>
 
               <p className="text-xs text-white/70 leading-relaxed mt-4 max-w-[80%]">

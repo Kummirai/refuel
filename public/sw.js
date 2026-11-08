@@ -51,6 +51,9 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Local development rebuilds chunk URLs in place; caching them hides edits.
+  if (["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname)) return;
+
   if (request.method !== "GET") return;
   if (url.origin !== self.location.origin) return;
 
