@@ -522,22 +522,22 @@ export default function HomePage() {
 
         {/* Promotional refueling rate banner */}
         {!isAdmin && isPromotionalRateActive() && (
-          <div className="relative overflow-hidden rounded-3xl mb-5 bg-linear-to-br from-[#dc2626] via-[#e11d48] to-[#b91c1c] shadow-lg shadow-red-600/25">
+          <div className="relative overflow-hidden rounded-3xl mb-5 bg-white border border-[#fecaca] shadow-md shadow-red-600/10">
             <div
-              className="absolute inset-0 opacity-[0.07] pointer-events-none"
+              className="absolute inset-0 opacity-[0.04] pointer-events-none"
               style={{
                 backgroundImage:
-                  "repeating-linear-gradient(135deg, #fff 0 2px, transparent 2px 16px)",
+                  "repeating-linear-gradient(135deg, #dc2626 0 2px, transparent 2px 16px)",
               }}
             />
-            <Gift className="absolute -right-4 -bottom-8 w-32 h-32 text-white opacity-[0.1] pointer-events-none" />
+            <Gift className="absolute -right-4 -bottom-8 w-32 h-32 text-[#dc2626] opacity-[0.07] pointer-events-none" />
             <div className="relative z-10 p-5">
               <div className="flex items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[9px] font-extrabold tracking-wider text-[#dc2626]">
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#dc2626] px-2.5 py-1 text-[9px] font-extrabold tracking-wider text-white">
                   <Tag className="w-3 h-3" />
                   LIMITED-TIME RATE
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-black/25 px-2.5 py-1 text-[10px] font-bold text-white">
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-bold text-red-700">
                   <CalendarDays className="w-3 h-3" />
                   1 Nov – 30 Jan
                 </span>
@@ -545,14 +545,14 @@ export default function HomePage() {
 
               <div className="mt-4 flex items-end justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-red-600/80">
                     New service fee
                   </p>
                   <div className="flex items-end gap-2 mt-0.5">
-                    <span className="text-6xl font-black leading-none tracking-tight text-white">
+                    <span className="text-6xl font-black leading-none tracking-tight text-[#dc2626]">
                       {PROMOTIONAL_FUEL_FEE_RATE}%
                     </span>
-                    <span className="mb-1.5 text-2xl font-black leading-none text-white/45 line-through">
+                    <span className="mb-1.5 text-2xl font-black leading-none text-gray-400 line-through">
                       {STANDARD_FUEL_FEE_RATE}%
                     </span>
                   </div>
@@ -567,8 +567,8 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center justify-between gap-3 border-t border-dashed border-white/35 pt-3">
-                <p className="text-[11px] font-semibold text-white/85">
+              <div className="mt-4 flex items-center justify-between gap-3 border-t border-dashed border-red-200 pt-3">
+                <p className="text-[11px] font-semibold text-gray-600">
                   On every fuel request
                 </p>
                 <button
@@ -576,7 +576,7 @@ export default function HomePage() {
                   onClick={() =>
                     router.push(isLoggedIn ? "/requests" : "/auth/sign-in")
                   }
-                  className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-[11px] font-extrabold text-[#dc2626] shadow-sm transition-transform active:scale-95"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#dc2626] px-4 py-2 text-[11px] font-extrabold text-white shadow-sm transition-transform active:scale-95"
                 >
                   Fuel now
                   <ArrowRight className="w-3.5 h-3.5" />
