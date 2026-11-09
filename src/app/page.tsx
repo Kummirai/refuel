@@ -598,9 +598,9 @@ export default function HomePage() {
             <img
               src="/images/hero-refuel.jpg"
               alt="A car being refueled at a station"
-              className="absolute inset-0 w-full h-full object-cover object-[70%_45%]"
+              className="absolute inset-0 w-full h-full object-cover object-center"
             />
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,#ffffff_0%,rgba(255,255,255,0.92)_32%,rgba(255,255,255,0.35)_58%,rgba(255,255,255,0)_78%)] pointer-events-none" />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.94)_0%,rgba(255,255,255,0.6)_32%,rgba(255,255,255,0.14)_55%,rgba(255,255,255,0)_70%)] pointer-events-none" />
 
             <div className="relative z-10 flex min-h-[280px] flex-col justify-between p-6 sm:min-h-[340px] sm:p-8">
               <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/90 backdrop-blur px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-[#01312D] ring-1 ring-[#01312D]/10 shadow-sm">
@@ -608,7 +608,7 @@ export default function HomePage() {
                 Pay weekly · On credit
               </span>
 
-              <div className="max-w-[70%] sm:max-w-[52%]">
+              <div className="max-w-[72%] sm:max-w-[52%]">
                 <h1 className="text-[23px] leading-6 font-extrabold text-[#01312D] tracking-tight">
                   {isLoggedIn ? "Manage your" : "Fuel today."}
                 </h1>
@@ -616,7 +616,7 @@ export default function HomePage() {
                   {isLoggedIn ? "drivers." : "Work n Pay Later"}
                 </p>
 
-                <p className="text-xs text-[#01312D]/65 leading-relaxed mt-3">
+                <p className="text-xs text-[#01312D]/65 leading-relaxed mt-3 max-w-[78%] sm:max-w-none">
                   {isLoggedIn
                     ? "Approve driver profiles, deposits and requests."
                     : "Fuel, car wash and cash loans on one weekly plan."}
