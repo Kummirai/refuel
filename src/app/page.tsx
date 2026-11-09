@@ -594,17 +594,15 @@ export default function HomePage() {
             onPress={() => router.push("/deposit")}
           />
         ) : (
-          <div className="relative overflow-hidden rounded-3xl mb-5 bg-linear-to-br from-[#01312D] to-[#3A7717] shadow-xl sm:flex sm:items-stretch">
-            <div className="relative h-44 sm:order-2 sm:h-auto sm:w-[46%] sm:shrink-0">
-              <img
-                src="/images/hero-refuel.jpg"
-                alt="A car being refueled at a station"
-                className="w-full h-full object-cover object-[58%_42%] sm:absolute sm:inset-0 sm:object-center"
-              />
-              <div className="absolute inset-x-0 bottom-0 h-12 bg-linear-to-t from-[#01312D] to-transparent pointer-events-none sm:inset-y-0 sm:left-0 sm:right-auto sm:h-full sm:w-14 sm:bg-linear-to-r" />
-            </div>
+          <div className="relative overflow-hidden rounded-3xl mb-5 shadow-xl">
+            <img
+              src="/images/hero-refuel.jpg"
+              alt="A car being refueled at a station"
+              className="absolute inset-0 w-full h-full object-cover object-[55%_38%]"
+            />
+            <div className="absolute inset-0 bg-linear-to-t from-[#01312D] from-8% via-[#01312D]/70 via-55% to-[#01312D]/5 pointer-events-none" />
 
-            <div className="relative z-10 p-6 pt-5 sm:order-1 sm:flex-1 sm:py-8">
+            <div className="relative z-10 flex min-h-[270px] flex-col justify-end p-6 sm:min-h-[330px] sm:p-8">
               <h1 className="text-[21px] leading-6 font-extrabold text-white tracking-tight">
                 {isLoggedIn ? "Manage your" : "Fuel today."}
               </h1>
@@ -612,7 +610,7 @@ export default function HomePage() {
                 {isLoggedIn ? "drivers." : "Work n Pay Later"}
               </p>
 
-              <p className="text-xs text-white/70 leading-relaxed mt-4 max-w-[80%] sm:max-w-none">
+              <p className="text-xs text-white/80 leading-relaxed mt-4 max-w-[85%] sm:max-w-[70%]">
                 {isLoggedIn
                   ? "Approve driver profiles, deposits and requests."
                   : "Fuel, car wash and cash loans on one weekly plan."}
@@ -621,7 +619,7 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={handleGetStarted}
-                className="mt-6 inline-flex items-center gap-2 bg-[#bff202] text-[#01312D] px-6 py-3 rounded-full text-xs font-extrabold shadow-lg hover:shadow-xl transition-all active:scale-95"
+                className="mt-6 self-start inline-flex items-center gap-2 bg-[#bff202] text-[#01312D] px-6 py-3 rounded-full text-xs font-extrabold shadow-lg hover:shadow-xl transition-all active:scale-95"
               >
                 {isLoggedIn ? "Open admin panel" : "Get Started"}
                 <ArrowRight className="w-4 h-4" />
