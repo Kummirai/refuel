@@ -594,16 +594,17 @@ export default function HomePage() {
             onPress={() => router.push("/deposit")}
           />
         ) : (
-          <div className="relative overflow-hidden rounded-3xl p-6 mb-5 bg-linear-to-br from-[#01312D] to-[#3A7717] shadow-xl">
-            <img
-              src="/images/hero-refuel.jpg"
-              alt="A car being refueled at a station"
-              className="absolute inset-0 w-full h-full object-cover object-[68%_center]"
-            />
-            <div className="absolute inset-0 bg-linear-to-r from-[#01312D] via-[#01312D]/90 to-[#01312D]/45 pointer-events-none" />
-            <div className="absolute inset-0 bg-linear-to-t from-[#01312D]/70 via-transparent to-[#01312D]/20 pointer-events-none" />
+          <div className="relative overflow-hidden rounded-3xl mb-5 bg-linear-to-br from-[#01312D] to-[#3A7717] shadow-xl sm:flex sm:items-stretch">
+            <div className="relative h-44 sm:order-2 sm:h-auto sm:w-[46%] sm:shrink-0">
+              <img
+                src="/images/hero-refuel.jpg"
+                alt="A car being refueled at a station"
+                className="w-full h-full object-cover object-[58%_42%] sm:absolute sm:inset-0 sm:object-center"
+              />
+              <div className="absolute inset-x-0 bottom-0 h-12 bg-linear-to-t from-[#01312D] to-transparent pointer-events-none sm:inset-y-0 sm:left-0 sm:right-auto sm:h-full sm:w-14 sm:bg-linear-to-r" />
+            </div>
 
-            <div className="relative z-10">
+            <div className="relative z-10 p-6 pt-5 sm:order-1 sm:flex-1 sm:py-8">
               <h1 className="text-[21px] leading-6 font-extrabold text-white tracking-tight">
                 {isLoggedIn ? "Manage your" : "Fuel today."}
               </h1>
@@ -611,7 +612,7 @@ export default function HomePage() {
                 {isLoggedIn ? "drivers." : "Work n Pay Later"}
               </p>
 
-              <p className="text-xs text-white/70 leading-relaxed mt-4 max-w-[80%]">
+              <p className="text-xs text-white/70 leading-relaxed mt-4 max-w-[80%] sm:max-w-none">
                 {isLoggedIn
                   ? "Approve driver profiles, deposits and requests."
                   : "Fuel, car wash and cash loans on one weekly plan."}
