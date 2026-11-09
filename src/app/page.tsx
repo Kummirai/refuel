@@ -595,11 +595,13 @@ export default function HomePage() {
           />
         ) : (
           <div className="relative overflow-hidden rounded-3xl p-6 mb-5 bg-linear-to-br from-[#01312D] to-[#3A7717] shadow-xl">
-            <div className="absolute -right-11 -bottom-13 w-44 h-44 rounded-full border border-[#bff202]/20 flex items-center justify-center pointer-events-none">
-              <div className="w-24 h-24 rounded-full bg-[#bff202]/15 border border-[#bff202]/30 flex items-center justify-center -rotate-6">
-                <Car className="w-10 h-10 text-[#bff202]" />
-              </div>
-            </div>
+            <img
+              src="/images/hero-refuel.jpg"
+              alt="A car being refueled at a station"
+              className="absolute inset-0 w-full h-full object-cover object-[68%_center]"
+            />
+            <div className="absolute inset-0 bg-linear-to-r from-[#01312D] via-[#01312D]/90 to-[#01312D]/45 pointer-events-none" />
+            <div className="absolute inset-0 bg-linear-to-t from-[#01312D]/70 via-transparent to-[#01312D]/20 pointer-events-none" />
 
             <div className="relative z-10">
               <h1 className="text-[21px] leading-6 font-extrabold text-white tracking-tight">
