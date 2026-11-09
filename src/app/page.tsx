@@ -537,14 +537,15 @@ export default function HomePage() {
               </div>
               <div className="flex items-end gap-3 mt-3">
                 <span className="text-5xl font-black leading-none text-[#dc2626] tracking-tight">
-                  {PROMOTIONAL_FUEL_FEE_RATE}%
+                  {STANDARD_FUEL_FEE_RATE - PROMOTIONAL_FUEL_FEE_RATE}%
                 </span>
                 <div className="pb-0.5">
                   <p className="text-sm font-extrabold text-[#01312D]">
                     OFF REFUELING FEE
                   </p>
                   <p className="text-[10px] text-gray-500">
-                    Was {STANDARD_FUEL_FEE_RATE}% · applies to every fuel request
+                    {STANDARD_FUEL_FEE_RATE}% → {PROMOTIONAL_FUEL_FEE_RATE}% ·
+                    applies to every fuel request
                   </p>
                 </div>
               </div>
