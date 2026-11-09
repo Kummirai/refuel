@@ -594,36 +594,43 @@ export default function HomePage() {
             onPress={() => router.push("/deposit")}
           />
         ) : (
-          <div className="relative overflow-hidden rounded-3xl mb-5 shadow-xl">
+          <div className="relative overflow-hidden rounded-3xl mb-5 bg-white shadow-xl">
             <img
               src="/images/hero-refuel.jpg"
               alt="A car being refueled at a station"
-              className="absolute inset-0 w-full h-full object-cover object-[55%_38%]"
+              className="absolute inset-0 w-full h-full object-cover object-[70%_45%]"
             />
-            <div className="absolute inset-0 bg-linear-to-t from-[#01312D] from-8% via-[#01312D]/70 via-55% to-[#01312D]/5 pointer-events-none" />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,#ffffff_0%,rgba(255,255,255,0.92)_32%,rgba(255,255,255,0.35)_58%,rgba(255,255,255,0)_78%)] pointer-events-none" />
 
-            <div className="relative z-10 flex min-h-[270px] flex-col justify-end p-6 sm:min-h-[330px] sm:p-8">
-              <h1 className="text-[21px] leading-6 font-extrabold text-white tracking-tight">
-                {isLoggedIn ? "Manage your" : "Fuel today."}
-              </h1>
-              <p className="text-[34px] leading-9 font-extrabold text-[#bff202] tracking-tight">
-                {isLoggedIn ? "drivers." : "Work n Pay Later"}
-              </p>
+            <div className="relative z-10 flex min-h-[280px] flex-col justify-between p-6 sm:min-h-[340px] sm:p-8">
+              <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/90 backdrop-blur px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-[#01312D] ring-1 ring-[#01312D]/10 shadow-sm">
+                <Sparkles className="w-3 h-3 text-[#3A7717]" />
+                Pay weekly · On credit
+              </span>
 
-              <p className="text-xs text-white/80 leading-relaxed mt-4 max-w-[85%] sm:max-w-[70%]">
-                {isLoggedIn
-                  ? "Approve driver profiles, deposits and requests."
-                  : "Fuel, car wash and cash loans on one weekly plan."}
-              </p>
+              <div className="max-w-[70%] sm:max-w-[52%]">
+                <h1 className="text-[23px] leading-6 font-extrabold text-[#01312D] tracking-tight">
+                  {isLoggedIn ? "Manage your" : "Fuel today."}
+                </h1>
+                <p className="text-[28px] leading-[30px] font-extrabold text-[#01312D] tracking-tight">
+                  {isLoggedIn ? "drivers." : "Work n Pay Later"}
+                </p>
 
-              <button
-                type="button"
-                onClick={handleGetStarted}
-                className="mt-6 self-start inline-flex items-center gap-2 bg-[#bff202] text-[#01312D] px-6 py-3 rounded-full text-xs font-extrabold shadow-lg hover:shadow-xl transition-all active:scale-95"
-              >
-                {isLoggedIn ? "Open admin panel" : "Get Started"}
-                <ArrowRight className="w-4 h-4" />
-              </button>
+                <p className="text-xs text-[#01312D]/65 leading-relaxed mt-3">
+                  {isLoggedIn
+                    ? "Approve driver profiles, deposits and requests."
+                    : "Fuel, car wash and cash loans on one weekly plan."}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={handleGetStarted}
+                  className="mt-5 inline-flex items-center gap-2 bg-[#bff202] text-[#01312D] px-5 py-2.5 rounded-full text-xs font-extrabold shadow-md hover:shadow-lg transition-all active:scale-95"
+                >
+                  {isLoggedIn ? "Open admin panel" : "Get Started"}
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         )}
