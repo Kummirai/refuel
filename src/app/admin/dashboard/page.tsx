@@ -110,13 +110,6 @@ interface VerificationRequest {
 
 const pendingActionTiles = [
   {
-    key: "verifications",
-    label: "Verifications",
-    icon: FileText,
-    color: "#ca8a04",
-    href: "/admin/verifications",
-  },
-  {
     key: "requests",
     label: "Requests",
     icon: ClipboardList,
@@ -2343,7 +2336,7 @@ export default function AdminDashboard() {
           <div className="w-2 h-2 rounded-full bg-[#3A7717]" />
           <h2 className="text-sm font-bold text-[#01312D]">Pending Actions</h2>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {pendingActionTiles.map((tile) => {
             const count =
               tile.key === "deposits"

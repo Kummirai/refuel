@@ -531,56 +531,50 @@ export default function HomePage() {
               }}
             />
             <Gift className="absolute -right-4 -bottom-8 w-32 h-32 text-[#dc2626] opacity-[0.07] pointer-events-none" />
-            <div className="relative z-10 p-3.5">
+            <div className="relative z-10 px-3 py-2.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-[#dc2626] px-2.5 py-1 text-[9px] font-extrabold tracking-wider text-white">
-                  <Tag className="w-3 h-3" />
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#dc2626] px-2 py-0.5 text-[8.5px] font-extrabold tracking-wider text-white">
+                  <Tag className="w-2.5 h-2.5" />
                   LIMITED-TIME RATE
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-bold text-red-700">
-                  <CalendarDays className="w-3 h-3" />
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[9px] font-bold text-red-700">
+                  <CalendarDays className="w-2.5 h-2.5" />
                   1 Nov – 30 Jan
                 </span>
               </div>
 
-              <div className="mt-2.5 flex items-end justify-between gap-3">
+              <div className="mt-1.5 flex items-end justify-between gap-2">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-red-600/80">
-                    New service fee
-                  </p>
-                  <div className="flex items-end gap-2">
-                    <span className="text-5xl font-black leading-none tracking-tight text-[#dc2626]">
+                  <div className="flex items-end gap-1.5">
+                    <span className="text-[34px] font-black leading-none tracking-tight text-[#dc2626]">
                       {PROMOTIONAL_FUEL_FEE_RATE}%
                     </span>
-                    <span className="mb-0.5 text-xl font-black leading-none text-gray-400 line-through">
+                    <span className="mb-0.5 text-[15px] font-black leading-none text-gray-400 line-through">
                       {STANDARD_FUEL_FEE_RATE}%
                     </span>
                   </div>
                 </div>
-                <div className="-rotate-6 rounded-xl bg-[#bff202] px-3 py-1.5 text-center text-[#01312D]">
-                  <p className="text-[8px] font-extrabold uppercase tracking-wide">
-                    You save
-                  </p>
-                  <p className="text-lg font-black leading-tight">
-                    {STANDARD_FUEL_FEE_RATE - PROMOTIONAL_FUEL_FEE_RATE}%
-                  </p>
-                </div>
-              </div>
 
-              <div className="mt-2.5 flex items-center justify-between gap-3 border-t border-dashed border-red-200 pt-2">
-                <p className="text-[11px] font-semibold text-gray-600">
-                  On every fuel request
-                </p>
-                <button
-                  type="button"
-                  onClick={() =>
-                    router.push(isLoggedIn ? "/requests" : "/auth/sign-in")
-                  }
-                  className="inline-flex items-center gap-1 rounded-full bg-[#dc2626] px-3.5 py-1 text-[10px] font-extrabold text-white transition-transform active:scale-95"
-                >
-                  Fuel now
-                  <ArrowRight className="w-3 h-3" />
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <div className="-rotate-6 rounded-lg bg-[#bff202] px-2 py-0.5 text-center text-[#01312D]">
+                    <p className="text-[7px] font-extrabold uppercase tracking-wide">
+                      You save
+                    </p>
+                    <p className="text-[13px] font-black leading-tight">
+                      {STANDARD_FUEL_FEE_RATE - PROMOTIONAL_FUEL_FEE_RATE}%
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      router.push(isLoggedIn ? "/requests" : "/auth/sign-in")
+                    }
+                    className="inline-flex items-center gap-1 rounded-full bg-[#dc2626] px-2.5 py-1 text-[10px] font-extrabold text-white transition-transform active:scale-95"
+                  >
+                    Fuel now
+                    <ArrowRight className="w-2.5 h-2.5" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -594,29 +588,25 @@ export default function HomePage() {
             onPress={() => router.push("/deposit")}
           />
         ) : (
-          <div className="relative overflow-hidden rounded-3xl mb-5 bg-white shadow-xl">
+          <div className="relative overflow-hidden rounded-3xl mb-5 bg-[#04110F] shadow-xl aspect-[16/10] sm:aspect-[2/1]">
             <img
-              src="/images/hero-refuel.jpg"
-              alt="A car being refueled at a station"
-              className="absolute inset-0 w-full h-full object-cover object-center"
+              src="/images/hero-refuel-night.jpg"
+              alt="A car being refueled at a petrol station at night"
+              className="absolute inset-0 w-full h-full object-cover object-[100%_center] sm:object-center"
             />
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.94)_0%,rgba(255,255,255,0.6)_32%,rgba(255,255,255,0.14)_55%,rgba(255,255,255,0)_70%)] pointer-events-none" />
 
-            <div className="relative z-10 flex min-h-[280px] flex-col justify-between p-6 sm:min-h-[340px] sm:p-8">
-              <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/90 backdrop-blur px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-[#01312D] ring-1 ring-[#01312D]/10 shadow-sm">
-                <Sparkles className="w-3 h-3 text-[#3A7717]" />
-                Pay weekly · On credit
-              </span>
-
-              <div className="max-w-[72%] sm:max-w-[52%]">
-                <h1 className="text-[23px] leading-6 font-extrabold text-[#01312D] tracking-tight">
-                  {isLoggedIn ? "Manage your" : "Fuel today."}
+            <div className="relative z-10 flex h-full flex-col justify-center p-5 sm:p-6">
+              <div className="w-fit max-w-[80%] sm:max-w-[52%]">
+                <h1 className="tracking-tight text-white">
+                  <span className="block text-[18px] leading-[22px] font-medium [text-shadow:0_1px_3px_rgba(0,0,0,0.6)] sm:text-[20px] sm:leading-[24px]">
+                    {isLoggedIn ? "Manage your" : "Fuel today."}
+                  </span>
+                  <span className="mt-0.5 block text-[25px] leading-[29px] font-extrabold [text-shadow:0_1px_4px_rgba(0,0,0,0.55)] sm:text-[29px] sm:leading-[33px]">
+                    {isLoggedIn ? "drivers." : "Work n Pay Later"}
+                  </span>
                 </h1>
-                <p className="text-[28px] leading-[30px] font-extrabold text-[#01312D] tracking-tight">
-                  {isLoggedIn ? "drivers." : "Work n Pay Later"}
-                </p>
 
-                <p className="text-xs text-[#01312D]/65 leading-relaxed mt-3 max-w-[78%] sm:max-w-none">
+                <p className="text-[11px] text-white/85 leading-snug mt-3 [text-shadow:0_1px_3px_rgba(0,0,0,0.6)] sm:text-xs">
                   {isLoggedIn
                     ? "Approve driver profiles, deposits and requests."
                     : "Fuel, car wash and cash loans on one weekly plan."}
@@ -625,10 +615,10 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={handleGetStarted}
-                  className="mt-5 inline-flex items-center gap-2 bg-[#bff202] text-[#01312D] px-5 py-2.5 rounded-full text-xs font-extrabold shadow-md hover:shadow-lg transition-all active:scale-95"
+                  className="mt-5 inline-flex items-center gap-1.5 bg-[#bff202] text-[#01312D] px-4 py-2 rounded-full text-[11px] font-extrabold shadow-sm hover:shadow-md transition-all active:scale-95 sm:px-5 sm:py-2.5 sm:text-xs"
                 >
                   {isLoggedIn ? "Open admin panel" : "Get Started"}
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
