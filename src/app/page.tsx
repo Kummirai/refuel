@@ -540,11 +540,14 @@ export default function HomePage() {
                   {PROMOTIONAL_FUEL_FEE_RATE}%
                 </span>
                 <div className="pb-0.5">
-                  <p className="text-sm font-extrabold text-[#01312D]">
+                  <p className="text-lg font-black leading-none text-gray-400 line-through">
+                    {STANDARD_FUEL_FEE_RATE}%
+                  </p>
+                  <p className="text-sm font-extrabold text-[#01312D] mt-1">
                     NEW SERVICE FEE
                   </p>
-                  <p className="text-[10px] text-gray-500">
-                    Was {STANDARD_FUEL_FEE_RATE}% · applies to every fuel request
+                  <p className="text-[10px] text-gray-500 mt-0.5">
+                    applies to every fuel request
                   </p>
                 </div>
               </div>
