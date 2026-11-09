@@ -531,7 +531,7 @@ export default function HomePage() {
               }}
             />
             <Gift className="absolute -right-4 -bottom-8 w-32 h-32 text-[#dc2626] opacity-[0.07] pointer-events-none" />
-            <div className="relative z-10 p-5">
+            <div className="relative z-10 p-3.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="inline-flex items-center gap-1 rounded-full bg-[#dc2626] px-2.5 py-1 text-[9px] font-extrabold tracking-wider text-white">
                   <Tag className="w-3 h-3" />
@@ -543,31 +543,31 @@ export default function HomePage() {
                 </span>
               </div>
 
-              <div className="mt-4 flex items-end justify-between gap-3">
+              <div className="mt-2.5 flex items-end justify-between gap-3">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-red-600/80">
                     New service fee
                   </p>
-                  <div className="flex items-end gap-2 mt-0.5">
-                    <span className="text-6xl font-black leading-none tracking-tight text-[#dc2626]">
+                  <div className="flex items-end gap-2">
+                    <span className="text-5xl font-black leading-none tracking-tight text-[#dc2626]">
                       {PROMOTIONAL_FUEL_FEE_RATE}%
                     </span>
-                    <span className="mb-1.5 text-2xl font-black leading-none text-gray-400 line-through">
+                    <span className="mb-0.5 text-xl font-black leading-none text-gray-400 line-through">
                       {STANDARD_FUEL_FEE_RATE}%
                     </span>
                   </div>
                 </div>
-                <div className="-rotate-6 rounded-2xl bg-[#bff202] px-3.5 py-2 text-center text-[#01312D] shadow-md">
-                  <p className="text-[9px] font-extrabold uppercase tracking-wide">
+                <div className="-rotate-6 rounded-xl bg-[#bff202] px-3 py-1.5 text-center text-[#01312D]">
+                  <p className="text-[8px] font-extrabold uppercase tracking-wide">
                     You save
                   </p>
-                  <p className="text-2xl font-black leading-none">
+                  <p className="text-lg font-black leading-tight">
                     {STANDARD_FUEL_FEE_RATE - PROMOTIONAL_FUEL_FEE_RATE}%
                   </p>
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center justify-between gap-3 border-t border-dashed border-red-200 pt-3">
+              <div className="mt-2.5 flex items-center justify-between gap-3 border-t border-dashed border-red-200 pt-2">
                 <p className="text-[11px] font-semibold text-gray-600">
                   On every fuel request
                 </p>
@@ -576,10 +576,10 @@ export default function HomePage() {
                   onClick={() =>
                     router.push(isLoggedIn ? "/requests" : "/auth/sign-in")
                   }
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#dc2626] px-4 py-2 text-[11px] font-extrabold text-white shadow-sm transition-transform active:scale-95"
+                  className="inline-flex items-center gap-1 rounded-full bg-[#dc2626] px-3.5 py-1 text-[10px] font-extrabold text-white transition-transform active:scale-95"
                 >
                   Fuel now
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <ArrowRight className="w-3 h-3" />
                 </button>
               </div>
             </div>
