@@ -6,6 +6,7 @@ import { fetcher } from "@/lib/fetch";
 import { formatMoney } from "@/lib/money";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { CloudinaryUpload } from "@/components/CloudinaryUpload";
 import {
   Wallet,
   Search,
@@ -18,6 +19,7 @@ import {
   ExternalLink,
   RefreshCw,
   AlertCircle,
+  UploadCloud,
 } from "lucide-react";
 
 type DepositProofStatus = "pending" | "approved" | "rejected";
@@ -46,7 +48,7 @@ interface DepositProof {
   balanceAfter?: number | null;
 }
 
-type FilterTab = "all" | "pending" | "approved" | "rejected";
+type FilterTab = "all" | "pending" | "approved" | "rejected" | "contracts";
 
 interface DepositContract {
   userId: string;
@@ -62,11 +64,29 @@ interface DepositContract {
   acceptedAt: string | null;
 }
 
+interface EligibleDriver {
+  userId: string;
+  driverName: string;
+  driverEmail: string;
+  driverPhone: string;
+  carRegistration: string;
+  tier: string;
+  tierName: string;
+  targetDepositAmount: number;
+  securityDepositBalance: number;
+  weeklyInstallment: number;
+  remainingAmount: number;
+  expectedAmount: number;
+  currentWeekStart: string;
+  currentWeekStatus: "pending" | "approved" | null;
+}
+
 const FILTERS: { key: FilterTab; label: string }[] = [
   { key: "all", label: "All" },
   { key: "pending", label: "Pending" },
   { key: "approved", label: "Approved" },
   { key: "rejected", label: "Rejected" },
+  { key: "contracts", label: "New Contracts" },
 ];
 
 const formatDate = (value?: string | null) => {
@@ -115,12 +135,18 @@ export default function AdminDepositProofsPage() {
     { refreshInterval: 30_000, dedupingInterval: 10_000 },
   );
 
-  const { data: contractData, mutate: mutateContracts } = useSWR<
-    DepositContract[] | { error?: string }
-  >("/api/admin/deposit-contracts", fetcher, {
-    refreshInterval: 30_000,
-    dedupingInterval: 10_000,
-  });
+  const {
+    data: contractData,
+    isLoading: contractsLoading,
+    mutate: mutateContracts,
+  } = useSWR<DepositContract[] | { error?: string }>(
+    "/api/admin/deposit-contracts",
+    fetcher,
+    {
+      refreshInterval: 30_000,
+      dedupingInterval: 10_000,
+    },
+  );
 
   const contracts = useMemo(
     () => (Array.isArray(contractData) ? contractData : []),
@@ -143,7 +169,20 @@ export default function AdminDepositProofsPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  useBodyScrollLock(!!approving || !!rejecting || !!viewing);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [eligibleDrivers, setEligibleDrivers] = useState<EligibleDriver[]>([]);
+  const [eligibleLoading, setEligibleLoading] = useState(false);
+  const [driverQuery, setDriverQuery] = useState("");
+  const [uploadDriver, setUploadDriver] = useState<EligibleDriver | null>(null);
+  const [uploadAmount, setUploadAmount] = useState("");
+  const [uploadProofUrl, setUploadProofUrl] = useState("");
+  const [uploadProofPublicId, setUploadProofPublicId] = useState("");
+  const [uploadSubmitting, setUploadSubmitting] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+
+  useBodyScrollLock(
+    !!approving || !!rejecting || !!viewing || uploadOpen,
+  );
 
   const counts = useMemo(
     () => ({
@@ -151,8 +190,9 @@ export default function AdminDepositProofsPage() {
       pending: proofs.filter((p) => p.status === "pending").length,
       approved: proofs.filter((p) => p.status === "approved").length,
       rejected: proofs.filter((p) => p.status === "rejected").length,
+      contracts: contracts.length,
     }),
-    [proofs],
+    [proofs, contracts],
   );
 
   const filtered = useMemo(() => {
@@ -167,10 +207,118 @@ export default function AdminDepositProofsPage() {
     });
   }, [proofs, filter, search]);
 
+  const filteredContracts = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return contracts;
+    return contracts.filter((contract) =>
+      [contract.driverName, contract.driverEmail, contract.carRegistration]
+        .join(" ")
+        .toLowerCase()
+        .includes(term),
+    );
+  }, [contracts, search]);
+
+  const filteredEligibleDrivers = useMemo(() => {
+    const term = driverQuery.trim().toLowerCase();
+    if (!term) return eligibleDrivers;
+    return eligibleDrivers.filter((driver) =>
+      [driver.driverName, driver.driverEmail, driver.carRegistration]
+        .join(" ")
+        .toLowerCase()
+        .includes(term),
+    );
+  }, [eligibleDrivers, driverQuery]);
+
   const refresh = () => {
     mutate();
     mutateContracts();
     window.dispatchEvent(new Event("refreshAdminCounts"));
+  };
+
+  const openUpload = async () => {
+    setUploadOpen(true);
+    setUploadError("");
+    setDriverQuery("");
+    setUploadDriver(null);
+    setUploadAmount("");
+    setUploadProofUrl("");
+    setUploadProofPublicId("");
+    setEligibleLoading(true);
+    try {
+      const res = await fetch(
+        "/api/admin/deposit-proofs/upload-for-driver",
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        setEligibleDrivers([]);
+        setUploadError(json.error || "Failed to load drivers");
+        return;
+      }
+      setEligibleDrivers(Array.isArray(json) ? json : []);
+    } catch {
+      setEligibleDrivers([]);
+      setUploadError("Failed to load drivers");
+    } finally {
+      setEligibleLoading(false);
+    }
+  };
+
+  const closeUpload = () => {
+    if (uploadSubmitting) return;
+    setUploadOpen(false);
+    setUploadError("");
+  };
+
+  const selectUploadDriver = (driver: EligibleDriver) => {
+    setUploadDriver(driver);
+    setUploadAmount(String(driver.expectedAmount));
+    setUploadError("");
+  };
+
+  const handleUploadSubmit = async () => {
+    if (!uploadDriver) {
+      setUploadError("Select the driver this payment belongs to");
+      return;
+    }
+    if (!uploadProofUrl) {
+      setUploadError("Upload the proof of payment");
+      return;
+    }
+    const amount = Number(uploadAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setUploadError("Enter a payment amount greater than zero");
+      return;
+    }
+
+    setUploadSubmitting(true);
+    setUploadError("");
+    try {
+      const res = await fetch(
+        "/api/admin/deposit-proofs/upload-for-driver",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: uploadDriver.userId,
+            amount,
+            proofUrl: uploadProofUrl,
+            proofPublicId: uploadProofPublicId || undefined,
+          }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        setUploadError(json.error || "Failed to record deposit payment");
+        return;
+      }
+      setUploadOpen(false);
+      setNotice(json.message || "Deposit payment recorded");
+      refresh();
+    } catch {
+      setUploadError("Failed to record deposit payment");
+    } finally {
+      setUploadSubmitting(false);
+    }
   };
 
   const handleApprove = async () => {
@@ -236,7 +384,7 @@ export default function AdminDepositProofsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-[#01312D]">Deposits</h1>
           <p className="text-gray-500 text-sm mt-1">
@@ -251,15 +399,24 @@ export default function AdminDepositProofsPage() {
                 }`}
           </p>
         </div>
-        <button
-          onClick={refresh}
-          className="flex items-center gap-2 px-4 py-2.5 bg-white text-[#01312D] rounded-xl font-semibold text-sm border border-[#bff202]/30 hover:bg-[#eafde7] transition-all"
-        >
-          <RefreshCw
-            className={`w-4 h-4 ${isValidating ? "animate-spin" : ""}`}
-          />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={openUpload}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#3A7717] text-white rounded-xl font-semibold text-sm hover:bg-[#01312D] transition-all"
+          >
+            <UploadCloud className="w-4 h-4" />
+            Upload for driver
+          </button>
+          <button
+            onClick={refresh}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white text-[#01312D] rounded-xl font-semibold text-sm border border-[#bff202]/30 hover:bg-[#eafde7] transition-all"
+          >
+            <RefreshCw
+              className={`w-4 h-4 ${isValidating ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {notice && (
@@ -279,64 +436,6 @@ export default function AdminDepositProofsPage() {
         <div className="flex items-start gap-2 text-sm rounded-xl px-4 py-3 text-red-600 bg-red-50 border border-red-200">
           <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
           <span>{error}</span>
-        </div>
-      )}
-
-      {/* New contracts awaiting first payment */}
-      {contracts.length > 0 && (
-        <div className="bg-white rounded-2xl border border-cyan-200/60 shadow-sm p-5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="w-10 h-10 rounded-xl bg-cyan-50 flex items-center justify-center flex-shrink-0">
-              <Wallet className="w-5 h-5 text-cyan-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="font-bold text-[#01312D]">
-                  New deposit contracts
-                </h2>
-                <span className="text-xs font-semibold bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-md">
-                  {contracts.length} awaiting first payment
-                </span>
-              </div>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Drivers who accepted a plan and haven&apos;t uploaded a payment
-                proof yet.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 divide-y divide-gray-100">
-            {contracts.map((contract) => (
-              <div
-                key={contract.userId}
-                className="py-3 flex items-start gap-3 first:pt-0 last:pb-0"
-              >
-                <div className="w-9 h-9 rounded-full bg-[#eafde7] flex items-center justify-center flex-shrink-0 text-[#01312D] font-bold text-sm">
-                  {(contract.driverName || "?").charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-[#01312D] truncate">
-                    {contract.driverName}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {contract.carRegistration} · {contract.tierName}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5 truncate">
-                    {contract.driverEmail} · {contract.driverPhone}
-                  </p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-xs text-gray-400">Weekly installment</p>
-                  <p className="font-bold text-[#01312D]">
-                    {formatMoney(contract.weeklyInstallment)}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    Accepted {formatDate(contract.acceptedAt)}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 
@@ -386,7 +485,75 @@ export default function AdminDepositProofsPage() {
         </div>
       </div>
 
-      {isLoading ? (
+      {filter === "contracts" ? (
+        contractsLoading ? (
+          <div className="grid gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-40 rounded-2xl" />
+            ))}
+          </div>
+        ) : filteredContracts.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-[#bff202]/20 shadow-sm p-12 text-center">
+            <Wallet className="w-12 h-12 text-gray-300 mx-auto" />
+            <p className="text-[#01312D] font-semibold mt-3">
+              No new contracts
+            </p>
+            <p className="text-sm text-gray-500 mt-1">
+              {search.trim()
+                ? "No contracts match your search."
+                : "Drivers who accept a deposit plan appear here until their first payment is approved."}
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {filteredContracts.map((contract) => (
+              <div
+                key={contract.userId}
+                className="bg-white rounded-2xl border border-[#bff202]/20 shadow-sm p-5"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#eafde7] flex items-center justify-center flex-shrink-0 text-[#01312D] font-bold">
+                    {(contract.driverName || "?").charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-bold text-[#01312D] truncate">
+                        {contract.driverName}
+                      </p>
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md bg-cyan-100 text-cyan-700">
+                        <Clock className="w-3 h-3" />
+                        Awaiting first payment
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {contract.carRegistration} · {contract.tierName}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5 truncate">
+                      {contract.driverEmail} · {contract.driverPhone}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xs text-gray-400">Weekly installment</p>
+                    <p className="text-lg font-bold text-[#01312D]">
+                      {formatMoney(contract.weeklyInstallment)}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Accepted {formatDate(contract.acceptedAt)}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center justify-between text-xs rounded-xl bg-[#eafde7] px-3 py-2.5">
+                  <span className="text-gray-500">Deposit balance / target</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {formatMoney(contract.securityDepositBalance || 0)} /{" "}
+                    {formatMoney(contract.targetDepositAmount || 0)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : isLoading ? (
         <div className="grid gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-52 rounded-2xl" />
@@ -400,9 +567,7 @@ export default function AdminDepositProofsPage() {
           </p>
           <p className="text-sm text-gray-500 mt-1">
             {filter === "pending"
-              ? contracts.length > 0
-                ? "No proofs awaiting review. New contracts are listed above."
-                : "All security deposit proofs have been reviewed."
+              ? "No proofs awaiting review."
               : "Nothing to show for this filter."}
           </p>
         </div>
@@ -534,6 +699,204 @@ export default function AdminDepositProofsPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Upload on behalf of driver */}
+      {uploadOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={closeUpload}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
+              <div>
+                <h2 className="text-lg font-bold text-[#01312D]">
+                  Upload deposit payment
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Record a proof of payment for a driver. Their deposit balance
+                  updates immediately.
+                </p>
+              </div>
+              <button
+                onClick={closeUpload}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-5 overflow-y-auto flex-1 min-h-0 space-y-4">
+              <div>
+                <p className="text-xs font-semibold text-[#01312D]">Driver</p>
+                {uploadDriver ? (
+                  <div className="mt-1.5 flex items-center gap-3 rounded-xl border border-[#bff202]/40 bg-[#eafde7] px-3 py-2.5">
+                    <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-[#01312D] font-bold text-sm flex-shrink-0">
+                      {(uploadDriver.driverName || "?")
+                        .charAt(0)
+                        .toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-[#01312D] text-sm truncate">
+                        {uploadDriver.driverName}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {uploadDriver.carRegistration} ·{" "}
+                        {uploadDriver.tierName}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setUploadDriver(null);
+                        setUploadAmount("");
+                      }}
+                      className="text-xs font-semibold text-[#3A7717] flex-shrink-0"
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative mt-1.5">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        value={driverQuery}
+                        onChange={(e) => setDriverQuery(e.target.value)}
+                        placeholder="Search name, email or registration"
+                        className="w-full pl-9 pr-3 py-2.5 bg-white border border-[#bff202]/30 rounded-xl text-sm focus:outline-none focus:border-[#72bf00]"
+                      />
+                    </div>
+                    <div className="mt-2 max-h-44 overflow-y-auto rounded-xl border border-[#bff202]/20 divide-y divide-gray-100">
+                      {eligibleLoading ? (
+                        <div className="p-4 flex items-center gap-2 text-xs text-gray-500">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Loading drivers...
+                        </div>
+                      ) : filteredEligibleDrivers.length === 0 ? (
+                        <p className="p-4 text-xs text-gray-500">
+                          {eligibleDrivers.length === 0
+                            ? "No drivers are currently due a deposit payment."
+                            : "No drivers match your search."}
+                        </p>
+                      ) : (
+                        filteredEligibleDrivers.map((driver) => (
+                          <button
+                            key={driver.userId}
+                            onClick={() => selectUploadDriver(driver)}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[#eafde7] transition-colors"
+                          >
+                            <div className="w-9 h-9 rounded-full bg-[#eafde7] flex items-center justify-center text-[#01312D] font-bold text-sm flex-shrink-0">
+                              {(driver.driverName || "?")
+                                .charAt(0)
+                                .toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-[#01312D] text-sm truncate">
+                                {driver.driverName}
+                              </p>
+                              <p className="text-xs text-gray-500 truncate">
+                                {driver.carRegistration} · {driver.tierName}
+                              </p>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-xs font-semibold text-[#01312D]">
+                                {formatMoney(driver.remainingAmount)} left
+                              </p>
+                              <p className="text-[10px] text-gray-400">
+                                Weekly{" "}
+                                {formatMoney(driver.weeklyInstallment)}
+                              </p>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {uploadDriver && (
+                <div>
+                  <p className="text-xs font-semibold text-[#01312D]">
+                    Amount
+                  </p>
+                  <div className="relative mt-1.5">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+                      R
+                    </span>
+                    <input
+                      value={uploadAmount}
+                      onChange={(e) => setUploadAmount(e.target.value)}
+                      inputMode="decimal"
+                      className="w-full pl-7 pr-3 py-2.5 bg-[#eafde7] rounded-xl text-sm font-semibold text-[#01312D] focus:outline-none focus:ring-2 focus:ring-[#bff202]"
+                    />
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    Weekly installment{" "}
+                    {formatMoney(uploadDriver.weeklyInstallment)} · Remaining{" "}
+                    {formatMoney(uploadDriver.remainingAmount)}
+                  </p>
+                </div>
+              )}
+
+              <div className="pb-1">
+                <p className="text-xs font-semibold text-[#01312D]">
+                  Proof of payment
+                </p>
+                <div className="mt-1.5">
+                  <CloudinaryUpload
+                    label="Proof of payment"
+                    type="deposit-proofs"
+                    currentUrl={uploadProofUrl || undefined}
+                    onUploadComplete={(url, publicId) => {
+                      setUploadProofUrl(url);
+                      setUploadProofPublicId(publicId);
+                      setUploadError("");
+                    }}
+                    onDelete={() => {
+                      setUploadProofUrl("");
+                      setUploadProofPublicId("");
+                    }}
+                  />
+                </div>
+              </div>
+
+              {uploadError && (
+                <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 px-3 py-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-red-700">{uploadError}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-4 flex gap-2">
+              <button
+                onClick={closeUpload}
+                disabled={uploadSubmitting}
+                className="flex-1 py-2.5 rounded-xl bg-[#eafde7] text-[#01312D] font-semibold text-sm hover:bg-[#dff7da] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUploadSubmit}
+                disabled={
+                  uploadSubmitting || !uploadDriver || !uploadProofUrl
+                }
+                className="flex-1 py-2.5 rounded-xl bg-[#3A7717] text-white font-semibold text-sm hover:bg-[#01312D] disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {uploadSubmitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <UploadCloud className="w-4 h-4" />
+                )}
+                Record payment
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

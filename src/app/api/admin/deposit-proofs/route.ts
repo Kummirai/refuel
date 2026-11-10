@@ -5,18 +5,18 @@ import { Db, Filter, ObjectId } from "mongodb";
 import { auth } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
 import {
-  calculateConsecutiveOnTimeMonths,
   getDepositTierConfig,
-  getDriverDepositSummary,
   type DepositProofDoc,
   type DepositProofStatus,
   type DepositTier,
 } from "@/lib/deposit";
 import {
-  sendDriverDepositApprovalEmail,
-  sendDriverDepositRejectionEmail,
-} from "@/lib/email";
-import { sendPushNotification } from "@/lib/notifications";
+  approveDepositProof,
+  DepositApprovalError,
+  findDepositUser,
+  notifyDriver,
+} from "@/lib/deposit-approval";
+import { sendDriverDepositRejectionEmail } from "@/lib/email";
 import { formatMoney, toMoney } from "@/lib/money";
 
 async function requireAdmin() {
@@ -175,15 +175,9 @@ export async function PUT(request: NextRequest) {
 
     const profile = await profiles.findOne({ userId: proof.userId });
     const tierConfig = getDepositTierConfig(proof.tier);
-    const target = tierConfig
-      ? tierConfig.targetAmount
-      : toMoney(Number(profile?.targetDepositAmount) || 0);
-    const currentBalance = toMoney(
-      Number(profile?.securityDepositBalance) || 0,
-    );
 
     const now = new Date();
-    const user = await findUser(db, proof.userId);
+    const user = await findDepositUser(db, proof.userId);
     const driverName = profile?.fullName || user?.name || "Driver";
     const driverEmail = user?.email || profile?.driverEmail || "";
     const carRegistration = profile?.carRegistrationNumber || "Unknown";
@@ -235,115 +229,25 @@ export async function PUT(request: NextRequest) {
       });
     }
 
-    // Guard against double-crediting the same week.
-    const alreadyApproved = await proofs.findOne({
-      userId: proof.userId,
-      weekStart: proof.weekStart,
-      status: "approved",
-      _id: { $ne: proof._id },
-    });
-    if (alreadyApproved) {
-      return NextResponse.json(
-        { error: "An approved payment already exists for this week" },
-        { status: 409 },
-      );
+    try {
+      const result = await approveDepositProof(db, proof, now);
+      return NextResponse.json({
+        success: true,
+        message: "Deposit proof approved",
+        creditedAmount: result.creditedAmount,
+        balanceAfter: result.balanceAfter,
+        depositComplete: result.depositComplete,
+        deposit: result.summary,
+      });
+    } catch (error) {
+      if (error instanceof DepositApprovalError) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: error.status },
+        );
+      }
+      throw error;
     }
-
-    const remaining = target > 0 ? Math.max(0, target - currentBalance) : 0;
-    const proofAmount = toMoney(Number(proof.amount) || 0);
-    const creditedAmount =
-      target > 0
-        ? toMoney(Math.min(proofAmount, remaining))
-        : proofAmount;
-    const balanceAfter =
-      target > 0
-        ? toMoney(Math.min(target, currentBalance + creditedAmount))
-        : toMoney(currentBalance + creditedAmount);
-    const depositComplete = target > 0 && balanceAfter >= target;
-
-    await proofs.updateOne(
-      { _id: proof._id },
-      {
-        $set: {
-          status: "approved" as DepositProofStatus,
-          approvedAt: now,
-          reviewedAt: now,
-          creditedAmount,
-          balanceAfter,
-          updatedAt: now,
-        },
-      },
-    );
-
-    const profileUpdate: Record<string, unknown> = {
-      securityDepositBalance: balanceAfter,
-      updatedAt: now,
-    };
-    if (depositComplete) {
-      profileUpdate.depositStatus = "ACTIVE";
-      profileUpdate.deductionDate = null;
-    }
-    await profiles.updateOne({ userId: proof.userId }, { $set: profileUpdate });
-
-    // Recompute the loyalty streak from all approved weeks.
-    const approvedWeeks = await proofs
-      .find({ userId: proof.userId, status: "approved" })
-      .project({ weekStart: 1 })
-      .toArray();
-    const acceptedAt = profile?.depositAcceptedAt
-      ? new Date(profile.depositAcceptedAt)
-      : null;
-    const consecutiveOnTimeMonths = calculateConsecutiveOnTimeMonths({
-      acceptedAt:
-        acceptedAt && !Number.isNaN(acceptedAt.getTime()) ? acceptedAt : null,
-      approvedWeekStarts: approvedWeeks.map((p) => new Date(p.weekStart)),
-      totalWeeks: tierConfig?.totalWeeks ?? 0,
-      now,
-    });
-    await profiles.updateOne(
-      { userId: proof.userId },
-      { $set: { consecutiveOnTimeMonths } },
-    );
-
-    await notifyDriver(user, {
-      title: "Deposit Payment Approved",
-      body: depositComplete
-        ? `Your ${formatMoney(
-            creditedAmount,
-          )} deposit payment was approved. Your security deposit is now complete.`
-        : `Your ${formatMoney(
-            creditedAmount,
-          )} deposit payment was approved. Balance: ${formatMoney(
-            balanceAfter,
-          )} of ${formatMoney(target)}.`,
-    });
-
-    if (driverEmail) {
-      await sendDriverDepositApprovalEmail({
-        driverEmail,
-        driverName,
-        carRegistration,
-        tierName,
-        amount: creditedAmount,
-        securityDepositBalance: balanceAfter,
-        targetDepositAmount: target,
-        depositComplete,
-        weekStart: proof.weekStart.toISOString(),
-      }).catch((err) =>
-        console.error("Failed to send deposit approval email:", err),
-      );
-    }
-
-    const summary = await getDriverDepositSummary(db, proof.userId, now);
-
-    return NextResponse.json({
-      success: true,
-      message: "Deposit proof approved",
-      creditedAmount,
-      balanceAfter,
-      depositComplete,
-      deposit: summary,
-    });
   } catch (error) {
     console.error("Error processing deposit proof:", error);
     return NextResponse.json(
@@ -351,31 +255,6 @@ export async function PUT(request: NextRequest) {
       { status: 500 },
     );
   }
-}
-
-async function notifyDriver(
-  user: AdminUser | null,
-  payload: { title: string; body: string },
-) {
-  if (!user) return;
-  const pushTokens = user.pushTokens?.length
-    ? user.pushTokens
-    : user.expoPushToken
-      ? [user.expoPushToken]
-      : [];
-  if (!pushTokens.length) return;
-  await sendPushNotification(pushTokens, payload.title, payload.body, {
-    screen: "Deposit",
-  }).catch((err) => console.error("Failed to send deposit push:", err));
-}
-
-async function findUser(db: Db, userId: string) {
-  const users = db.collection<AdminUser>("user");
-  return users.findOne(
-    ObjectId.isValid(userId)
-      ? { _id: new ObjectId(userId) }
-      : { _id: userId },
-  );
 }
 
 async function findUsers(db: Db, userIds: string[]) {

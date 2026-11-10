@@ -143,6 +143,7 @@ export interface DepositProofDoc {
   rejectionReason?: string | null;
   creditedAmount?: number;
   balanceAfter?: number;
+  uploadedByAdmin?: boolean;
 }
 
 export interface DepositPayment {
