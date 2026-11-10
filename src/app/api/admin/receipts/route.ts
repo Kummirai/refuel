@@ -7,6 +7,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
+    const search = searchParams.get("search");
     const limit = parseInt(searchParams.get("limit") || "100");
 
     const { db } = await connectToDatabase();
@@ -16,12 +17,16 @@ export async function GET(request: Request) {
     let query: any = {};
 
     if (status === "pending") {
-      // Completed requests where receipt is NOT yet verified
-      query.completedDate = { $ne: null };
-      query.$nor = [
-        { hasReceipt: true },
-        { receiptStatus: "verified" },
-      ];
+      // Completed requests where receipt is uploaded but NOT yet verified
+      // Exclude manager-confirmed requests without popUrl (they go to noReceipt tab)
+      query = {
+        completedDate: { $ne: null },
+        popUrl: { $exists: true, $nin: [null, ""] },
+        $nor: [
+          { hasReceipt: true },
+          { receiptStatus: "verified" },
+        ],
+      };
     } else if (status === "verified") {
       // Completed requests with verified receipts
       query.completedDate = { $ne: null };
@@ -31,66 +36,95 @@ export async function GET(request: Request) {
       ];
     } else if (status === "noreceipt") {
       query = {
-        status: { $in: ["approved", "sent"] },
         $or: [
-          { popUrl: { $exists: false } },
-          { popUrl: null },
-          { popUrl: "" },
+          {
+            status: { $in: ["approved", "sent"] },
+            $or: [
+              { popUrl: { $exists: false } },
+              { popUrl: null },
+              { popUrl: "" },
+            ],
+          },
+          {
+            status: "completed",
+            refueledByManager: true,
+            $or: [
+              { popUrl: { $exists: false } },
+              { popUrl: null },
+              { popUrl: "" },
+            ],
+          },
         ],
       };
     }
 
+    if (search) {
+      const esc = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      query.$and = [
+        ...(query.$and || []),
+        { $or: [
+          { driverName: { $regex: esc, $options: "i" } },
+          { driverEmail: { $regex: esc, $options: "i" } },
+          { carNumber: { $regex: esc, $options: "i" } },
+        ]},
+      ];
+    }
+
     const receipts = await serviceRequestsCollection
       .find(query)
+      .project({
+        userId: 1, type: 1, amount: 1, actualAmount: 1, carNumber: 1,
+        driverName: 1, driverEmail: 1, driverPhone: 1, status: 1,
+        requestDate: 1, completedDate: 1, popUrl: 1, popUploadedAt: 1,
+        hasReceipt: 1, receiptStatus: 1, receiptVerifiedAt: 1,
+        receiptRejectionReason: 1, receiptRejectedAt: 1, correctedByAdmin: 1,
+        totalRepayable: 1, remainingBalance: 1, dueDate: 1,
+        refueledByManager: 1, carRegistration: 1,
+      })
       .sort({ completedDate: -1 })
       .limit(limit)
       .toArray();
 
-    // Get driver details for each receipt
-    const receiptsWithDetails = await Promise.all(
-      receipts.map(async (request: any) => {
-        let userIdQuery;
-        try {
-          userIdQuery = new ObjectId(request.userId);
-        } catch {
-          userIdQuery = request.userId;
-        }
+    // Batch user lookups
+    const userIds = [...new Set(receipts.map((r: any) => r.userId))] as string[];
+    const userObjectIds = userIds.map((id: string) => {
+      try { return new ObjectId(id); } catch { return id; }
+    });
+    const users: any[] = await usersCollection.find({ _id: { $in: userObjectIds } }).project({ name: 1, email: 1, phone: 1 }).toArray();
+    const userMap = new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
 
-        let user = await usersCollection.findOne({ _id: userIdQuery });
-        if (!user && typeof request.userId === "string") {
-          user = await usersCollection.findOne({ _id: request.userId });
-        }
+    const receiptsWithDetails = receipts.map((request: any) => {
+      const user = userMap.get(request.userId);
 
-        return {
-          id: request._id.toString(),
-          _id: request._id.toString(),
-          userId: request.userId,
-          type: request.type,
-          amount: request.amount,
-          actualAmount: request.actualAmount || null,
-          carNumber: request.carNumber,
-          carRegistration: request.carNumber,
-          driverName: request.driverName || user?.name || "Unknown",
-          driverEmail: request.driverEmail || user?.email || "Unknown",
-          driverPhone: request.driverPhone || user?.phone || "Unknown",
-          serviceType: request.type,
-          status: request.status,
-          requestDate: request.requestDate,
-          completedDate: request.completedDate,
-          popUrl: request.popUrl,
-          popUploadedAt: request.popUploadedAt,
-          hasReceipt: request.hasReceipt || false,
-          receiptVerifiedAt: request.receiptVerifiedAt || null,
-          receiptStatus: request.receiptStatus || (request.hasReceipt ? "verified" : "pending"),
-          receiptRejectionReason: request.receiptRejectionReason || null,
-          receiptRejectedAt: request.receiptRejectedAt || null,
-          correctedByAdmin: request.correctedByAdmin || false,
-          totalRepayable: request.totalRepayable,
-          remainingBalance: request.remainingBalance,
-          dueDate: request.dueDate || request.completedDate, // Fallback for sorting/display
-        };
-      }),
-    );
+      return {
+        id: request._id.toString(),
+        _id: request._id.toString(),
+        userId: request.userId,
+        type: request.type,
+        amount: request.amount,
+        actualAmount: request.actualAmount || null,
+        carNumber: request.carNumber,
+        carRegistration: request.carNumber,
+        driverName: request.driverName || user?.name || "Unknown",
+        driverEmail: request.driverEmail || user?.email || "Unknown",
+        driverPhone: request.driverPhone || user?.phone || "Unknown",
+        serviceType: request.type,
+        status: request.status,
+        requestDate: request.requestDate,
+        completedDate: request.completedDate,
+        popUrl: request.popUrl,
+        popUploadedAt: request.popUploadedAt,
+        hasReceipt: request.hasReceipt || false,
+        receiptVerifiedAt: request.receiptVerifiedAt || null,
+        receiptStatus: request.receiptStatus || (request.hasReceipt ? "verified" : "pending"),
+        receiptRejectionReason: request.receiptRejectionReason || null,
+        receiptRejectedAt: request.receiptRejectedAt || null,
+        correctedByAdmin: request.correctedByAdmin || false,
+        totalRepayable: request.totalRepayable,
+        remainingBalance: request.remainingBalance,
+        dueDate: request.dueDate || request.completedDate,
+      };
+    });
 
     return NextResponse.json({
       data: receiptsWithDetails,

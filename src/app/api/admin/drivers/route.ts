@@ -1,11 +1,13 @@
 // src/app/api/admin/drivers/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { toMoney } from "@/lib/money";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get("search");
     const { db } = await connectToDatabase();
 
     const usersCollection = db.collection("user");
@@ -79,6 +81,24 @@ export async function GET() {
         activeLoan: profile?.activeLoan || null,
         joinedDate: driver.createdAt,
         lastActive: driver.updatedAt,
+        address: profile?.address || "Not provided",
+        city: profile?.city || "Not provided",
+        pincode: profile?.pincode || "Not provided",
+        dateOfBirth: profile?.dateOfBirth || "Not provided",
+        ownershipStatus: profile?.ownershipStatus || "own",
+        referenceName: profile?.referenceName || "Not provided",
+        referencePhone: profile?.referencePhone || "Not provided",
+        carOwnerName: profile?.carOwnerName || "Not provided",
+        carOwnerPhone: profile?.carOwnerPhone || "Not provided",
+        carOwnerAddress: profile?.carOwnerAddress || "Not provided",
+        agreeAccuracy: profile?.agreeAccuracy || false,
+        agreeRefTenure: profile?.agreeRefTenure || false,
+        agreeOwnerContact: profile?.agreeOwnerContact || false,
+        agreeRepayment: profile?.agreeRepayment || false,
+        agreeEscalation: profile?.agreeEscalation || false,
+        drivingLicenseUrl: profile?.drivingLicenseUrl,
+        carRegistrationUrl: profile?.carRegistrationUrl,
+        profilePhotoUrl: profile?.profilePhotoUrl,
       };
     });
 
@@ -120,11 +140,31 @@ export async function GET() {
         drivingLicenseUrl: v.drivingLicenseUrl,
         carRegistrationUrl: v.carRegistrationUrl,
         profilePhotoUrl: v.profilePhotoUrl,
+        ownershipStatus: v.ownershipStatus,
+        referenceName: v.referenceName,
+        referencePhone: v.referencePhone,
+        carOwnerName: v.carOwnerName,
+        carOwnerPhone: v.carOwnerPhone,
+        carOwnerAddress: v.carOwnerAddress,
+        agreeAccuracy: v.agreeAccuracy,
+        agreeRefTenure: v.agreeRefTenure,
+        agreeOwnerContact: v.agreeOwnerContact,
+        agreeRepayment: v.agreeRepayment,
+        agreeEscalation: v.agreeEscalation,
       };
     });
 
     // Calculate stats
-    const verifiedCount = driversWithData.filter(
+    let filteredDrivers = driversWithData;
+    if (search) {
+      const q = search.toLowerCase();
+      filteredDrivers = filteredDrivers.filter((d: any) =>
+        d.name?.toLowerCase().includes(q) ||
+        d.email?.toLowerCase().includes(q) ||
+        d.carRegistration?.toLowerCase().includes(q)
+      );
+    }
+    const verifiedCount = filteredDrivers.filter(
       (d: any) => d.verificationStatus === "approved",
     ).length;
     const pendingCount = driversWithData.filter(
@@ -135,7 +175,7 @@ export async function GET() {
     ).length;
 
     return NextResponse.json({
-      drivers: driversWithData,
+      drivers: filteredDrivers,
       recent: recentVerifications,
       total: driversWithData.length,
       verified: verifiedCount,

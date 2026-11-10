@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { sendDriverInvoiceEmail } from "@/lib/email";
+import { sendPushNotification } from "@/lib/notifications";
 import { toMoney } from "@/lib/money";
 
 const serviceTypeMap: Record<string, string> = {
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
             hasReceipt: true,
             receiptVerifiedAt: new Date(),
             updatedAt: new Date(),
+            refueledByManager: false,
           },
         },
       );
@@ -71,6 +73,20 @@ export async function POST(req: NextRequest) {
           user = await usersCollection.findOne({ id: serviceRequest.userId });
         }
 
+        // Trigger push notification if token exists
+        const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+        if (pushTokens.length) {
+
+          await sendPushNotification(
+
+            pushTokens,
+              "Receipt Verified",
+              "Your receipt has been verified and your invoice is ready.",
+              { screen: "Invoices" }
+            );
+        }
+
         const driverEmail =
           serviceRequest.driverEmail || user?.email || "";
         const driverName =
@@ -78,13 +94,13 @@ export async function POST(req: NextRequest) {
         const serviceTypeLabel =
           serviceTypeMap[serviceRequest.type] || serviceRequest.type;
         const actualAmount =
-          serviceRequest.actualAmount || serviceRequest.amount;
+          serviceRequest.actualAmount ?? serviceRequest.amount;
         const totalRepayable =
-          serviceRequest.totalRepayable || actualAmount;
-        const interestAmount = serviceRequest.interest || 0;
-        const interestRate = serviceRequest.interestRate || 13;
-        const dailyPayment = serviceRequest.dailyPayment || 0;
-        const repaymentDays = serviceRequest.repaymentDays || 7;
+          serviceRequest.totalRepayable ?? actualAmount;
+        const interestAmount = serviceRequest.interest ?? 0;
+        const interestRate = serviceRequest.interestRate ?? 13;
+        const dailyPayment = serviceRequest.dailyPayment ?? 0;
+        const repaymentDays = serviceRequest.repaymentDays ?? 7;
         const isCarWash = serviceRequest.type === "carwash";
         const carWashServiceCharge =
           isCarWash && actualAmount > serviceRequest.amount

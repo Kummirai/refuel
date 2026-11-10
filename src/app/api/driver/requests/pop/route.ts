@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { connectToDatabase } from "@/lib/mongodb/client";
 import { ObjectId } from "mongodb";
 import { toMoney } from "@/lib/money";
+import { sendPushNotification, sendAdminPushNotification } from "@/lib/notifications";
 import {
   sendAdminReceiptUploadEmail,
   sendDriverReceiptUploadConfirmation,
@@ -62,6 +63,7 @@ export async function POST(request: NextRequest) {
 
     const { db } = await connectToDatabase();
     const requestsCollection = db.collection("serviceRequests");
+    const usersCollection = db.collection("user");
 
     // Find the request
     const existingRequest = await requestsCollection.findOne({
@@ -81,12 +83,12 @@ export async function POST(request: NextRequest) {
 
     // Calculate total repayable if interest is provided
     const finalTotalRepayable =
-      totalRepayable ||
+      totalRepayable ??
       (interest
         ? toMoney(actualAmount + (actualAmount * interest) / 100)
         : actualAmount);
-    const finalDailyPayment = dailyPayment || toMoney(finalTotalRepayable / 7);
-    const finalRepaymentDays = repaymentDays || 7;
+    const finalDailyPayment = dailyPayment ?? toMoney(finalTotalRepayable / 7);
+    const finalRepaymentDays = repaymentDays ?? 7;
 
     // Update the request
     const updateResult = await requestsCollection.updateOne(
@@ -100,7 +102,7 @@ export async function POST(request: NextRequest) {
           popUrl: popUrl,
           popPublicId: popPublicId || `pop_${requestId}_${Date.now()}`,
           popUploadedAt: new Date(),
-          interest: interest || (existingRequest.type === "cash" ? 15 : 0),
+          interest: interest ?? (existingRequest.type === "cash" ? 15 : 0),
           totalRepayable: finalTotalRepayable,
           dailyPayment: finalDailyPayment,
           repaymentDays: finalRepaymentDays,
@@ -133,9 +135,22 @@ export async function POST(request: NextRequest) {
       { upsert: true },
     );
 
-    // Get driver details for email
-    const usersCollection = db.collection("user");
-    const user = await usersCollection.findOne({ id: session.user.id });
+    // Get driver details for email/notifications
+    const user = await usersCollection.findOne({ _id: new ObjectId(session.user.id) });
+
+    // Trigger push notification if token exists
+    const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+    if (pushTokens.length) {
+
+      await sendPushNotification(
+
+        pushTokens,
+        "Receipt Uploaded",
+        "Your receipt has been uploaded successfully and is pending verification.",
+        { screen: "History" }
+      );
+    }
 
     // Type-safe service type mapping
     const serviceTypeMap: Record<string, string> = {
@@ -147,6 +162,13 @@ export async function POST(request: NextRequest) {
 
     const serviceTypeLabel =
       serviceTypeMap[existingRequest.type] || existingRequest.type;
+
+    // Send push notification to admins
+    sendAdminPushNotification(
+      "Receipt Uploaded",
+      `${user?.name || "A driver"} uploaded a receipt for ${serviceTypeLabel} request.`,
+      { screen: "AdminReceipts" }
+    );
 
     // Send email to admin about receipt upload (don't await - fire and forget)
     sendAdminReceiptUploadEmail({
@@ -190,7 +212,7 @@ export async function POST(request: NextRequest) {
     const calculatedInterestRate =
       calculatedInterestAmount > 0 && actualAmount > 0
         ? Math.round((calculatedInterestAmount / actualAmount) * 100)
-        : existingRequest.interestRate || 13;
+        : existingRequest.interestRate ?? 13;
     const carWashServiceCharge =
       isCarWash && actualAmount > existingRequest.amount
         ? toMoney(actualAmount - existingRequest.amount)

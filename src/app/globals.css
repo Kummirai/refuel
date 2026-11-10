@@ -1,5 +1,38 @@
 @import "tailwindcss";
 
+/* Mobile type scale — matches the React Native app's fontSize distribution
+   (body 13-14, labels 10-12, values 14-16, headers 18-22).
+   Unlayered, so it overrides Tailwind utilities below sm. */
+@media (max-width: 639px) {
+  .text-xs {
+    font-size: 11px;
+  }
+  .text-sm {
+    font-size: 13px;
+  }
+  .text-base {
+    font-size: 14px;
+  }
+  .text-lg {
+    font-size: 16px;
+  }
+  .text-xl {
+    font-size: 18px;
+  }
+  .text-2xl {
+    font-size: 20px;
+  }
+  .text-3xl {
+    font-size: 24px;
+  }
+  .text-4xl {
+    font-size: 28px;
+  }
+  .text-5xl {
+    font-size: 32px;
+  }
+}
+
 /* Custom animations */
 @keyframes slideUp {
   from {

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import {
   Search,
+  Shield,
   Filter,
   Eye,
   CheckCircle,
@@ -35,6 +36,7 @@ import {
   ImageIcon,
   Truck,
   Banknote,
+  Trash2,
 } from "lucide-react";
 import { toPng } from "html-to-image";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -43,9 +45,22 @@ import { formatMoney, toMoney } from "@/lib/money";
 type RequestType = "fuel" | "airtime" | "cash" | "carwash";
 type RequestStatus = "pending" | "approved" | "sent" | "completed" | "rejected";
 
+interface Collateral {
+  category?: string;
+  itemName?: string;
+  brand?: string;
+  model?: string;
+  purchaseYear?: number;
+  color?: string;
+  condition?: string;
+  serialNumber?: string;
+  images?: string[];
+}
+
 interface ServiceRequest {
   id: string;
   _id?: string;
+  userId?: string;
   driverName: string;
   driverEmail: string;
   driverPhone: string;
@@ -74,6 +89,8 @@ interface ServiceRequest {
   repaidAmount?: number;
   remainingBalance?: number;
   isPaid?: boolean;
+  refueledByManager?: boolean;
+  collateral?: Collateral | null;
 }
 
 interface LinkedRequest {
@@ -104,7 +121,7 @@ const CLOUDINARY_UPLOAD_PRESET = "driver_documents";
 export default function AdminServiceRequestsPage() {
   const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<
-    "all" | "pending" | "approved" | "sent" | "completed" | "rejected"
+    "all" | "pending" | "approved" | "sent" | "completed" | "rejected" | "refueled"
   >("pending");
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(
     null,
@@ -119,6 +136,10 @@ export default function AdminServiceRequestsPage() {
   const [approvedRequest, setApprovedRequest] = useState<ServiceRequest | null>(
     null,
   );
+  const [driverBankName, setDriverBankName] = useState("");
+  const [driverAccountHolder, setDriverAccountHolder] = useState("");
+  const [driverAccountNumber, setDriverAccountNumber] = useState("");
+  const [driverBranchCode, setDriverBranchCode] = useState("");
   const [generatedOtp, setGeneratedOtp] = useState("");
   const [approvalLoading, setApprovalLoading] = useState(false);
   const [sentLoading, setSentLoading] = useState(false);
@@ -136,6 +157,7 @@ export default function AdminServiceRequestsPage() {
     sent: 0,
     completed: 0,
     rejected: 0,
+    refueled: 0,
     totalRequestedAmount: 0,
     totalActualAmount: 0,
     totalInterest: 0,
@@ -152,8 +174,12 @@ export default function AdminServiceRequestsPage() {
     useState<ServiceRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [rejectLoading, setRejectLoading] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingRequest, setDeletingRequest] =
+    useState<ServiceRequest | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const isAnyModalOpen = showSuccessModal || showErrorModal || showRejectModal;
+  const isAnyModalOpen = showSuccessModal || showErrorModal || showRejectModal || showDeleteModal;
   useBodyScrollLock(isAnyModalOpen);
 
   useEffect(() => {
@@ -162,7 +188,7 @@ export default function AdminServiceRequestsPage() {
 
   const fetchRequests = async () => {
     try {
-      const response = await fetch("/api/admin/requests", { cache: "no-store" });
+      const response = await fetch("/api/admin/requests?limit=500", { cache: "no-store" });
       if (response.ok) {
         const data = await response.json();
         const requestsWithId = (data.requests || []).map((req: any) => ({
@@ -198,6 +224,7 @@ export default function AdminServiceRequestsPage() {
           sent: data.sent || 0,
           completed: data.completed || 0,
           rejected: data.rejected || 0,
+          refueled: data.refueled || 0,
           totalRequestedAmount,
           totalActualAmount,
           totalInterest,
@@ -222,6 +249,24 @@ export default function AdminServiceRequestsPage() {
     setGeneratedOtp(otp);
     setApprovingRequest(request);
     setShowApproveModal(true);
+  };
+
+  const fetchDriverBanking = async (userId: string) => {
+    if (!userId) return;
+    try {
+      const res = await fetch(`/api/admin/drivers/profile?userId=${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.profile) {
+          setDriverBankName(data.profile.bankName || "");
+          setDriverAccountHolder(data.profile.accountHolder || "");
+          setDriverAccountNumber(data.profile.accountNumber || "");
+          setDriverBranchCode(data.profile.branchCode || "");
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching driver banking:", err);
+    }
   };
 
   const handleConfirmApprove = async () => {
@@ -253,6 +298,9 @@ export default function AdminServiceRequestsPage() {
           status: "approved" as RequestStatus,
         };
         setApprovedRequest(updatedRequest);
+        if (updatedRequest.type === "cash") {
+          fetchDriverBanking(updatedRequest.userId || "");
+        }
         setShowApproveModal(false);
         setShowWhatsAppModal(true);
         fetchRequests();
@@ -410,13 +458,57 @@ export default function AdminServiceRequestsPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!deletingRequest) return;
+
+    setDeleteLoading(true);
+    try {
+      const response = await fetch("/api/admin/requests/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: deletingRequest.id,
+        }),
+      });
+
+      if (response.ok) {
+        setSuccessMessage(
+          `Request ${deletingRequest.id.slice(-6).toUpperCase()} deleted successfully`,
+        );
+        setShowSuccessModal(true);
+        fetchRequests();
+        setShowDeleteModal(false);
+        setDeletingRequest(null);
+        setShowModal(false);
+      } else {
+        const error = await response.json();
+        setErrorMessage(error.error || "Failed to delete request");
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error("Error deleting request:", error);
+      setErrorMessage("Failed to delete request");
+      setShowErrorModal(true);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const handleCopyOtp = (otp: string) => {
     navigator.clipboard.writeText(otp);
     setCopiedOtp(otp);
     setTimeout(() => setCopiedOtp(null), 2000);
   };
 
-  const getStatusBadge = (status: RequestStatus) => {
+  const getStatusBadge = (status: RequestStatus, refueledByManager?: boolean) => {
+    if (status === "completed" && refueledByManager) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-amber-100 text-amber-700">
+          <CheckCircle className="w-3 h-3" />
+          Refueled
+        </span>
+      );
+    }
     const config = {
       pending: {
         icon: Clock,
@@ -502,7 +594,12 @@ export default function AdminServiceRequestsPage() {
   };
 
   const filteredRequests = requests
-    .filter((r) => selectedTab === "all" || r.status === selectedTab)
+    .filter((r) => {
+      if (selectedTab === "all") return true;
+      if (selectedTab === "refueled") return r.status === "completed" && r.refueledByManager;
+      if (selectedTab === "completed") return r.status === "completed" && !r.refueledByManager;
+      return r.status === selectedTab;
+    })
     .filter((r) => selectedType === "all" || r.type === selectedType)
     .filter(
       (r) =>
@@ -853,6 +950,96 @@ export default function AdminServiceRequestsPage() {
               </div>
             )}
 
+            {/* Collateral Section (cash loans only) */}
+            {request.type === "cash" && (
+              <div className="bg-[#EAFDE7] rounded-xl p-4">
+                <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-[#3A7717]" /> Collateral Details
+                </h3>
+                {!request.collateral ? (
+                  <p className="text-sm text-gray-500 italic">No collateral data provided with this request.</p>
+                ) : (
+                <>
+                {request.collateral.images && request.collateral.images.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs text-gray-500 mb-2">Photos ({request.collateral.images.length})</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {request.collateral.images.map((url, idx) => (
+                        <a
+                          key={idx}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block w-20 h-20 rounded-lg overflow-hidden border border-[#BFF202]/20 bg-white"
+                        >
+                          <img
+                            src={url}
+                            alt={`Collateral ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                            }}
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-2 text-sm">
+                  {request.collateral.itemName && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Item:</span>
+                      <span className="font-semibold text-[#01312D]">{request.collateral.itemName}</span>
+                    </div>
+                  )}
+                  {request.collateral.category && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Category:</span>
+                      <span className="font-semibold text-[#01312D]">{request.collateral.category}</span>
+                    </div>
+                  )}
+                  {request.collateral.condition && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Condition:</span>
+                      <span className="font-semibold capitalize text-[#01312D]">{request.collateral.condition.replace(/_/g, ' ')}</span>
+                    </div>
+                  )}
+                  {request.collateral.brand && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Brand:</span>
+                      <span className="font-semibold text-[#01312D]">{request.collateral.brand}</span>
+                    </div>
+                  )}
+                  {request.collateral.model && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Model:</span>
+                      <span className="font-semibold text-[#01312D]">{request.collateral.model}</span>
+                    </div>
+                  )}
+                  {request.collateral.purchaseYear && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Year:</span>
+                      <span className="font-semibold text-[#01312D]">{request.collateral.purchaseYear}</span>
+                    </div>
+                  )}
+                  {request.collateral.color && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Color:</span>
+                      <span className="font-semibold text-[#01312D]">{request.collateral.color}</span>
+                    </div>
+                  )}
+                  {request.collateral.serialNumber && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Serial / IMEI:</span>
+                      <span className="font-semibold text-[#01312D]">{request.collateral.serialNumber}</span>
+                    </div>
+                  )}
+                </div>
+                </>
+                )}
+              </div>
+            )}
+
             {/* Paid With Section - linked requests from same bulk repayment proof */}
             {!proofsLoading && bulkProofs.length > 0 && (
               <div className="bg-[#EAFDE7] rounded-xl p-4">
@@ -951,6 +1138,9 @@ export default function AdminServiceRequestsPage() {
                 <button
                   onClick={() => {
                     setApprovedRequest(request);
+                    if (request.type === "cash") {
+                      fetchDriverBanking(request.userId || "");
+                    }
                     setShowWhatsAppModal(true);
                     setShowModal(false);
                   }}
@@ -961,16 +1151,27 @@ export default function AdminServiceRequestsPage() {
               </>
             )}
             {request.status === "sent" && (
-              <div className="p-3 bg-purple-50 rounded-xl text-center">
-                <p className="text-sm text-purple-700">
-                  Service has been sent. Waiting for driver to confirm
-                  completion.
-                </p>
-                <p className="text-xs text-purple-600 mt-1">
-                  The driver will mark this as completed after receiving the
-                  service.
-                </p>
-              </div>
+              <>
+                <div className="p-3 bg-purple-50 rounded-xl text-center">
+                  <p className="text-sm text-purple-700">
+                    Service has been sent. Waiting for driver to confirm
+                    completion.
+                  </p>
+                  <p className="text-xs text-purple-600 mt-1">
+                    The driver will mark this as completed after receiving the
+                    service.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setDeletingRequest(request);
+                    setShowDeleteModal(true);
+                  }}
+                  className="w-full bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" /> Delete Request
+                </button>
+              </>
             )}
             {request.status === "completed" && (
               <button
@@ -978,6 +1179,17 @@ export default function AdminServiceRequestsPage() {
                 className="w-full bg-gray-500 text-white py-2 rounded-xl font-semibold hover:bg-gray-600 transition-colors"
               >
                 Close
+              </button>
+            )}
+            {(request.status === "rejected" || request.status === "approved") && (
+              <button
+                onClick={() => {
+                  setDeletingRequest(request);
+                  setShowDeleteModal(true);
+                }}
+                className="w-full bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-600 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" /> Delete Request
               </button>
             )}
           </div>
@@ -1423,7 +1635,29 @@ export default function AdminServiceRequestsPage() {
         const baseAmount =
           approvedRequest.actualAmount || approvedRequest.amount;
 
-        const message = `KAPUKA - Service Approved
+        const message = approvedRequest.type === "cash"
+          ? `KAPUKA - Cash Loan Approved
+
+Your cash loan of ${formatMoney(baseAmount)} has been approved.
+
+Transaction ID: ${finalOtp}
+Interest Rate: ${approvedRequest.interestRate || 26}%
+Repayment Period: ${approvedRequest.repaymentDays || 14} days
+Daily Payment: ${formatMoney(approvedRequest.dailyPayment || 0)}/day
+
+=== DRIVER BANKING DETAILS ===
+Bank: ${driverBankName || "N/A"}
+Account Holder: ${driverAccountHolder || "N/A"}
+Account Number: ${driverAccountNumber || "N/A"}
+Branch Code: ${driverBranchCode || "N/A"}
+
+* PLEASE VERIFY AND CONFIRM *
+Before releasing funds, verify the banking details above with the driver.
+
+Click here to view your receipt: ${imageUrl || "Receipt image attached"}
+
+Kapuka Tradings`
+          : `KAPUKA - Service Approved
 
 Your service request has been approved.
 
@@ -1457,18 +1691,44 @@ Kapuka Tradings`;
           setUploadingImage(false);
           setShowWhatsAppModal(false);
           setApprovedRequest(null);
+          setDriverBankName("");
+          setDriverAccountHolder("");
+          setDriverAccountNumber("");
+          setDriverBranchCode("");
           setApprovingRequest(null);
         }, 2000);
       } catch (error) {
         console.error("Error sending via WhatsApp:", error);
 
-        const fallbackMessage = `KAPUKA - Service Approved
+        const fallbackMessage = approvedRequest.type === "cash"
+          ? `KAPUKA - Cash Loan Approved
+
+Your cash loan of ${formatMoney(approvedRequest.actualAmount || approvedRequest.amount)} has been approved.
+
+Transaction ID: ${approvedRequest.otp || generatedOtp}
+Interest Rate: ${approvedRequest.interestRate || 26}%
+Repayment Period: ${approvedRequest.repaymentDays || 14} days
+Daily Payment: ${formatMoney(approvedRequest.dailyPayment || 0)}/day
+
+=== DRIVER BANKING DETAILS ===
+Bank: ${driverBankName || "N/A"}
+Account Holder: ${driverAccountHolder || "N/A"}
+Account Number: ${driverAccountNumber || "N/A"}
+Branch Code: ${driverBranchCode || "N/A"}
+
+* PLEASE VERIFY AND CONFIRM *
+Before releasing funds, verify the banking details above with the driver.
+
+Please check your email for the approval.
+
+Kapuka Tradings`
+          : `KAPUKA - Service Approved
 
 Your service request has been approved.
 
 Request ID: ${approvedRequest.id.slice(-6).toUpperCase()}
 ${transactionLabel}: ${approvedRequest.otp || generatedOtp}
-Amount: ${formatMoney(displayAmount)}
+Amount: ${formatMoney(approvedRequest.actualAmount || approvedRequest.amount)}
 
 Please check your email for the receipt.
 
@@ -2068,8 +2328,95 @@ Kapuka Tradings`;
             </div>
           </div>
 
+          {/* Driver Banking Details (for cash loans) */}
+          {approvedRequest.type === "cash" && (driverBankName || driverAccountNumber) && (
+            <div style={{ padding: "0 28px 28px 28px" }}>
+              <div
+                style={{
+                  background: "#f0fdf4",
+                  borderRadius: "20px",
+                  padding: "20px",
+                  border: "2px solid #16a34a",
+                }}
+              >
+                <p style={{ fontSize: "13px", fontWeight: "700", color: "#166534", marginBottom: "12px" }}>
+                  Driver Banking Details (Disbursement)
+                </p>
+                {driverBankName && <p style={{ fontSize: "13px", color: "#01312D", marginBottom: "4px" }}><strong>Bank:</strong> {driverBankName}</p>}
+                {driverAccountHolder && <p style={{ fontSize: "13px", color: "#01312D", marginBottom: "4px" }}><strong>Account Holder:</strong> {driverAccountHolder}</p>}
+                {driverAccountNumber && <p style={{ fontSize: "13px", color: "#01312D", marginBottom: "4px" }}><strong>Account Number:</strong> {driverAccountNumber}</p>}
+                {driverBranchCode && <p style={{ fontSize: "13px", color: "#01312D", marginBottom: "4px" }}><strong>Branch Code:</strong> {driverBranchCode}</p>}
+              </div>
+            </div>
+          )}
+
+          {approvedRequest.type === "cash" && !driverBankName && !driverAccountNumber && (
+            <div style={{ padding: "0 28px 28px 28px" }}>
+              <div
+                style={{
+                  background: "#fef2f2",
+                  borderRadius: "20px",
+                  padding: "20px",
+                  border: "2px solid #dc2626",
+                }}
+              >
+                <p style={{ fontSize: "13px", fontWeight: "700", color: "#dc2626", textAlign: "center" }}>
+                  No banking details on file. Please request from driver.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* PLEASE VERIFY AND CONFIRM - for cash loans */}
+          {approvedRequest.type === "cash" && (
+            <div style={{ padding: "0 28px 0 28px" }}>
+              <div
+                style={{
+                  background: "#fef2f2",
+                  borderRadius: "20px",
+                  padding: "16px",
+                  textAlign: "center",
+                  border: "3px solid #dc2626",
+                  marginBottom: "16px",
+                }}
+              >
+                <p style={{ fontSize: "16px", fontWeight: "800", color: "#dc2626", margin: "0 0 8px 0" }}>
+                  ⚠ PLEASE VERIFY AND CONFIRM
+                </p>
+                <p style={{ margin: 0, fontSize: "12px", color: "#991b1b", lineHeight: "1.5" }}>
+                  Before releasing funds, verify the above banking details with the driver. Kapuka Tradings is not liable for payments made to incorrect accounts.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Company Banking Details (for cash loans) */}
+          {approvedRequest.type === "cash" && (
+            <div style={{ padding: "0 28px 28px 28px" }}>
+              <div
+                style={{
+                  background: "#f8faf8",
+                  borderRadius: "20px",
+                  padding: "16px",
+                  border: "1px solid #e5e7eb",
+                }}
+              >
+                <p style={{ fontSize: "13px", fontWeight: "700", color: "#01312D", marginBottom: "8px" }}>
+                  Company Banking Details (Repayments)
+                </p>
+                <p style={{ fontSize: "12px", color: "#01312D", marginBottom: "4px" }}><strong>Bank:</strong> FNB/RMB</p>
+                <p style={{ fontSize: "12px", color: "#01312D", marginBottom: "4px" }}><strong>Account Holder:</strong> Japhet Sibuyi</p>
+                <p style={{ fontSize: "12px", color: "#01312D", marginBottom: "4px" }}><strong>Account Number:</strong> 63131222307</p>
+                <p style={{ fontSize: "12px", color: "#01312D", marginBottom: "4px" }}><strong>Branch Code:</strong> 250655</p>
+                <p style={{ fontSize: "12px", color: "#dc2626", marginTop: "8px" }}>
+                  <strong>Reference:</strong> Use your car registration ({approvedRequest.carNumber || "N/A"}) as payment reference
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Validity Banner - Modern */}
-          <div style={{ padding: "0 28px 28px 28px" }}>
+          <div style={{ padding: approvedRequest.type === "cash" ? "0 28px 28px 28px" : "0 28px 28px 28px" }}>
             <div
               style={{
                 background: "linear-gradient(135deg, #BFF202 0%, #72BF00 100%)",
@@ -2565,7 +2912,7 @@ Kapuka Tradings`;
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-2 border-b border-[#BFF202]/20 overflow-x-auto pb-0">
-        {["all", "pending", "approved", "sent", "completed", "rejected"].map(
+        {["all", "pending", "approved", "sent", "refueled", "completed", "rejected"].map(
           (tab) => (
             <button
               key={tab}
@@ -2590,6 +2937,11 @@ Kapuka Tradings`;
               {tab === "sent" && stats.sent > 0 && (
                 <span className="ml-1 px-1.5 py-0.5 bg-purple-500 text-white text-xs rounded-full">
                   {stats.sent}
+                </span>
+              )}
+              {tab === "refueled" && stats.refueled > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 bg-amber-500 text-white text-xs rounded-full">
+                  {stats.refueled}
                 </span>
               )}
               {tab === "completed" && stats.completed > 0 && (
@@ -2665,7 +3017,7 @@ Kapuka Tradings`;
                         <p className="font-bold text-[#01312D]">
                           {getTypeLabel(request.type)}
                         </p>
-                        {getStatusBadge(request.status)}
+                        {getStatusBadge(request.status, request.refueledByManager)}
                         {hasActualAmount && amountDifference !== 0 && (
                           <span className="text-xs bg-[#BFF202]/20 text-[#01312D] px-2 py-0.5 rounded-full">
                             Amount Adjusted
@@ -2728,20 +3080,53 @@ Kapuka Tradings`;
                     </>
                   )}
                   {request.status === "approved" && (
-                    <button
-                      onClick={() => {
-                        setSentRequest(request);
-                        setShowSentModal(true);
-                      }}
-                      className="flex-1 py-2 bg-[#01312D] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-colors"
-                    >
-                      <Truck className="w-4 h-4" /> Mark as Sent
-                    </button>
+                    <>
+                      <button
+                        onClick={() => {
+                          setSentRequest(request);
+                          setShowSentModal(true);
+                        }}
+                        className="flex-1 py-2 bg-[#01312D] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-colors"
+                      >
+                        <Truck className="w-4 h-4" /> Mark as Sent
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDeletingRequest(request);
+                          setShowDeleteModal(true);
+                        }}
+                        className="py-2 px-3 bg-red-100 text-red-600 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 hover:bg-red-200 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
                   )}
                   {request.status === "sent" && (
-                    <div className="flex-1 py-2 bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1">
-                      <Clock className="w-4 h-4" /> Awaiting Driver Confirmation
-                    </div>
+                    <>
+                      <div className="flex-1 py-2 bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1">
+                        <Clock className="w-4 h-4" /> Awaiting Driver Confirmation
+                      </div>
+                      <button
+                        onClick={() => {
+                          setDeletingRequest(request);
+                          setShowDeleteModal(true);
+                        }}
+                        className="py-2 px-3 bg-red-100 text-red-600 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 hover:bg-red-200 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+                  {request.status === "rejected" && (
+                    <button
+                      onClick={() => {
+                        setDeletingRequest(request);
+                        setShowDeleteModal(true);
+                      }}
+                      className="py-2 px-3 bg-red-100 text-red-600 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 hover:bg-red-200 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   )}
                 </div>
               </div>
@@ -2761,6 +3146,119 @@ Kapuka Tradings`;
       {showWhatsAppModal && approvedRequest && <WhatsAppModal />}
       {showSentModal && sentRequest && <SentModal />}
       {showRejectModal && rejectingRequest && renderRejectionModal()}
+      {showDeleteModal && deletingRequest && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => !deleteLoading && setShowDeleteModal(false)}
+          ></div>
+          <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-t-2xl p-5">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                  <Trash2 className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">
+                    Delete Request
+                  </h2>
+                  <p className="text-white/80 text-sm">
+                    This action cannot be undone
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="bg-red-50 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-semibold text-red-800 text-sm">
+                      Are you sure you want to delete this request?
+                    </p>
+                    <ul className="text-xs text-red-700 mt-2 space-y-1 list-disc list-inside">
+                      <li>This action cannot be undone</li>
+                      <li>All associated records will be permanently removed</li>
+                      <li>
+                        Request ID:{" "}
+                        {deletingRequest.id.slice(-8).toUpperCase()}
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#EAFDE7] rounded-xl p-4">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Driver:</span>
+                    <span className="font-semibold text-[#01312D]">
+                      {deletingRequest.driverName}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Vehicle:</span>
+                    <span className="font-semibold text-[#01312D]">
+                      {deletingRequest.carNumber}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Service:</span>
+                    <span className="font-semibold text-[#01312D]">
+                      {getTypeLabel(deletingRequest.type)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Amount:</span>
+                    <span className="font-bold text-[#3A7717]">
+                      {formatMoney(
+                        deletingRequest.actualAmount || deletingRequest.amount,
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Status:</span>
+                    <span className="font-semibold capitalize">
+                      {deletingRequest.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-100 p-5 flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeletingRequest(null);
+                }}
+                disabled={deleteLoading}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleteLoading}
+                className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                {deleteLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <SuccessModal />
       <ErrorModal />
     </div>

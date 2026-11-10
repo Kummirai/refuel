@@ -38,6 +38,10 @@ export async function getSettings() {
           airtimeNetworks: ["Jio", "Airtel", "VI", "BSNL"],
           fuelTypes: ["Petrol", "Diesel"],
         },
+        fuelCredit: {
+          defaultLimit: 2500,
+          enabled: true,
+        },
         notifications: {
           emailNotifications: true,
           whatsappNotifications: true,
@@ -82,6 +86,7 @@ export async function getSettings() {
       notifications: settings.notifications,
       security: settings.security,
       business: settings.business,
+      fuelCredit: settings.fuelCredit || { defaultLimit: 2500, enabled: true },
     };
   } catch (error) {
     console.error("Error getting settings:", error);

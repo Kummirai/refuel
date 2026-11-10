@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { sendDriverRejectionEmail } from "@/lib/email";
+import { sendPushNotification } from "@/lib/notifications";
 
 export async function POST(request: Request) {
   try {
@@ -88,6 +89,30 @@ export async function POST(request: Request) {
         },
       },
     );
+
+    // Trigger push notification if token exists
+    const usersCollection = db.collection("user");
+    let user;
+    try {
+      user = await usersCollection.findOne({ _id: new ObjectId(requestDoc.userId) });
+    } catch {
+      user = null;
+    }
+    if (!user?.expoPushToken && requestDoc.driverEmail) {
+      user = await usersCollection.findOne({ email: requestDoc.driverEmail });
+    }
+    const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+    if (pushTokens.length) {
+
+      await sendPushNotification(
+
+        pushTokens,
+        "Request Rejected",
+        `Your ${requestDoc.type || requestDoc.serviceType || "service"} request has been rejected. Reason: ${reason || "No reason provided"}`,
+        { screen: "History" }
+      );
+    }
 
     // Send email notification to driver (run in background)
     (async () => {

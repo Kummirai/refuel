@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
+import SocialAuthButtons from "@/components/SocialAuthButtons";
 import {
   Mail,
   Lock,
@@ -33,6 +34,8 @@ export default function SignInPage() {
       const userRole = (session.user as any)?.role;
       if (userRole === "admin") {
         router.push("/admin/dashboard");
+      } else if (userRole === "manager") {
+        router.push("/manager/dashboard");
       } else {
         router.push("/");
       }
@@ -60,8 +63,11 @@ export default function SignInPage() {
 
         const userRole = (sessionData?.user as any)?.role;
         if (userRole === "admin") {
-          // Admin goes to admin dashboard
           router.push("/admin/dashboard");
+          return;
+        }
+        if (userRole === "manager") {
+          router.push("/manager/dashboard");
           return;
         }
 
@@ -144,6 +150,8 @@ export default function SignInPage() {
             <p className="text-sm text-red-600">{error}</p>
           </div>
         )}
+
+        <SocialAuthButtons />
 
         {/* Sign In Form */}
         <form onSubmit={handleSubmit} className="space-y-4">

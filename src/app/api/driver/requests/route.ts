@@ -1,8 +1,12 @@
 // src/app/api/driver/requests/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
-import { toMoney } from "@/lib/money";
+import { formatMoney, toMoney } from "@/lib/money";
+import { getDriverFuelCredit, isFuelCreditEnabled } from "@/lib/fuel-credit";
+import { getFuelInterestRate } from "@/lib/deposit";
 import { sendAdminNotificationEmail } from "@/lib/email";
+import { sendPushNotification, sendAdminPushNotification } from "@/lib/notifications";
+import { ObjectId } from "mongodb";
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,6 +27,15 @@ export async function GET(request: NextRequest) {
     const requests = await serviceRequestsCollection
       .find({ userId })
       .sort({ requestDate: -1 })
+      .project({
+        type: 1, amount: 1, actualAmount: 1, carNumber: 1, carModel: 1,
+        fuelType: 1, contactPhone: 1, driverName: 1, driverPhone: 1, driverEmail: 1,
+        interest: 1, totalRepayable: 1, interestRate: 1, repaymentDays: 1,
+        dailyPayment: 1, package: 1, packageDescription: 1, status: 1, otp: 1,
+        requestDate: 1, createdAt: 1, approvedDate: 1, completedDate: 1,
+        repaidAmount: 1, remainingBalance: 1, isPaid: 1, popUrl: 1,
+        hasReceipt: 1, collateral: 1, recipientPhoneNumber: 1,
+      })
       .toArray();
 
     // Batch fetch all repayment proofs for all requests
@@ -30,6 +43,7 @@ export async function GET(request: NextRequest) {
     const allProofs = requestIds.length > 0
       ? await repaymentProofsCollection
           .find({ requestId: { $in: requestIds } })
+          .project({ requestId: 1, amount: 1, status: 1, submittedAt: 1, approvedAt: 1, proofUrl: 1, proofPublicId: 1, remainingBalance: 1, isFullyPaid: 1 })
           .toArray()
       : [];
     const proofsByRequest = new Map<string, any[]>();
@@ -129,7 +143,8 @@ export async function POST(request: NextRequest) {
       driverEmail,
       package: packageName,
       packageDescription,
-      hasReceipt
+      hasReceipt,
+      collateral,
     } = body;
 
     // Validate required fields
@@ -156,6 +171,51 @@ export async function POST(request: NextRequest) {
 
     const { db } = await connectToDatabase();
     const serviceRequestsCollection = db.collection("serviceRequests");
+    const usersCollection = db.collection("user");
+
+    // Check if driver is on an active payment plan
+    const paymentPlansCollection = db.collection("paymentPlans");
+    const activePlan = await paymentPlansCollection.findOne({ userId, isActive: true });
+    if (activePlan) {
+      return NextResponse.json(
+        {
+          error: "Payment Plan Active",
+          message: `You are on a payment plan. You cannot make new requests until your outstanding balance of R${(activePlan.outstandingBalance || 0).toFixed(2)} is cleared or an admin removes you from the plan.`,
+        },
+        { status: 403 },
+      );
+    }
+
+    // Enforce tier-based weekly fuel credit (when enabled in admin settings)
+    if (type === "fuel" && (await isFuelCreditEnabled(db))) {
+      const credit = await getDriverFuelCredit(db, userId);
+      const requested = Number(amount);
+
+      if (!credit.depositTier) {
+        return NextResponse.json(
+          {
+            error: "Security Deposit Required",
+            message:
+              "Accept your R1,500 or R2,500 security deposit contract before requesting fuel.",
+            credit,
+          },
+          { status: 403 },
+        );
+      }
+
+      if (Number.isFinite(requested) && requested > credit.remaining) {
+        return NextResponse.json(
+          {
+            error: "Weekly Fuel Credit Exceeded",
+            message: credit.weeklyDepositPaid
+              ? `You have ${formatMoney(credit.remaining)} left of your ${formatMoney(credit.limit)} weekly fuel credit (resets Monday).`
+              : `You have ${formatMoney(credit.remaining)} available this week. ${formatMoney(credit.weeklyInstallment)} is withheld until your weekly deposit installment is approved.`,
+            credit,
+          },
+          { status: 403 },
+        );
+      }
+    }
 
     // Prepare request data with all fields
     const requestData = {
@@ -169,17 +229,18 @@ export async function POST(request: NextRequest) {
       driverName: driverName || "",
       driverPhone: driverPhone || "",
       driverEmail: driverEmail || "",
-      interest: interest || 0,
-      totalRepayable: totalRepayable || amount,
-      interestRate: interestRate || 13,
-      repaymentDays: repaymentDays || 7,
-      dailyPayment: dailyPayment || toMoney((amount * 1.13) / 7),
+      interest: interest ?? 0,
+      totalRepayable: totalRepayable ?? amount,
+      interestRate: interestRate ?? getFuelInterestRate(),
+      repaymentDays: repaymentDays ?? 7,
+      dailyPayment: dailyPayment ?? toMoney((amount * (1 + getFuelInterestRate() / 100)) / 7),
       package: packageName || null,
       packageDescription: packageDescription || null,
       status: "pending",
       requestDate: new Date(),
       createdAt: new Date(),
       hasReceipt: hasReceipt || false,
+      collateral: collateral || null,
     };
 
     console.log("Saving request data:", requestData);
@@ -187,11 +248,29 @@ export async function POST(request: NextRequest) {
     const result = await serviceRequestsCollection.insertOne(requestData);
     const requestId = result.insertedId.toString();
 
-    // Update driver's total requests count
+    // Update driver's total requests count and send notification
     try {
-      const usersCollection = db.collection("user");
+      // Find the user to get push token
+      const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+      
+      const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+      
+      if (pushTokens.length) {
+
+      
+        await sendPushNotification(
+
+      
+          pushTokens,
+          "Request Submitted",
+          `Your ${type} request of R${amount} has been submitted successfully.`,
+          { screen: "Requests" }
+        );
+      }
+
       await usersCollection.updateOne(
-        { _id: userId },
+        { _id: new ObjectId(userId) },
         { $inc: { totalRequests: 1 } },
       );
 
@@ -202,8 +281,15 @@ export async function POST(request: NextRequest) {
         { upsert: true },
       );
     } catch (updateError) {
-      console.error("Error updating driver stats:", updateError);
+      console.error("Error updating driver stats/notifications:", updateError);
     }
+
+    // Send push notification to admins
+    sendAdminPushNotification(
+      "New Service Request",
+      `${driverName || "A driver"} submitted a ${type} request of R${amount}.`,
+      { screen: "AdminRequests" }
+    );
 
     // Send email notification to admin
     (async () => {

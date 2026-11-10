@@ -10,6 +10,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const from = searchParams.get("from");
     const to = searchParams.get("to");
+    const status = searchParams.get("status");
+    const search = searchParams.get("search");
+    const limitParam = searchParams.get("limit");
+    const limit = limitParam ? Math.min(parseInt(limitParam), 500) : null;
+    const skip = parseInt(searchParams.get("skip") || "0");
+    const countsOnly = searchParams.get("countsOnly") === "true";
 
     const query: any = {};
     if (from || to) {
@@ -22,162 +28,140 @@ export async function GET(request: NextRequest) {
       }
       query.requestDate = dateQuery;
     }
+    if (status && status !== "all") {
+      if (status === "refueled") {
+        query.status = "completed";
+        query.refueledByManager = true;
+      } else if (status === "completed") {
+        query.status = "completed";
+        query.refueledByManager = { $ne: true };
+      } else {
+        query.status = status;
+      }
+    }
+    if (search) {
+      const esc = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      query.$or = [
+        { driverName: { $regex: esc, $options: "i" } },
+        { driverEmail: { $regex: esc, $options: "i" } },
+        { carNumber: { $regex: esc, $options: "i" } },
+      ];
+    }
 
     const serviceRequestsCollection = db.collection("serviceRequests");
-    const usersCollection = db.collection("user");
-    const driverProfilesCollection = db.collection("driverProfiles");
 
-    // Get all service requests sorted by date
-    const requests = await serviceRequestsCollection
+    // Get counts via aggregation — respect date/status filters
+    const countPipeline: any[] = [];
+    if (Object.keys(query).length > 0) {
+      countPipeline.push({ $match: query });
+    }
+    countPipeline.push({
+      $group: {
+        _id: null,
+        total: { $sum: 1 },
+        pending: { $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] } },
+        approved: { $sum: { $cond: [{ $eq: ["$status", "approved"] }, 1, 0] } },
+        sent: { $sum: { $cond: [{ $eq: ["$status", "sent"] }, 1, 0] } },
+        completed: {
+          $sum: {
+            $cond: [
+              { $and: [{ $eq: ["$status", "completed"] }, { $ne: ["$refueledByManager", true] }] },
+              1, 0,
+            ],
+          },
+        },
+        rejected: { $sum: { $cond: [{ $eq: ["$status", "rejected"] }, 1, 0] } },
+        refueled: {
+          $sum: {
+            $cond: [
+              { $and: [{ $eq: ["$status", "completed"] }, { $eq: ["$refueledByManager", true] }] },
+              1, 0,
+            ],
+          },
+        },
+        totalRevenue: {
+          $sum: {
+            $cond: [
+              { $eq: ["$status", "completed"] },
+              { $ifNull: ["$actualAmount", "$amount", 0] },
+              0,
+            ],
+          },
+        },
+        totalRepayable: {
+          $sum: {
+            $cond: [
+              { $eq: ["$status", "completed"] },
+              { $ifNull: ["$totalRepayable", "$amount", 0] },
+              0,
+            ],
+          },
+        },
+        totalRepaid: { $sum: { $ifNull: ["$repaidAmount", 0] } },
+      },
+    });
+    const countStats = await serviceRequestsCollection.aggregate(countPipeline).toArray();
+
+    const counts = countStats[0] || {
+      total: 0, pending: 0, approved: 0, sent: 0, completed: 0,
+      rejected: 0, refueled: 0, totalRevenue: 0, totalRepayable: 0, totalRepaid: 0,
+    };
+
+    if (countsOnly) {
+      return NextResponse.json({
+        requests: [],
+        total: counts.total,
+        pending: counts.pending,
+        approved: counts.approved,
+        sent: counts.sent,
+        completed: counts.completed,
+        rejected: counts.rejected,
+        refueled: counts.refueled,
+        totalRevenue: toMoney(counts.totalRevenue),
+        totalRepayable: toMoney(counts.totalRepayable),
+        totalRepaid: toMoney(counts.totalRepaid),
+      });
+    }
+
+    // Fetch requests
+    const findQuery = serviceRequestsCollection
       .find(query)
       .sort({ requestDate: -1 })
-      .toArray();
+      .project({
+        type: 1, status: 1, refueledByManager: 1,
+        driverName: 1, carNumber: 1, amount: 1, requestDate: 1,
+      });
+    const requests = limit !== null
+      ? await findQuery.skip(skip).limit(limit).toArray()
+      : await findQuery.toArray();
 
-    // console.log("Found requests:", requests.length);
-
-    // Get driver details for each request
-    const requestsWithDetails = await Promise.all(
-      requests.map(async (request: any) => {
-        // Convert userId to ObjectId if it's a string, otherwise use as is
-        let userIdQuery;
-        try {
-          userIdQuery = new ObjectId(request.userId);
-        } catch {
-          userIdQuery = request.userId;
-        }
-
-        // Get user from users collection (try both ObjectId and string)
-        let user = await usersCollection.findOne({ _id: userIdQuery });
-        if (!user && typeof request.userId === "string") {
-          user = await usersCollection.findOne({ _id: request.userId });
-        }
-
-        // Get driver profile (try both formats)
-        let driverProfile = await driverProfilesCollection.findOne({
-          userId: userIdQuery,
-        });
-        if (!driverProfile && typeof request.userId === "string") {
-          driverProfile = await driverProfilesCollection.findOne({
-            userId: request.userId,
-          });
-        }
-
-        // Return ALL fields from the request document
-        return {
-          id: request._id.toString(),
-          _id: request._id.toString(),
-          userId: request.userId,
-          type: request.type,
-          amount: request.amount,
-          actualAmount: request.actualAmount || null,
-          carNumber: request.carNumber,
-          carModel: request.carModel,
-          carRegistration: request.carRegistration,
-          fuelType: request.fuelType,
-          contactPhone: request.contactPhone,
-          driverName:
-            request.driverName ||
-            user?.name ||
-            driverProfile?.fullName ||
-            driverProfile?.name ||
-            "Unknown",
-          driverPhone:
-            request.driverPhone ||
-            user?.phone ||
-            driverProfile?.phone ||
-            "Unknown",
-          driverEmail: request.driverEmail || user?.email || "Unknown",
-          interest: request.interest,
-          totalRepayable: request.totalRepayable,
-          interestRate: request.interestRate,
-          repaymentDays: request.repaymentDays,
-          dailyPayment: request.dailyPayment,
-          package: request.package,
-          packageDescription: request.packageDescription,
-          status: request.status,
-          otp: request.otp,
-          requestDate: request.requestDate,
-          createdAt: request.createdAt,
-          approvedDate: request.approvedDate,
-          completedDate: request.completedDate,
-          popUrl: request.popUrl,
-          popPublicId: request.popPublicId,
-          popUploadedAt: request.popUploadedAt,
-          updatedAt: request.updatedAt,
-          repaidAmount: request.repaidAmount || 0,
-          remainingBalance: request.remainingBalance || 0,
-          isPaid: request.isPaid || false,
-          // Additional fields for display
-          location:
-            request.location || driverProfile?.address || "Not provided",
-          phoneNumber: request.recipientPhoneNumber || request.contactPhone,
-        };
-      }),
-    );
-
-    // console.log("Requests with details:", requestsWithDetails.length);
-    // if (requestsWithDetails.length > 0) {
-    //   console.log(
-    //     "First request details:",
-    //     JSON.stringify(requestsWithDetails[0], null, 2),
-    //   );
-    // }
-
-    // Calculate stats
-    const total = requestsWithDetails.length;
-    const pending = requestsWithDetails.filter(
-      (r) => r.status === "pending",
-    ).length;
-    const approved = requestsWithDetails.filter(
-      (r) => r.status === "approved",
-    ).length;
-    const sent = requestsWithDetails.filter(
-      (r) => r.status === "sent",
-    ).length;
-    const completed = requestsWithDetails.filter(
-      (r) => r.status === "completed",
-    ).length;
-    const rejected = requestsWithDetails.filter(
-      (r) => r.status === "rejected",
-    ).length;
-
-    // Calculate total revenue based on actualAmount if available, otherwise amount
-    const totalRevenue = toMoney(
-      requestsWithDetails
-        .filter((r) => r.status === "completed")
-        .reduce((sum, r) => sum + (r.actualAmount || r.amount || 0), 0)
-    );
-
-    // Calculate total repayable amount
-    const totalRepayable = toMoney(
-      requestsWithDetails
-        .filter((r) => r.status === "completed")
-        .reduce((sum, r) => sum + (r.totalRepayable || r.amount || 0), 0)
-    );
-
-    // Calculate total repaid amount
-    const totalRepaid = toMoney(
-      requestsWithDetails.reduce(
-        (sum, r) => sum + (r.repaidAmount || 0),
-        0,
-      )
-    );
+    const requestsWithDetails = requests.map((request: any) => ({
+      id: request._id.toString(),
+      type: request.type,
+      amount: request.amount,
+      carNumber: request.carNumber,
+      driverName: request.driverName || "Unknown",
+      status: request.status,
+      requestDate: request.requestDate,
+      refueledByManager: request.refueledByManager || false,
+    }));
 
     return NextResponse.json({
       requests: requestsWithDetails,
-      recent: requestsWithDetails
-        .filter((r) => r.status === "pending")
-        .slice(0, 5),
-      total,
-      pending,
-      approved,
-      sent,
-      completed,
-      rejected,
-      totalRevenue,
-      totalRepayable,
-      totalRepaid,
-    },);
+      total: counts.total,
+      pending: counts.pending,
+      approved: counts.approved,
+      sent: counts.sent,
+      completed: counts.completed,
+      rejected: counts.rejected,
+      refueled: counts.refueled,
+      totalRevenue: toMoney(counts.totalRevenue),
+      totalRepayable: toMoney(counts.totalRepayable),
+      totalRepaid: toMoney(counts.totalRepaid),
+      hasMore: limit !== null
+        ? (search ? requests.length === limit : skip + limit < counts.total)
+        : false,
+    });
   } catch (error) {
     console.error("Error fetching requests:", error);
     return NextResponse.json(

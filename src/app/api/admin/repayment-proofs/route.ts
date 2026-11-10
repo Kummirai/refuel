@@ -6,6 +6,7 @@ import {
   sendDriverRepaymentApprovalEmail,
   sendDriverRepaymentRejectionEmail,
 } from "@/lib/email";
+import { sendPushNotification } from "@/lib/notifications";
 
 export async function GET(request: NextRequest) {
   try {
@@ -239,35 +240,53 @@ export async function PUT(request: NextRequest) {
     }
 
     // Send notifications
-    if (status === "approved" && driver?.email) {
-      await sendDriverRepaymentApprovalEmail({
-        driverEmail: driver.email,
-        driverName: driver.name || firstRequest?.driverName || "Driver",
-        carRegistration: firstRequest?.carNumber || "Unknown",
-        serviceTypeLabel:
-          targetIds.length > 1
-            ? `Bulk Repayment (${targetIds.length} requests)`
-            : getServiceTypeLabel(firstRequest?.type || "service"),
-        amount: proof.amount,
-        remainingBalance: 0,
-        isFullyPaid: false,
-      }).catch((err) => console.error("Failed to send approval email:", err));
-    }
+    if (driver) {
+        // Trigger push notification if token exists
+        const pushTokens = driver?.pushTokens?.length ? driver.pushTokens : driver.expoPushToken ? [driver.expoPushToken] : [];
 
-    if (status === "rejected" && driver?.email) {
-      await sendDriverRepaymentRejectionEmail({
-        driverEmail: driver.email,
-        driverName: driver.name || firstRequest?.driverName || "Driver",
-        carRegistration: firstRequest?.carNumber || "Unknown",
-        serviceTypeLabel:
-          targetIds.length > 1
-            ? `Bulk Repayment (${targetIds.length} requests)`
-            : getServiceTypeLabel(firstRequest?.type || "service"),
-        amount: proof.amount,
-        reason:
-          reason ||
-          "No specific reason provided. Please contact support for more information.",
-      }).catch((err) => console.error("Failed to send rejection email:", err));
+        if (pushTokens.length) {
+
+          await sendPushNotification(
+
+            pushTokens,
+              status === "approved" ? "Repayment Approved" : "Repayment Rejected",
+              status === "approved" 
+                ? `Your repayment of R${proof.amount} has been approved.` 
+                : `Your repayment of R${proof.amount} has been rejected. Reason: ${reason || 'N/A'}`,
+              { screen: "Repayments" }
+            );
+        }
+
+        if (status === "approved" && driver.email) {
+          await sendDriverRepaymentApprovalEmail({
+            driverEmail: driver.email,
+            driverName: driver.name || firstRequest?.driverName || "Driver",
+            carRegistration: firstRequest?.carNumber || "Unknown",
+            serviceTypeLabel:
+              targetIds.length > 1
+                ? `Bulk Repayment (${targetIds.length} requests)`
+                : getServiceTypeLabel(firstRequest?.type || "service"),
+            amount: proof.amount,
+            remainingBalance: 0,
+            isFullyPaid: false,
+          }).catch((err) => console.error("Failed to send approval email:", err));
+        }
+
+        if (status === "rejected" && driver.email) {
+          await sendDriverRepaymentRejectionEmail({
+            driverEmail: driver.email,
+            driverName: driver.name || firstRequest?.driverName || "Driver",
+            carRegistration: firstRequest?.carNumber || "Unknown",
+            serviceTypeLabel:
+              targetIds.length > 1
+                ? `Bulk Repayment (${targetIds.length} requests)`
+                : getServiceTypeLabel(firstRequest?.type || "service"),
+            amount: proof.amount,
+            reason:
+              reason ||
+              "No specific reason provided. Please contact support for more information.",
+          }).catch((err) => console.error("Failed to send rejection email:", err));
+        }
     }
 
     return NextResponse.json({

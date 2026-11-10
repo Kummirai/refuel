@@ -8,15 +8,29 @@ export async function GET() {
 
     const pending = await collection.countDocuments({
       completedDate: { $ne: null },
+      popUrl: { $exists: true, $nin: [null, ""] },
       hasReceipt: { $eq: false },
     });
 
     const noReceipt = await collection.countDocuments({
-      status: { $in: ["approved", "sent"] },
       $or: [
-        { popUrl: { $exists: false } },
-        { popUrl: null },
-        { popUrl: "" },
+        {
+          status: { $in: ["approved", "sent"] },
+          $or: [
+            { popUrl: { $exists: false } },
+            { popUrl: null },
+            { popUrl: "" },
+          ],
+        },
+        {
+          status: "completed",
+          refueledByManager: true,
+          $or: [
+            { popUrl: { $exists: false } },
+            { popUrl: null },
+            { popUrl: "" },
+          ],
+        },
       ],
     });
 

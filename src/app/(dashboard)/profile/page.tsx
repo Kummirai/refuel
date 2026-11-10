@@ -3,7 +3,16 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { authClient } from "@/lib/auth-client";
+import { fetcher } from "@/lib/fetch";
+import {
+  formatDepositDate,
+  formatDepositMoney,
+  getDepositTierConfig,
+  type DriverDepositSummary,
+} from "@/lib/deposit-ui";
+import BottomNavigation from "@/components/BottomNavigation";
 import { compressImage } from "@/lib/utils/image-compression";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import {
@@ -32,24 +41,31 @@ import {
   ThumbsUp,
   Loader2,
   Image as ImageIcon,
-  Home,
-  ClipboardList,
-  UserCircle,
   Fuel,
   Smartphone,
   SprayCan,
   DollarSign,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
+import ConnectingScreen from "@/components/ConnectingScreen";
 import { formatMoney, toMoney } from "@/lib/money";
+import { useSessionPending } from "@/lib/hooks/useSessionPending";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
+  const sessionPending = useSessionPending(isPending);
   const [loading, setLoading] = useState(true);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [activeTab, setActiveTab] = useState<"profile" | "loans" | "settings">(
     "profile",
+  );
+  const { data: deposit } = useSWR<DriverDepositSummary>(
+    session?.user?.id
+      ? `/api/driver/deposit?userId=${session.user.id}`
+      : null,
+    fetcher,
+    { refreshInterval: 60_000 },
   );
   const [profile, setProfile] = useState<any>(null);
   const [allRequests, setAllRequests] = useState<any[]>([]);
@@ -76,12 +92,17 @@ export default function ProfilePage() {
     totalLoans: 0,
     rating: 0,
     activeLoan: null,
+    bankName: "",
+    accountHolder: "",
+    accountNumber: "",
+    branchCode: "",
   });
 
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showChangePhone, setShowChangePhone] = useState(false);
   const [showUpdateVehicle, setShowUpdateVehicle] = useState(false);
-  useBodyScrollLock(showChangePassword || showChangePhone || showUpdateVehicle);
+  const [showUpdateBanking, setShowUpdateBanking] = useState(false);
+  useBodyScrollLock(showChangePassword || showChangePhone || showUpdateVehicle || showUpdateBanking);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
@@ -93,6 +114,12 @@ export default function ProfilePage() {
     carModel: "",
     carYear: "",
     carColor: "",
+  });
+  const [bankingForm, setBankingForm] = useState({
+    bankName: "",
+    accountHolder: "",
+    accountNumber: "",
+    branchCode: "",
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -108,12 +135,20 @@ export default function ProfilePage() {
     }
   }, [session, isPending]);
 
+  // Never leave the profile skeletons up forever if a request stalls.
+  useEffect(() => {
+    if (!loading) return;
+    const timer = setTimeout(() => setLoading(false), 15_000);
+    return () => clearTimeout(timer);
+  }, [loading]);
+
   const fetchProfile = async () => {
     try {
       setLoading(true);
+      const signal = AbortSignal.timeout(15_000);
       const [profileRes, requestsRes] = await Promise.all([
-        fetch(`/api/driver/profile?userId=${session?.user?.id}`),
-        fetch(`/api/driver/requests?userId=${session?.user?.id}`),
+        fetch(`/api/driver/profile?userId=${session?.user?.id}`, { signal }),
+        fetch(`/api/driver/requests?userId=${session?.user?.id}`, { signal }),
       ]);
 
       if (profileRes.ok) {
@@ -154,6 +189,10 @@ export default function ProfilePage() {
           totalRequests: data?.totalRequests || 0,
           totalSpent: data?.totalSpent || 0,
           rating: data?.rating || 0,
+          bankName: data?.bankName || "",
+          accountHolder: data?.accountHolder || "",
+          accountNumber: data?.accountNumber || "",
+          branchCode: data?.branchCode || "",
         }));
       }
 
@@ -385,6 +424,49 @@ export default function ProfilePage() {
     }
   };
 
+  const handleUpdateBanking = async () => {
+    setSaveError("");
+    setSaveSuccess("");
+
+    setSaving(true);
+    try {
+      const res = await fetch("/api/driver/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: session?.user?.id,
+          bankName: bankingForm.bankName.trim() || undefined,
+          accountHolder: bankingForm.accountHolder.trim() || undefined,
+          accountNumber: bankingForm.accountNumber.trim() || undefined,
+          branchCode: bankingForm.branchCode.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update banking details");
+      }
+
+      setUserData((prev) => ({
+        ...prev,
+        bankName: bankingForm.bankName.trim(),
+        accountHolder: bankingForm.accountHolder.trim(),
+        accountNumber: bankingForm.accountNumber.trim(),
+        branchCode: bankingForm.branchCode.trim(),
+      }));
+      setSaveSuccess("Banking details updated successfully");
+      setTimeout(() => {
+        setShowUpdateBanking(false);
+        setSaveSuccess("");
+      }, 1500);
+    } catch (error: any) {
+      setSaveError(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const openChangePassword = () => {
     setSaveError("");
     setSaveSuccess("");
@@ -412,6 +494,18 @@ export default function ProfilePage() {
       carColor: userData.carColor === "Not provided" ? "" : userData.carColor,
     });
     setShowUpdateVehicle(true);
+  };
+
+  const openUpdateBanking = () => {
+    setSaveError("");
+    setSaveSuccess("");
+    setBankingForm({
+      bankName: userData.bankName || "",
+      accountHolder: userData.accountHolder || "",
+      accountNumber: userData.accountNumber || "",
+      branchCode: userData.branchCode || "",
+    });
+    setShowUpdateBanking(true);
   };
 
   const handleLogout = async () => {
@@ -463,7 +557,7 @@ export default function ProfilePage() {
     }
   };
 
-  if (isPending) {
+  if (sessionPending) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -475,7 +569,7 @@ export default function ProfilePage() {
   }
 
   if (!session) {
-    return null;
+    return isPending ? <ConnectingScreen message="Still loading your profile…" /> : null;
   }
 
   // Format full address
@@ -691,6 +785,86 @@ export default function ProfilePage() {
         {/* Profile Tab */}
         {activeTab === "profile" && (
           <div className="space-y-4">
+            {!deposit ? (
+              <Skeleton className="h-40 w-full rounded-2xl" />
+            ) : !deposit.tier ? (
+              <button
+                onClick={() => router.push("/deposit")}
+                className="w-full text-left rounded-2xl bg-linear-to-br from-[#01312D] to-[#3A7717] p-5"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-[#bff202] flex items-center justify-center shrink-0">
+                    <Shield className="w-5 h-5 text-[#01312D]" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-white font-bold">Security deposit</p>
+                    <p className="text-white/70 text-xs mt-1">
+                      Choose R1,500 or R2,500 to unlock your weekly fuel credit.
+                    </p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-[#bff202]" />
+                </div>
+              </button>
+            ) : (
+              <button
+                onClick={() => router.push("/deposit")}
+                className="w-full text-left rounded-2xl bg-linear-to-br from-[#01312D] to-[#3A7717] p-5"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-[#bff202]" />
+                    <p className="text-white font-bold">Security deposit</p>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/15 text-white">
+                    {getDepositTierConfig(deposit.tier)?.name ?? deposit.tier}
+                  </span>
+                </div>
+                <p className="text-white text-2xl font-extrabold mt-3">
+                  {formatDepositMoney(deposit.securityDepositBalance)}
+                </p>
+                <p className="text-white/60 text-xs">
+                  of {formatDepositMoney(deposit.targetDepositAmount)} target
+                </p>
+                <div className="h-1.5 rounded-full bg-white/15 mt-3 overflow-hidden">
+                  <div
+                    className="h-1.5 rounded-full bg-[#bff202]"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        deposit.targetDepositAmount > 0
+                          ? (deposit.securityDepositBalance /
+                              deposit.targetDepositAmount) *
+                              100
+                          : 0,
+                      )}%`,
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-3">
+                  <p className="text-white/70 text-xs">
+                    {formatDepositMoney(deposit.weeklyDepositInstallment)} weekly ·{" "}
+                    {deposit.weeksPaid}/{getDepositTierConfig(deposit.tier)?.totalWeeks ?? 0}{" "}
+                    weeks paid
+                  </p>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      deposit.weeklyInstallmentPaid
+                        ? "bg-[#bff202] text-[#01312D]"
+                        : "bg-red-500/20 text-red-100"
+                    }`}
+                  >
+                    {deposit.depositComplete
+                      ? "Complete"
+                      : deposit.weeklyInstallmentPaid
+                        ? "This week paid"
+                        : deposit.currentWeek.pendingProofId
+                          ? "In review"
+                          : `Due ${formatDepositDate(deposit.currentWeek.start)}`}
+                  </span>
+                </div>
+              </button>
+            )}
+
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
               <h3 className="font-bold text-[#01312D] mb-3 flex items-center gap-2">
                 <User className="w-4 h-4 text-[#3A7717]" />
@@ -754,6 +928,41 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
+
+            {(userData.bankName || userData.accountNumber) && (
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
+                <h3 className="font-bold text-[#01312D] mb-3 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-[#3A7717]" />
+                  Banking Details
+                </h3>
+                <div className="space-y-3">
+                  {userData.bankName && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-500">Bank</span>
+                      <span className="text-sm font-semibold text-[#01312D]">{userData.bankName}</span>
+                    </div>
+                  )}
+                  {userData.accountHolder && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-500">Account Holder</span>
+                      <span className="text-sm font-semibold text-[#01312D]">{userData.accountHolder}</span>
+                    </div>
+                  )}
+                  {userData.accountNumber && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-500">Account Number</span>
+                      <span className="text-sm font-semibold text-[#01312D]">{userData.accountNumber.replace(/\d(?=\d{4})/g, '*')}</span>
+                    </div>
+                  )}
+                  {userData.branchCode && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-500">Branch Code</span>
+                      <span className="text-sm font-semibold text-[#01312D]">{userData.branchCode}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {userData.isVerified && (
               <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
@@ -1044,6 +1253,13 @@ export default function ProfilePage() {
                   <span className="text-[#01312D]">Update Vehicle Details</span>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </button>
+                <button
+                  onClick={openUpdateBanking}
+                  className="w-full flex items-center justify-between py-2"
+                >
+                  <span className="text-[#01312D]">Update Banking Details</span>
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                </button>
               </div>
             </div>
 
@@ -1127,7 +1343,7 @@ export default function ProfilePage() {
 
             <button
               onClick={handleLogout}
-              className="w-full bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 mt-4"
+              className="w-full px-4 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 mt-4"
             >
               <LogOut className="w-5 h-5" />
               Log Out
@@ -1197,7 +1413,7 @@ export default function ProfilePage() {
               <button
                 onClick={handleChangePassword}
                 disabled={saving}
-                className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
+                className="flex-1 px-3 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 Change Password
@@ -1248,7 +1464,7 @@ export default function ProfilePage() {
               <button
                 onClick={handleChangePhone}
                 disabled={saving}
-                className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
+                className="flex-1 px-3 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 Update Phone
@@ -1329,7 +1545,7 @@ export default function ProfilePage() {
               <button
                 onClick={handleUpdateVehicle}
                 disabled={saving}
-                className="flex-1 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
+                className="flex-1 px-3 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 Update Vehicle
@@ -1339,53 +1555,96 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 w-full max-w-3xl bg-white/95 backdrop-blur-lg border-t border-[#bff202]/20 px-6 py-2 shadow-lg">
-        <div className="flex justify-around items-center max-w-md mx-auto">
-          <button
-            onClick={() => router.push("/")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-              <Home className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+      {/* Update Banking Details Modal */}
+      {showUpdateBanking && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => { setShowUpdateBanking(false); setSaveError(""); setSaveSuccess(""); }}
+          ></div>
+          <div className="relative bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-[#01312D] to-[#3A7717] rounded-t-2xl p-5">
+              <h2 className="text-xl font-bold text-white">Update Banking Details</h2>
+              <p className="text-white/80 text-sm mt-1">For cash loan disbursements</p>
             </div>
-            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-              Home
-            </span>
-          </button>
-          <button
-            onClick={() => router.push("/requests")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-              <ClipboardList className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+            <div className="p-5 space-y-4">
+              {saveError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{saveError}</div>
+              )}
+              {saveSuccess && (
+                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm">{saveSuccess}</div>
+              )}
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Bank Name</label>
+                <input
+                  type="text"
+                  value={bankingForm.bankName}
+                  onChange={(e) => setBankingForm({ ...bankingForm, bankName: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#3A7717]"
+                  placeholder="e.g. Capitec Bank"
+                />
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Account Holder Name</label>
+                <input
+                  type="text"
+                  value={bankingForm.accountHolder}
+                  onChange={(e) => setBankingForm({ ...bankingForm, accountHolder: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#3A7717]"
+                  placeholder="Name on bank account"
+                />
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Account Number</label>
+                <input
+                  type="text"
+                  value={bankingForm.accountNumber}
+                  onChange={(e) => setBankingForm({ ...bankingForm, accountNumber: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#3A7717]"
+                  placeholder="Bank account number"
+                />
+              </div>
+              <div>
+                <label className="block text-[#01312D] font-semibold mb-1.5 text-sm">Branch Code</label>
+                <input
+                  type="text"
+                  value={bankingForm.branchCode}
+                  onChange={(e) => setBankingForm({ ...bankingForm, branchCode: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#3A7717]"
+                  placeholder="Branch code"
+                />
+              </div>
             </div>
-            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-              Requests
-            </span>
-          </button>
-          <button
-            onClick={() => router.push("/requests/history")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#eafde7] group-hover:bg-[#bff202]/50">
-              <History className="w-5 h-5 text-[#3A7717] group-hover:text-[#01312D]" />
+            <div className="border-t border-gray-100 p-5 flex gap-3">
+              <button
+                onClick={() => { setShowUpdateBanking(false); setSaveError(""); setSaveSuccess(""); }}
+                disabled={saving}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateBanking}
+                disabled={saving}
+                className="flex-1 px-3 bg-gradient-to-r from-[#01312D] to-[#3A7717] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Save Banking Details
+              </button>
             </div>
-            <span className="text-xs text-[#3A7717] group-hover:text-[#01312D]">
-              History
-            </span>
-          </button>
-          <button
-            onClick={() => router.push("/profile")}
-            className="flex flex-col items-center gap-0.5 py-1 group"
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#bff202] scale-110 shadow-md">
-              <UserCircle className="w-5 h-5 text-[#01312D]" />
-            </div>
-            <span className="text-xs text-[#01312D] font-bold">Profile</span>
-          </button>
+          </div>
         </div>
-      </nav>
+      )}
+
+      {/* Bottom Navigation */}
+      <BottomNavigation
+        approvedCount={
+          allRequests.filter(
+            (r) => r.status === "approved" || r.status === "sent",
+          ).length
+        }
+        isAdmin={false}
+      />
     </div>
   );
 }

@@ -27,6 +27,10 @@ import {
   Calendar,
   AlertCircle,
   Image as ImageIcon,
+  Shield,
+  Users,
+  TrendingUp,
+  Check,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatMoney } from "@/lib/money";
@@ -558,7 +562,7 @@ export default function VerificationsPage() {
                 <User className="w-4 h-4 text-[#3A7717]" />
                 Personal Information
               </h3>
-              <div className="space-y-2 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <p>
                   <span className="text-gray-500">Full Name:</span>{" "}
                   <span className="font-semibold text-[#01312D]">
@@ -579,22 +583,6 @@ export default function VerificationsPage() {
                     {driver.phone || "Not provided"}
                   </span>
                 </p>
-                <p className="flex items-start gap-2">
-                  <MapPin className="w-3 h-3 text-gray-400 mt-0.5" />
-                  <span className="text-gray-500">Address:</span>
-                  <span className="font-semibold text-[#01312D]">
-                    {driver.address ? (
-                      <>
-                        {driver.address}
-                        <br />
-                        {driver.city && `${driver.city}`}
-                        {driver.pincode && ` - ${driver.pincode}`}
-                      </>
-                    ) : (
-                      "Not provided"
-                    )}
-                  </span>
-                </p>
                 <p className="flex items-center gap-2">
                   <Calendar className="w-3 h-3 text-gray-400" />
                   <span className="text-gray-500">Date of Birth:</span>
@@ -607,16 +595,46 @@ export default function VerificationsPage() {
               </div>
             </div>
 
+            {/* Location Information */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-[#3A7717]" />
+                Location Information
+              </h3>
+              <div className="space-y-2 text-sm">
+                <p className="flex items-start gap-2">
+                  <span className="text-gray-500">Address:</span>
+                  <span className="font-semibold text-[#01312D]">
+                    {driver.address || "Not provided"}
+                  </span>
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <p>
+                    <span className="text-gray-500">City:</span>{" "}
+                    <span className="font-semibold text-[#01312D]">
+                      {driver.city || "Not provided"}
+                    </span>
+                  </p>
+                  <p>
+                    <span className="text-gray-500">Pincode:</span>{" "}
+                    <span className="font-semibold text-[#01312D]">
+                      {driver.pincode || "Not provided"}
+                    </span>
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Vehicle Information */}
             <div className="bg-[#eafde7] rounded-xl p-4">
               <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
                 <Car className="w-4 h-4 text-[#3A7717]" />
                 Vehicle Information
               </h3>
-              <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="grid grid-cols-2 gap-3 text-sm">
                 <p>
                   <span className="text-gray-500">Registration:</span>{" "}
-                  <span className="font-semibold text-[#01312D]">
+                  <span className="font-semibold text-[#01312D] uppercase">
                     {driver.carRegistration ||
                       driver.carRegistrationNumber ||
                       "Not provided"}
@@ -640,6 +658,74 @@ export default function VerificationsPage() {
                     {driver.carColor || "Not provided"}
                   </span>
                 </p>
+                <p className="col-span-2">
+                  <span className="text-gray-500">Ownership:</span>{" "}
+                  <span className="font-semibold text-[#01312D] capitalize">
+                    {driver.ownershipStatus === "rent" ? "Renting" : "Owner"}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            {/* Reference & Owner Info */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <Users className="w-4 h-4 text-[#3A7717]" /> Reference & Owner Info
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div className="space-y-2">
+                  <p className="font-bold text-[#3A7717] border-b border-[#3A7717]/10 pb-1">Kapuka Member Reference</p>
+                  <div>
+                    <p className="text-gray-500">Name</p>
+                    <p className="font-semibold text-[#01312D]">{driver.referenceName || "Not provided"}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Phone</p>
+                    <p className="font-semibold text-[#01312D]">{driver.referencePhone || "Not provided"}</p>
+                  </div>
+                </div>
+                {driver.ownershipStatus === "rent" && (
+                  <div className="space-y-2">
+                    <p className="font-bold text-[#3A7717] border-b border-[#3A7717]/10 pb-1">Car Owner Details</p>
+                    <div>
+                      <p className="text-gray-500">Name</p>
+                      <p className="font-semibold text-[#01312D]">{driver.carOwnerName || "Not provided"}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Phone</p>
+                      <p className="font-semibold text-[#01312D]">{driver.carOwnerPhone || "Not provided"}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Address</p>
+                      <p className="font-semibold text-[#01312D] text-xs">{driver.carOwnerAddress || "Not provided"}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Policy Agreements */}
+            <div className="bg-[#eafde7] rounded-xl p-4">
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-[#3A7717]" /> Policy Agreements
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {[
+                  { label: "Information Accuracy", checked: driver.agreeAccuracy },
+                  { label: "Ref Tenure (1+ month)", checked: driver.agreeRefTenure },
+                  { label: "Owner Consent", checked: driver.agreeOwnerContact, hide: driver.ownershipStatus !== "rent" },
+                  { label: "Repayment Schedule", checked: driver.agreeRepayment },
+                  { label: "Escalation Policy", checked: driver.agreeEscalation },
+                ].map((item, i) => !item.hide && (
+                  <div key={i} className="flex items-center gap-2 bg-white/50 p-2 rounded-lg border border-[#3A7717]/5">
+                    {item.checked ? (
+                      <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                    )}
+                    <span className="text-xs font-medium text-[#01312D]">{item.label}</span>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -649,66 +735,36 @@ export default function VerificationsPage() {
                 <FileText className="w-4 h-4 text-[#3A7717]" />
                 Uploaded Documents
               </h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-white rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Camera className="w-4 h-4 text-[#72bf00]" />
-                    <span className="text-sm font-medium">
-                      Driver's License
-                    </span>
-                  </div>
-                  {driver.drivingLicenseUrl &&
-                  driver.drivingLicenseUrl !== "pending" ? (
-                    <a
-                      href={driver.drivingLicenseUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[#72bf00] text-sm font-semibold hover:underline flex items-center gap-1"
-                    >
-                      View Document →
-                    </a>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-white rounded-lg p-3 text-center flex flex-col items-center justify-between min-h-[120px]">
+                  <Camera className="w-8 h-8 text-[#3A7717] mb-2" />
+                  <span className="text-xs font-medium block mb-2">Driver's License</span>
+                  {driver.drivingLicenseUrl && driver.drivingLicenseUrl !== "pending" ? (
+                    <a href={driver.drivingLicenseUrl} target="_blank" rel="noopener noreferrer" className="text-[#3A7717] text-xs font-bold hover:underline">View →</a>
                   ) : (
-                    <span className="text-xs text-gray-400">Not uploaded</span>
+                    <span className="text-xs text-gray-400 italic">Not uploaded</span>
                   )}
                 </div>
-                <div className="flex items-center justify-between p-3 bg-white rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Car className="w-4 h-4 text-[#72bf00]" />
-                    <span className="text-sm font-medium">
-                      RC Document (Car Registration)
-                    </span>
-                  </div>
-                  {driver.carRegistrationUrl &&
-                  driver.carRegistrationUrl !== "pending" ? (
-                    <a
-                      href={driver.carRegistrationUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[#72bf00] text-sm font-semibold hover:underline flex items-center gap-1"
-                    >
-                      View Document →
-                    </a>
+                <div className="bg-white rounded-lg p-3 text-center flex flex-col items-center justify-between min-h-[120px]">
+                  <Car className="w-8 h-8 text-[#3A7717] mb-2" />
+                  <span className="text-xs font-medium block mb-2">Car Registration</span>
+                  {driver.carRegistrationUrl && driver.carRegistrationUrl !== "pending" ? (
+                    <a href={driver.carRegistrationUrl} target="_blank" rel="noopener noreferrer" className="text-[#3A7717] text-xs font-bold hover:underline">View →</a>
                   ) : (
-                    <span className="text-xs text-gray-400">Not uploaded</span>
+                    <span className="text-xs text-gray-400 italic">Not uploaded</span>
                   )}
                 </div>
-                <div className="flex items-center justify-between p-3 bg-white rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <ImageIcon className="w-4 h-4 text-[#72bf00]" />
-                    <span className="text-sm font-medium">Profile Photo</span>
-                  </div>
-                  {driver.profilePhotoUrl &&
-                  driver.profilePhotoUrl !== "pending" ? (
-                    <a
-                      href={driver.profilePhotoUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[#72bf00] text-sm font-semibold hover:underline flex items-center gap-1"
-                    >
-                      View Photo →
-                    </a>
+                <div className="bg-white rounded-lg p-3 text-center flex flex-col items-center justify-between min-h-[120px]">
+                  {driver.profilePhotoUrl && driver.profilePhotoUrl !== "pending" ? (
+                    <img src={driver.profilePhotoUrl} alt="Profile" className="w-12 h-12 rounded-full object-cover mb-2" />
                   ) : (
-                    <span className="text-xs text-gray-400">Not uploaded</span>
+                    <ImageIcon className="w-8 h-8 text-[#3A7717] mb-2" />
+                  )}
+                  <span className="text-xs font-medium block mb-2">Profile Photo</span>
+                  {driver.profilePhotoUrl && driver.profilePhotoUrl !== "pending" ? (
+                    <a href={driver.profilePhotoUrl} target="_blank" rel="noopener noreferrer" className="text-[#3A7717] text-xs font-bold hover:underline">View →</a>
+                  ) : (
+                    <span className="text-xs text-gray-400 italic">Not uploaded</span>
                   )}
                 </div>
               </div>
@@ -716,7 +772,9 @@ export default function VerificationsPage() {
 
             {/* Statistics */}
             <div className="bg-[#eafde7] rounded-xl p-4">
-              <h3 className="font-semibold text-[#01312D] mb-3">Statistics</h3>
+              <h3 className="font-semibold text-[#01312D] mb-3 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-[#3A7717]" /> Statistics
+              </h3>
               <div className="grid grid-cols-2 gap-3">
                 <div className="text-center bg-white rounded-lg p-3">
                   <p className="text-2xl font-bold text-[#01312D]">

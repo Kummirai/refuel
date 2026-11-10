@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const driverId = searchParams.get("driverId");
     const date = searchParams.get("date");
+    const search = searchParams.get("search");
 
     const serviceRequestsCollection = db.collection("serviceRequests");
     const usersCollection = db.collection("user");
@@ -25,6 +26,11 @@ export async function GET(request: NextRequest) {
           { repaidAmount: { $exists: true } },
         ],
       })
+      .project({
+        userId: 1, type: 1, carNumber: 1, driverName: 1, driverEmail: 1,
+        driverPhone: 1, totalRepayable: 1, repaidAmount: 1, remainingBalance: 1,
+        payments: 1, lastPaymentDate: 1, paidDate: 1, updatedAt: 1, createdAt: 1,
+      })
       .toArray();
 
     // Fetch user details for unique user IDs
@@ -40,6 +46,7 @@ export async function GET(request: NextRequest) {
           .find({ _id: { $in: userIds.map((id: string) => {
             try { return new ObjectId(id); } catch { return id; }
           })} })
+          .project({ name: 1, email: 1, phone: 1 })
           .toArray()
       : [];
     const userMap = new Map<string, any>();
@@ -50,6 +57,7 @@ export async function GET(request: NextRequest) {
     // Fetch ALL proofs to check approval status per payment
     const allProofs = await repaymentProofsCollection
       .find()
+      .project({ proofPublicId: 1, proofUrl: 1, status: 1, approvedAt: 1 })
       .toArray();
 
     // Index proofs by proofPublicId and proofUrl for fast per-payment lookup
@@ -149,6 +157,14 @@ export async function GET(request: NextRequest) {
     }
     if (date) {
       filtered = filtered.filter((e: any) => e.approvedDate === date);
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      filtered = filtered.filter((e: any) =>
+        e.driverName?.toLowerCase().includes(q) ||
+        e.driverEmail?.toLowerCase().includes(q) ||
+        e.carNumber?.toLowerCase().includes(q)
+      );
     }
 
     // Group by driver + approved date

@@ -1,15 +1,42 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const { db } = await connectToDatabase();
-    const history = await db
+    const { searchParams } = new URL(request.url);
+    const channel = searchParams.get("channel");
+
+    const filter: Record<string, any> = {};
+    if (channel) filter.channel = channel;
+
+    const raw = await db
       .collection("invoiceHistory")
-      .find()
+      .find(filter)
+      .project({
+        channel: 1, sentAt: 1, driverEmail: 1, driverName: 1, driverPhone: 1,
+        singleRecipient: 1, drivers: 1, totalOutstanding: 1, totalDrivers: 1,
+        items: 1, requestIds: 1,
+      })
       .sort({ sentAt: -1 })
       .limit(50)
       .toArray();
+
+    const history = raw.map((r: any) => {
+      if (r.singleRecipient && !r.drivers) {
+        r.drivers = [{
+          driverName: r.driverName || '',
+          driverEmail: r.driverEmail || '',
+          driverPhone: r.driverPhone || '',
+          outstanding: r.totalOutstanding || 0,
+          items: r.items || [],
+        }];
+      }
+      if (!r.drivers) r.drivers = [];
+      if (r.totalOutstanding === undefined) r.totalOutstanding = 0;
+      if (r.totalDrivers === undefined) r.totalDrivers = r.drivers.length || 1;
+      return r;
+    });
 
     return NextResponse.json({ history });
   } catch (error) {

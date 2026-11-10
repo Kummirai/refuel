@@ -12,7 +12,7 @@ import {
   Loader2, CreditCard, Banknote, ArrowLeft, AlertCircle,
   History, Download, Receipt, Fuel, Smartphone, SprayCan,
   FileText, Hourglass, Layers, ArrowDown, Upload, X,
-  Trash2, Save, AlertTriangle, ExternalLink, ZoomIn,
+  Trash2, Save, AlertTriangle, ExternalLink, ZoomIn, Percent,
 
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -37,6 +37,13 @@ interface Repayment {
   pendingRepaymentProofs?: RepaymentProof[];
   linkedChildren?: Repayment[];
   hasPendingProofs?: boolean;
+  interestAdjustments?: InterestAdjustment[];
+}
+
+interface InterestAdjustment {
+  id?: string; amount: number; rate?: number;
+  previousRemainingBalance?: number; newRemainingBalance?: number;
+  addedAt?: string;
 }
 
 interface PaymentHistory {
@@ -114,7 +121,7 @@ function ProofButton({ url, label }: { url: string; label?: string }) {
     <>
       <button
         onClick={() => setShowViewer(true)}
-        className="text-xs font-bold text-[#3A7717] flex items-center gap-1.5 hover:bg-[#eafde7] px-2 py-1 rounded-lg transition-colors"
+        className="text-xs font-bold text-[#3A7717] flex items-center gap-1.5 hover:bg-[#eafde7] px-2.5 py-1.5 rounded-lg transition-colors"
       >
         <FileText className="w-3.5 h-3.5" />
         {label || "View POP"}
@@ -124,14 +131,92 @@ function ProofButton({ url, label }: { url: string; label?: string }) {
   );
 }
 
+// ---- Approve & Spread (bulk proof allocation, matches mobile) ----
+function ApproveSpreadPanel({
+  proof, linkedRemaining, linkedLoans, processing, onApprove,
+}: {
+  proof: RepaymentProof;
+  linkedRemaining: number;
+  linkedLoans: { id: string; label: string; remaining: number; date?: string }[];
+  processing: boolean;
+  onApprove: (proofId: string, amount: number) => void;
+}) {
+  const [amount, setAmount] = useState(String(proof.amount));
+  const val = parseFloat(amount);
+  const invalid = !val || val <= 0 || val > linkedRemaining;
+
+  // Allocation preview — oldest debts first (same order the server uses)
+  const sorted = [...linkedLoans].sort((a, b) =>
+    new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime(),
+  );
+  let pool = invalid ? 0 : Math.round(val * 100) / 100;
+  const allocation = sorted.map((c) => {
+    const alloc = Math.min(pool, c.remaining);
+    pool = Math.round((pool - alloc) * 100) / 100;
+    return { ...c, alloc, leftover: Math.round((c.remaining - alloc) * 100) / 100 };
+  });
+
+  return (
+    <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 space-y-2 mt-3">
+      <p className="text-xs font-bold text-purple-700 flex items-center gap-1.5">
+        <Layers className="w-3.5 h-3.5" /> Approve &amp; Spread — allocates across oldest debts first
+      </p>
+      <div className="flex gap-2 items-center flex-wrap">
+        <input
+          type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
+          className="flex-1 min-w-[100px] px-3 py-2 bg-white border border-purple-200 rounded-lg text-sm font-bold text-[#01312D] focus:outline-none focus:border-purple-400"
+        />
+        <button onClick={() => setAmount(String(proof.amount))}
+          className="px-3 py-2 bg-white border border-purple-200 rounded-lg text-xs font-bold text-purple-700 hover:bg-purple-100 whitespace-nowrap">
+          Proof ({formatMoney(proof.amount)})
+        </button>
+        <button onClick={() => setAmount(String(linkedRemaining))}
+          className="px-3 py-2 bg-white border border-purple-200 rounded-lg text-xs font-bold text-purple-700 hover:bg-purple-100 whitespace-nowrap">
+          Full ({formatMoney(linkedRemaining)})
+        </button>
+        <button onClick={() => onApprove(proof.id, val)} disabled={processing || invalid}
+          className="px-3 py-2 bg-[#3A7717] text-white rounded-lg text-xs font-bold flex items-center gap-1.5 hover:bg-[#2d5a12] disabled:opacity-50">
+          {processing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />} Spread
+        </button>
+      </div>
+      {invalid && <p className="text-[11px] text-red-500 font-semibold">Amount must be between 1 and {formatMoney(linkedRemaining)}</p>}
+      {!invalid && (
+        <div className="space-y-1">
+          <p className="text-[9px] font-black text-purple-400 uppercase">Preview — how it will be allocated</p>
+          {allocation.map((a) => (
+            <div key={a.id} className="flex items-center justify-between bg-white/70 rounded-lg px-2.5 py-1.5 text-[11px]">
+              <span className="font-semibold text-[#01312D] truncate max-w-[55%]">{a.label}</span>
+              {a.alloc > 0 ? (
+                <span className="text-[#3A7717] font-bold shrink-0">
+                  {formatMoney(a.alloc)} allocated
+                  {a.leftover > 0 && <span className="text-red-500 font-semibold"> · {formatMoney(a.leftover)} left</span>}
+                  {a.leftover <= 0 && <span className="ml-1">✓</span>}
+                </span>
+              ) : (
+                <span className="text-gray-400 font-semibold shrink-0">not covered</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---- Main Page ----
 export default function LoanRepaymentsPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"pending" | "review" | "paid" | "all">("pending");
+  const [activeTab, setActiveTab] = useState<"pending" | "review" | "overdue" | "paid" | "all">("pending");
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [repayments, setRepayments] = useState<Repayment[]>([]);
+  const [apiCounts, setApiCounts] = useState<{ all: number; pending: number; review: number; overdue: number; paid: number } | null>(null);
+  const [apiStats, setApiStats] = useState<{ outstanding: number; repaid: number; active: number; overdue: number } | null>(null);
+  const [discountMap, setDiscountMap] = useState<Record<string, number>>({});
   const [selectedRepayment, setSelectedRepayment] = useState<Repayment | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -140,7 +225,6 @@ export default function LoanRepaymentsPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [processing, setProcessing] = useState(false);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
-  const [selectedRepayments, setSelectedRepayments] = useState<string[]>([]);
   const [selectedProof, setSelectedProof] = useState<RepaymentProof | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -153,20 +237,45 @@ export default function LoanRepaymentsPage() {
   const [repaymentUploadLoading, setRepaymentUploadLoading] = useState(false);
   const [repaymentUploadMethod, setRepaymentUploadMethod] = useState("cash");
   const repaymentFileInputRef = useRef<HTMLInputElement>(null);
+  const skipRef = useRef(0);
+  const hasMoreRef = useRef(false);
+  const PAGE_SIZE = 50;
 
   const isAnyModalOpen = showDetailsModal || showSuccessModal || showErrorModal || showRejectModal || showRepaymentUploadModal;
   useBodyScrollLock(isAnyModalOpen);
 
-  useEffect(() => { fetchRepayments(); }, []);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 400);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
 
-  const fetchRepayments = async () => {
+  useEffect(() => { fetchRepayments(); }, [activeTab, debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchRepayments = async (opts?: { append?: boolean }) => {
+    const append = opts?.append ?? false;
     try {
-      const res = await fetch("/api/admin/repayments");
+      if (!append) setLoading(true);
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE), skip: String(append ? skipRef.current : 0) });
+      if (activeTab !== "all") params.set("status", activeTab);
+      if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+      const [res, discRes] = await Promise.all([
+        fetch(`/api/admin/repayments?${params.toString()}`),
+        fetch("/api/admin/invoices/discount"),
+      ]);
+      if (discRes.ok) {
+        const discData = await discRes.json();
+        setDiscountMap(discData.discounts || {});
+      }
       if (res.ok) {
         const data = await res.json();
+        const repaymentsList = data.repayments || [];
+        if (data.counts) setApiCounts(data.counts);
+        if (data.stats) setApiStats(data.stats);
+        hasMoreRef.current = !!data.hasMore;
+        setHasMore(!!data.hasMore);
         const bulkGroups = new Map<string, Repayment[]>();
         const standalone: Repayment[] = [];
-        for (const r of data) {
+        for (const r of repaymentsList) {
           const bulkProof = (r.pendingRepaymentProofs || []).find(
             (p: RepaymentProof) => p.requestIds && p.requestIds.length > 1,
           );
@@ -200,10 +309,19 @@ export default function LoanRepaymentsPage() {
             linkedChildren: unpaid,
           } as Repayment);
         }
-        setRepayments([...grouped, ...standalone]);
+        const built = [...grouped, ...standalone];
+        skipRef.current = append ? skipRef.current + repaymentsList.length : repaymentsList.length;
+        setRepayments((prev) => append ? [...prev, ...built] : built);
       }
     } catch (error) { console.error("Error fetching repayments:", error); }
     finally { setLoading(false); setRefreshing(false); }
+  };
+
+  const handleLoadMore = async () => {
+    if (loadingMore || !hasMoreRef.current) return;
+    setLoadingMore(true);
+    try { await fetchRepayments({ append: true }); }
+    finally { setLoadingMore(false); }
   };
 
   const handleRefresh = () => { setRefreshing(true); fetchRepayments(); };
@@ -248,32 +366,6 @@ export default function LoanRepaymentsPage() {
     } catch { setErrorMessage("Failed"); setShowErrorModal(true); }
     finally { setProcessing(false); }
   };
-
-  const handleBulkComplete = async () => {
-    if (selectedRepayments.length === 0) return;
-    if (!confirm(`Mark ${selectedRepayments.length} repayment(s) as completed?`)) return;
-    setProcessing(true);
-    try {
-      const res = await fetch("/api/admin/repayments/bulk-complete", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repaymentIds: selectedRepayments, completedAt: new Date().toISOString() }),
-      });
-      if (res.ok) {
-        const result = await res.json();
-        setSuccessMessage(`✅ ${result.completedCount} completed!` + (result.writeOffCount > 0 ? ` ${result.writeOffCount} written off.` : ""));
-        setShowSuccessModal(true); fetchRepayments(); setSelectedRepayments([]);
-      } else { const err = await res.json(); setErrorMessage(err.error || "Failed"); setShowErrorModal(true); }
-    } catch { setErrorMessage("Failed"); setShowErrorModal(true); }
-    finally { setProcessing(false); }
-  };
-
-  const toggleRepaymentSelection = (id: string) => {
-    setSelectedRepayments((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
-  };
-  const selectAllVisible = () => {
-    setSelectedRepayments(filteredRepayments.filter((r) => r.status !== "paid" && r.status !== "completed").map((r) => r.id));
-  };
-  const clearSelections = () => setSelectedRepayments([]);
 
   // ---- Proof approval / reject ----
   const handleApproveProof = async (proof: RepaymentProof) => {
@@ -366,6 +458,48 @@ export default function LoanRepaymentsPage() {
       if (res.ok) {
         setSuccessMessage("✅ Moved to Pending — driver can resubmit");
         setShowSuccessModal(true); fetchRepayments(); setShowDetailsModal(false); setSelectedRepayment(null);
+      } else { const err = await res.json(); setErrorMessage(err.error || "Failed"); setShowErrorModal(true); }
+    } catch { setErrorMessage("Failed"); setShowErrorModal(true); }
+    finally { setProcessing(false); }
+  };
+
+  const handleApproveSpread = async (proofId: string, amount: number) => {
+    setProcessing(true);
+    try {
+      const res = await fetch("/api/admin/repayment-proofs/approve-bulk", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ proofId, amount }),
+      });
+      if (res.ok) {
+        const r = await res.json();
+        setSuccessMessage(
+          `✅ ${formatMoney(r.totalAllocated ?? amount)} allocated across linked loans` +
+          (r.unallocated > 0 ? `\n${formatMoney(r.unallocated)} could not be allocated.` : ""),
+        );
+        setShowSuccessModal(true); fetchRepayments(); setShowDetailsModal(false); setSelectedRepayment(null);
+      } else { const err = await res.json(); setErrorMessage(err.error || "Failed"); setShowErrorModal(true); }
+    } catch { setErrorMessage("Failed"); setShowErrorModal(true); }
+    finally { setProcessing(false); }
+  };
+
+  const handleAddInterest = async (repayment: Repayment, amountStr: string, rateStr: string) => {
+    const interestAmount = parseFloat(amountStr) || undefined;
+    const interestRate = parseFloat(rateStr) || undefined;
+    if (!interestAmount && !interestRate) { setErrorMessage("Enter an interest amount or rate"); setShowErrorModal(true); return; }
+    setProcessing(true);
+    try {
+      const res = await fetch("/api/admin/repayments/add-interest", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          loanId: repayment.id,
+          ...(interestAmount ? { interestAmount } : {}),
+          ...(interestRate ? { interestRate } : {}),
+        }),
+      });
+      if (res.ok) {
+        const r = await res.json();
+        setSuccessMessage(`✅ Interest of ${formatMoney(r.interestAmount)} added at ${r.interestRate}%.\nNew remaining: ${formatMoney(r.newRemainingBalance)}`);
+        setShowSuccessModal(true); fetchRepayments();
       } else { const err = await res.json(); setErrorMessage(err.error || "Failed"); setShowErrorModal(true); }
     } catch { setErrorMessage("Failed"); setShowErrorModal(true); }
     finally { setProcessing(false); }
@@ -485,6 +619,7 @@ export default function LoanRepaymentsPage() {
   const filteredRepayments = repayments.filter((r) => {
     if (activeTab === "pending") return r.status !== "paid" && r.status !== "completed" && !hasPendingProofs(r);
     if (activeTab === "review") return hasPendingProofs(r);
+    if (activeTab === "overdue") return r.status === "overdue" && !hasPendingProofs(r);
     if (activeTab === "paid") return r.status === "paid" || r.status === "completed";
     return true;
   }).filter((r) =>
@@ -493,15 +628,39 @@ export default function LoanRepaymentsPage() {
     r.driverEmail.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
-  const pendingCount = repayments.filter((r) => r.status !== "paid" && r.status !== "completed" && !hasPendingProofs(r)).length;
-  const reviewCount = repayments.filter((r) => hasPendingProofs(r)).length;
+  const localPendingCount = repayments.filter((r) => r.status !== "paid" && r.status !== "completed" && !hasPendingProofs(r)).length;
+  const localReviewCount = repayments.filter((r) => hasPendingProofs(r)).length;
+  const localOverdueCount = repayments.filter((r) => r.status === "overdue" && !hasPendingProofs(r)).length;
+  const localPaidCount = repayments.filter((r) => r.status === "paid" || r.status === "completed").length;
+  const pendingCount = apiCounts?.pending ?? localPendingCount;
+  const reviewCount = apiCounts?.review ?? localReviewCount;
+  const overdueTabCount = apiCounts?.overdue ?? localOverdueCount;
+  const paidCount = apiCounts?.paid ?? localPaidCount;
+  const allCount = apiCounts?.all ?? repayments.length;
+
+  const discountedRemaining = (r: { driverEmail: string; remainingAmount: number }) => {
+    const dp = discountMap[r.driverEmail] || 0;
+    return dp > 0 ? toMoney(r.remainingAmount * (113 - dp) / 113) : r.remainingAmount;
+  };
+  const discountPct = (email: string) => discountMap[email] || 0;
+
+  const DiscountDisplay = ({ repayment: r, className }: { repayment: { driverEmail: string; remainingAmount: number }; className?: string }) => {
+    const dp = discountPct(r.driverEmail);
+    if (dp <= 0) return <span className={className}>{formatMoney(r.remainingAmount)}</span>;
+    return (
+      <span className={className}>
+        <span className="text-red-600">{formatMoney(discountedRemaining(r))}</span>
+        <span className="text-gray-400 text-xs line-through ml-1">{formatMoney(r.remainingAmount)}</span>
+      </span>
+    );
+  };
 
   const stats = {
-    pendingProofs: repayments.reduce((s, r) => s + (r.pendingRepaymentProofs?.filter((p) => p.status === "pending").length || 0), 0),
-    totalOutstanding: toMoney(repayments.filter((r) => r.status !== "paid" && r.status !== "completed").reduce((s, r) => s + r.remainingAmount, 0)),
-    totalPaid: toMoney(repayments.filter((r) => r.status === "paid" || r.status === "completed").reduce((s, r) => s + r.repaidAmount, 0)),
-    activeLoans: repayments.filter((r) => r.status !== "paid" && r.status !== "completed").length,
-    overdueCount: repayments.filter((r) => r.status === "overdue").length,
+    pendingProofs: apiCounts?.review ?? repayments.reduce((s, r) => s + (r.pendingRepaymentProofs?.filter((p) => p.status === "pending").length || 0), 0),
+    totalOutstanding: apiStats?.outstanding ?? toMoney(repayments.filter((r) => r.status !== "paid" && r.status !== "completed").reduce((s, r) => s + discountedRemaining(r), 0)),
+    totalPaid: apiStats?.repaid ?? toMoney(repayments.filter((r) => r.status === "paid" || r.status === "completed").reduce((s, r) => s + r.repaidAmount, 0)),
+    activeLoans: apiStats?.active ?? repayments.filter((r) => r.status !== "paid" && r.status !== "completed").length,
+    overdueCount: apiStats?.overdue ?? repayments.filter((r) => r.status === "overdue").length,
     totalLoans: repayments.length,
   };
 
@@ -562,7 +721,7 @@ export default function LoanRepaymentsPage() {
             <p className="text-[#01312D] font-semibold mb-2 whitespace-pre-line">{successMessage}</p>
           </div>
           <div className="border-t border-gray-100 p-5">
-            <button onClick={() => setShowSuccessModal(false)} className="w-full bg-[#01312D] text-white py-2 rounded-xl font-semibold hover:bg-[#3A7717] transition-colors">Close</button>
+            <button onClick={() => setShowSuccessModal(false)} className="w-full px-4 bg-[#01312D] text-white py-2 rounded-xl font-semibold text-sm hover:bg-[#3A7717] transition-colors">Close</button>
           </div>
         </div>
       </div>
@@ -586,7 +745,7 @@ export default function LoanRepaymentsPage() {
             <p className="text-[#01312D] font-semibold mb-2 whitespace-pre-line">{errorMessage}</p>
           </div>
           <div className="border-t border-gray-100 p-5">
-            <button onClick={() => setShowErrorModal(false)} className="w-full bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors">Close</button>
+            <button onClick={() => setShowErrorModal(false)} className="w-full px-4 bg-red-500 text-white py-2 rounded-xl font-semibold text-sm hover:bg-red-600 transition-colors">Close</button>
           </div>
         </div>
       </div>
@@ -611,9 +770,9 @@ export default function LoanRepaymentsPage() {
           </div>
         </div>
         <div className="border-t border-gray-100 p-5 flex gap-3">
-          <button onClick={() => { setShowRejectModal(false); setRejectionReason(""); }} className="flex-1 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold">Cancel</button>
-          <button onClick={handleRejectRepaymentProof} disabled={processing} className="flex-1 bg-red-500 text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
-            {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />} Confirm Rejection
+          <button onClick={() => { setShowRejectModal(false); setRejectionReason(""); }} className="flex-1 px-4 bg-gray-200 text-[#01312D] py-2 rounded-xl font-semibold text-sm">Cancel</button>
+          <button onClick={handleRejectRepaymentProof} disabled={processing} className="flex-1 px-4 bg-red-500 text-white py-2 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
+            {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />} Reject
           </button>
         </div>
       </div>
@@ -633,6 +792,8 @@ export default function LoanRepaymentsPage() {
     const [showRepairTools, setShowRepairTools] = useState(false);
     const [fixRepaid, setFixRepaid] = useState(String(repayment.repaidAmount));
     const [fixRemaining, setFixRemaining] = useState(String(repayment.remainingAmount));
+    const [interestAmountInput, setInterestAmountInput] = useState("");
+    const [interestRateInput, setInterestRateInput] = useState("");
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
@@ -663,7 +824,7 @@ export default function LoanRepaymentsPage() {
                 <div className="flex justify-between items-start mb-6">
                   <div>
                     <p className="text-white/60 text-[10px] sm:text-xs font-bold uppercase tracking-wider">Outstanding Balance</p>
-                    <p className="text-3xl sm:text-4xl font-black mt-1">{formatMoney(repayment.remainingAmount)}</p>
+                    <p className="text-3xl sm:text-4xl font-black mt-1"><DiscountDisplay repayment={repayment} /></p>
                   </div>
                   <div className="text-right">
                     <p className="text-white/60 text-[10px] sm:text-xs font-bold uppercase tracking-wider">Progress</p>
@@ -736,13 +897,13 @@ export default function LoanRepaymentsPage() {
                                   {lr.remainingBalance > 0 ? (
                                     <button onClick={() => handleApproveSingleRequest(proof, lr.id, parseFloat(correctedAmounts[lr.id] ?? String(lr.remainingBalance)))}
                                       disabled={processingRequestId === lr.id || !(correctedAmounts[lr.id] ?? lr.remainingBalance) || parseFloat(correctedAmounts[lr.id] ?? String(lr.remainingBalance)) <= 0}
-                                      className="flex-1 bg-[#3A7717] text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-[#2d5a12] disabled:opacity-50 active:scale-[0.98]">
+                                      className="flex-1 px-3 bg-[#3A7717] text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-[#2d5a12] disabled:opacity-50 active:scale-[0.98]">
                                       {processingRequestId === lr.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
                                       Approve & Pay {formatMoney(parseFloat(correctedAmounts[lr.id] ?? String(lr.remainingBalance)))}
                                     </button>
                                   ) : (
                                     <button onClick={() => { fetch("/api/admin/repayment-proofs", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ proofId: proof.id, status: "approved", requestId: lr.id }) }).then(() => { fetchRepayments(); setSuccessMessage("✅ Approved"); setShowSuccessModal(true); }); }}
-                                      className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-blue-700 disabled:opacity-50">
+                                      className="flex-1 px-3 bg-blue-600 text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-blue-700 disabled:opacity-50">
                                       <CheckCircle className="w-3.5 h-3.5" /> Confirm Proof
                                     </button>
                                   )}
@@ -848,6 +1009,29 @@ export default function LoanRepaymentsPage() {
               )}
             </div>
 
+            {/* Interest Adjustments */}
+            {(repayment.interestAdjustments?.length || 0) > 0 && (
+              <div className="space-y-3">
+                <h3 className="font-bold text-[#01312D] flex items-center gap-2"><Percent className="w-5 h-5 text-orange-500" /> Interest Adjustments</h3>
+                <div className="space-y-2">
+                  {repayment.interestAdjustments!.map((adj, idx) => (
+                    <div key={adj.id || idx} className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-xl px-4 py-3">
+                      <div>
+                        <p className="text-sm font-black text-[#01312D]">+{formatMoney(adj.amount)} <span className="text-xs font-bold text-orange-600">at {adj.rate}%</span></p>
+                        <p className="text-[10px] text-gray-400 font-bold">{adj.addedAt ? new Date(adj.addedAt).toLocaleString() : ""}</p>
+                      </div>
+                      {adj.newRemainingBalance !== undefined && (
+                        <div className="text-right">
+                          <p className="text-[10px] text-gray-400 font-black uppercase">New Remaining</p>
+                          <p className="text-sm font-black text-red-600">{formatMoney(adj.newRemainingBalance)}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Repair Tools */}
             <div className="border-t border-[#bff202]/20 pt-4">
               <button onClick={() => setShowRepairTools(!showRepairTools)} className="flex items-center gap-2 text-sm font-bold text-[#01312D] hover:text-[#3A7717] transition-colors">
@@ -856,6 +1040,30 @@ export default function LoanRepaymentsPage() {
               {showRepairTools && (
                 <div className="mt-4 space-y-4 bg-yellow-50 border border-yellow-200 rounded-2xl p-4">
                   <p className="text-xs text-yellow-800 font-semibold flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5 shrink-0" /> Use these tools to fix miscalculations like duplicate payment records or incorrect balances.</p>
+
+                  {/* Add Interest */}
+                  {!isCompleted && (
+                    <div className="bg-white rounded-xl p-3 border border-[#bff202]/20 space-y-2">
+                      <h4 className="text-sm font-bold text-[#01312D]">Add Interest</h4>
+                      <div className="flex gap-2 items-end flex-wrap">
+                        <div className="flex-1 min-w-[110px]">
+                          <label className="text-[10px] font-bold text-gray-500 uppercase">Amount (R)</label>
+                          <input type="number" value={interestAmountInput} onChange={(e) => setInterestAmountInput(e.target.value)} placeholder="e.g. 50"
+                            className="w-full px-3 py-2 border border-[#bff202]/30 rounded-xl text-sm font-bold focus:outline-none focus:border-[#72bf00]" />
+                        </div>
+                        <div className="flex-1 min-w-[110px]">
+                          <label className="text-[10px] font-bold text-gray-500 uppercase">Or Rate (%)</label>
+                          <input type="number" value={interestRateInput} onChange={(e) => setInterestRateInput(e.target.value)} placeholder="e.g. 5"
+                            className="w-full px-3 py-2 border border-[#bff202]/30 rounded-xl text-sm font-bold focus:outline-none focus:border-[#72bf00]" />
+                        </div>
+                        <button onClick={() => handleAddInterest(repayment, interestAmountInput, interestRateInput)} disabled={processing || (!interestAmountInput && !interestRateInput)}
+                          className="bg-orange-500 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-1.5 hover:bg-orange-600 disabled:opacity-50">
+                          {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Percent className="w-4 h-4" />} Add
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-gray-400">Fill one — the other is auto-calculated from the remaining balance.</p>
+                    </div>
+                  )}
 
                   {/* Delete duplicate payments */}
                   {payments.length > 1 && (
@@ -900,7 +1108,7 @@ export default function LoanRepaymentsPage() {
 
                   {/* Recalculate */}
                   <button onClick={() => handleRecalcLoan(repayment.id, repayment.totalRepayable)} disabled={processing}
-                    className="w-full bg-[#01312D] text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#3A7717] disabled:opacity-50">
+                    className="w-full px-4 bg-[#01312D] text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#3A7717] disabled:opacity-50">
                     {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                     Recalculate Loan (from payment records)
                   </button>
@@ -919,7 +1127,7 @@ export default function LoanRepaymentsPage() {
                       </div>
                     </div>
                     <button onClick={() => handleManualFix(repayment.id, parseFloat(fixRepaid), parseFloat(fixRemaining))} disabled={processing}
-                      className="w-full bg-[#3A7717] text-white py-2 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#2d5a12] disabled:opacity-50">
+                      className="w-full px-4 bg-[#3A7717] text-white py-2 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#2d5a12] disabled:opacity-50">
                       {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                       Apply Manual Values
                     </button>
@@ -933,40 +1141,60 @@ export default function LoanRepaymentsPage() {
           <div className="bg-white border-t border-[#bff202]/20 p-4 sm:p-6 flex flex-col gap-3">
             {pendingProofs.length > 0 ? (
               repayment.linkedChildren && bulkProofs.length > 0 ? (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-3 text-sm text-yellow-800 font-bold text-center">
-                  <Hourglass className="w-4 h-4 inline-block mr-1.5 text-yellow-600" /> Approve each request individually above
+                <div className="space-y-3">
+                  {(() => {
+                    const bulkProof = bulkProofs[0];
+                    const linkedRemaining = repayment.linkedChildren!.reduce((s, c) => s + c.remainingAmount, 0);
+                    return (
+                      <ApproveSpreadPanel
+                        proof={bulkProof}
+                        linkedRemaining={linkedRemaining}
+                        linkedLoans={repayment.linkedChildren!.map((c) => ({
+                          id: c.id,
+                          label: `${c.serviceTypeLabel} · ${c.carRegistration}`,
+                          remaining: c.remainingAmount,
+                          date: c.requestDate,
+                        }))}
+                        processing={processing}
+                        onApprove={handleApproveSpread}
+                      />
+                    );
+                  })()}
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-3 text-sm text-yellow-800 font-bold text-center">
+                    <Hourglass className="w-4 h-4 inline-block mr-1.5 text-yellow-600" /> Or approve each request individually above
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col sm:flex-row gap-3">
                   {repayment.remainingAmount > 0 ? (
                     <button onClick={() => handleApproveAndPay(pendingProofs[0], repayment, parseFloat(payAmount))}
                       disabled={processing || !payAmount || parseFloat(payAmount) <= 0 || isThisRequestApproved}
-                      className="flex-1 bg-[#3A7717] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#2d5a12] disabled:opacity-50">
+                      className="flex-1 px-4 bg-[#3A7717] text-white py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#2d5a12] disabled:opacity-50">
                       {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
-                      {isThisRequestApproved ? "Already Approved" : `Approve & Pay — ${formatMoney(parseFloat(payAmount || "0"))}`}
+                      {isThisRequestApproved ? "Approved" : `Approve & Pay`}
                     </button>
                   ) : (
                     <button onClick={() => handleApproveProof(pendingProofs[0])} disabled={processing || isThisRequestApproved}
-                      className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-50">
+                      className="flex-1 px-4 bg-blue-600 text-white py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-50">
                       {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
-                      {isThisRequestApproved ? "Already Approved" : "Confirm Proof"}
+                      {isThisRequestApproved ? "Approved" : "Confirm Proof"}
                     </button>
                   )}
                   <button onClick={() => { setSelectedProof(pendingProofs[0]); setShowRejectModal(true); }} disabled={processing || isThisRequestApproved}
-                    className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-600 disabled:opacity-50">
+                    className="flex-1 px-4 bg-red-500 text-white py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-red-600 disabled:opacity-50">
                     <XCircle className="w-5 h-5" /> {isThisRequestApproved ? "Approved" : "Reject"}
                   </button>
                   {repayment.remainingAmount > 0 && !isThisRequestApproved && (
                     <button onClick={() => handleMoveToPending(repayment)} disabled={processing}
-                      className="flex-1 bg-gray-200 text-[#01312D] py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-gray-300 disabled:opacity-50">
+                      className="flex-1 px-4 bg-gray-200 text-[#01312D] py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-gray-300 disabled:opacity-50">
                       {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowLeft className="w-5 h-5" />}
                       Move to Pending
                     </button>
                   )}
                   <button onClick={() => handleMarkAsCompleted(repayment)} disabled={processing}
-                    className={`flex-1 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${repayment.remainingAmount === 0 ? "bg-[#bff202] text-[#01312D] hover:bg-[#d4e84a]" : "bg-orange-50 text-orange-600 hover:bg-orange-100"}`}>
+                    className={`flex-1 px-4 py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${repayment.remainingAmount === 0 ? "bg-[#bff202] text-[#01312D] hover:bg-[#d4e84a]" : "bg-orange-50 text-orange-600 hover:bg-orange-100"}`}>
                     {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
-                    {repayment.remainingAmount === 0 ? "Settle" : "Settle & Write Off"}
+                    {repayment.remainingAmount === 0 ? "Settle" : "Write Off"}
                   </button>
                 </div>
               )
@@ -974,14 +1202,14 @@ export default function LoanRepaymentsPage() {
               <>
                 <button onClick={() => handleMarkAsPaid(repayment, parseFloat(payAmount), "cash", undefined, new Date().toISOString().split("T")[0])}
                   disabled={processing || !payAmount || parseFloat(payAmount) <= 0}
-                  className="w-full bg-[#3A7717] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#2d5a12] disabled:opacity-50">
+                  className="w-full px-4 bg-[#3A7717] text-white py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#2d5a12] disabled:opacity-50">
                   {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
-                  Confirm Payment — {formatMoney(parseFloat(payAmount || "0"))}
+                  Confirm
                 </button>
                 <button onClick={() => handleMarkAsCompleted(repayment)} disabled={processing}
-                  className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${repayment.remainingAmount === 0 ? "bg-[#bff202] text-[#01312D] hover:bg-[#d4e84a]" : "bg-orange-50 text-orange-600 hover:bg-orange-100"}`}>
-                  {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
-                  {repayment.remainingAmount === 0 ? "Mark as Complete" : "Settle & Write Off"}
+className={`w-full px-4 py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${repayment.remainingAmount === 0 ? "bg-[#bff202] text-[#01312D] hover:bg-[#d4e84a]" : "bg-orange-50 text-orange-600 hover:bg-orange-100"}`}>
+                    {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
+                    {repayment.remainingAmount === 0 ? "Complete" : "Write Off"}
                 </button>
               </>
             ) : (
@@ -989,7 +1217,7 @@ export default function LoanRepaymentsPage() {
                 <CheckCircle className="w-6 h-6" /> REPAYMENT FULLY SETTLED
               </div>
             )}
-            <button onClick={onClose} className="w-full py-2 rounded-xl font-bold text-gray-400 hover:text-gray-600 transition-colors text-sm">Close Details</button>
+            <button onClick={onClose} className="w-full px-4 py-2 rounded-xl font-bold text-gray-400 hover:text-gray-600 transition-colors text-sm">Close</button>
           </div>
         </div>
       </div>
@@ -1003,18 +1231,13 @@ export default function LoanRepaymentsPage() {
       <div className="flex justify-between items-center flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-[#01312D]">Repayments</h1>
-          <p className="text-gray-500 text-sm mt-1">Pending = awaiting driver repayment &bull; Review = POP uploaded, needs approval &bull; Paid = settled</p>
+          <p className="text-gray-500 text-sm mt-1">Pending = awaiting driver repayment &bull; Review = POP uploaded, needs approval &bull; Overdue = past due date &bull; Paid = settled</p>
         </div>
         <div className="flex gap-2">
-          {filteredRepayments.some((r) => r.status !== "paid" && r.status !== "completed") && (
-            <button onClick={selectAllVisible} className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all">
-              <CheckCircle className="w-4 h-4" /> Select All
-            </button>
-          )}
-          <Link href="/admin/repayments/history" className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all">
+          <Link href="/admin/repayments/history" className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-sm text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all">
             <History className="w-4 h-4" /> History
           </Link>
-          <button onClick={handleRefresh} disabled={refreshing} className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all">
+          <button onClick={handleRefresh} disabled={refreshing} className="flex items-center gap-2 px-4 py-2 bg-[#eafde7] rounded-xl text-sm text-[#01312D] font-semibold hover:bg-[#bff202]/30 transition-all">
             <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
           </button>
         </div>
@@ -1061,29 +1284,13 @@ export default function LoanRepaymentsPage() {
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500">Pending Proofs</p>
+              <p className="text-xs text-gray-500">In Review</p>
               <div className="text-2xl font-bold text-yellow-600">{loading ? <Skeleton className="h-8 w-28 inline-block" /> : stats.pendingProofs}</div>
             </div>
             <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center"><FileText className="w-5 h-5 text-yellow-600" /></div>
           </div>
         </div>
       </div>
-
-      {/* Bulk toolbar */}
-      {selectedRepayments.length > 0 && (
-        <div className="bg-[#eafde7] rounded-xl p-3 flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-[#3A7717]" />
-            <span className="font-semibold text-[#01312D]">{selectedRepayments.length} repayment(s) selected</span>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={clearSelections} className="px-3 py-1.5 bg-gray-200 text-[#01312D] rounded-lg text-sm font-semibold hover:bg-gray-300">Clear</button>
-            <button onClick={handleBulkComplete} disabled={processing} className="px-3 py-1.5 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-[#2d5a12]">
-              {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Mark Selected as Completed
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Search */}
       <div className="flex gap-3">
@@ -1095,25 +1302,30 @@ export default function LoanRepaymentsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-[#bff202]/20 overflow-x-auto">
+      <div className="flex gap-1 sm:gap-2 border-b border-[#bff202]/20 overflow-x-auto">
         <button onClick={() => setActiveTab("pending")}
-          className={`px-4 py-2 font-semibold transition-all whitespace-nowrap ${activeTab === "pending" ? "text-yellow-600 border-b-2 border-yellow-600" : "text-gray-500"}`}>
+          className={`px-3 sm:px-4 py-2 text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${activeTab === "pending" ? "text-yellow-600 border-b-2 border-yellow-600" : "text-gray-500"}`}>
           Pending
           <span className="ml-1 px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">{pendingCount}</span>
         </button>
         <button onClick={() => setActiveTab("review")}
-          className={`px-4 py-2 font-semibold transition-all whitespace-nowrap ${activeTab === "review" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"}`}>
+          className={`px-3 sm:px-4 py-2 text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${activeTab === "review" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"}`}>
           Review
           <span className="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">{reviewCount}</span>
         </button>
+        <button onClick={() => setActiveTab("overdue")}
+          className={`px-3 sm:px-4 py-2 text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${activeTab === "overdue" ? "text-red-600 border-b-2 border-red-600" : "text-gray-500"}`}>
+          Overdue
+          <span className="ml-1 px-1.5 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">{overdueTabCount}</span>
+        </button>
         <button onClick={() => setActiveTab("paid")}
-          className={`px-4 py-2 font-semibold transition-all whitespace-nowrap ${activeTab === "paid" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}>
+          className={`px-3 sm:px-4 py-2 text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${activeTab === "paid" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}>
           Paid
-          <span className="ml-1 px-1.5 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">{repayments.filter((r) => r.status === "paid" || r.status === "completed").length}</span>
+          <span className="ml-1 px-1.5 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">{paidCount}</span>
         </button>
         <button onClick={() => setActiveTab("all")}
-          className={`px-4 py-2 font-semibold transition-all whitespace-nowrap ${activeTab === "all" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}>
-          All <span className="ml-1 px-1.5 py-0.5 bg-gray-200 text-gray-700 text-xs rounded-full">{repayments.length}</span>
+          className={`px-3 sm:px-4 py-2 text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${activeTab === "all" ? "text-[#3A7717] border-b-2 border-[#3A7717]" : "text-gray-500"}`}>
+          All <span className="ml-1 px-1.5 py-0.5 bg-gray-200 text-gray-700 text-xs rounded-full">{allCount}</span>
         </button>
       </div>
 
@@ -1162,10 +1374,6 @@ export default function LoanRepaymentsPage() {
             return (
               <div key={repayment.id} className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 hover:shadow-md transition-shadow">
                 <div className="flex items-start gap-3">
-                  {!isCompleted && (
-                    <input type="checkbox" checked={selectedRepayments.includes(repayment.id)} onChange={() => toggleRepaymentSelection(repayment.id)}
-                      className="mt-3 w-4 h-4 text-[#3A7717] rounded border-gray-300 focus:ring-[#3A7717]" />
-                  )}
                   <div className="flex-1">
                     {repayment.linkedChildren ? (
                       <>
@@ -1181,10 +1389,31 @@ export default function LoanRepaymentsPage() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="text-xl font-bold text-[#3A7717]">{formatMoney(repayment.remainingAmount)}</p>
+                            <p className="text-xl font-bold text-[#3A7717]"><DiscountDisplay repayment={repayment} /></p>
                             <p className="text-xs text-gray-500">Total Outstanding</p>
                           </div>
                         </div>
+                        {(() => {
+                          const bulkProof = repayment.pendingRepaymentProofs?.find(
+                            (p) => p.status === "pending" && p.requestIds && p.requestIds.length > 1,
+                          );
+                          if (!bulkProof) return null;
+                          const linkedRemaining = repayment.linkedChildren!.reduce((s, c) => s + c.remainingAmount, 0);
+                          return (
+                            <ApproveSpreadPanel
+                              proof={bulkProof}
+                              linkedRemaining={linkedRemaining}
+                              linkedLoans={repayment.linkedChildren!.map((c) => ({
+                                id: c.id,
+                                label: `${c.serviceTypeLabel} · ${c.carRegistration}`,
+                                remaining: c.remainingAmount,
+                                date: c.requestDate,
+                              }))}
+                              processing={processing}
+                              onApprove={handleApproveSpread}
+                            />
+                          );
+                        })()}
                         <div className="mt-3 space-y-2">
                           {repayment.linkedChildren.map((child) => (
                             <div key={child.id} className="space-y-1">
@@ -1204,7 +1433,7 @@ export default function LoanRepaymentsPage() {
                                   <p className="text-xs text-gray-500">{child.carRegistration}</p>
                                 </div>
                                 <div className="text-right shrink-0">
-                                  <p className="text-sm font-semibold text-[#01312D]">{formatMoney(child.remainingAmount)}</p>
+                                  <p className="text-sm font-semibold text-[#01312D]"><DiscountDisplay repayment={child} /></p>
                                   <p className="text-xs text-gray-400">of {formatMoney(child.totalRepayable)}</p>
                                 </div>
                               </button>
@@ -1239,7 +1468,7 @@ export default function LoanRepaymentsPage() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="text-xl font-bold text-[#3A7717]">{formatMoney(repayment.remainingAmount)}</p>
+                            <p className="text-xl font-bold text-[#3A7717]"><DiscountDisplay repayment={repayment} /></p>
                             <p className="text-xs text-gray-500">Due: {new Date(repayment.dueDate).toLocaleDateString()}</p>
                           </div>
                         </div>
@@ -1274,18 +1503,18 @@ export default function LoanRepaymentsPage() {
                     {/* Action buttons and POP links */}
                     <div className="flex gap-2 mt-4 flex-wrap">
                       <button onClick={() => { setSelectedRepayment(repayment); setShowDetailsModal(true); }}
-                        className="flex-1 min-w-[120px] py-2 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors">
+                        className="flex-1 min-w-[120px] px-3 py-2 bg-[#3A7717] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-colors">
                         <Banknote className="w-4 h-4" /> {!isCompleted ? "Record Payment" : "View Details"}
                       </button>
                       {!isCompleted && (
                         <button onClick={() => { setRepaymentUploadRepayment(repayment); setRepaymentUploadAmount(repayment.dailyPayment.toString()); setRepaymentUploadMethod("cash"); setRepaymentUploadFile(null); setRepaymentUploadProofUrl(""); setRepaymentUploadProofPublicId(""); setShowRepaymentUploadModal(true); }}
-                          className="flex-1 min-w-[120px] py-2 bg-[#01312D] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-colors">
+                          className="flex-1 min-w-[120px] px-3 py-2 bg-[#01312D] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#3A7717] transition-colors">
                           <Upload className="w-4 h-4" /> Upload for Driver
                         </button>
                       )}
                       {/* Move to Pending — for Review tab items, not bulk groups */}
                       {hasPendingProofs && !isCompleted && !repayment.linkedChildren && (
-                        <button onClick={() => handleMoveToPending(repayment)} className="text-xs font-bold text-gray-600 flex items-center gap-1.5 hover:bg-gray-100 px-2 py-1 rounded-lg transition-colors">
+                        <button onClick={() => handleMoveToPending(repayment)} className="text-xs font-bold text-gray-600 flex items-center gap-1.5 hover:bg-gray-100 px-3 py-1.5 rounded-lg transition-colors">
                           <ArrowLeft className="w-3.5 h-3.5" /> Move to Pending
                         </button>
                       )}
@@ -1299,6 +1528,17 @@ export default function LoanRepaymentsPage() {
           })
         )}
       </div>
+
+      {/* Load More */}
+      {!loading && hasMore && (
+        <div className="flex justify-center">
+          <button onClick={handleLoadMore} disabled={loadingMore}
+            className="flex items-center gap-2 px-6 py-2.5 bg-white border border-[#bff202]/30 rounded-xl text-[#01312D] font-semibold text-sm hover:bg-[#eafde7] transition-all disabled:opacity-50">
+            {loadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
+            {loadingMore ? "Loading..." : "Load More"}
+          </button>
+        </div>
+      )}
 
       {/* Upload for Driver Modal */}
       {showRepaymentUploadModal && repaymentUploadRepayment && (
@@ -1381,8 +1621,8 @@ export default function LoanRepaymentsPage() {
               <button onClick={() => { if (!repaymentUploadLoading) setShowRepaymentUploadModal(false); }} disabled={repaymentUploadLoading}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">Cancel</button>
               <button onClick={handleSubmitRepaymentForDriver} disabled={repaymentUploadLoading || !repaymentUploadProofUrl || !repaymentUploadAmount}
-                className="flex-1 bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white py-2 rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50">
-                {repaymentUploadLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Submit Repayment
+                className="flex-1 px-4 bg-gradient-to-r from-[#3A7717] to-[#72BF00] text-white py-2 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50">
+                {repaymentUploadLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Submit
               </button>
             </div>
           </div>

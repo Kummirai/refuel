@@ -2,7 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { sendVerificationNotificationEmail } from "@/lib/email";
-import { ObjectId } from "mongodb"; // Add this import
+import { sendPushNotification, sendAdminPushNotification } from "@/lib/notifications";
+import { ObjectId } from "mongodb";
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +22,17 @@ export async function POST(request: NextRequest) {
       drivingLicenseUrl,
       carRegistrationUrl,
       profilePhotoUrl,
+      ownershipStatus,
+      referenceName,
+      referencePhone,
+      carOwnerName,
+      carOwnerPhone,
+      carOwnerAddress,
+      agreeAccuracy,
+      agreeRefTenure,
+      agreeOwnerContact,
+      agreeRepayment,
+      agreeEscalation,
     } = body;
 
     if (!userId) {
@@ -44,11 +56,6 @@ export async function POST(request: NextRequest) {
         // Otherwise try as string ID
         user = await usersCollection.findOne({ _id: userId });
       }
-
-      console.log("Found user:", user?._id);
-      console.log("User email:", user?.email);
-      console.log("User phone:", user?.phone);
-      console.log("User name:", user?.name);
     } catch (error) {
       console.error("Error finding user:", error);
     }
@@ -59,11 +66,6 @@ export async function POST(request: NextRequest) {
       if (!user) {
         user = await usersCollection.findOne({ email: userId });
       }
-    }
-
-    if (!user) {
-      console.error("User not found for userId:", userId);
-      // Don't return error, continue with verification but log the issue
     }
 
     // Check if verification is already under review or approved
@@ -99,6 +101,17 @@ export async function POST(request: NextRequest) {
           drivingLicenseUrl,
           carRegistrationUrl,
           profilePhotoUrl,
+          ownershipStatus: ownershipStatus || "own",
+          referenceName,
+          referencePhone,
+          carOwnerName,
+          carOwnerPhone,
+          carOwnerAddress,
+          agreeAccuracy: agreeAccuracy === true,
+          agreeRefTenure: agreeRefTenure === true,
+          agreeOwnerContact: agreeOwnerContact === true,
+          agreeRepayment: agreeRepayment === true,
+          agreeEscalation: agreeEscalation === true,
           verificationStatus: "pending",
           updatedAt: new Date(),
           // Store email and phone in the driver profile as well for redundancy
@@ -141,54 +154,47 @@ export async function POST(request: NextRequest) {
       },
     );
 
+    // Trigger push notification if token exists
+    const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+    if (pushTokens.length) {
+
+      await sendPushNotification(
+
+        pushTokens,
+        "Verification Submitted",
+        "Your verification documents have been submitted and are under review.",
+        { screen: "Verification" }
+      );
+    }
+
     // Prepare email data with better fallbacks
     const driverEmail = user?.email || body.email || "";
-    const driverPhone = user?.phone || body.phone || "";
     const driverName = fullName || user?.name || body.fullName || "Unknown";
 
-    console.log("Preparing to send email with:", {
-      driverName,
-      driverEmail,
-      driverPhone,
-      carRegistration: carRegistrationNumber,
-      carModel,
-      verificationId: profileId,
-    });
+    // Notify admins of new verification request
+    sendAdminPushNotification(
+      "New Verification Request",
+      `${driverName || "A driver"} submitted verification documents for review.`,
+      { screen: "AdminVerification" }
+    );
 
     // Send email notification to admin (run in background, don't await)
     (async () => {
       try {
-        // Only send email if we have a valid email address
-        if (!driverEmail) {
-          console.error(
-            "❌ Cannot send verification email: No email address found for user:",
-            userId,
-          );
-          console.log("User data:", { user, body });
-          return;
-        }
+        if (!driverEmail) return;
 
         await sendVerificationNotificationEmail({
           driverName: driverName,
           driverEmail: driverEmail,
-          driverPhone: driverPhone,
+          driverPhone: user?.phone || body.phone || "",
           carRegistration: carRegistrationNumber || "Not provided",
           carModel: carModel || "Not provided",
           verificationId: profileId || "unknown",
           submissionDate: new Date().toISOString(),
         });
-        console.log(
-          "✅ Verification notification email sent for user:",
-          userId,
-          "to email:",
-          driverEmail,
-        );
       } catch (emailError) {
-        console.error(
-          "❌ Failed to send verification notification email:",
-          emailError,
-        );
-        // Don't fail the request if email fails
+        console.error("❌ Failed to send verification notification email:", emailError);
       }
     })();
 

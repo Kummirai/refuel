@@ -1,28 +1,32 @@
 import { MongoClient } from "mongodb";
 
-const MONGODB_URI = process.env.MONGODB_URI!;
-const MONGODB_DB = process.env.MONGODB_DB!;
-
-if (!MONGODB_URI) {
-  throw new Error("Please define MONGODB_URI environment variable");
-}
-
-if (!MONGODB_DB) {
-  throw new Error("Please define MONGODB_DB environment variable");
-}
-
 const globalWithMongo = global as typeof globalThis & {
   _mongoClient?: MongoClient;
   _mongoDb?: any;
 };
 
+function getMongoConfig() {
+  const uri = process.env.MONGODB_URI;
+  const database = process.env.MONGODB_DB;
+
+  if (!uri) {
+    throw new Error("Please define MONGODB_URI environment variable");
+  }
+  if (!database) {
+    throw new Error("Please define MONGODB_DB environment variable");
+  }
+
+  return { uri, database };
+}
+
 function createClient() {
-  return new MongoClient(MONGODB_URI, {
+  return new MongoClient(getMongoConfig().uri, {
     maxPoolSize: 10,
     minPoolSize: 0,
     maxIdleTimeMS: 10000,
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 30000,
+    serverSelectionTimeoutMS: 15000,
+    socketTimeoutMS: 45000,
+    connectTimeoutMS: 15000,
   });
 }
 
@@ -46,7 +50,7 @@ export async function connectToDatabase() {
   const client = globalWithMongo._mongoClient;
 
   await client.connect();
-  const db = client.db(MONGODB_DB);
+  const db = client.db(getMongoConfig().database);
 
   globalWithMongo._mongoDb = db;
 
@@ -79,11 +83,16 @@ export async function connectToDatabase() {
   await db.collection("serviceRequests").createIndex({ requestDate: -1 });
   await db.collection("serviceRequests").createIndex({ userId: 1, status: 1 });
   await db.collection("serviceRequests").createIndex({ completedDate: -1, hasReceipt: 1 });
+  await db.collection("serviceRequests").createIndex({ approvedDate: -1 });
 
   // Repayment Proofs collection
   await db.collection("repaymentProofs").createIndex({ requestId: 1 });
   await db.collection("repaymentProofs").createIndex({ requestIds: 1 });
   await db.collection("repaymentProofs").createIndex({ status: 1 });
+
+  // Security deposit proofs
+  await db.collection("depositProofs").createIndex({ userId: 1, weekStart: -1 });
+  await db.collection("depositProofs").createIndex({ status: 1, submittedAt: -1 });
 
   // User collection — queried by role for driver listing
   await db.collection("user").createIndex({ role: 1 });

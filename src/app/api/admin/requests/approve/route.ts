@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { sendDriverApprovalEmail } from "@/lib/email";
+import { sendPushNotification } from "@/lib/notifications";
 
 export async function POST(request: Request) {
   try {
@@ -20,6 +21,7 @@ export async function POST(request: Request) {
     const { db } = await connectToDatabase();
     const serviceRequestsCollection = db.collection("serviceRequests");
     const driverProfilesCollection = db.collection("driverProfiles");
+    const usersCollection = db.collection("user");
 
     // Convert string ID to ObjectId
     let objectId;
@@ -41,11 +43,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Request not found" }, { status: 404 });
     }
 
-    // Get driver profile to fetch car registration
+    // Get driver profile to fetch car registration and banking details
     let carRegistration = "Not provided";
+    let driverProfile: Record<string, unknown> | null = null;
     try {
       // Try to find driver profile by userId or driverEmail
-      const driverProfile = await driverProfilesCollection.findOne({
+      driverProfile = await driverProfilesCollection.findOne({
         $or: [
           { userId: requestDoc.userId },
           { userId: requestDoc.driverId },
@@ -56,8 +59,8 @@ export async function POST(request: Request) {
 
       if (driverProfile) {
         carRegistration =
-          driverProfile.carRegistrationNumber ||
-          driverProfile.carRegistration ||
+          (driverProfile.carRegistrationNumber as string) ||
+          (driverProfile.carRegistration as string) ||
           "Not provided";
         console.log("Found car registration:", carRegistration);
       } else {
@@ -80,6 +83,21 @@ export async function POST(request: Request) {
       },
     );
 
+    // Trigger push notification if token exists
+    const user = await usersCollection.findOne({ _id: new ObjectId(requestDoc.userId) });
+    const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+    if (pushTokens.length) {
+
+      await sendPushNotification(
+
+        pushTokens,
+        "Request Approved",
+        `Your request has been approved. OTP: ${otp}`,
+        { screen: "Requests" }
+      );
+    }
+
     // Send email notification to driver (run in background, don't await)
     (async () => {
       try {
@@ -90,7 +108,11 @@ export async function POST(request: Request) {
           serviceType: requestDoc.type || requestDoc.serviceType,
           amount: requestDoc.amount,
           otp: otp,
-          carRegistration: carRegistration, // Add car registration here
+          carRegistration: carRegistration,
+          bankName: driverProfile?.bankName as string | undefined,
+          accountHolder: driverProfile?.accountHolder as string | undefined,
+          accountNumber: driverProfile?.accountNumber as string | undefined,
+          branchCode: driverProfile?.branchCode as string | undefined,
         });
         console.log("Driver approval email sent for request:", requestId);
       } catch (emailError) {

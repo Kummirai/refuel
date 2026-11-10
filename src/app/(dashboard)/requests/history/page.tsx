@@ -38,7 +38,9 @@ import { PopUploadModal } from "@/components/PopUploadModal";
 import { BulkRepaymentModal } from "@/components/BulkRepaymentModal";
 import { useBodyScrollLock } from "@/lib/hooks/useBodyScrollLock";
 import { Skeleton } from "@/components/ui/Skeleton";
+import ConnectingScreen from "@/components/ConnectingScreen";
 import { formatMoney, toMoney } from "@/lib/money";
+import { useSessionPending } from "@/lib/hooks/useSessionPending";
 
 type RequestStatus = "pending" | "approved" | "sent" | "completed" | "rejected";
 type RepaymentStatus = "pending" | "approved" | "rejected";
@@ -96,6 +98,7 @@ interface Request {
 export default function RequestHistoryPage() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
+  const sessionPending = useSessionPending(isPending);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<
@@ -112,6 +115,7 @@ export default function RequestHistoryPage() {
     new Set(),
   );
   const [showBulkRepaymentModal, setShowBulkRepaymentModal] = useState(false);
+  const [discountPercent, setDiscountPercent] = useState<number | null>(null);
 
   // Modal states for alerts
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -119,12 +123,26 @@ export default function RequestHistoryPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
+  const fetchDiscount = async () => {
+    if (!session?.user?.email) return;
+    try {
+      const res = await fetch(`/api/driver/discount?email=${encodeURIComponent(session.user.email)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDiscountPercent(data.discountPercent ?? null);
+      }
+    } catch (e) {
+      console.error("Error fetching discount:", e);
+    }
+  };
+
   useEffect(() => {
     if (!isPending) {
       if (!session) {
         router.push("/auth/sign-in");
       } else {
         fetchRequests();
+        fetchDiscount();
       }
     }
   }, [session, isPending]);
@@ -133,6 +151,7 @@ export default function RequestHistoryPage() {
     try {
       const response = await fetch(
         `/api/driver/requests?userId=${session?.user?.id}`,
+        { signal: AbortSignal.timeout(15_000) },
       );
       if (response.ok) {
         const data = await response.json();
@@ -146,6 +165,7 @@ export default function RequestHistoryPage() {
             try {
               const repaymentResponse = await fetch(
                 `/api/driver/repayment-proof/getproof?requestId=${requestId}`,
+                { signal: AbortSignal.timeout(10_000) },
               );
               let repayments = [];
               if (repaymentResponse.ok) {
@@ -484,7 +504,7 @@ export default function RequestHistoryPage() {
             <button
               type="button"
               onClick={() => setShowSuccessModal(false)}
-              className="w-full bg-[#01312D] text-white py-2 rounded-xl font-semibold hover:bg-[#3A7717] transition-colors"
+              className="w-full px-4 bg-[#01312D] text-white py-2 rounded-xl font-semibold hover:bg-[#3A7717] transition-colors"
             >
               Close
             </button>
@@ -528,7 +548,7 @@ export default function RequestHistoryPage() {
             <button
               type="button"
               onClick={() => setShowErrorModal(false)}
-              className="w-full bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors"
+              className="w-full px-4 bg-red-500 text-white py-2 rounded-xl font-semibold hover:bg-red-600 transition-colors"
             >
               Close
             </button>
@@ -926,7 +946,7 @@ export default function RequestHistoryPage() {
                   setSelectedRequestForPop(request);
                   setShowPopModal(true);
                 }}
-                className="w-full bg-[#3A7717] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all"
+                className="w-full px-4 bg-[#3A7717] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all"
               >
                 <Receipt className="w-4 h-4" />
                 Upload Receipt
@@ -950,7 +970,7 @@ export default function RequestHistoryPage() {
                     window.open(request.popUrl, "_blank");
                   }
                 }}
-                className="w-full bg-[#eafde7] text-[#01312D] py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#bff202]/30 transition-all"
+                className="w-full px-4 bg-[#eafde7] text-[#01312D] py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#bff202]/30 transition-all"
               >
                 <Download className="w-4 h-4" />
                 Download Receipt
@@ -962,7 +982,7 @@ export default function RequestHistoryPage() {
     );
   };
 
-  if (isPending) {
+  if (sessionPending) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -974,7 +994,7 @@ export default function RequestHistoryPage() {
   }
 
   if (!session) {
-    return null;
+    return isPending ? <ConnectingScreen message="Still loading your history…" /> : null;
   }
 
   return (
@@ -1005,7 +1025,7 @@ setSelectedBulkIds(new Set(requests.filter((r) => (r.status === "approved" || r.
                   }}
                   className="px-4 py-2 rounded-full text-xs font-semibold transition-all bg-red-600 text-white hover:bg-red-700 flex items-center gap-1.5"
                 >
-                  Pay {formatMoney(stats.totalOutstanding)}
+                  Pay {discountPercent != null ? formatMoney(stats.totalOutstanding * (113 - discountPercent) / 113) : formatMoney(stats.totalOutstanding)}
                 </button>
               )}
               {hasPendingRepayment && (
@@ -1082,9 +1102,22 @@ setSelectedBulkIds(new Set(requests.filter((r) => (r.status === "approved" || r.
                   <Skeleton className="h-8 w-20" />
                 </div>
               ) : (
-                <p className="text-lg font-bold text-red-600">
-                  {formatMoney(stats.totalOutstanding)}
-                </p>
+                <div className="flex items-center justify-center gap-1">
+                  {discountPercent != null ? (
+                    <>
+                      <span className="text-sm text-gray-400 line-through">
+                        {formatMoney(stats.totalOutstanding)}
+                      </span>
+                      <p className="text-lg font-bold text-red-600">
+                        {formatMoney(stats.totalOutstanding * (113 - discountPercent) / 113)}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-lg font-bold text-red-600">
+                      {formatMoney(stats.totalOutstanding)}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -1274,7 +1307,7 @@ setSelectedBulkIds(new Set(requests.filter((r) => (r.status === "approved" || r.
                   <div className="flex gap-2 pt-3 border-t border-gray-100">
                     <button
                       type="button"
-                      className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-xs font-semibold flex items-center justify-center gap-2"
+                      className="flex-1 px-3 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-xs font-semibold flex items-center justify-center gap-2"
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedRequest(request);
@@ -1287,7 +1320,7 @@ setSelectedBulkIds(new Set(requests.filter((r) => (r.status === "approved" || r.
                     {needsPopUpload && (
                       <button
                         type="button"
-                        className="flex-1 py-2 bg-[#3A7717] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all"
+                        className="flex-1 px-3 py-2 bg-[#3A7717] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 hover:bg-[#2d5a12] transition-all"
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedRequestForPop(request);
@@ -1301,7 +1334,7 @@ setSelectedBulkIds(new Set(requests.filter((r) => (r.status === "approved" || r.
                     {(request.popUrl || request.status === "completed") && (
                       <button
                         type="button"
-                        className="flex-1 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-xs font-semibold flex items-center justify-center gap-2"
+                        className="flex-1 px-3 py-2 bg-[#eafde7] rounded-lg text-[#01312D] text-xs font-semibold flex items-center justify-center gap-2"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {/*<Download className="w-4 h-4" />*/}
@@ -1375,6 +1408,7 @@ setSelectedBulkIds(new Set(requests.filter((r) => (r.status === "approved" || r.
               remainingBalance:
                 r.remainingBalance || r.totalRepayable || r.amount,
             }))}
+          discountPercent={discountPercent ?? undefined}
           onSuccess={() => {
             fetchRequests();
             setShowBulkRepaymentModal(false);

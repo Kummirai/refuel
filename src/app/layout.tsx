@@ -2,6 +2,8 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import PwaInstallPrompt from "@/components/PwaInstallPrompt";
 
 const jarkata = Plus_Jakarta_Sans({
@@ -33,17 +35,24 @@ export default function RootLayout({
       </head>
       <body className={jarkata.className}>
         {children}
+        <Analytics />
+        <SpeedInsights />
         <PwaInstallPrompt />
         <script
           dangerouslySetInnerHTML={{
             __html: `
               if ("serviceWorker" in navigator) {
-                window.addEventListener("load", () => {
-                  navigator.serviceWorker.register("/sw.js")
+                var hadController = !!navigator.serviceWorker.controller;
+                var reloading = false;
+                navigator.serviceWorker.addEventListener("controllerchange", function() {
+                  if (!hadController || reloading) return;
+                  reloading = true;
+                  window.location.reload();
+                });
+                window.addEventListener("load", function() {
+                  navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" })
                     .then(function(reg) {
-                      if (reg.installing) console.log("[PWA] SW installing");
-                      else if (reg.waiting) console.log("[PWA] SW installed");
-                      else if (reg.active) console.log("[PWA] SW active");
+                      reg.update().catch(function() {});
                     })
                     .catch(function(err) {
                       console.warn("[PWA] SW registration failed:", err);

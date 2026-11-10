@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { sendAdminRepaymentProofEmail } from "@/lib/email";
+import { sendPushNotification, sendAdminPushNotification } from "@/lib/notifications";
 
 export async function POST(request: NextRequest) {
   try {
@@ -97,6 +98,20 @@ export async function POST(request: NextRequest) {
     const result = await repaymentsCollection.insertOne(repaymentProof);
     const proofId = result.insertedId.toString();
 
+    // Trigger push notification if token exists
+    const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+    if (pushTokens.length) {
+
+      await sendPushNotification(
+
+        pushTokens,
+        "Repayment Submitted",
+        `Your repayment of R${amount} has been submitted and is pending verification.`,
+        { screen: "Repayments" }
+      );
+    }
+
     // Update all service requests with pending repayment flag
     for (const id of ids) {
       try {
@@ -115,6 +130,13 @@ export async function POST(request: NextRequest) {
         console.error(`Error updating service request ${id}:`, err);
       }
     }
+
+    // Send push notification to admins
+    sendAdminPushNotification(
+      "Repayment Proof Submitted",
+      `${user?.name || "A driver"} submitted a repayment proof of R${amount}.`,
+      { screen: "AdminRepayments" }
+    );
 
     // Send email notification to admin
     const firstRequest = serviceRequests[0];
@@ -163,6 +185,7 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
 
 // Helper function to get service type label
 function getServiceTypeLabel(type: string): string {

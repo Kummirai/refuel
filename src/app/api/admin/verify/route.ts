@@ -1,8 +1,8 @@
-// src/app/api/admin/verify/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { sendDriverVerificationResultEmail } from "@/lib/email";
+import { sendPushNotification } from "@/lib/notifications";
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
     const { db } = await connectToDatabase();
     const driverProfilesCollection = db.collection("driverProfiles");
-    const usersCollection = db.collection("user"); // Changed from "users" to "user"
+    const usersCollection = db.collection("user");
 
     let profile;
     let userId;
@@ -82,13 +82,6 @@ export async function POST(request: NextRequest) {
       user = await usersCollection.findOne({ _id: userId as any });
     }
 
-    console.log("Found user:", {
-      userId,
-      hasUser: !!user,
-      userEmail: user?.email,
-      userName: user?.name,
-    });
-
     if (action === "approve") {
       // Update driver profile status
       await driverProfilesCollection.updateOne(
@@ -116,6 +109,20 @@ export async function POST(request: NextRequest) {
           },
         },
       );
+
+      // Trigger push notification if token exists
+      const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+      if (pushTokens.length) {
+
+        await sendPushNotification(
+
+          pushTokens,
+          "Verification Approved",
+          "Congratulations! Your account has been verified.",
+          { screen: "Profile" }
+        );
+      }
 
       // Send email notification to driver (run in background)
       const driverEmail = user?.email || profile?.email;
@@ -159,7 +166,6 @@ export async function POST(request: NextRequest) {
         {
           $set: {
             verificationStatus: "rejected",
-            rejectedAt: new Date(),
             rejectionReason: reason || "No reason provided",
             updatedAt: new Date(),
           },
@@ -173,12 +179,25 @@ export async function POST(request: NextRequest) {
           $set: {
             verificationStatus: "rejected",
             isVerified: false,
-            rejectedAt: new Date(),
             rejectionReason: reason || "No reason provided",
             updatedAt: new Date(),
           },
         },
       );
+
+      // Trigger push notification if token exists
+      const pushTokens = user?.pushTokens?.length ? user.pushTokens : user?.expoPushToken ? [user.expoPushToken] : [];
+
+      if (pushTokens.length) {
+
+        await sendPushNotification(
+
+          pushTokens,
+          "Verification Rejected",
+          `Your verification has been rejected. Reason: ${reason || "No reason provided"}`,
+          { screen: "Profile" }
+        );
+      }
 
       // Send email notification to driver (run in background)
       const driverEmail = user?.email || profile?.email;
@@ -194,14 +213,11 @@ export async function POST(request: NextRequest) {
             await sendDriverVerificationResultEmail({
               driverEmail: driverEmail,
               driverName: driverName,
-              carRegistration: carRegistration, // ADDED: Include car registration
+              carRegistration: carRegistration,
               status: "rejected",
               reason: reason || "No reason provided",
             });
-            console.log(
-              "✅ Verification rejection email sent to:",
-              driverEmail,
-            );
+            console.log("✅ Verification rejection email sent to:", driverEmail);
           } catch (emailError) {
             console.error("❌ Failed to send rejection email:", emailError);
           }

@@ -11,38 +11,34 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-export async function POST(request: NextRequest) {
-  try {
-    const formData = await request.formData();
-    const file = formData.get("file") as File;
-    const requestId = formData.get("requestId") as string;
-    const driverName = formData.get("driverName") as string;
-    const driverEmail = formData.get("driverEmail") as string;
-    const driverPhone = formData.get("driverPhone") as string;
-    const carNumber = formData.get("carNumber") as string;
-    const actualAmount = formData.get("actualAmount") as string;
-    const type = formData.get("type") as string;
+async function getBody(request: NextRequest) {
+  const contentType = request.headers.get("content-type") || "";
 
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    }
+  if (contentType.includes("application/json")) {
+    const body = await request.json();
+    return {
+      popUrl: body.popUrl || null,
+      popPublicId: null,
+      requestId: body.requestId || null,
+      driverName: body.driverName || null,
+      driverEmail: body.driverEmail || null,
+      driverPhone: body.driverPhone || null,
+      carNumber: body.carNumber || null,
+      actualAmount: body.actualAmount || null,
+      type: body.type || null,
+    };
+  }
 
-    if (!driverName) {
-      return NextResponse.json({ error: "Driver name is required" }, { status: 400 });
-    }
+  const formData = await request.formData();
+  const file = formData.get("file") as File | null;
 
+  if (file) {
     if (!file.type.startsWith("image/")) {
-      return NextResponse.json(
-        { error: "File must be an image" },
-        { status: 400 },
-      );
+      return { error: "File must be an image" };
     }
 
     if (file.size > 20 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: "File size must be less than 20MB" },
-        { status: 400 },
-      );
+      return { error: "File size must be less than 20MB" };
     }
 
     const result = await new Promise((resolve, reject) => {
@@ -64,13 +60,44 @@ export async function POST(request: NextRequest) {
       Readable.fromWeb(file.stream() as any).pipe(uploadStream);
     });
 
+    return {
+      popUrl: (result as any).secure_url,
+      popPublicId: (result as any).public_id,
+      requestId: (formData.get("requestId") as string) || null,
+      driverName: (formData.get("driverName") as string) || null,
+      driverEmail: (formData.get("driverEmail") as string) || null,
+      driverPhone: (formData.get("driverPhone") as string) || null,
+      carNumber: (formData.get("carNumber") as string) || null,
+      actualAmount: (formData.get("actualAmount") as string) || null,
+      type: (formData.get("type") as string) || null,
+    };
+  }
+
+  return null;
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const data = await getBody(request);
+
+    if (data?.error) {
+      return NextResponse.json({ error: data.error }, { status: 400 });
+    }
+
+    if (!data || !data.popUrl) {
+      return NextResponse.json({ error: "No receipt image provided" }, { status: 400 });
+    }
+
+    if (!data.driverName) {
+      return NextResponse.json({ error: "Driver name is required" }, { status: 400 });
+    }
+
     const { db } = await connectToDatabase();
     const serviceRequestsCollection = db.collection("serviceRequests");
     const driverProfilesCollection = db.collection("driverProfiles");
     const usersCollection = db.collection("user");
 
-    const popUrl = (result as any).secure_url;
-    const popPublicId = (result as any).public_id;
+    const { popUrl, popPublicId, requestId, driverName, driverEmail, driverPhone, carNumber, actualAmount, type } = data;
     const amount = actualAmount ? toMoney(parseFloat(actualAmount)) : 0;
 
     // Link to existing request
@@ -98,8 +125,8 @@ export async function POST(request: NextRequest) {
         if (amount > 0) {
           updateData.actualAmount = amount;
 
-          const interestRate = existing.interestRate || 13;
-          const repaymentDays = existing.repaymentDays || 7;
+          const interestRate = existing.interestRate ?? 13;
+          const repaymentDays = existing.repaymentDays ?? 7;
           const totalRepayable = toMoney(amount * (1 + interestRate / 100));
           const interestAmount = toMoney(totalRepayable - amount);
 
@@ -118,6 +145,11 @@ export async function POST(request: NextRequest) {
         // If the request was pending or approved, mark it as completed
         if (existing.status === "pending" || existing.status === "approved" || existing.status === "sent") {
           updateData.status = "completed";
+        }
+
+        // Clear manager refuel flag so it shows in completed tab, not refueled
+        if (existing.refueledByManager) {
+          updateData.refueledByManager = false;
         }
 
         await serviceRequestsCollection.updateOne(

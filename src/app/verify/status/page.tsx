@@ -4,6 +4,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import ConnectingScreen from "@/components/ConnectingScreen";
+import { useBoundedFlag, useSessionPending } from "@/lib/hooks/useSessionPending";
 import {
   ArrowLeft,
   CheckCircle,
@@ -28,7 +30,9 @@ import {
 export default function VerificationStatusPage() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
+  const sessionPending = useSessionPending(isPending);
   const [loading, setLoading] = useState(true);
+  const boundedLoading = useBoundedFlag(loading, 15_000);
   const [refreshing, setRefreshing] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [verificationStatus, setVerificationStatus] = useState<
@@ -50,6 +54,7 @@ export default function VerificationStatusPage() {
     try {
       const response = await fetch(
         `/api/driver/profile?userId=${session?.user?.id}`,
+        { signal: AbortSignal.timeout(15_000) },
       );
       if (response.ok) {
         const data = await response.json();
@@ -230,7 +235,7 @@ export default function VerificationStatusPage() {
     return items;
   };
 
-  if (isPending || loading) {
+  if (sessionPending || boundedLoading) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -242,7 +247,7 @@ export default function VerificationStatusPage() {
   }
 
   if (!session) {
-    return null;
+    return isPending ? <ConnectingScreen message="Still loading your status…" /> : null;
   }
 
   const timelineItems = getTimelineItems();

@@ -17,6 +17,7 @@ import {
   RefreshCw,
   CheckCircle,
   AlertCircle,
+  CreditCard,
 } from "lucide-react";
 
 interface LoanItem {
@@ -47,11 +48,13 @@ export default function AdminDriverViewPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDriver, setSelectedDriver] = useState<DriverView | null>(null);
+  const [driverProfile, setDriverProfile] = useState<any>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/driver-view");
+      const res = await fetch("/api/admin/driver-view?limit=500");
       if (res.ok) {
         const data = await res.json();
         setDrivers(data.drivers || []);
@@ -66,6 +69,32 @@ export default function AdminDriverViewPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const fetchDriverProfile = async (userId: string) => {
+    setProfileLoading(true);
+    try {
+      const res = await fetch(`/api/admin/drivers/profile?userId=${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDriverProfile(data.profile || null);
+      }
+    } catch (err) {
+      console.error("Error fetching driver profile:", err);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const handleToggleDriver = (driver: DriverView) => {
+    if (selectedDriver?.userId === driver.userId) {
+      setSelectedDriver(null);
+      setDriverProfile(null);
+    } else {
+      setSelectedDriver(driver);
+      setDriverProfile(null);
+      fetchDriverProfile(driver.userId);
+    }
+  };
 
   const filteredDrivers = useMemo(() => {
     if (!searchQuery) return drivers;
@@ -166,11 +195,37 @@ export default function AdminDriverViewPage() {
                       {loan.remaining > 0 ? formatMoney(loan.remaining) : "Paid"}
                     </p>
                   </div>
+                  </div>
                 </div>
+              ))}
+            </div>
+
+            {/* Banking Details */}
+            {profileLoading ? (
+              <div className="mt-3 p-3 bg-white rounded-xl animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-32 mb-2" />
+                <div className="h-3 bg-gray-200 rounded w-48" />
               </div>
-            ))}
+            ) : driverProfile?.bankName || driverProfile?.accountNumber ? (
+              <div className="mt-3 bg-white rounded-xl p-3 border border-gray-100">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2 flex items-center gap-1">
+                  <CreditCard className="w-3 h-3" /> Banking Details
+                </h4>
+                {driverProfile.bankName && (
+                  <p className="text-xs text-[#01312D] mb-1"><strong>Bank:</strong> {driverProfile.bankName}</p>
+                )}
+                {driverProfile.accountHolder && (
+                  <p className="text-xs text-[#01312D] mb-1"><strong>Account Holder:</strong> {driverProfile.accountHolder}</p>
+                )}
+                {driverProfile.accountNumber && (
+                  <p className="text-xs text-[#01312D] mb-1"><strong>Account Number:</strong> {driverProfile.accountNumber}</p>
+                )}
+                {driverProfile.branchCode && (
+                  <p className="text-xs text-[#01312D] mb-1"><strong>Branch Code:</strong> {driverProfile.branchCode}</p>
+                )}
+              </div>
+            ) : null}
           </div>
-        </div>
       )}
     </div>
     );
@@ -256,7 +311,7 @@ export default function AdminDriverViewPage() {
               key={driver.userId}
               driver={driver}
               isSelected={selectedDriver?.userId === driver.userId}
-              onToggle={() => setSelectedDriver(selectedDriver?.userId === driver.userId ? null : driver)}
+              onToggle={() => handleToggleDriver(driver)}
               getTypeIcon={getTypeIcon}
               getTypeLabel={getTypeLabel}
               formatMoney={formatMoney}

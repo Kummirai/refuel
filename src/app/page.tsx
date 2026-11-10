@@ -3,39 +3,140 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { authClient } from "@/lib/auth-client";
+import { fetcher } from "@/lib/fetch";
 import BottomNavigation from "@/components/BottomNavigation";
+import DepositHero from "@/components/DepositHero";
 import {
-  ArrowRight,
   Fuel,
   DollarSign,
   Car,
   Star,
-  Clock,
   Shield,
+  ShieldCheck,
   ChevronRight,
   Zap,
   Truck,
   Headphones,
   Sparkles,
   AlertCircle,
-  CheckCircle,
   XCircle,
   LogOut,
   User,
   FileCheck,
   Hourglass,
-  Home,
-  ClipboardList,
-  History,
-  UserCircle,
-  Calendar,
+  Flame,
+  ArrowRight,
+  Download,
+  Smartphone,
+  Gift,
+  Tag,
+  CalendarDays,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { formatMoney } from "@/lib/money";
+import { useSessionPending } from "@/lib/hooks/useSessionPending";
+import { ANDROID_APK_URL } from "@/lib/app-download";
+import {
+  PROMOTIONAL_FUEL_FEE_RATE,
+  STANDARD_FUEL_FEE_RATE,
+  isPromotionalRateActive,
+  type DriverDepositSummary,
+} from "@/lib/deposit-ui";
+
+type FuelCredit = {
+  limit: number;
+  used: number;
+  remaining: number;
+  enabled: boolean;
+};
+
+function FuelCreditCard({ userId }: { userId: string | null }) {
+  const router = useRouter();
+  const [credit, setCredit] = useState<FuelCredit | null>(null);
+  const [creditLoading, setCreditLoading] = useState(!!userId);
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    fetch(`/api/driver/fuel-credit?userId=${userId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data && !data.error) setCredit(data);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setCreditLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  if (credit && credit.enabled === false) return null;
+
+  const limit = credit?.limit ?? 0;
+  const used = credit?.used ?? 0;
+  const remaining = credit?.remaining ?? 0;
+  const usedPct = Math.min(100, (used / Math.max(1, limit)) * 100);
+
+  return (
+    <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-10 h-10 bg-[#eafde7] rounded-full flex items-center justify-center">
+            <Fuel className="w-5 h-5 text-[#3A7717]" />
+          </div>
+          <div>
+            <p className="font-bold text-[#01312D]">Fuel Credit Limit</p>
+            <p className="text-[10px] text-gray-500">Resets every Monday</p>
+          </div>
+        </div>
+        {creditLoading ? (
+          <Skeleton className="h-6 w-20" />
+        ) : (
+          <p className="text-lg font-bold text-[#01312D]">
+            {formatMoney(remaining)}
+          </p>
+        )}
+      </div>
+      {creditLoading ? (
+        <Skeleton className="h-2 w-full rounded-full" />
+      ) : (
+        <>
+          <div className="bg-[#eafde7] rounded-full h-2 overflow-hidden">
+            <div
+              className={`h-2 rounded-full ${used >= limit ? "bg-red-500" : "bg-[#3A7717]"}`}
+              style={{ width: `${usedPct}%` }}
+            ></div>
+          </div>
+          <div className="flex justify-between items-center mt-2">
+            <p className="text-xs text-gray-500">
+              {formatMoney(used)} used of {formatMoney(limit)}
+            </p>
+            <button
+              onClick={() => router.push("/requests?type=fuel")}
+              className="text-xs font-semibold text-[#72bf00]"
+            >
+              Request Fuel →
+            </button>
+          </div>
+          {remaining <= 0 && (
+            <p className="text-xs text-red-600 mt-2 font-semibold">
+              Weekly fuel credit used up — resets Monday.
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function HomePage() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
+  const sessionPending = useSessionPending(isPending);
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -43,6 +144,16 @@ export default function HomePage() {
     "approved" | "pending" | "rejected" | "not_submitted"
   >("not_submitted");
   const [loadError, setLoadError] = useState(false);
+
+  const userId = session?.user?.id;
+  const { data: deposit, isLoading: depositLoading } =
+    useSWR<DriverDepositSummary>(
+      userId && userRole !== "admin"
+        ? `/api/driver/deposit?userId=${userId}`
+        : null,
+      fetcher,
+      { refreshInterval: 60_000, dedupingInterval: 30_000 },
+    );
 
   // Safety timeout for loading state (crucial for older Safari/iPhone)
   useEffect(() => {
@@ -57,13 +168,16 @@ export default function HomePage() {
   }, [loading]);
 
   useEffect(() => {
-    if (!isPending) {
+    if (!sessionPending) {
       if (session && session.user) {
         const user = session.user as any;
         setUserRole(user.role || null);
 
         if (user.role === "admin") {
           setLoading(false);
+        } else if (user.role === "manager") {
+          router.push("/manager/dashboard");
+          return;
         } else {
           fetchUserProfile();
         }
@@ -71,10 +185,26 @@ export default function HomePage() {
         setLoading(false);
       }
     }
-  }, [session, isPending]);
+  }, [session, sessionPending]);
 
   // Add state for approved count
   const [approvedCount, setApprovedCount] = useState(0);
+
+  // Cash loan rate from admin settings (fallback matches requests page)
+  const [cashRate, setCashRate] = useState(26);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/admin/settings")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const rate = Number(data?.services?.cashInterestRate);
+        if (!cancelled && rate > 0) setCashRate(rate);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // In your fetchUserProfile or similar, calculate approved requests
   useEffect(() => {
@@ -145,40 +275,23 @@ export default function HomePage() {
       return;
     }
 
-    router.push(`/requests?type=${service.toLowerCase()}`);
-  };
-
-  const getButtonText = () => {
-    if (userRole === "admin") {
-      return "Go to Admin Panel";
-    }
-
-    if (session) {
-      if (verificationStatus === "approved") {
-        return "Go to Dashboard";
-      }
-      if (verificationStatus === "pending") {
-        return "Check Verification Status";
-      }
-      return "Complete Verification";
-    }
-    return "Get Started";
+    // Map service name to query param
+    const typeMap: Record<string, string> = {
+      fuel: "fuel",
+      carwash: "carwash",
+      "car wash": "carwash",
+      cash: "cash",
+      "cash loan": "cash",
+    };
+    router.push(`/requests?type=${typeMap[service.toLowerCase()] || service.toLowerCase()}`);
   };
 
   const VerificationStatusBadge = () => {
+    if (verificationStatus === "approved")
+      return <FuelCreditCard userId={session?.user?.id ?? null} />;
+
     const getStatusConfig = () => {
       switch (verificationStatus) {
-        case "approved":
-          return {
-            icon: CheckCircle,
-            title: "Verified Account",
-            message: "Your account is verified. You can access all services.",
-            color: "text-[#3A7717]",
-            bgColor: "bg-[#3A7717]/10",
-            borderColor: "border-[#3A7717]",
-            buttonText: "Go to Dashboard",
-            buttonAction: () => router.push("/dashboard"),
-          };
         case "pending":
           return {
             icon: Hourglass,
@@ -244,9 +357,7 @@ export default function HomePage() {
               ? "bg-yellow-600 text-white"
               : verificationStatus === "rejected"
                 ? "bg-red-600 text-white"
-                : verificationStatus === "approved"
-                  ? "bg-[#3A7717] text-white"
-                  : "bg-[#01312D] text-white"
+                : "bg-[#01312D] text-white"
               }`}
           >
             {config.buttonText} →
@@ -283,7 +394,7 @@ export default function HomePage() {
     );
   };
 
-  if (isPending) {
+  if (sessionPending) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -299,7 +410,7 @@ export default function HomePage() {
   const showSkeleton = loading && isLoggedIn;
 
   return (
-    <div className="min-h-screen bg-[#eafde7] relative overflow-hidden">
+    <div className="min-h-screen bg-[#eafde7] relative overflow-x-clip">
       {/* Background Decorative Elements */}
       <div className="absolute top-0 right-0 w-80 h-80 bg-[#bff202]/10 rounded-full blur-3xl"></div>
       <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#3A7717]/5 rounded-full blur-3xl"></div>
@@ -409,62 +520,147 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Hero Tagline */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-2 bg-[#bff202]/20 rounded-full px-4 py-1.5 mb-4">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#3A7717] opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#3A7717]"></span>
-            </span>
-            <p className="text-xs font-semibold text-[#01312D]">
-              Everything for Drivers
-            </p>
+        {/* Promotional refueling rate banner */}
+        {!isAdmin && isPromotionalRateActive() && (
+          <div className="relative overflow-hidden rounded-3xl mb-5 bg-white border border-[#fecaca] shadow-md shadow-red-600/10">
+            <div
+              className="absolute inset-0 opacity-[0.04] pointer-events-none"
+              style={{
+                backgroundImage:
+                  "repeating-linear-gradient(135deg, #dc2626 0 2px, transparent 2px 16px)",
+              }}
+            />
+            <Gift className="absolute -right-4 -bottom-8 w-32 h-32 text-[#dc2626] opacity-[0.07] pointer-events-none" />
+            <div className="relative z-10 px-3 py-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#dc2626] px-2 py-0.5 text-[8.5px] font-extrabold tracking-wider text-white">
+                  <Tag className="w-2.5 h-2.5" />
+                  LIMITED-TIME RATE
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[9px] font-bold text-red-700">
+                  <CalendarDays className="w-2.5 h-2.5" />
+                  1 Nov – 30 Jan
+                </span>
+              </div>
+
+              <div className="mt-1.5 flex items-end justify-between gap-2">
+                <div>
+                  <div className="flex items-end gap-1.5">
+                    <span className="text-[34px] font-black leading-none tracking-tight text-[#dc2626]">
+                      {PROMOTIONAL_FUEL_FEE_RATE}%
+                    </span>
+                    <span className="mb-0.5 text-[15px] font-black leading-none text-gray-400 line-through">
+                      {STANDARD_FUEL_FEE_RATE}%
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <div className="-rotate-6 rounded-lg bg-[#bff202] px-2 py-0.5 text-center text-[#01312D]">
+                    <p className="text-[7px] font-extrabold uppercase tracking-wide">
+                      You save
+                    </p>
+                    <p className="text-[13px] font-black leading-tight">
+                      {STANDARD_FUEL_FEE_RATE - PROMOTIONAL_FUEL_FEE_RATE}%
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      router.push(isLoggedIn ? "/requests" : "/auth/sign-in")
+                    }
+                    className="inline-flex items-center gap-1 rounded-full bg-[#dc2626] px-2.5 py-1 text-[10px] font-extrabold text-white transition-transform active:scale-95"
+                  >
+                    Fuel now
+                    <ArrowRight className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
+        )}
 
-          <h1 className="text-4xl font-black text-[#01312D] leading-tight mb-3">
-            Get <span className="text-[#3A7717]">Fuel</span>
-            <br />&{" "}
-            <span className="text-[#3A7717] underline decoration-[#bff202] decoration-4 underline-offset-8">
-              Car Wash
-            </span>
-            <br />
-            <span className="inline-flex items-center gap-2 mt-1">
-              Services Instantly!
-            </span>
-          </h1>
+        {/* Hero — deposit summary for drivers, marketing for guests/admin */}
+        {isLoggedIn && !isAdmin ? (
+          <DepositHero
+            deposit={deposit}
+            loading={depositLoading}
+            onPress={() => router.push("/deposit")}
+          />
+        ) : (
+          <div className="relative overflow-hidden rounded-3xl mb-5 bg-[#04110F] shadow-xl aspect-[16/10] sm:aspect-[2/1]">
+            <img
+              src="/images/hero-refuel-night.jpg"
+              alt="A car being refueled at a petrol station at night"
+              className="absolute inset-0 w-full h-full object-cover object-[100%_center] sm:object-center"
+            />
 
-          <div className="flex items-center justify-center gap-3 text-xs text-[#3A7717]">
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-[#3A7717] rounded-full"></span>
-              24/7 Support
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-[#3A7717] rounded-full"></span>
-              No Hidden Fees
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-[#3A7717] rounded-full"></span>
-              Instant Processing
-            </span>
+            <div className="relative z-10 flex h-full flex-col justify-center p-5 sm:p-6">
+              <div className="w-fit max-w-[80%] sm:max-w-[52%]">
+                <h1 className="tracking-tight text-white">
+                  <span className="block text-[18px] leading-[22px] font-medium [text-shadow:0_1px_3px_rgba(0,0,0,0.6)] sm:text-[20px] sm:leading-[24px]">
+                    {isLoggedIn ? "Manage your" : "Fuel today."}
+                  </span>
+                  <span className="mt-0.5 block text-[25px] leading-[29px] font-extrabold [text-shadow:0_1px_4px_rgba(0,0,0,0.55)] sm:text-[29px] sm:leading-[33px]">
+                    {isLoggedIn ? "drivers." : "Work n Pay Later"}
+                  </span>
+                </h1>
+
+                <p className="text-[11px] text-white/85 leading-snug mt-3 [text-shadow:0_1px_3px_rgba(0,0,0,0.6)] sm:text-xs">
+                  {isLoggedIn
+                    ? "Approve driver profiles, deposits and requests."
+                    : "Fuel, car wash and cash loans on one weekly plan."}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={handleGetStarted}
+                  className="mt-5 inline-flex items-center gap-1.5 bg-[#bff202] text-[#01312D] px-4 py-2 rounded-full text-[11px] font-extrabold shadow-sm hover:shadow-md transition-all active:scale-95 sm:px-5 sm:py-2.5 sm:text-xs"
+                >
+                  {isLoggedIn ? "Open admin panel" : "Get Started"}
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Get Started Button */}
-        <div className="flex justify-center mb-12">
-          {showSkeleton ? (
-            <Skeleton className="h-14 w-64 rounded-full" />
-          ) : (
-            <button
-              type="button"
-              onClick={handleGetStarted}
-              className="group relative bg-linear-to-r from-[#01312D] to-[#3A7717] text-white px-10 py-3.5 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transform transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
-            >
-              <span className="relative z-10">{getButtonText()}</span>
-              <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
-              <div className="absolute inset-0 bg-linear-to-r from-[#3A7717] to-[#72bf00] opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full"></div>
-            </button>
-          )}
-        </div>
+        {/* Benefits strip / request shortcut */}
+        {isLoggedIn ? (
+          <button
+            type="button"
+            onClick={() => router.push("/requests")}
+            className="w-full mb-8 rounded-3xl bg-linear-to-r from-[#01312D] to-[#3A7717] px-6 py-4 flex items-center justify-center gap-2 shadow-lg shadow-[#01312D]/20 active:scale-[0.99] transition-all"
+          >
+            <Zap className="w-4 h-4 text-[#bff202]" />
+            <span className="text-base font-bold text-white">
+              Make a request
+            </span>
+            <ChevronRight className="w-4 h-4 text-white" />
+          </button>
+        ) : (
+          <div className="mb-8 rounded-2xl bg-linear-to-r from-[#bff202] to-[#72bf00] px-2 py-3 flex items-stretch shadow-lg shadow-[#01312D]/10">
+            {[
+              { icon: Headphones, label: "24/7 Support" },
+              { icon: ShieldCheck, label: "No Hidden Fees" },
+              { icon: Zap, label: "Instant Processing" },
+            ].map((feature, index) => (
+              <div
+                key={feature.label}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-1 ${
+                  index > 0 ? "border-l border-[#01312D]/15" : ""
+                }`}
+              >
+                <span className="w-6 h-6 rounded-full bg-[#01312D] flex items-center justify-center shrink-0">
+                  <feature.icon className="w-3 h-3 text-[#bff202]" />
+                </span>
+                <span className="text-[9px] font-extrabold text-[#01312D] leading-tight">
+                  {feature.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Documents Submitted Badge */}
         <DocumentsSubmittedBadge />
@@ -487,112 +683,157 @@ export default function HomePage() {
 
         {/* Available Services Section */}
         {(!isLoggedIn || (isLoggedIn && !isAdmin)) && (
-          <>
-            <div className="mb-10">
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <h2 className="text-xl font-bold text-[#01312D]">
-                    Available Services
-                  </h2>
-                  <p className="text-xs text-[#3A7717]">
-                    {isLoggedIn && verificationStatus !== "approved"
-                      ? "Complete verification to access services"
-                      : "Quick & reliable delivery"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                {/* Fuel Service */}
-                <button
-                  onClick={() => handleServiceRequest("fuel")}
-                  disabled={isLoggedIn && verificationStatus !== "approved"}
-                  className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${isLoggedIn && verificationStatus !== "approved"
-                    ? "opacity-50 cursor-not-allowed"
-                    : ""
-                    }`}
-                >
-                  <div className="bg-linear-to-r from-[#3A7717] to-[#72bf00] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
-                    <Fuel className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="font-bold text-[#01312D] text-lg">Fuel</h3>
-                  <p className="text-gray-500 text-xs mt-1">Petrol • Diesel</p>
-                  <div className="flex items-center gap-1 mt-2 text-[#72bf00] text-xs font-semibold">
-                    <span>Request now</span>
-                    <ChevronRight className="w-3 h-3" />
-                  </div>
-                </button>
-
-                {/* Car Wash Service */}
-                <button
-                  onClick={() => handleServiceRequest("carwash")}
-                  disabled={isLoggedIn && verificationStatus !== "approved"}
-                  className={`bg-white rounded-2xl p-4 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left border border-[#bff202]/20 ${isLoggedIn && verificationStatus !== "approved"
-                    ? "opacity-50 cursor-not-allowed"
-                    : ""
-                    }`}
-                >
-                  <div className="bg-linear-to-r from-[#01312D] to-[#3A7717] w-12 h-12 rounded-xl flex items-center justify-center mb-3">
-                    <Car className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="font-bold text-[#01312D] text-lg">Car Wash</h3>
-                  <p className="text-gray-500 text-xs mt-1">Premium cleaning</p>
-                  <div className="flex items-center gap-1 mt-2 text-[#72bf00] text-xs font-semibold">
-                    <span>Request now</span>
-                    <ChevronRight className="w-3 h-3" />
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Upcoming Services Section */}
-            <div className="mb-10">
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <Calendar className="w-5 h-5 text-[#3A7717]" />
-                <h2 className="text-xl font-bold text-[#01312D]">
-                  Upcoming Services
-                </h2>
-              </div>
-              <p className="text-xs text-center text-[#3A7717] mb-4">
-                Coming soon to Kapuka Tradings
+          <div className="mb-10">
+            <div className="mb-4">
+              <h2 className="text-xl font-bold text-[#01312D]">
+                Available Services
+              </h2>
+              <p className="text-xs text-[#3A7717]">
+                {isLoggedIn && verificationStatus !== "approved"
+                  ? "Complete verification to access services"
+                  : "Quick & reliable delivery"}
               </p>
+            </div>
 
-              <div className="grid">
-                {/* Cash Loan - Upcoming */}
-                <div className="bg-white/50 rounded-2xl w-2/3 mx-auto p-4 border border-dashed border-[#bff202]/30">
-                  <div className="bg-linear-to-r from-[#72bf00] to-[#bff202] w-12 h-12 rounded-xl flex items-center justify-center mb-3 opacity-50">
-                    <DollarSign className="w-6 h-6 text-[#01312D]" />
-                  </div>
-                  <h3 className="font-bold text-gray-500 text-lg">Cash Loan</h3>
-                  <p className="text-gray-400 text-xs mt-1">
-                    Coming soon • Instant transfer
-                  </p>
-                  <div className="flex items-center gap-1 mt-2 text-gray-400 text-xs font-semibold">
-                    <span>Notify me</span>
-                    <ChevronRight className="w-3 h-3" />
-                  </div>
+            <button
+              type="button"
+              onClick={() => handleServiceRequest("fuel")}
+              disabled={isLoggedIn && verificationStatus !== "approved"}
+              className={`relative w-full overflow-hidden rounded-2xl bg-linear-to-br from-[#01312D] to-[#3A7717] p-4 text-left shadow-lg hover:shadow-xl transition-all active:scale-[0.99] ${
+                isLoggedIn && verificationStatus !== "approved"
+                  ? "opacity-50 cursor-not-allowed"
+                  : ""
+              }`}
+            >
+              <div className="absolute -right-6 -top-10 w-32 h-32 rounded-full bg-[#bff202]/10 pointer-events-none" />
+              <div className="relative flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-[#bff202] flex items-center justify-center shrink-0">
+                  <Flame className="w-5 h-5 text-[#01312D]" />
                 </div>
+                <div className="flex-1">
+                  <p className="text-base font-extrabold text-white">Fuel</p>
+                  <p className="text-[11px] text-white/70">
+                    Petrol · Diesel · On credit
+                  </p>
+                </div>
+                {isPromotionalRateActive() && (
+                  <span className="rounded-full bg-white/10 px-2 py-1 text-[9px] font-bold text-[#bff202] whitespace-nowrap">
+                    {PROMOTIONAL_FUEL_FEE_RATE}% fee
+                  </span>
+                )}
+              </div>
+              <div className="relative flex items-center justify-between mt-4 pt-3 border-t border-white/10">
+                <span className="text-[11px] font-bold text-white">
+                  Request fuel
+                </span>
+                <span className="w-6 h-6 rounded-full bg-[#bff202] flex items-center justify-center">
+                  <ArrowRight className="w-3.5 h-3.5 text-[#01312D]" />
+                </span>
+              </div>
+            </button>
 
-                {/* More Services Placeholder */}
-                {/* <div className="bg-white/50 rounded-2xl p-4 border border-dashed border-[#bff202]/30">
-                  <div className="bg-gray-100 w-12 h-12 rounded-xl flex items-center justify-center mb-3">
-                    <CreditCard className="w-6 h-6 text-gray-400" />
-                  </div>
-                  <h3 className="font-bold text-gray-400 text-lg">
-                    More Benefits
-                  </h3>
-                  <p className="text-gray-400 text-xs mt-1">Coming soon</p>
-                </div> */}
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <button
+                type="button"
+                onClick={() => handleServiceRequest("carwash")}
+                disabled={isLoggedIn && verificationStatus !== "approved"}
+                className={`bg-linear-to-br from-[#72bf00] to-[#3A7717] rounded-2xl p-4 text-left shadow-md hover:shadow-xl transition-all active:scale-[0.99] ${
+                  isLoggedIn && verificationStatus !== "approved"
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                }`}
+              >
+                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+                  <Car className="w-5 h-5 text-white" />
+                </div>
+                <p className="text-sm font-extrabold text-white mt-3">
+                  Car Wash
+                </p>
+                <p className="text-[10px] text-white/80">Premium cleaning</p>
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-[10px] font-bold text-[#bff202]">
+                    Request wash
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#bff202]" />
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleServiceRequest("cash")}
+                disabled={isLoggedIn && verificationStatus !== "approved"}
+                className={`bg-linear-to-br from-[#bff202] to-[#72bf00] rounded-2xl p-4 text-left shadow-md hover:shadow-xl transition-all active:scale-[0.99] ${
+                  isLoggedIn && verificationStatus !== "approved"
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                }`}
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#01312D]/10 flex items-center justify-center">
+                  <DollarSign className="w-5 h-5 text-[#01312D]" />
+                </div>
+                <p className="text-sm font-extrabold text-[#01312D] mt-3">
+                  Cash Loan
+                </p>
+                <p className="text-[10px] text-[#01312D]/70">
+                  {cashRate}% · 14 days
+                </p>
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-[10px] font-bold text-[#01312D]">
+                    Apply now
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#01312D]" />
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* APK download banner */}
+        {!isAdmin && (
+          <div className="relative overflow-hidden rounded-3xl bg-black p-5 mb-10 shadow-xl">
+            <div className="absolute -right-10 -top-14 w-40 h-40 rounded-full bg-[#bff202]/10 pointer-events-none" />
+            <div className="relative z-10 flex items-start gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-[#bff202] flex items-center justify-center shrink-0">
+                <Smartphone className="w-6 h-6 text-[#01312D]" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-base font-extrabold text-white">
+                    Get Kapuka on Android
+                  </p>
+                  <span className="rounded-full bg-[#bff202] px-2 py-0.5 text-[9px] font-extrabold text-[#01312D]">
+                    APK
+                  </span>
+                </div>
+                <p className="text-[11px] text-white/80 leading-relaxed mt-1">
+                  Download the app to request fuel, track your deposit and get
+                  updates on the go.
+                </p>
+                <div className="flex items-center gap-3 mt-4 flex-wrap">
+                  <a
+                    href={ANDROID_APK_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download
+                    className="inline-flex items-center gap-2 rounded-full bg-[#bff202] px-5 py-2.5 text-xs font-extrabold text-[#01312D] shadow-lg active:scale-95 transition-all"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download APK
+                  </a>
+                  <span className="text-[10px] text-white/70">
+                    Latest release · GitHub
+                  </span>
+                </div>
               </div>
             </div>
-          </>
+          </div>
         )}
 
         {/* Features Section - Hide for admin */}
         {!isAdmin && (
           <>
             <div className="mb-10">
-              <div className="text-center mb-4">
+              <div className="mb-4">
                 <h2 className="text-xl font-bold text-[#01312D]">
                   Why Choose Us?
                 </h2>
@@ -601,28 +842,46 @@ export default function HomePage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="text-center bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
-                  <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <Zap className="w-5 h-5 text-[#3A7717]" />
-                  </div>
-                  <p className="text-[#01312D] font-semibold text-xs">
-                    Fast Delivery
-                  </p>
-                </div>
-                <div className="text-center bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
-                  <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <Shield className="w-5 h-5 text-[#3A7717]" />
-                  </div>
-                  <p className="text-[#01312D] font-semibold text-xs">Secure</p>
-                </div>
-                <div className="text-center bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
-                  <div className="bg-[#eafde7] w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <Clock className="w-5 h-5 text-[#3A7717]" />
-                  </div>
-                  <p className="text-[#01312D] font-semibold text-xs">
-                    24/7 Support
-                  </p>
+              <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-[#01312D] to-[#3A7717] p-4 shadow-xl">
+                <div className="absolute -right-10 -bottom-16 w-44 h-44 rounded-full bg-[#bff202]/10 pointer-events-none" />
+                <div className="relative z-10">
+                  {[
+                    {
+                      icon: Zap,
+                      title: "Fast Delivery",
+                      desc: "Fuel at your pump, without the queue.",
+                    },
+                    {
+                      icon: ShieldCheck,
+                      title: "Secure",
+                      desc: "Verified accounts and protected payments.",
+                    },
+                    {
+                      icon: Headphones,
+                      title: "24/7 Support",
+                      desc: "We're here whenever you're on the road.",
+                    },
+                  ].map((feature, index) => (
+                    <div
+                      key={feature.title}
+                      className={`flex items-center gap-3 py-3.5 ${
+                        index > 0 ? "border-t border-white/10" : ""
+                      }`}
+                    >
+                      <span className="w-9 h-9 rounded-xl bg-[#bff202] flex items-center justify-center shrink-0">
+                        <feature.icon className="w-4 h-4 text-[#01312D]" />
+                      </span>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-white">
+                          {feature.title}
+                        </p>
+                        <p className="text-[10px] text-white/60 mt-0.5">
+                          {feature.desc}
+                        </p>
+                      </div>
+                      <ShieldCheck className="w-4 h-4 text-[#bff202]" />
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

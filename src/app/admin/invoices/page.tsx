@@ -20,6 +20,8 @@ import {
   Calendar,
   X,
   Clock,
+  Percent,
+  Tag,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -57,6 +59,9 @@ export default function AdminInvoicesPage() {
   } | null>(null);
   const [whatsappSent, setWhatsappSent] = useState<Set<string>>(new Set());
   const [whatsappLoading, setWhatsappLoading] = useState<Set<string>>(new Set());
+  const [discounts, setDiscounts] = useState<Record<string, number>>({});
+  const [discountInputs, setDiscountInputs] = useState<Record<string, boolean>>({});
+  const [discountValues, setDiscountValues] = useState<Record<string, string>>({});
   const [captureDriver, setCaptureDriver] = useState<DriverInvoice | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -97,7 +102,13 @@ export default function AdminInvoicesPage() {
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        setDrivers(data.drivers || []);
+        const d = data.drivers || [];
+        setDrivers(d);
+        const init: Record<string, number> = {};
+        for (const drv of d) {
+          if (drv.discountPercent != null) init[drv.driverEmail] = drv.discountPercent;
+        }
+        setDiscounts(init);
         setTotalOutstanding(data.totalOutstanding || 0);
       }
     } catch (err) {
@@ -121,6 +132,55 @@ export default function AdminInvoicesPage() {
     setToDate("");
     setAppliedFrom("");
     setAppliedTo("");
+  };
+
+  const toggleDiscountInput = (email: string) => {
+    setDiscountInputs((prev) => {
+      const next = { ...prev };
+      next[email] = !next[email];
+      return next;
+    });
+    if (!discountInputs[email] && discounts[email] != null) {
+      setDiscountValues((prev) => ({ ...prev, [email]: String(discounts[email]) }));
+    }
+  };
+
+  const handleSetDiscount = async (email: string) => {
+    const val = parseFloat(discountValues[email] || "0");
+    if (isNaN(val) || val <= 0 || val > 100) return;
+    try {
+      const res = await fetch("/api/admin/invoices/discount", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ driverEmail: email, discountPercent: val }),
+      });
+      if (res.ok) {
+        setDiscounts((prev) => ({ ...prev, [email]: val }));
+        setDiscountInputs((prev) => ({ ...prev, [email]: false }));
+      }
+    } catch (e) {
+      console.error("Error setting discount:", e);
+    }
+  };
+
+  const handleClearDiscount = async (email: string) => {
+    try {
+      const res = await fetch("/api/admin/invoices/discount", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ driverEmail: email }),
+      });
+      if (res.ok) {
+        setDiscounts((prev) => {
+          const next = { ...prev };
+          delete next[email];
+          return next;
+        });
+        setDiscountInputs((prev) => ({ ...prev, [email]: false }));
+      }
+    } catch (e) {
+      console.error("Error clearing discount:", e);
+    }
   };
 
   const handleSendAll = async () => {
@@ -493,6 +553,22 @@ Kapuka Tradings Team`;
                     </p>
                   )}
                 </div>
+                {discounts[driver.driverEmail] != null && (
+                  <span className="shrink-0 text-xs font-bold text-white bg-red-500 px-1.5 py-0.5 rounded">
+                    {discounts[driver.driverEmail]}% OFF
+                  </span>
+                )}
+                <button
+                  onClick={() => toggleDiscountInput(driver.driverEmail)}
+                  className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                    discounts[driver.driverEmail] != null
+                      ? "bg-red-100 text-red-600"
+                      : "text-gray-400 hover:text-red-500 hover:bg-red-50"
+                  }`}
+                  title={discounts[driver.driverEmail] != null ? "Change discount" : "Add discount"}
+                >
+                  <Percent className="w-4 h-4" />
+                </button>
                 {driver.driverPhone && (
                   <button
                     onClick={() => handleWhatsAppInvoice(driver)}
@@ -515,15 +591,75 @@ Kapuka Tradings Team`;
                   </button>
                 )}
               </div>
+
+              {discountInputs[driver.driverEmail] && (
+                <div className="mb-3 p-3 bg-red-50 rounded-xl border border-red-200">
+                  <div className="flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-red-500 shrink-0" />
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      placeholder="Discount %"
+                      value={discountValues[driver.driverEmail] || ""}
+                      onChange={(e) =>
+                        setDiscountValues((prev) => ({ ...prev, [driver.driverEmail]: e.target.value }))
+                      }
+                      className="w-20 px-2 py-1 text-sm border border-red-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400"
+                    />
+                    <button
+                      onClick={() => handleSetDiscount(driver.driverEmail)}
+                      className="px-3 py-1 text-xs font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
+                    >
+                      Apply
+                    </button>
+                    <button
+                      onClick={() => handleClearDiscount(driver.driverEmail)}
+                      className="px-3 py-1 text-xs font-semibold text-red-600 bg-red-100 rounded-lg hover:bg-red-200 transition-colors"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      onClick={() => setDiscountInputs((prev) => ({ ...prev, [driver.driverEmail]: false }))}
+                      className="p-1 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="mb-4 pb-3 border-b border-gray-100">
                 <span className="inline-block text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-md mb-2">
                   {driver.items.length} item{driver.items.length !== 1 ? "s" : ""}
                 </span>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-400">Outstanding</span>
-                  <p className="text-xl font-black text-red-600 leading-tight">
-                    {formatMoney(driver.totalOutstanding)}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const disc = discounts[driver.driverEmail];
+                      if (disc == null) return null;
+                      const interestMult = (13 - disc) / 13;
+                      const totalAmount = driver.items.reduce((s, it) => s + it.amount, 0);
+                      const totalInterest = driver.items.reduce((s, it) => s + (it.totalRepayable - it.amount), 0);
+                      const discOutstanding = totalAmount + totalInterest * interestMult;
+                      return (
+                        <>
+                          <span className="text-sm text-gray-400 line-through">
+                            {formatMoney(driver.totalOutstanding)}
+                          </span>
+                          <span className="text-xl font-black text-red-600 leading-tight">
+                            {formatMoney(discOutstanding)}
+                          </span>
+                        </>
+                      );
+                    })()}
+                    {discounts[driver.driverEmail] == null && (
+                      <p className="text-xl font-black text-red-600 leading-tight">
+                        {formatMoney(driver.totalOutstanding)}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -553,7 +689,13 @@ Kapuka Tradings Team`;
                     </tr>
                   </thead>
                   <tbody>
-                    {driver.items.map((item, iidx) => (
+                    {driver.items.map((item, iidx) => {
+                      const disc = discounts[driver.driverEmail];
+                      const interest = item.totalRepayable - item.amount;
+                      const interestMult = disc != null ? (13 - disc) / 13 : 1;
+                      const discInterest = interest * interestMult;
+                      const discTotal = item.amount + discInterest;
+                      return (
                       <tr key={iidx} className="border-b border-gray-50">
                         <td className="py-2 text-xs text-gray-500 whitespace-nowrap">
                           {item.completedDate
@@ -571,24 +713,41 @@ Kapuka Tradings Team`;
                             <Car className="w-3 h-3" /> {item.carNumber}
                           </span>
                         </td>
-                        <td className="py-2 text-right">
+                        <td className="py-2 text-right font-semibold text-[#01312D]">
                           {formatMoney(item.amount)}
                         </td>
                         <td className="py-2 text-right">
-                          {formatMoney(item.totalRepayable - item.amount)}
+                          {disc != null ? (
+                            <span className="flex items-center justify-end gap-1">
+                              <span className="text-gray-400 line-through text-xs">{formatMoney(interest)}</span>
+                              <span className="text-[#01312D]">{formatMoney(discInterest)}</span>
+                            </span>
+                          ) : formatMoney(interest)}
                         </td>
                         <td className="py-2 text-right font-semibold text-[#01312D]">
-                          {formatMoney(item.totalRepayable)}
+                          {disc != null ? (
+                            <span className="flex items-center justify-end gap-1">
+                              <span className="text-gray-400 line-through text-xs">{formatMoney(item.totalRepayable)}</span>
+                              <span>{formatMoney(discTotal)}</span>
+                            </span>
+                          ) : formatMoney(item.totalRepayable)}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
 
               {/* Items Cards - Mobile */}
               <div className="sm:hidden space-y-2">
-                {driver.items.map((item, iidx) => (
+                {driver.items.map((item, iidx) => {
+                  const disc = discounts[driver.driverEmail];
+                  const interest = item.totalRepayable - item.amount;
+                  const interestMult = disc != null ? (13 - disc) / 13 : 1;
+                  const discInterest = interest * interestMult;
+                  const discTotal = item.amount + discInterest;
+                  return (
                   <div
                     key={iidx}
                     className="bg-gray-50 rounded-xl p-3 border border-gray-100"
@@ -616,15 +775,30 @@ Kapuka Tradings Team`;
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-400">Interest</span>
-                        <span className="font-semibold text-[#01312D]">{formatMoney(item.totalRepayable - item.amount)}</span>
+                        <span className="font-semibold text-[#01312D]">
+                          {disc != null ? (
+                            <span className="flex items-center gap-1">
+                              <span className="text-gray-400 line-through text-xs">{formatMoney(interest)}</span>
+                              <span>{formatMoney(discInterest)}</span>
+                            </span>
+                          ) : formatMoney(interest)}
+                        </span>
                       </div>
                       <div className="flex justify-between pt-1 border-t border-gray-200">
                         <span className="text-gray-400 font-semibold">Total</span>
-                        <span className="font-semibold text-[#01312D]">{formatMoney(item.totalRepayable)}</span>
+                        <span className="font-semibold text-[#01312D]">
+                          {disc != null ? (
+                            <span className="flex items-center gap-1">
+                              <span className="text-gray-400 line-through text-xs">{formatMoney(item.totalRepayable)}</span>
+                              <span>{formatMoney(discTotal)}</span>
+                            </span>
+                          ) : formatMoney(item.totalRepayable)}
+                        </span>
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}

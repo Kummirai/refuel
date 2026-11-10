@@ -2,7 +2,7 @@
 export const SERVICE_INTEREST_RATES = {
   fuel: 13, // 0% interest for fuel
   airtime: 13, // 0% interest for airtime
-  cash: 13, // 13% interest for cash loans
+  cash: 26, // 26% interest for cash loans
   carwash: 13, // 0% interest for car wash
 };
 

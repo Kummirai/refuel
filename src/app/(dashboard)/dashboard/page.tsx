@@ -30,17 +30,20 @@ import {
   UserCircle,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
+import ConnectingScreen from "@/components/ConnectingScreen";
 import { formatMoney, toMoney } from "@/lib/money";
+import { useSessionPending } from "@/lib/hooks/useSessionPending";
 
 export default function DriverDashboard() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
+  const sessionPending = useSessionPending(isPending);
   const userId = session?.user?.id;
 
   const { data: requestsData, error: requestsError, isLoading: requestsLoading, isValidating: requestsValidating, mutate: mutateRequests } = useSWR(
     userId ? `/api/driver/requests?userId=${userId}` : null,
     fetcher,
-    { refreshInterval: 30_000, dedupingInterval: 30_000 },
+    { refreshInterval: 120_000, dedupingInterval: 60_000 },
   );
   const { data: profile, isLoading: profileLoading, error: profileError } = useSWR(
     userId ? `/api/driver/profile?userId=${userId}` : null,
@@ -52,20 +55,39 @@ export default function DriverDashboard() {
     fetcher,
     { refreshInterval: 60_000, dedupingInterval: 60_000 },
   );
+  const { data: fuelCredit, isLoading: fuelCreditLoading } = useSWR(
+    userId ? `/api/driver/fuel-credit?userId=${userId}` : null,
+    fetcher,
+    { refreshInterval: 60_000, dedupingInterval: 60_000 },
+  );
+  const { data: appSettings } = useSWR(
+    "/api/admin/settings",
+    fetcher,
+    { dedupingInterval: 300_000 },
+  );
+  const cashRate = Number(appSettings?.services?.cashInterestRate) || 26;
 
-  const loading = (!requestsData && requestsLoading) || (!profile && profileLoading) || isPending;
+  const dataLoading = (!requestsData && requestsLoading) || (!profile && profileLoading);
+  const loading = dataLoading || sessionPending;
   const refreshing = requestsValidating && !requestsLoading;
 
   const stats = useMemo(() => {
-    if (!requestsData) return { totalRequests: 0, totalSpent: 0, activeLoans: 0, completedRequests: 0, pendingRequests: 0, rating: 0 };
+    if (!requestsData) return { totalRequests: 0, totalSpent: 0, activeLoans: 0, completedRequests: 0, pendingRequests: 0, approvedRequests: 0, thisMonthSpent: 0, rating: 0 };
     const total = requestsData.length;
     const totalSpent = toMoney(requestsData
       .filter((r: any) => r.status === "approved" || r.status === "sent" || r.status === "completed")
       .reduce((sum: number, r: any) => sum + (r.actualAmount || r.amount), 0));
     const pending = requestsData.filter((r: any) => r.status === "pending").length;
+    const approved = requestsData.filter((r: any) => r.status === "approved").length;
     const completed = requestsData.filter((r: any) => r.status === "completed").length;
     const activeLoans = requestsData.filter((r: any) => r.type === "cash" && r.status === "approved").length;
-    return { totalRequests: total, totalSpent, pendingRequests: pending, completedRequests: completed, activeLoans, rating: profile?.rating || 0 };
+    const now = new Date();
+    const thisMonthSpent = toMoney(requestsData.filter((r: any) => {
+      if (!r.createdAt) return false;
+      const d = new Date(r.createdAt);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).reduce((sum: number, r: any) => sum + (r.amount || 0), 0));
+    return { totalRequests: total, totalSpent, pendingRequests: pending, approvedRequests: approved, completedRequests: completed, activeLoans, thisMonthSpent, rating: profile?.rating || 0 };
   }, [requestsData, profile]);
 
   const recentRequests = useMemo(() => (requestsData || []).slice(0, 5), [requestsData]);
@@ -157,7 +179,7 @@ export default function DriverDashboard() {
     }
   };
 
-  if (isPending) {
+  if (sessionPending) {
     return (
       <div className="min-h-screen bg-[#eafde7] flex items-center justify-center">
         <div className="text-center">
@@ -169,7 +191,7 @@ export default function DriverDashboard() {
   }
 
   if (!session) {
-    return null;
+    return isPending ? <ConnectingScreen message="Still loading your dashboard…" /> : null;
   }
 
   return (
@@ -182,10 +204,17 @@ export default function DriverDashboard() {
               <h1 className="text-xl font-bold text-[#01312D]">
                 Driver Dashboard
               </h1>
-              <p className="text-xs text-gray-500">
-                Welcome back,{" "}
-                {profile?.fullName || session.user?.name || "Driver"}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-gray-500">
+                  Welcome back,{" "}
+                  {profile?.fullName || session.user?.name || "Driver"}
+                </p>
+                {stats.rating > 0 && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#3A7717] bg-[#eafde7] px-1.5 py-0.5 rounded-full border border-[#bff202]/30">
+                    <Star className="w-3 h-3" /> {Number(stats.rating).toFixed(1)}
+                  </span>
+                )}
+              </div>
             </div>
             <button
               onClick={handleRefresh}
@@ -219,18 +248,50 @@ export default function DriverDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <div className="bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
             <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 bg-[#eafde7] rounded-full flex items-center justify-center">
-                <History className="w-4 h-4 text-[#3A7717]" />
+              <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                <Clock className="w-4 h-4 text-yellow-600" />
               </div>
             </div>
             {(loading || refreshing) ? (
               <Skeleton className="h-7 w-16" />
             ) : (
               <div className="text-xl font-bold text-[#01312D]">
-                {stats.totalRequests}
+                {stats.pendingRequests}
               </div>
             )}
-            <p className="text-xs text-gray-500">Total Requests</p>
+            <p className="text-xs text-gray-500">Pending</p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <Activity className="w-4 h-4 text-blue-600" />
+              </div>
+            </div>
+            {(loading || refreshing) ? (
+              <Skeleton className="h-7 w-16" />
+            ) : (
+              <div className="text-xl font-bold text-[#01312D]">
+                {stats.approvedRequests}
+              </div>
+            )}
+            <p className="text-xs text-gray-500">Active</p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-4 h-4 text-green-600" />
+              </div>
+            </div>
+            {(loading || refreshing) ? (
+              <Skeleton className="h-7 w-16" />
+            ) : (
+              <div className="text-xl font-bold text-[#01312D]">
+                {stats.completedRequests}
+              </div>
+            )}
+            <p className="text-xs text-gray-500">Completed</p>
           </div>
 
           <div className="bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
@@ -243,62 +304,84 @@ export default function DriverDashboard() {
               <Skeleton className="h-7 w-16" />
             ) : (
               <div className="text-xl font-bold text-[#01312D]">
-                {formatMoney(stats.totalSpent)}
+                {formatMoney(stats.thisMonthSpent)}
               </div>
             )}
-            <p className="text-xs text-gray-500">Total Spent</p>
-          </div>
-
-          <div className="bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 bg-[#eafde7] rounded-full flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-[#3A7717]" />
-              </div>
-            </div>
-            {(loading || refreshing) ? (
-              <Skeleton className="h-7 w-16" />
-            ) : (
-              <div className="text-xl font-bold text-[#01312D]">
-                {stats.activeLoans}
-              </div>
-            )}
-            <p className="text-xs text-gray-500">Active Loans</p>
-          </div>
-
-          <div className="bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20">
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 bg-[#eafde7] rounded-full flex items-center justify-center">
-                <Star className="w-4 h-4 text-[#3A7717]" />
-              </div>
-            </div>
-            {(loading || refreshing) ? (
-              <Skeleton className="h-7 w-16" />
-            ) : (
-              <div className="text-xl font-bold text-[#01312D]">
-                {stats.rating || "N/A"}
-              </div>
-            )}
-            <p className="text-xs text-gray-500">Rating</p>
+            <p className="text-xs text-gray-500">This Month</p>
           </div>
         </div>
 
-        {/* Upcoming Services Banner */}
+        {/* Weekly Fuel Credit */}
+        {fuelCredit?.enabled !== false && (
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                <Fuel className="w-4 h-4 text-green-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-[#01312D]">Fuel Credit This Week</p>
+                <p className="text-[10px] text-gray-500">Resets every Monday</p>
+              </div>
+            </div>
+            {(loading || fuelCreditLoading) ? (
+              <Skeleton className="h-7 w-20" />
+            ) : (
+              <p className="text-lg font-bold text-[#01312D]">
+                {formatMoney(fuelCredit?.remaining ?? 0)}
+              </p>
+            )}
+          </div>
+          {(loading || fuelCreditLoading) ? (
+            <Skeleton className="h-2 w-full rounded-full" />
+          ) : (
+            <>
+              <div className="bg-[#eafde7] rounded-full h-2 overflow-hidden">
+                <div
+                  className={`h-2 rounded-full ${(fuelCredit?.used ?? 0) >= (fuelCredit?.limit ?? 1) ? "bg-red-500" : "bg-[#3A7717]"}`}
+                  style={{
+                    width: `${Math.min(100, ((fuelCredit?.used ?? 0) / Math.max(1, fuelCredit?.limit ?? 1)) * 100)}%`,
+                  }}
+                ></div>
+              </div>
+              <div className="flex justify-between mt-2">
+                <p className="text-xs text-gray-500">
+                  {formatMoney(fuelCredit?.used ?? 0)} used of {formatMoney(fuelCredit?.limit ?? 0)}
+                </p>
+                <button
+                  onClick={() => router.push("/requests?type=fuel")}
+                  className="text-[#72bf00] text-xs font-semibold"
+                >
+                  Request Fuel →
+                </button>
+              </div>
+              {(fuelCredit?.remaining ?? 0) <= 0 && (
+                <p className="text-xs text-red-600 mt-2 font-semibold">
+                  Weekly fuel credit used up — resets Monday.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+        )}
+
+        {/* Cash Loan Now Available */}
         <div className="bg-linear-to-r from-[#bff202]/20 to-[#72bf00]/20 rounded-2xl p-4 mb-6 border border-[#bff202]/30">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-[#bff202] rounded-full flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-[#01312D]" />
+                <DollarSign className="w-5 h-5 text-[#01312D]" />
               </div>
               <div>
-                <p className="font-semibold text-[#01312D]">Coming Soon!</p>
+                <p className="font-semibold text-[#01312D]">Cash Loan Available!</p>
                 <p className="text-xs text-gray-600">
-                  Cash Loans will be available soon
+                  {cashRate}% interest • 14-day repayment • Collateral required
                 </p>
               </div>
             </div>
             <div className="flex gap-2">
               <span className="text-xs bg-white/50 px-2 py-1 rounded-full text-[#01312D]">
-                💰 Cash Loan
+                New
               </span>
             </div>
           </div>
@@ -341,7 +424,10 @@ export default function DriverDashboard() {
                     }}
                   ></div>
                 </div>
-                <button className="w-full mt-3 bg-[#01312D] text-white py-2 rounded-xl font-semibold text-sm">
+                <button
+                  onClick={() => router.push("/requests/history")}
+                  className="w-full mt-3 bg-[#01312D] text-white py-2 rounded-xl font-semibold text-sm"
+                >
                   Make Payment
                 </button>
               </div>
@@ -376,40 +462,52 @@ export default function DriverDashboard() {
           </div>
         ) : null}
 
-        {/* Quick Actions - Only Fuel and Car Wash */}
+        {/* Quick Actions */}
         <div className="mb-6">
           <h2 className="text-lg font-bold text-[#01312D] mb-3">
             Quick Actions
           </h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             {/* Fuel Request */}
             <button
               onClick={() => router.push("/requests?type=fuel")}
-              className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 flex items-center gap-3 hover:shadow-md transition-shadow active:scale-95"
+              className="bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20 flex flex-col items-center gap-2 hover:shadow-md transition-shadow active:scale-95"
             >
-              <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                <Fuel className="w-5 h-5 text-green-600" />
+              <div className="w-9 h-9 bg-green-100 rounded-xl flex items-center justify-center">
+                <Fuel className="w-4 h-4 text-green-600" />
               </div>
-              <div className="text-left flex-1">
-                <p className="font-semibold text-[#01312D]">Request Fuel</p>
-                <p className="text-xs text-gray-500">Petrol / Diesel</p>
+              <div className="text-center">
+                <p className="font-semibold text-[#01312D] text-xs">Fuel</p>
+                <p className="text-[10px] text-gray-500">Petrol/Diesel</p>
               </div>
-              <ArrowRight className="w-4 h-4 text-gray-400" />
             </button>
 
             {/* Car Wash Request */}
             <button
               onClick={() => router.push("/requests?type=carwash")}
-              className="bg-white rounded-2xl p-4 shadow-sm border border-[#bff202]/20 flex items-center gap-3 hover:shadow-md transition-shadow active:scale-95"
+              className="bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20 flex flex-col items-center gap-2 hover:shadow-md transition-shadow active:scale-95"
             >
-              <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                <Car className="w-5 h-5 text-purple-600" />
+              <div className="w-9 h-9 bg-purple-100 rounded-xl flex items-center justify-center">
+                <Car className="w-4 h-4 text-purple-600" />
               </div>
-              <div className="text-left flex-1">
-                <p className="font-semibold text-[#01312D]">Car Wash</p>
-                <p className="text-xs text-gray-500">Premium cleaning</p>
+              <div className="text-center">
+                <p className="font-semibold text-[#01312D] text-xs">Car Wash</p>
+                <p className="text-[10px] text-gray-500">Premium</p>
               </div>
-              <ArrowRight className="w-4 h-4 text-gray-400" />
+            </button>
+
+            {/* Cash Loan Request */}
+            <button
+              onClick={() => router.push("/requests?type=cash")}
+              className="bg-white rounded-2xl p-3 shadow-sm border border-[#bff202]/20 flex flex-col items-center gap-2 hover:shadow-md transition-shadow active:scale-95"
+            >
+              <div className="w-9 h-9 bg-yellow-100 rounded-xl flex items-center justify-center">
+                <DollarSign className="w-4 h-4 text-yellow-600" />
+              </div>
+              <div className="text-center">
+                <p className="font-semibold text-[#01312D] text-xs">Cash Loan</p>
+                <p className="text-[10px] text-gray-500">Collateral</p>
+              </div>
             </button>
           </div>
         </div>
